@@ -1,0 +1,78 @@
+[build-system]
+requires = ["scikit-build-core>=0.9.0", "nanobind>=2.0.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "tkblend"
+version = "0.1.0"
+description = "High-performance Blend2D vector graphics and modern UI toolkit for Tkinter via direct Tk_PhotoPutBlock blitting"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "tkblend authors" }
+]
+license = { text = "MIT" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: C++",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Software Development :: User Interfaces",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "build>=1.0.0",
+    "twine>=4.0.0",
+    "cibuildwheel>=2.19.0",
+]
+
+[tool.scikit-build]
+cmake.version = ">=3.20"
+ninja.make-fallback = true
+build-dir = "build/{wheel_tag}"
+
+[tool.scikit-build.cmake.define]
+CMAKE_BUILD_TYPE = "Release"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+# ------------------------------------------------------------------------------
+# cibuildwheel Configuration
+# ------------------------------------------------------------------------------
+[tool.cibuildwheel]
+# Build CPython 3.9 through 3.13
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+skip = "pp* *musllinux* cp36-* cp37-* cp38-*"
+
+# ManyLinux environment setup: install Tk/Tcl development libraries
+before-all-linux = "yum install -y tcl-devel tk-devel || apk add tcl-dev tk-dev || apt-get update && apt-get install -y libtcl8.6 libtk8.6-dev tcl8.6-dev"
+
+# Setup display dependencies on Linux before tests
+before-test-linux = "yum install -y xorg-x11-server-Xvfb || apk add xvfb || true"
+
+# Testing configuration
+test-requires = ["pytest"]
+test-command = "pytest {project}/tests"
+test-command-linux = "xvfb-run -a pytest {project}/tests"
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64"]
+
