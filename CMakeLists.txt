@@ -6,6 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+if(MSVC)
+    add_compile_options(/EHsc)
+else()
+    add_compile_options(-fexceptions)
+endif()
+
 # ------------------------------------------------------------------------------
 # Python & Nanobind Setup
 # ------------------------------------------------------------------------------
@@ -59,7 +65,10 @@ FetchContent_Declare(
     GIT_TAG        master
     GIT_SHALLOW    TRUE
 )
+
+set(_PRE_BLEND2D_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 FetchContent_MakeAvailable(blend2d)
+set(CMAKE_CXX_FLAGS "${_PRE_BLEND2D_CXX_FLAGS}")
 
 # ------------------------------------------------------------------------------
 # Tcl/Tk Detection
@@ -138,6 +147,12 @@ message(STATUS "TK_LIBRARY: ${TK_LIBRARY}")
 message(STATUS "TCL_LIBRARY: ${TCL_LIBRARY}")
 
 # ------------------------------------------------------------------------------
+# Sanitizers & Coverage Options
+# ------------------------------------------------------------------------------
+option(ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
+
+# ------------------------------------------------------------------------------
 # Module Target
 # ------------------------------------------------------------------------------
 nanobind_add_module(
@@ -166,9 +181,20 @@ if(TCL_LIBRARY)
 endif()
 
 if(MSVC)
-    target_compile_options(_tkblend PRIVATE /O2 /W4 /permissive-)
+    target_compile_options(_tkblend PRIVATE /O2 /W4 /permissive- /EHsc)
+    if(ENABLE_SANITIZERS)
+        target_compile_options(_tkblend PRIVATE /fsanitize=address /Zi)
+    endif()
 else()
-    target_compile_options(_tkblend PRIVATE -O3 -Wall -Wextra -Wno-unused-parameter)
+    if(ENABLE_COVERAGE)
+        target_compile_options(_tkblend PRIVATE -O0 -g -fexceptions --coverage -fprofile-arcs -ftest-coverage -Wall -Wextra -Wno-unused-parameter)
+        target_link_options(_tkblend PRIVATE --coverage)
+    elseif(ENABLE_SANITIZERS)
+        target_compile_options(_tkblend PRIVATE -O1 -g -fexceptions -fsanitize=address,undefined -fno-omit-frame-pointer -Wall -Wextra -Wno-unused-parameter)
+        target_link_options(_tkblend PRIVATE -fsanitize=address,undefined)
+    else()
+        target_compile_options(_tkblend PRIVATE -O3 -fexceptions -Wall -Wextra -Wno-unused-parameter)
+    endif()
 endif()
 
 # Install target for packaging

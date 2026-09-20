@@ -31,6 +31,9 @@ dependencies = []
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "pytest-cov>=4.1.0",
+    "coverage>=7.0.0",
+    "gcovr>=7.0",
     "build>=1.0.0",
     "twine>=4.0.0",
     "cibuildwheel>=2.19.0",
@@ -47,6 +50,28 @@ CMAKE_BUILD_TYPE = "Release"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+addopts = "-v --strict-markers"
+
+[tool.coverage.run]
+source = ["tkblend"]
+omit = [
+    "tests/*",
+    "*/__init__.py",
+]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 90
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
 
 # ------------------------------------------------------------------------------
 # cibuildwheel Configuration

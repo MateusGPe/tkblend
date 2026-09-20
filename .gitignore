@@ -23,7 +23,12 @@ ENV/
 # Testing and coverage
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+coverage.xml
+*.gcda
+*.gcno
+*.gcov
 
 # IDE and OS files
 .vscode/

@@ -762,12 +762,12 @@ void Surface::blit_to_photo(
 
     Tcl_Interp* interp = reinterpret_cast<Tcl_Interp*>(interp_addr);
     if (!interp) {
-        throw std::runtime_error("Invalid Tcl_Interp address");
+        throw nb::value_error("Invalid Tcl_Interp address");
     }
 
     Tk_PhotoHandle photoHandle = Tk_FindPhoto(interp, photo_name.c_str());
     if (!photoHandle) {
-        throw std::runtime_error("Tk_FindPhoto failed: PhotoImage '" + photo_name + "' not found");
+        throw nb::value_error(("Tk_FindPhoto failed: PhotoImage '" + photo_name + "' not found").c_str());
     }
 
     BLImageData imgData;
@@ -970,8 +970,9 @@ NB_MODULE(_tkblend, m) {
         .def("flush", &tkblend::Surface::flush, nb::call_guard<nb::gil_scoped_release>())
         .def("blit_to_photo", &tkblend::Surface::blit_to_photo,
              nb::arg("interp_addr"), nb::arg("photo_name"),
-             nb::arg("dst_x") = 0, nb::arg("dst_y") = 0,
-             nb::call_guard<nb::gil_scoped_release>())
+             nb::arg("dst_x") = 0, nb::arg("dst_y") = 0)
+        .def("stride", &tkblend::Surface::stride)
+        .def("size_in_bytes", &tkblend::Surface::size_in_bytes)
         
         .def("get_buffer", [](tkblend::Surface& s) -> nb::object {
             PyObject* mem = PyMemoryView_FromMemory(
