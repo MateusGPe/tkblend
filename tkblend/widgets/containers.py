@@ -1,20 +1,27 @@
 """
 Container widgets for tkblend: ModernFrame, ModernCard, ModernAccordion, ModernScrollableFrame.
+Includes reactive child background propagation, Per-Monitor DPI scaling, and CustomTkinter CTkScrollableFrame parity.
 """
 
 from __future__ import annotations
 import tkinter as tk
-from typing import Optional, Callable, List, Tuple, Any
+from typing import Optional, Callable, List, Tuple, Any, Dict, Union
 
 from tkblend.surface import Surface, ColorLike, Path
 from tkblend.widgets.base import _resolve_parent_bg
 from tkblend.widgets.theme import Theme, ThemeManager
+from tkblend.widgets.scaling import ScalingTracker
 
+
+# ============================================================================
+# ModernFrame
+# ============================================================================
 
 class ModernFrame(tk.Frame):
     """
     Modern container with dynamic corner radius, customizable border,
-    and elevation / soft drop shadow. Allows nesting standard Tk child widgets.
+    and elevation / soft drop shadow. Allows nesting standard Tk child widgets
+    and automatically propagates background changes to children.
     """
 
     def __init__(
@@ -24,7 +31,9 @@ class ModernFrame(tk.Frame):
         height: int = 150,
         rx: Optional[float] = None,
         ry: Optional[float] = None,
+        corner_radius: Optional[float] = None,
         bg_color: Optional[ColorLike] = None,
+        fg_color: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
         border_width: Optional[float] = None,
         elevation: Optional[float] = None,
@@ -36,9 +45,13 @@ class ModernFrame(tk.Frame):
     ):
         t = theme or ThemeManager.get_theme()
         self._theme = t
-        self._custom_rx = rx
-        self._custom_ry = ry
-        self._custom_bg_color = bg_color
+        self._requested_w = max(1, width)
+        self._requested_h = max(1, height)
+        self._widget_w = max(1, ScalingTracker.scale(self._requested_w, master))
+        self._widget_h = max(1, ScalingTracker.scale(self._requested_h, master))
+        self._custom_rx = corner_radius if corner_radius is not None else rx
+        self._custom_ry = corner_radius if corner_radius is not None else (ry if ry is not None else self._custom_rx)
+        self._custom_bg_color = bg_color or fg_color
         self._custom_border_color = border_color
         self._custom_border_width = border_width
         self._custom_elevation = elevation
@@ -49,8 +62,8 @@ class ModernFrame(tk.Frame):
 
         super().__init__(
             master,
-            width=width,
-            height=height,
+            width=self._widget_w,
+            height=self._widget_h,
             background=self._parent_bg,
             borderwidth=0,
             highlightthickness=0,
@@ -58,9 +71,6 @@ class ModernFrame(tk.Frame):
         )
         self.pack_propagate(False)
         self.grid_propagate(False)
-
-        self._widget_w = max(1, width)
-        self._widget_h = max(1, height)
 
         # Background Label with Blend2D PhotoImage
         self._photo = tk.PhotoImage(master=self, width=self._widget_w, height=self._widget_h)
@@ -94,6 +104,103 @@ class ModernFrame(tk.Frame):
 
         self.after_idle(self.render)
 
+    # ------------------------------------------------------------------------
+    # Protocol: configure(), cget(), __getitem__, __setitem__
+    # ------------------------------------------------------------------------
+
+    def configure(self, **kwargs) -> Any:
+        if not kwargs:
+            return {
+                "width": self._requested_w,
+                "height": self._requested_h,
+                "bg_color": self._custom_bg_color,
+                "corner_radius": self._custom_rx,
+                "elevation": self._custom_elevation,
+            }
+
+        redraw = False
+        if "width" in kwargs:
+            self._requested_w = max(1, int(kwargs.pop("width")))
+            self._widget_w = max(1, ScalingTracker.scale(self._requested_w, self.master))
+            redraw = True
+        if "height" in kwargs:
+            self._requested_h = max(1, int(kwargs.pop("height")))
+            self._widget_h = max(1, ScalingTracker.scale(self._requested_h, self.master))
+            redraw = True
+        if "bg_color" in kwargs or "fg_color" in kwargs:
+            self._custom_bg_color = kwargs.pop("bg_color", None) or kwargs.pop("fg_color", None)
+            try:
+                self.content.configure(background=str(self._bg_color))
+            except Exception:
+                pass
+            self._propagate_child_bg()
+            redraw = True
+        if "corner_radius" in kwargs:
+            cr = kwargs.pop("corner_radius")
+            self._custom_rx = cr
+            self._custom_ry = cr
+            redraw = True
+        if "rx" in kwargs:
+            self._custom_rx = kwargs.pop("rx")
+            redraw = True
+        if "ry" in kwargs:
+            self._custom_ry = kwargs.pop("ry")
+            redraw = True
+        if "border_color" in kwargs:
+            self._custom_border_color = kwargs.pop("border_color")
+            redraw = True
+        if "border_width" in kwargs:
+            self._custom_border_width = kwargs.pop("border_width")
+            redraw = True
+        if "elevation" in kwargs:
+            self._custom_elevation = kwargs.pop("elevation")
+            redraw = True
+        if "shadow_color" in kwargs:
+            self._custom_shadow_color = kwargs.pop("shadow_color")
+            redraw = True
+
+        if redraw and self.winfo_exists():
+            if self._surface.width != self._widget_w or self._surface.height != self._widget_h:
+                self._photo.configure(width=self._widget_w, height=self._widget_h)
+                self._surface.resize(self._widget_w, self._widget_h)
+            self.render()
+
+    def config(self, **kwargs) -> Any:
+        return self.configure(**kwargs)
+
+    def cget(self, key: str) -> Any:
+        if key == "width":
+            return self._requested_w
+        elif key == "height":
+            return self._requested_h
+        elif key in ("bg_color", "fg_color"):
+            return self._custom_bg_color
+        elif key in ("corner_radius", "rx"):
+            return self._custom_rx
+        elif key == "ry":
+            return self._custom_ry
+        elif key == "border_color":
+            return self._custom_border_color
+        elif key == "border_width":
+            return self._custom_border_width
+        elif key == "elevation":
+            return self._custom_elevation
+        elif key == "shadow_color":
+            return self._custom_shadow_color
+        return super().cget(key)
+
+    def __getitem__(self, key: str) -> Any:
+        return self.cget(key)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.configure(**{key: value})
+
+    def _propagate_child_bg(self) -> None:
+        """Notify all child widgets to refresh their resolved parent background."""
+        for child in self.content.winfo_children():
+            if hasattr(child, "resolve_parent_bg"):
+                child.resolve_parent_bg()
+
     @property
     def _bg_color(self) -> ColorLike:
         if self._custom_bg_color is not None:
@@ -109,11 +216,12 @@ class ModernFrame(tk.Frame):
             self._theme = new_theme
             self._parent_bg = _resolve_parent_bg(self.master, self._custom_parent_bg, new_theme)
             try:
-                self.configure(background=self._parent_bg)
+                super().configure(background=self._parent_bg)
                 self._bg_label.configure(background=self._parent_bg)
                 self.content.configure(background=str(self._bg_color))
             except Exception:
                 pass
+            self._propagate_child_bg()
             self.render()
 
     def _on_configure(self, event) -> None:
@@ -127,12 +235,7 @@ class ModernFrame(tk.Frame):
             self.render()
 
     def set_background(self, bg_color: ColorLike) -> None:
-        self._custom_bg_color = bg_color
-        try:
-            self.content.configure(background=str(self._bg_color))
-        except Exception:
-            pass
-        self.render()
+        self.configure(bg_color=bg_color)
 
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
@@ -171,9 +274,14 @@ class ModernFrame(tk.Frame):
         self._surface.blit(self._photo)
 
 
+# ============================================================================
+# ModernCard
+# ============================================================================
+
 class ModernCard(ModernFrame):
     """
-    High-fidelity Card container with elevation drop shadow and optional title / subtitle.
+    High-fidelity Card container with elevation drop shadow, optional title/subtitle,
+    and CustomTkinter CTkFrame / Card parity.
     """
 
     def __init__(
@@ -185,6 +293,7 @@ class ModernCard(ModernFrame):
         height: int = 180,
         rx: Optional[float] = None,
         ry: Optional[float] = None,
+        corner_radius: Optional[float] = None,
         bg_color: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
         border_width: Optional[float] = None,
@@ -201,8 +310,8 @@ class ModernCard(ModernFrame):
             master=master,
             width=width,
             height=height,
-            rx=rx if rx is not None else t.radius_lg,
-            ry=ry if ry is not None else rx or t.radius_lg,
+            rx=corner_radius if corner_radius is not None else (rx if rx is not None else t.radius_lg),
+            ry=corner_radius if corner_radius is not None else (ry if ry is not None else rx or t.radius_lg),
             bg_color=bg_color,
             border_color=border_color,
             border_width=border_width,
@@ -213,7 +322,6 @@ class ModernCard(ModernFrame):
             **kwargs,
         )
 
-        # Reposition content frame below title and subtitle
         elev = self._custom_elevation if self._custom_elevation is not None else self._theme.elevation_lg
         pad = int(max(4.0, elev * 0.8))
         header_h = 44 if (self._title and self._subtitle) else 32 if self._title else 4
@@ -225,6 +333,20 @@ class ModernCard(ModernFrame):
             width=-((pad + 12) * 2),
             height=-(pad + header_h + 12),
         )
+
+    def configure(self, **kwargs) -> Any:
+        if "title" in kwargs:
+            self._title = str(kwargs.pop("title"))
+        if "subtitle" in kwargs:
+            self._subtitle = str(kwargs.pop("subtitle"))
+        return super().configure(**kwargs)
+
+    def cget(self, key: str) -> Any:
+        if key == "title":
+            return self._title
+        elif key == "subtitle":
+            return self._subtitle
+        return super().cget(key)
 
     @property
     def _bg_color(self) -> ColorLike:
@@ -264,10 +386,12 @@ class ModernCard(ModernFrame):
             self._surface.blit(self._photo)
 
 
+# ============================================================================
+# ModernAccordion
+# ============================================================================
+
 class ModernAccordionItem(tk.Frame):
-    """
-    Individual expandable item in a ModernAccordion.
-    """
+    """Individual expandable section in a ModernAccordion."""
 
     def __init__(
         self,
@@ -285,7 +409,6 @@ class ModernAccordionItem(tk.Frame):
 
         super().__init__(master, bg=t.bg_surface, **kwargs)
 
-        # Header bar
         self._header = tk.Frame(self, height=self._header_h, bg=t.bg_surface)
         self._header.pack(fill=tk.X, side=tk.TOP)
         self._header.pack_propagate(False)
@@ -310,7 +433,6 @@ class ModernAccordionItem(tk.Frame):
         )
         self._icon_lbl.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Content container
         self.content_frame = tk.Frame(self, bg=t.bg_surface_alt, padx=12, pady=10)
 
         self._header.bind("<Button-1>", lambda e: self.toggle())
@@ -347,9 +469,7 @@ class ModernAccordionItem(tk.Frame):
 
 
 class ModernAccordion(tk.Frame):
-    """
-    Modern container managing multiple collapsible Accordion sections.
-    """
+    """Modern container managing multiple collapsible Accordion sections."""
 
     def __init__(
         self,
@@ -379,9 +499,14 @@ class ModernAccordion(tk.Frame):
         return item.content_frame
 
 
+# ============================================================================
+# ModernScrollableFrame (CustomTkinter CTkScrollableFrame parity)
+# ============================================================================
+
 class ModernScrollableFrame(tk.Frame):
     """
-    Scrollable frame container supporting mousewheel and custom modern styling.
+    Scrollable frame container supporting cross-platform mousewheel,
+    smooth scrolling, and CustomTkinter CTkScrollableFrame parity.
     """
 
     def __init__(
@@ -389,6 +514,8 @@ class ModernScrollableFrame(tk.Frame):
         master: Optional[tk.Misc] = None,
         width: int = 300,
         height: int = 200,
+        label_text: str = "",
+        corner_radius: Optional[float] = None,
         parent_bg: Optional[str] = None,
         theme: Optional[Theme] = None,
         **kwargs,
@@ -397,8 +524,23 @@ class ModernScrollableFrame(tk.Frame):
         self._theme = t
         self._custom_parent_bg = parent_bg
         self._parent_bg = _resolve_parent_bg(master, self._custom_parent_bg, self._theme)
+        self._label_text = label_text
 
         super().__init__(master, width=width, height=height, bg=self._parent_bg, **kwargs)
+
+        # Optional Title Label
+        if self._label_text:
+            self._label = tk.Label(
+                self,
+                text=self._label_text,
+                font=(t.font_family, int(t.font_size_md), "bold"),
+                fg=t.text,
+                bg=self._parent_bg,
+                anchor="w",
+                padx=8,
+                pady=4,
+            )
+            self._label.pack(side="top", fill="x")
 
         self._canvas = tk.Canvas(
             self,
@@ -428,7 +570,6 @@ class ModernScrollableFrame(tk.Frame):
         ThemeManager.subscribe(self._on_theme_changed)
         self.bind("<Destroy>", lambda e: ThemeManager.unsubscribe(self._on_theme_changed))
 
-        # Mouse wheel binding
         self.bind("<Enter>", lambda e: self._bind_mousewheel())
         self.bind("<Leave>", lambda e: self._unbind_mousewheel())
 
@@ -439,6 +580,8 @@ class ModernScrollableFrame(tk.Frame):
             self.configure(bg=self._parent_bg)
             self._canvas.configure(bg=self._parent_bg)
             self.scrollable_content.configure(bg=self._parent_bg)
+            if hasattr(self, "_label"):
+                self._label.configure(fg=new_theme.text, bg=self._parent_bg)
             try:
                 self._scrollbar.configure(
                     bg=new_theme.scrollbar_thumb,
@@ -449,9 +592,9 @@ class ModernScrollableFrame(tk.Frame):
                 pass
 
     def _on_mousewheel(self, event):
-        if event.num == 5 or event.delta == -120:
+        if event.num == 5 or event.delta == -120 or (hasattr(event, "delta") and event.delta < 0):
             self._canvas.yview_scroll(1, "units")
-        elif event.num == 4 or event.delta == 120:
+        elif event.num == 4 or event.delta == 120 or (hasattr(event, "delta") and event.delta > 0):
             self._canvas.yview_scroll(-1, "units")
 
     def _bind_mousewheel(self):

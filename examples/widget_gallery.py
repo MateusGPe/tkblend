@@ -1,6 +1,7 @@
 """
 tkblend Modern Widget Suite Gallery - Comprehensive Interactive Demo
-Demonstrates all modern Blend2D-powered Tkinter UI components and ttk styling with real-time theming.
+Demonstrates Blend2D-powered Tkinter UI components, TTK durable styles,
+preset themes (Dark, Light, Nord, Dracula, Tokyo-Night), and CustomTkinter-style configure / cget.
 """
 
 from __future__ import annotations
@@ -12,6 +13,9 @@ from tkblend import (
     ThemeManager,
     DARK_THEME,
     LIGHT_THEME,
+    NORD_THEME,
+    DRACULA_THEME,
+    TOKYO_NIGHT_THEME,
     apply_ttk_theme,
     apply_theme,
     detect_system_theme,
@@ -32,6 +36,7 @@ from tkblend import (
     ModernAvatar,
     ModernTooltip,
     ModernLabel,
+    ModernToast,
     ModernAccordion,
     ModernScrollableFrame,
     ModernDialog,
@@ -42,11 +47,11 @@ from tkblend import (
 class WidgetGalleryApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("tkblend Modern Widget Suite Showcase")
-        self.root.geometry("1200x840")
-        self.root.minsize(1000, 740)
+        self.root.title("tkblend Modern Widget Suite & Theming Showcase")
+        self.root.geometry("1240x860")
+        self.root.minsize(1040, 760)
 
-        # Set default theme and enable animations
+        # Default theme
         ThemeManager.set_theme(DARK_THEME)
         ThemeManager.animations_enabled = True
 
@@ -66,11 +71,12 @@ class WidgetGalleryApp:
         apply_theme(self.root)
 
     def _on_theme_changed(self, theme):
-        self._theme_badge.set_text(f"Theme: {theme.name.upper()}")
+        if hasattr(self, "_theme_badge"):
+            self._theme_badge.configure(text=f"Theme: {theme.name.upper()}")
 
     def _build_header(self):
         t = ThemeManager.get_theme()
-        self._header_frame = tk.Frame(self.root, bg=t.bg_window, height=60)
+        self._header_frame = tk.Frame(self.root, bg=t.bg_window, height=64)
         self._header_frame.pack(fill=tk.X, padx=24, pady=(16, 8))
 
         # Title & Subtitle Frame
@@ -88,7 +94,7 @@ class WidgetGalleryApp:
 
         sub_lbl = ModernLabel(
             title_box,
-            text="High-performance Blend2D vector-drawn Tkinter widgets & seamless ttk theming",
+            text="Blend2D vector acceleration + ttkbootstrap semantic tokens + CustomTkinter API parity",
             variant="muted",
             font_size=10,
         )
@@ -101,19 +107,41 @@ class WidgetGalleryApp:
         self._theme_badge = ModernBadge(right_box, text=f"Theme: {t.name.upper()}", variant="primary", dot=True)
         self._theme_badge.pack(side=tk.LEFT, padx=(0, 12), pady=8)
 
+        # Preset Theme Selector Dropdown
+        theme_names = ["Dark", "Light", "Nord", "Dracula", "Tokyo-Night"]
+        self._theme_dropdown = ModernDropdown(
+            right_box,
+            options=theme_names,
+            selected_index=0,
+            width=140,
+            height=36,
+            command=self._on_theme_selected,
+        )
+        self._theme_dropdown.pack(side=tk.LEFT, padx=4)
+        ModernTooltip(self._theme_dropdown, "Switch between Theme Presets")
+
         theme_btn = ModernButton(
             right_box,
-            text="Toggle Theme 🌓",
+            text="Toggle 🌓",
             variant="secondary",
-            width=130,
+            width=90,
             height=36,
             command=self._toggle_theme,
         )
-        theme_btn.pack(side=tk.LEFT, pady=4)
-        ModernTooltip(theme_btn, "Switch between Dark and Light mode")
+        theme_btn.pack(side=tk.LEFT, padx=(4, 0), pady=4)
+        ModernTooltip(theme_btn, "Toggle Dark / Light Mode")
+
+    def _on_theme_selected(self, theme_name: str):
+        key = theme_name.lower().replace(" ", "-")
+        ThemeManager.set_theme(key)
+        self._toast(f"Theme changed to {theme_name}")
 
     def _toggle_theme(self):
-        ThemeManager.toggle_theme()
+        new_theme = ThemeManager.toggle_theme()
+        if hasattr(self, "_theme_dropdown"):
+            display_name = new_theme.name.capitalize()
+            self._theme_dropdown.set(display_name)
+        self._toast(f"Toggled theme to {new_theme.name}")
 
     def _build_main_content(self):
         content = tk.Frame(self.root)
@@ -132,7 +160,7 @@ class WidgetGalleryApp:
             col1,
             title="Interactive Controls",
             subtitle="Buttons, switches, sliders & selectors",
-            height=700,
+            height=720,
         )
         card_controls.pack(fill=tk.BOTH, expand=True)
 
@@ -150,6 +178,21 @@ class WidgetGalleryApp:
 
         b_dan = ModernButton(btn_row, text="Danger", variant="danger", width=90, height=36, command=lambda: self._on_btn("Danger"))
         b_dan.pack(side=tk.LEFT, padx=3)
+
+        # Additional semantic variants
+        btn_row2 = tk.Frame(inner1)
+        btn_row2.pack(fill=tk.X, pady=4)
+
+        b_suc = ModernButton(btn_row2, text="Success", variant="success", width=90, height=36, command=lambda: self._on_btn("Success"))
+        b_suc.pack(side=tk.LEFT, padx=3)
+
+        b_out = ModernButton(btn_row2, text="Outline", variant="outline", width=90, height=36, command=lambda: self._on_btn("Outline"))
+        b_out.pack(side=tk.LEFT, padx=3)
+
+        b_dyn = ModernButton(btn_row2, text="Dynamic", variant="secondary", width=90, height=36, command=self._demo_dynamic_configure)
+        b_dyn.pack(side=tk.LEFT, padx=3)
+        self._dyn_btn = b_dyn
+        ModernTooltip(b_dyn, "Demonstrates .configure(text=..., variant=...)")
 
         # Segmented Control
         seg_lbl = ModernLabel(inner1, text="Segmented View Mode:", font_size=10, bold=True)
@@ -194,7 +237,7 @@ class WidgetGalleryApp:
         slider = ModernSlider(inner1, min_val=10.0, max_val=100.0, value=75.0, width=280, on_change=self._on_slider)
         slider.pack(anchor="w", pady=4)
 
-        # ---------------- Column 2: Inputs, ttk & Containers ----------------
+        # ---------------- Column 2: Inputs, TTK & Containers ----------------
         col2 = tk.Frame(content)
         col2.grid(row=0, column=1, sticky="nsew", padx=8, pady=4)
 
@@ -231,7 +274,7 @@ class WidgetGalleryApp:
             col2,
             title="ttk Style Integration",
             subtitle="Standard ttk components styled automatically",
-            height=330,
+            height=350,
         )
         card_ttk.pack(fill=tk.BOTH, expand=True)
 
@@ -241,14 +284,21 @@ class WidgetGalleryApp:
         notebook.pack(fill=tk.BOTH, expand=True)
 
         tab1 = ttk.Frame(notebook)
-        notebook.add(tab1, text="Overview")
+        notebook.add(tab1, text="Buttons & Progress")
 
         tab1_inner = tk.Frame(tab1)
         tab1_inner.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
 
-        ModernLabel(tab1_inner, text="Live ttk.Style Theming", variant="heading", font_size=10, bold=True).pack(anchor="w", pady=(0, 4))
-        ModernLabel(tab1_inner, text="ttk.Treeview, ttk.Button, ttk.Notebook dynamic tokens.", variant="muted", font_size=9).pack(anchor="w", pady=2)
-        ttk.Button(tab1_inner, text="Themed ttk.Button", style="Primary.TButton").pack(anchor="w", pady=6)
+        ModernLabel(tab1_inner, text="Semantic TTK Styles", variant="heading", font_size=10, bold=True).pack(anchor="w", pady=(0, 4))
+        
+        ttk_btn_row = tk.Frame(tab1_inner)
+        ttk_btn_row.pack(fill=tk.X, pady=4)
+        ttk.Button(ttk_btn_row, text="Primary", style="primary.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(ttk_btn_row, text="Success", style="success.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(ttk_btn_row, text="Danger", style="danger.TButton").pack(side=tk.LEFT, padx=2)
+
+        p_ttk = ttk.Progressbar(tab1_inner, style="success.Horizontal.TProgressbar", value=70, length=240)
+        p_ttk.pack(anchor="w", pady=(8, 4))
 
         tab2 = ttk.Frame(notebook)
         notebook.add(tab2, text="Treeview")
@@ -260,7 +310,8 @@ class WidgetGalleryApp:
         tree.column("col2", width=100)
         tree.insert("", "end", values=("JIT Engine", "Active"))
         tree.insert("", "end", values=("Photo Blit", "Zero-Copy"))
-        tree.insert("", "end", values=("Drop Shadows", "LRU Cached"))
+        tree.insert("", "end", values=("DPI Awareness", "Per-Monitor"))
+        tree.insert("", "end", values=("Style Builder", "Durable"))
         tree.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         # ---------------- Column 3: Status, Feedback & Feed ----------------
@@ -318,7 +369,7 @@ class WidgetGalleryApp:
             col3,
             title="Activity Feed",
             subtitle="Smooth scrollable modern container",
-            height=330,
+            height=350,
         )
         card_feed.pack(fill=tk.BOTH, expand=True)
 
@@ -332,7 +383,7 @@ class WidgetGalleryApp:
             ("🎨 Surface resized to 1920x1080", "#89b4fa"),
             ("🚀 Blit complete: 0.12ms (8333 FPS)", "#cba6f7"),
             ("✨ Drop shadow cache hit (radius=12.0)", "#f9e2af"),
-            ("🛡️ Sanitizer memory check: 0 leaks", "#a6e3a1"),
+            ("🛡️ High-DPI auto scaling configured", "#a6e3a1"),
             ("🌓 Theme switched to dynamic tokens", "#89dceb"),
             ("📦 Modular package loaded cleanly", "#cdd6f4"),
         ]
@@ -345,6 +396,14 @@ class WidgetGalleryApp:
 
     def _on_btn(self, name: str):
         self._toast(f"Clicked {name} Button")
+
+    def _demo_dynamic_configure(self):
+        cur_text = self._dyn_btn.cget("text")
+        if cur_text == "Dynamic":
+            self._dyn_btn.configure(text="Updated! ✨", variant="success")
+        else:
+            self._dyn_btn.configure(text="Dynamic", variant="secondary")
+        self._toast("Configured button dynamically via .configure()")
 
     def _on_slider(self, val: float):
         if hasattr(self, "slider_val_lbl"):
@@ -365,6 +424,7 @@ class WidgetGalleryApp:
 
     def _toast(self, msg: str):
         print(f"[UI Event]: {msg}")
+        ModernToast.show(self.root, message=msg, title="Gallery Event", duration_ms=2500)
 
 
 def main():
