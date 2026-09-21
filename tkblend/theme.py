@@ -93,6 +93,12 @@ def apply_theme(
     theme_name: str = "tkblend",
     button_radius: Optional[float] = None,
     entry_radius: Optional[float] = None,
+    check_radius: Optional[float] = None,
+    pbar_radius: Optional[float] = None,
+    scrollbar_radius: Optional[float] = None,
+    scale_radius: Optional[float] = None,
+    scale_thumb_radius: Optional[float] = None,
+    focus_ring_width: Optional[float] = None,
     enable_shadows: Optional[bool] = None,
     shadow_blur: Optional[float] = None,
 ) -> str:
@@ -111,6 +117,18 @@ def apply_theme(
         Custom corner radius for buttons.
     entry_radius : float, optional
         Custom corner radius for entries.
+    check_radius : float, optional
+        Custom corner radius for checkbuttons.
+    pbar_radius : float, optional
+        Custom corner radius for progressbars.
+    scrollbar_radius : float, optional
+        Custom corner radius for scrollbars.
+    scale_radius : float, optional
+        Custom corner radius for scale trough.
+    scale_thumb_radius : float, optional
+        Custom radius for scale thumb slider.
+    focus_ring_width : float, optional
+        Custom stroke width for glowing focus rings.
     enable_shadows : bool, optional
         Enable or disable soft drop shadows.
     shadow_blur : float, optional
@@ -129,6 +147,18 @@ def apply_theme(
             cfg.button_radius = float(button_radius)
         if entry_radius is not None:
             cfg.entry_radius = float(entry_radius)
+        if check_radius is not None:
+            cfg.check_radius = float(check_radius)
+        if pbar_radius is not None:
+            cfg.pbar_radius = float(pbar_radius)
+        if scrollbar_radius is not None:
+            cfg.scrollbar_radius = float(scrollbar_radius)
+        if scale_radius is not None:
+            cfg.scale_radius = float(scale_radius)
+        if scale_thumb_radius is not None:
+            cfg.scale_thumb_radius = float(scale_thumb_radius)
+        if focus_ring_width is not None:
+            cfg.focus_ring_width = float(focus_ring_width)
         if enable_shadows is not None:
             cfg.enable_shadows = bool(enable_shadows)
         if shadow_blur is not None:

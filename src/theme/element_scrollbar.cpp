@@ -29,14 +29,15 @@ static void ScrollbarTroughGeometry(
 
 static void ScrollbarTroughDraw(
     void* /*clientData*/, void* /*elementRecord*/,
-    Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State state
+    Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State /*state*/
 ) {
     const auto& cfg = ThemeEngine::instance().config();
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
+        if (w <= 0 || h <= 0) return;
         BLPath troughPath;
-        double r = cfg.scrollbar_radius;
-        troughPath.add_round_rect(BLRoundRect(0, 0, w, h, r, r));
+        double r = (w < h) ? (w / 2.0) : (h / 2.0);
+        troughPath.add_round_rect(BLRoundRect(0.5, 0.5, w - 1.0, h - 1.0, r, r));
         ctx.set_fill_style(to_bl_rgba(cfg.track_bg));
         ctx.fill_path(troughPath);
     });
@@ -54,13 +55,13 @@ static void ScrollbarThumbGeometry(
     void* /*clientData*/, void* /*elementRecord*/, Tk_Window /*tkwin*/,
     int* widthPtr, int* heightPtr, Ttk_Padding* paddingPtr
 ) {
-    if (widthPtr)  *widthPtr  = 24;
-    if (heightPtr) *heightPtr = 10;
+    if (widthPtr)  *widthPtr  = 30;
+    if (heightPtr) *heightPtr = 12;
     if (paddingPtr) {
-        paddingPtr->left   = 1;
-        paddingPtr->top    = 1;
-        paddingPtr->right  = 1;
-        paddingPtr->bottom = 1;
+        paddingPtr->left   = 0;
+        paddingPtr->top    = 0;
+        paddingPtr->right  = 0;
+        paddingPtr->bottom = 0;
     }
 }
 
@@ -71,24 +72,51 @@ static void ScrollbarThumbDraw(
     const auto& cfg = ThemeEngine::instance().config();
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
+        if (w <= 0 || h <= 0) return;
+
         bool pressed = is_pressed(state);
         bool hover   = is_active(state);
+        bool disabled = is_disabled(state);
 
-        uint32_t thumb_col = pressed ? cfg.thumb_active : (hover ? cfg.thumb_hover : cfg.thumb_color);
+        uint32_t thumb_col;
+        if (disabled) {
+            thumb_col = cfg.disabled_fg;
+        } else if (pressed) {
+            thumb_col = cfg.thumb_active;
+        } else if (hover) {
+            thumb_col = cfg.thumb_hover;
+        } else {
+            thumb_col = cfg.thumb_color;
+        }
 
         double pad = hover ? 1.0 : 2.0;
         double pill_w = w - (pad * 2.0);
         double pill_h = h - (pad * 2.0);
-        if (pill_w <= 0.0 || pill_h <= 0.0) return;
+        if (pill_w <= 1.0 || pill_h <= 1.0) return;
 
         double r = (pill_w < pill_h) ? (pill_w / 2.0) : (pill_h / 2.0);
-        if (r > cfg.scrollbar_radius) r = cfg.scrollbar_radius;
 
         BLPath thumbPath;
         thumbPath.add_round_rect(BLRoundRect(pad, pad, pill_w, pill_h, r, r));
 
-        ctx.set_fill_style(to_bl_rgba(thumb_col));
+        // Subtle gradient on thumb for physical feel
+        BLGradient grad;
+        if (w >= h) {
+            grad = BLGradient(BLLinearGradientValues(0, pad, 0, pad + pill_h));
+        } else {
+            grad = BLGradient(BLLinearGradientValues(pad, 0, pad + pill_w, 0));
+        }
+        grad.add_stop(0.0, to_bl_rgba(blend_colors(thumb_col, 0xFFFFFFFF, 0.08f)));
+        grad.add_stop(1.0, to_bl_rgba(thumb_col));
+
+        ctx.set_fill_style(grad);
         ctx.fill_path(thumbPath);
+
+        if (hover || pressed) {
+            ctx.set_stroke_width(1.0);
+            ctx.set_stroke_style(to_bl_rgba(blend_colors(thumb_col, 0xFFFFFFFF, 0.2f)));
+            ctx.stroke_path(thumbPath);
+        }
     });
 }
 

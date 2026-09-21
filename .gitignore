@@ -36,3 +36,4 @@ coverage.xml
 .DS_Store
 Thumbs.db
 REFERENCE ONLY/
+tests/visual_baselines/

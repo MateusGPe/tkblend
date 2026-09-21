@@ -67,6 +67,37 @@ class TestTtkThemeEngine:
         scroll_v = ttk.Scrollbar(frame, orient="vertical")
         scroll_v.pack(fill="y", padx=5, pady=5)
 
+        btn_destruct = ttk.Button(frame, text="Danger", style="Destructive.TButton")
+        btn_destruct.pack(padx=5, pady=5)
+
+        btn_sec = ttk.Button(frame, text="Secondary", style="Secondary.TButton")
+        btn_sec.pack(padx=5, pady=5)
+
+        # Scale (Slider)
+        scale_h = ttk.Scale(frame, from_=0, to=100, orient="horizontal")
+        scale_h.pack(fill="x", padx=5, pady=5)
+
+        # Combobox & Spinbox
+        combo = ttk.Combobox(frame, values=["Item 1", "Item 2"])
+        combo.current(0)
+        combo.pack(padx=5, pady=5)
+
+        spin = ttk.Spinbox(frame, from_=1, to=10)
+        spin.set(5)
+        spin.pack(padx=5, pady=5)
+
+        # Labelframe and Notebook
+        nb = ttk.Notebook(frame)
+        nb.pack(fill="both", expand=True, padx=5, pady=5)
+        tab1 = ttk.Frame(nb)
+        tab2 = ttk.Frame(nb)
+        nb.add(tab1, text="Tab 1")
+        nb.add(tab2, text="Tab 2")
+
+        lf = ttk.Labelframe(tab1, text="Group 1")
+        lf.pack(fill="both", expand=True, padx=5, pady=5)
+        ttk.Label(lf, text="Inside Labelframe").pack(padx=5, pady=5)
+
         # Trigger layout and drawing passes in Tk
         root.update_idletasks()
         root.update()

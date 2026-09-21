@@ -17,32 +17,35 @@ static void PbarTroughGeometry(
     void* /*clientData*/, void* /*elementRecord*/, Tk_Window /*tkwin*/,
     int* widthPtr, int* heightPtr, Ttk_Padding* paddingPtr
 ) {
-    if (widthPtr)  *widthPtr  = 120;
-    if (heightPtr) *heightPtr = 10;
+    if (widthPtr)  *widthPtr  = 140;
+    if (heightPtr) *heightPtr = 12;
     if (paddingPtr) {
-        paddingPtr->left   = 1;
-        paddingPtr->top    = 1;
-        paddingPtr->right  = 1;
-        paddingPtr->bottom = 1;
+        paddingPtr->left   = 2;
+        paddingPtr->top    = 2;
+        paddingPtr->right  = 2;
+        paddingPtr->bottom = 2;
     }
 }
 
 static void PbarTroughDraw(
     void* /*clientData*/, void* /*elementRecord*/,
-    Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State state
+    Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State /*state*/
 ) {
     const auto& cfg = ThemeEngine::instance().config();
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
-        double r = cfg.pbar_radius;
-        if (r * 2.0 > w) r = w / 2.0;
-        if (r * 2.0 > h) r = h / 2.0;
+        if (w <= 0 || h <= 0) return;
+
+        double r = (w < h) ? (w / 2.0) : (h / 2.0);
 
         BLPath troughPath;
         troughPath.add_round_rect(BLRoundRect(0.5, 0.5, w - 1.0, h - 1.0, r, r));
 
+        // Dark track background
         ctx.set_fill_style(to_bl_rgba(cfg.track_bg));
         ctx.fill_path(troughPath);
+
+        // Crisp border
         ctx.set_stroke_width(1.0);
         ctx.set_stroke_style(to_bl_rgba(cfg.input_border));
         ctx.stroke_path(troughPath);
@@ -61,7 +64,7 @@ static void PbarBarGeometry(
     void* /*clientData*/, void* /*elementRecord*/, Tk_Window /*tkwin*/,
     int* widthPtr, int* heightPtr, Ttk_Padding* paddingPtr
 ) {
-    if (widthPtr)  *widthPtr  = 10;
+    if (widthPtr)  *widthPtr  = 16;
     if (heightPtr) *heightPtr = 8;
     if (paddingPtr) {
         paddingPtr->left   = 0;
@@ -73,26 +76,22 @@ static void PbarBarGeometry(
 
 static void PbarBarDraw(
     void* /*clientData*/, void* /*elementRecord*/,
-    Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State state
+    Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State /*state*/
 ) {
     const auto& cfg = ThemeEngine::instance().config();
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
-        if (w <= 0 || h <= 0) return;
+        if (w <= 1 || h <= 1) return;
 
-        double r = cfg.pbar_radius;
-        if (r * 2.0 > w) r = w / 2.0;
-        if (r * 2.0 > h) r = h / 2.0;
+        double r = std::min(w / 2.0, h / 2.0);
 
         BLPath barPath;
         barPath.add_round_rect(BLRoundRect(0.5, 0.5, w - 1.0, h - 1.0, r, r));
 
         BLGradient grad;
         if (w >= h) {
-            // Horizontal bar gradient
             grad = BLGradient(BLLinearGradientValues(0, 0, w, 0));
         } else {
-            // Vertical bar gradient
             grad = BLGradient(BLLinearGradientValues(0, h, 0, 0));
         }
         grad.add_stop(0.0, to_bl_rgba(cfg.primary_color));
@@ -100,6 +99,23 @@ static void PbarBarDraw(
 
         ctx.set_fill_style(grad);
         ctx.fill_path(barPath);
+
+        // Specular highlight
+        if (w >= h && h >= 6 && w > 12) {
+            BLPath hiPath;
+            hiPath.move_to(r * 0.6, 1.5);
+            hiPath.line_to(w - r * 0.6, 1.5);
+            ctx.set_stroke_width(1.0);
+            ctx.set_stroke_style(to_bl_rgba(0x40FFFFFF));
+            ctx.stroke_path(hiPath);
+        } else if (w < h && w >= 6 && h > 12) {
+            BLPath hiPath;
+            hiPath.move_to(1.5, r * 0.6);
+            hiPath.line_to(1.5, h - r * 0.6);
+            ctx.set_stroke_width(1.0);
+            ctx.set_stroke_style(to_bl_rgba(0x40FFFFFF));
+            ctx.stroke_path(hiPath);
+        }
     });
 }
 

@@ -33,6 +33,7 @@ inline bool is_active(Ttk_State state)   { return (state & TTK_STATE_ACTIVE) != 
 inline bool is_focus(Ttk_State state)    { return (state & TTK_STATE_FOCUS) != 0; }
 inline bool is_selected(Ttk_State state) { return (state & TTK_STATE_SELECTED) != 0; }
 inline bool is_readonly(Ttk_State state) { return (state & TTK_STATE_READONLY) != 0; }
+inline bool is_alternate(Ttk_State state) { return (state & TTK_STATE_ALTERNATE) != 0; }
 
 // Safe template wrapper for drawing an element into Blend2D and blitting zero-copy
 template<typename RenderFn>
@@ -81,5 +82,13 @@ extern Ttk_ElementSpec PbarTroughElementSpec;
 extern Ttk_ElementSpec PbarBarElementSpec;
 extern Ttk_ElementSpec ScrollbarTroughElementSpec;
 extern Ttk_ElementSpec ScrollbarThumbElementSpec;
+extern Ttk_ElementSpec ScaleTroughElementSpec;
+extern Ttk_ElementSpec ScaleSliderElementSpec;
+extern Ttk_ElementSpec ComboboxDownArrowElementSpec;
+extern Ttk_ElementSpec SpinboxUpArrowElementSpec;
+extern Ttk_ElementSpec SpinboxDownArrowElementSpec;
+extern Ttk_ElementSpec SpinboxButtonsElementSpec;
+extern Ttk_ElementSpec NotebookTabElementSpec;
+extern Ttk_ElementSpec LabelframeBorderElementSpec;
 
 } // namespace tkblend

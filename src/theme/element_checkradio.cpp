@@ -34,43 +34,60 @@ static void CheckIndicatorDraw(
     const auto& cfg = ThemeEngine::instance().config();
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
-        bool disabled = is_disabled(state);
-        bool selected = is_selected(state);
-        bool hover    = is_active(state);
-        bool pressed  = is_pressed(state);
-        bool focus    = is_focus(state);
+        if (w <= 0 || h <= 0) return;
+
+        bool disabled  = is_disabled(state);
+        bool selected  = is_selected(state);
+        bool alternate = is_alternate(state);
+        bool hover     = is_active(state);
+        bool pressed   = is_pressed(state);
+        bool focus     = is_focus(state);
+        bool checked_or_alt = selected || alternate;
 
         double size = 18.0;
         if (size > w) size = w;
         if (size > h) size = h;
-        double x = (w - size) / 2.0;
-        double y = (h - size) / 2.0;
+        double x = std::floor((w - size) / 2.0);
+        double y = std::floor((h - size) / 2.0);
         double r = cfg.check_radius;
 
         BLPath boxPath;
         boxPath.add_round_rect(BLRoundRect(x + 0.5, y + 0.5, size - 1.0, size - 1.0, r, r));
 
-        uint32_t fill_color;
-        uint32_t border_color;
+        uint32_t fill_top, fill_bot, border_color;
 
         if (disabled) {
-            fill_color   = cfg.disabled_bg;
+            fill_top = fill_bot = cfg.disabled_bg;
             border_color = cfg.card_border;
-        } else if (selected) {
-            fill_color   = pressed ? cfg.primary_active : (hover ? cfg.primary_hover : cfg.primary_color);
-            border_color = pressed ? cfg.primary_color : cfg.primary_hover;
+        } else if (checked_or_alt) {
+            if (pressed) {
+                fill_top = fill_bot = cfg.primary_active;
+                border_color = cfg.primary_active;
+            } else if (hover) {
+                fill_top = cfg.primary_hover;
+                fill_bot = cfg.primary_color;
+                border_color = cfg.primary_hover;
+            } else {
+                fill_top = cfg.primary_color;
+                fill_bot = cfg.primary_active;
+                border_color = cfg.primary_color;
+            }
         } else {
-            fill_color   = pressed ? cfg.secondary_hover : cfg.input_bg;
+            fill_top = fill_bot = pressed ? cfg.secondary_hover : cfg.input_bg;
             border_color = hover ? cfg.primary_hover : cfg.input_border;
         }
 
-        ctx.set_fill_style(to_bl_rgba(fill_color));
+        BLGradient grad(BLLinearGradientValues(x, y, x, y + size));
+        grad.add_stop(0.0, to_bl_rgba(fill_top));
+        grad.add_stop(1.0, to_bl_rgba(fill_bot));
+
+        ctx.set_fill_style(grad);
         ctx.fill_path(boxPath);
         ctx.set_stroke_width(1.2);
         ctx.set_stroke_style(to_bl_rgba(border_color));
         ctx.stroke_path(boxPath);
 
-        // Draw antialiased Vector Checkmark when selected
+        // Draw crisp antialiased Vector Checkmark when selected or Dash when alternate
         if (selected) {
             uint32_t check_col = disabled ? cfg.disabled_fg : cfg.primary_fg;
             BLPath checkPath;
@@ -79,22 +96,37 @@ static void CheckIndicatorDraw(
             double bw = size - 1.0;
             double bh = size - 1.0;
 
-            checkPath.move_to(cx + bw * 0.24, cy + bh * 0.52);
-            checkPath.line_to(cx + bw * 0.44, cy + bh * 0.74);
-            checkPath.line_to(cx + bw * 0.78, cy + bh * 0.28);
+            checkPath.move_to(cx + bw * 0.22, cy + bh * 0.50);
+            checkPath.line_to(cx + bw * 0.42, cy + bh * 0.72);
+            checkPath.line_to(cx + bw * 0.78, cy + bh * 0.26);
 
             ctx.set_stroke_width(2.2);
             ctx.set_stroke_caps(BL_STROKE_CAP_ROUND);
             ctx.set_stroke_join(BL_STROKE_JOIN_ROUND);
             ctx.set_stroke_style(to_bl_rgba(check_col));
             ctx.stroke_path(checkPath);
+        } else if (alternate) {
+            uint32_t dash_col = disabled ? cfg.disabled_fg : cfg.primary_fg;
+            BLPath dashPath;
+            double cx = x + 0.5;
+            double cy = y + 0.5;
+            double bw = size - 1.0;
+            double bh = size - 1.0;
+
+            dashPath.move_to(cx + bw * 0.24, cy + bh * 0.50);
+            dashPath.line_to(cx + bw * 0.76, cy + bh * 0.50);
+
+            ctx.set_stroke_width(2.2);
+            ctx.set_stroke_caps(BL_STROKE_CAP_ROUND);
+            ctx.set_stroke_style(to_bl_rgba(dash_col));
+            ctx.stroke_path(dashPath);
         }
 
-        // Focus ring
+        // Radiant focus ring
         if (focus && !disabled) {
             BLPath focusPath;
             focusPath.add_round_rect(BLRoundRect(x - 0.5, y - 0.5, size + 1.0, size + 1.0, r + 1.0, r + 1.0));
-            ctx.set_stroke_width(1.5);
+            ctx.set_stroke_width(cfg.focus_ring_width);
             ctx.set_stroke_style(to_bl_rgba(cfg.focus_ring_color));
             ctx.stroke_path(focusPath);
         }
@@ -130,6 +162,8 @@ static void RadioIndicatorDraw(
     const auto& cfg = ThemeEngine::instance().config();
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
+        if (w <= 0 || h <= 0) return;
+
         bool disabled = is_disabled(state);
         bool selected = is_selected(state);
         bool hover    = is_active(state);
@@ -143,22 +177,35 @@ static void RadioIndicatorDraw(
         double cy = h / 2.0;
         double outer_radius = (size - 2.0) / 2.0;
 
-        uint32_t fill_color;
-        uint32_t border_color;
+        uint32_t fill_top, fill_bot, border_color;
 
         if (disabled) {
-            fill_color   = cfg.disabled_bg;
+            fill_top = fill_bot = cfg.disabled_bg;
             border_color = cfg.card_border;
         } else if (selected) {
-            fill_color   = pressed ? cfg.primary_active : (hover ? cfg.primary_hover : cfg.primary_color);
-            border_color = pressed ? cfg.primary_color : cfg.primary_hover;
+            if (pressed) {
+                fill_top = fill_bot = cfg.primary_active;
+                border_color = cfg.primary_active;
+            } else if (hover) {
+                fill_top = cfg.primary_hover;
+                fill_bot = cfg.primary_color;
+                border_color = cfg.primary_hover;
+            } else {
+                fill_top = cfg.primary_color;
+                fill_bot = cfg.primary_active;
+                border_color = cfg.primary_color;
+            }
         } else {
-            fill_color   = pressed ? cfg.secondary_hover : cfg.input_bg;
+            fill_top = fill_bot = pressed ? cfg.secondary_hover : cfg.input_bg;
             border_color = hover ? cfg.primary_hover : cfg.input_border;
         }
 
         BLCircle outerCircle(cx, cy, outer_radius);
-        ctx.set_fill_style(to_bl_rgba(fill_color));
+        BLGradient grad(BLLinearGradientValues(cx, cy - outer_radius, cx, cy + outer_radius));
+        grad.add_stop(0.0, to_bl_rgba(fill_top));
+        grad.add_stop(1.0, to_bl_rgba(fill_bot));
+
+        ctx.set_fill_style(grad);
         ctx.fill_circle(outerCircle);
         ctx.set_stroke_width(1.2);
         ctx.set_stroke_style(to_bl_rgba(border_color));
@@ -167,16 +214,16 @@ static void RadioIndicatorDraw(
         // Draw inner dot when selected
         if (selected) {
             uint32_t dot_col = disabled ? cfg.disabled_fg : cfg.primary_fg;
-            double inner_radius = outer_radius * 0.45;
+            double inner_radius = outer_radius * 0.44;
             BLCircle innerCircle(cx, cy, inner_radius);
             ctx.set_fill_style(to_bl_rgba(dot_col));
             ctx.fill_circle(innerCircle);
         }
 
-        // Focus ring
+        // Radiant focus ring
         if (focus && !disabled) {
             BLCircle focusCircle(cx, cy, outer_radius + 1.2);
-            ctx.set_stroke_width(1.5);
+            ctx.set_stroke_width(cfg.focus_ring_width);
             ctx.set_stroke_style(to_bl_rgba(cfg.focus_ring_color));
             ctx.stroke_circle(focusCircle);
         }

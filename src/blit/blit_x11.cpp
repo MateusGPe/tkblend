@@ -6,6 +6,8 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <cstring>
+#include <string>
+#include "../theme/theme_engine.h"
 
 namespace tkblend {
 
@@ -96,22 +98,19 @@ bool NativeBlit(
 uint32_t ResolveAncestorBackground(Tk_Window tkwin, uint32_t fallback_argb) {
     if (!tkwin) return fallback_argb;
 
+    const auto& cfg = ThemeEngine::instance().config();
     Tk_Window curr = tkwin;
     while (curr) {
-        const char* bg_val = Tk_GetOption(curr, "background", "Background");
-        if (bg_val && bg_val[0] != '\0') {
-            XColor* xc = Tk_GetColor(nullptr, curr, bg_val);
-            if (xc) {
-                uint32_t r = (xc->red >> 8) & 0xFF;
-                uint32_t g = (xc->green >> 8) & 0xFF;
-                uint32_t b = (xc->blue >> 8) & 0xFF;
-                Tk_FreeColor(xc);
-                return (0xFF000000u | (r << 16) | (g << 8) | b);
+        const char* className = Tk_Class(curr);
+        if (className) {
+            std::string cls(className);
+            if (cls == "TLabelframe" || cls == "Labelframe" || cls.find("Card") != std::string::npos || cls.find("Notebook") != std::string::npos) {
+                return cfg.card_bg;
             }
         }
         curr = Tk_Parent(curr);
     }
-    return fallback_argb;
+    return cfg.bg_color;
 }
 
 } // namespace tkblend

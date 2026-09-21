@@ -210,9 +210,12 @@ set(TKBLEND_SOURCES
     src/theme/theme_engine.cpp
     src/theme/element_button.cpp
     src/theme/element_entry.cpp
+    src/theme/element_arrows.cpp
+    src/theme/element_tab.cpp
     src/theme/element_checkradio.cpp
     src/theme/element_progressbar.cpp
     src/theme/element_scrollbar.cpp
+    src/theme/element_scale.cpp
     ${PLATFORM_SOURCES}
 )
 

@@ -86,10 +86,12 @@
   #define TTK_NODE_EXTENDS        (1<<0)
   #define TTK_NODE_NULL           (1<<1)
 
+  enum TTKStyleVersion2 { TK_STYLE_VERSION_2 = 2 };
+
   typedef struct Ttk_ElementSpec {
-      int version;
+      enum TTKStyleVersion2 version;
       size_t elementSize;
-      Ttk_ElementOptionSpec *options;
+      const Ttk_ElementOptionSpec *options;
       void (*geometry)(void *clientData, void *elementRecord, Tk_Window tkwin, int *widthPtr, int *heightPtr, Ttk_Padding *paddingPtr);
       void (*draw)(void *clientData, void *elementRecord, Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State state);
   } Ttk_ElementSpec;
@@ -101,19 +103,15 @@
     Ttk_Theme Ttk_CreateTheme(Tcl_Interp *interp, const char *themeName, Ttk_Theme parentTheme);
     Ttk_Theme Ttk_GetCurrentTheme(Tcl_Interp *interp);
     Ttk_Theme Ttk_GetDefaultTheme(Tcl_Interp *interp);
-    Ttk_ElementClass Ttk_RegisterElementSpec(Ttk_Theme theme, const char *elementName, Ttk_ElementSpec *spec, void *clientData);
-    int Ttk_RegisterElement(Tcl_Interp *interp, Ttk_Theme theme, const char *elementName, Ttk_ElementSpec *spec, void *clientData);
+    Ttk_ElementClass Ttk_RegisterElementSpec(Ttk_Theme theme, const char *elementName, const Ttk_ElementSpec *spec, void *clientData);
+    Ttk_ElementClass Ttk_RegisterElement(Tcl_Interp *interp, Ttk_Theme theme, const char *elementName, const Ttk_ElementSpec *spec, void *clientData);
   #ifdef __cplusplus
   }
   #endif
 #endif
 
-#ifdef TTK_STYLE_VERSION_2
-  #define TTK_LAYOUT_SPEC_VERSION TTK_STYLE_VERSION_2
-#elif defined(TTK_STYLE_VERSION_1)
-  #define TTK_LAYOUT_SPEC_VERSION TTK_STYLE_VERSION_1
-#elif !defined(TTK_LAYOUT_SPEC_VERSION)
-  #define TTK_LAYOUT_SPEC_VERSION ((TTKStyleVersion2)1)
+#ifndef TTK_LAYOUT_SPEC_VERSION
+  #define TTK_LAYOUT_SPEC_VERSION TK_STYLE_VERSION_2
 #endif
 
 
