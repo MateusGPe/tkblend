@@ -36,7 +36,7 @@ static void PbarTroughDraw(
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
         if (w <= 0 || h <= 0) return;
 
-        double r = (w < h) ? (w / 2.0) : (h / 2.0);
+        double r = (w < h) ? std::min(w / 2.0, 6.0) : (h / 2.0);
 
         BLPath troughPath;
         troughPath.add_round_rect(BLRoundRect(0.5, 0.5, w - 1.0, h - 1.0, r, r));
@@ -82,6 +82,9 @@ static void PbarBarDraw(
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
         if (w <= 1 || h <= 1) return;
+
+        // Pre-fill with trough track color so bar edges blend seamlessly inside the trough
+        ctx.fill_all(to_bl_rgba(cfg.track_bg));
 
         double r = std::min(w / 2.0, h / 2.0);
 

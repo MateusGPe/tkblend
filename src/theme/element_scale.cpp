@@ -90,6 +90,24 @@ static void ScaleSliderDraw(
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
         if (w <= 0 || h <= 0) return;
 
+        bool is_horiz = (w >= h);
+        double track_size = 6.0;
+
+        // Draw track segment passing through the slider thumb area
+        BLPath trackSegment;
+        if (is_horiz) {
+            double ty = (h - track_size) / 2.0;
+            trackSegment.add_rect(BLRect(0.0, ty, w, track_size));
+        } else {
+            double tx = (w - track_size) / 2.0;
+            trackSegment.add_rect(BLRect(tx, 0.0, track_size, h));
+        }
+        ctx.set_fill_style(to_bl_rgba(cfg.track_bg));
+        ctx.fill_path(trackSegment);
+        ctx.set_stroke_width(1.0);
+        ctx.set_stroke_style(to_bl_rgba(cfg.input_border));
+        ctx.stroke_path(trackSegment);
+
         bool disabled = is_disabled(state);
         bool pressed  = is_pressed(state);
         bool hover    = is_active(state);
@@ -97,7 +115,7 @@ static void ScaleSliderDraw(
 
         double cx = w / 2.0;
         double cy = h / 2.0;
-        double r = std::min(w, h) / 2.0 - 2.0;
+        double r = std::min(w, h) / 2.0 - 2.5;
         if (r < 3.0) r = 3.0;
 
         // Draw soft drop shadow for the slider thumb
@@ -132,7 +150,7 @@ static void ScaleSliderDraw(
 
         // Radiant focus ring
         if (focus && !disabled) {
-            BLCircle focusCircle(cx, cy, r + 2.5);
+            BLCircle focusCircle(cx, cy, r + 2.0);
             ctx.set_stroke_width(cfg.focus_ring_width);
             ctx.set_stroke_style(to_bl_rgba(cfg.focus_ring_color));
             ctx.stroke_circle(focusCircle);

@@ -67,8 +67,10 @@ class ThemeShowcaseApp:
 
         tab1 = ttk.Frame(notebook, padding=16)
         tab2 = ttk.Frame(notebook, padding=16)
+        tab3 = ttk.Frame(notebook, padding=16)
         notebook.add(tab1, text="  Components & States  ")
         notebook.add(tab2, text="  Data & Indicators  ")
+        notebook.add(tab3, text="  Floating Scroll & Editor  ")
 
         # =========================================================================
         # TAB 1: Components & States
@@ -125,30 +127,36 @@ class ThemeShowcaseApp:
         b6.pack(side="left", padx=4, pady=4)
 
         # Section 2: Input Fields & Dropdowns
-        input_frame = ttk.Labelframe(tab1, text=" Text Fields, Combobox & Spinbox (Focus Glow) ", padding=16)
+        input_frame = ttk.Labelframe(tab1, text=" Text Fields, Search, Combobox & Spinbox (Focus Glow & Placeholders) ", padding=16)
         input_frame.pack(fill="x", pady=10)
 
-        i_row = ttk.Frame(input_frame)
-        i_row.pack(fill="x")
+        i_row1 = ttk.Frame(input_frame)
+        i_row1.pack(fill="x", pady=(0, 8))
 
-        ttk.Label(i_row, text="Username:").pack(side="left", padx=(0, 6))
-        self.entry1 = ttk.Entry(i_row, width=14)
-        self.entry1.insert(0, "antigravity_engineer")
-        self.entry1.pack(side="left", padx=(0, 14))
+        ttk.Label(i_row1, text="Search Bar:", width=12).pack(side="left")
+        self.search_entry = tkblend.SearchEntry(i_row1, placeholder="Search widgets, symbols, tokens...", width=28)
+        self.search_entry.pack(side="left", padx=(0, 14))
 
-        ttk.Label(i_row, text="Status:").pack(side="left", padx=(0, 6))
-        self.entry2 = ttk.Entry(i_row, width=12)
+        ttk.Label(i_row1, text="Placeholder Entry:", width=16).pack(side="left")
+        self.entry_placeholder = tkblend.ThemedEntry(i_row1, placeholder="e.g. user@tkblend.io", width=20)
+        self.entry_placeholder.pack(side="left")
+
+        i_row2 = ttk.Frame(input_frame)
+        i_row2.pack(fill="x", pady=(4, 0))
+
+        ttk.Label(i_row2, text="Readonly:", width=12).pack(side="left")
+        self.entry2 = ttk.Entry(i_row2, width=16)
         self.entry2.insert(0, "JIT Accelerated")
         self.entry2.state(["readonly"])
         self.entry2.pack(side="left", padx=(0, 14))
 
-        ttk.Label(i_row, text="Preset:").pack(side="left", padx=(0, 6))
-        self.combo = ttk.Combobox(i_row, values=["High Performance", "Ultra Precision", "Battery Saver"], width=14)
+        ttk.Label(i_row2, text="Dropdown:", width=12).pack(side="left")
+        self.combo = ttk.Combobox(i_row2, values=["High Performance", "Ultra Precision", "Battery Saver"], width=16)
         self.combo.current(0)
         self.combo.pack(side="left", padx=(0, 14))
 
-        ttk.Label(i_row, text="Threads:").pack(side="left", padx=(0, 6))
-        self.spin = ttk.Spinbox(i_row, from_=1, to=64, width=4)
+        ttk.Label(i_row2, text="Threads:", width=8).pack(side="left")
+        self.spin = ttk.Spinbox(i_row2, from_=1, to=64, width=6)
         self.spin.set(8)
         self.spin.pack(side="left")
 
@@ -178,8 +186,8 @@ class ThemeShowcaseApp:
         # Pill Scrollbar
         sc_row = ttk.Frame(metric_frame)
         sc_row.pack(fill="x", pady=6)
-        ttk.Label(sc_row, text="Floating Scrollbar:", width=22).pack(side="left")
-        self.scroll = ttk.Scrollbar(sc_row, orient="horizontal")
+        ttk.Label(sc_row, text="Floating Pill Scrollbar:", width=22).pack(side="left")
+        self.scroll = ttk.Scrollbar(sc_row, orient="horizontal", style="Floating.Horizontal.TScrollbar")
         self.scroll.pack(side="left", fill="x", expand=True, padx=10)
         self.scroll.set(0.15, 0.65)
         ttk.Label(sc_row, text="15-65%", width=6).pack(side="right")
@@ -224,7 +232,7 @@ class ThemeShowcaseApp:
         r3.pack(side="left", padx=10)
 
         # Treeview Data Grid
-        tree_frame = ttk.Labelframe(tab2, text=" Modern Treeview Data Table ", padding=16)
+        tree_frame = ttk.Labelframe(tab2, text=" Modern Treeview Data Table With Floating Scrollbar ", padding=16)
         tree_frame.pack(fill="both", expand=True, pady=10)
 
         cols = ("Component", "Backend", "Latency", "Status")
@@ -245,11 +253,49 @@ class ThemeShowcaseApp:
             ("Pill Progress Bar", "Blend2D Vector", "0.05 ms", "⚡ Realtime"),
             ("Indicator Vector Paths", "Blend2D Exact", "0.02 ms", "⚡ Antialiased"),
             ("Floating Scrollbar", "Blend2D PRGB32", "0.03 ms", "⚡ Floating"),
+            ("Themed Text Buffer", "Blend2D Synced", "0.02 ms", "⚡ Auto Sync"),
+            ("Search Entry & Glow", "Blend2D Focus", "0.03 ms", "⚡ Halo Glow"),
+            ("Scale Slider Trough", "Blend2D Vector", "0.03 ms", "⚡ Active"),
+            ("Notebook Glass Tabs", "Blend2D PRGB32", "0.04 ms", "⚡ Smooth"),
+            ("Dynamic Color Cache", "Blend2D LRU", "0.01 ms", "⚡ Cached"),
+            ("Vector Antialiasing", "Blend2D HighQ", "0.02 ms", "⚡ Antialiased"),
+            ("Async Surface Flush", "Blend2D PRGB32", "0.05 ms", "⚡ Zero-Copy"),
         ]
         for row in demo_rows:
             self.tree.insert("", "end", values=row)
 
         self.tree.pack(fill="both", expand=True)
+        self.tree_scroller = tkblend.FloatingScrollbar(tree_frame, target=self.tree, orient="vertical", autohide=True)
+
+        # =========================================================================
+        # TAB 3: Floating Scroll & Editor
+        # =========================================================================
+        editor_frame = ttk.Labelframe(tab3, text=" Themed Text Editor & Floating Overlay Scrollbars (Auto-Hide on Idle) ", padding=16)
+        editor_frame.pack(fill="both", expand=True, pady=(0, 10))
+
+        sample_code = (
+            "# tkblend Modern Native Blend2D TTK Theme Showcase\n"
+            "# High-performance zero-copy rasterization with antialiasing and glow halos.\n\n"
+            "import tkinter as tk\n"
+            "import tkblend\n\n"
+            "root = tk.Tk()\n"
+            "tkblend.apply_theme(root, dark_mode=True, entry_radius=8.0, button_radius=8.0)\n\n"
+            "# Themed Entry with automatic placeholder handling and focus glow\n"
+            "entry = tkblend.ThemedEntry(root, placeholder='Enter search term...')\n"
+            "entry.pack(padx=20, pady=10)\n\n"
+            "# Multi-line text editor with auto-hiding floating scrollbar overlay\n"
+            "editor = tkblend.ThemedText(root, autohide_scrollbar=True)\n"
+            "editor.pack(fill='both', expand=True, padx=20, pady=10)\n\n"
+            "# Seamless Dark / Light switching:\n"
+            "# Calling tkblend.apply_theme(root, dark_mode=False) re-renders\n"
+            "# all native Blend2D TTK elements, updates caret and selection colors,\n"
+            "# and broadcasts <<ThemeChanged>> across all active windows.\n\n"
+            "root.mainloop()\n"
+        )
+
+        self.themed_editor = tkblend.ThemedText(editor_frame, autohide_scrollbar=True, font=("Courier New", 10))
+        self.themed_editor.pack(fill="both", expand=True)
+        self.themed_editor.insert("1.0", sample_code)
 
         # Bottom Status Bar
         self.status_var = tk.StringVar(value="Theme engine ready • Blend2D PRGB32 zero-copy rasterization active.")
@@ -262,6 +308,7 @@ class ThemeShowcaseApp:
         self.pbar_val = v
         self.pbar["value"] = v
         self.pbar_lbl.configure(text=f"{int(v)}%")
+        self.scale.update_idletasks()
 
     def _start_progress_animation(self):
         def _step():

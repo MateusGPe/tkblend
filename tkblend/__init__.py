@@ -49,9 +49,16 @@ from tkblend.theme import (
     get_theme_config,
     resolve_theme_color,
     get_theme_colors,
+    get_theme_palette,
+    sync_widget_colors,
     get_active_theme_name,
     is_ttkbootstrap_installed,
     bind_theme_changed,
+    ThemedEntry,
+    SearchEntry,
+    FloatingScrollbar,
+    ThemedText,
+    ThemedScrolledFrame,
 )
 
 # Friendly aliases
@@ -73,12 +80,19 @@ __all__ = [
     "parse_color",
     "ColorLike",
     "GradientLike",
-    # TTK Theme Engine
+    # TTK Theme Engine & Reactive Widgets
     "apply_theme",
     "register_theme",
     "set_dark_mode",
     "set_theme_config",
     "get_theme_config",
+    "get_theme_palette",
+    "sync_widget_colors",
+    "ThemedEntry",
+    "SearchEntry",
+    "FloatingScrollbar",
+    "ThemedText",
+    "ThemedScrolledFrame",
     # Theme & ttkbootstrap bridge
     "resolve_theme_color",
     "resolve_color",
@@ -111,3 +125,4 @@ __all__ = [
     "EXTEND_REPEAT",
     "EXTEND_REFLECT",
 ]
+

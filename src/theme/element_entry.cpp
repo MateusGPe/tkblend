@@ -76,13 +76,23 @@ static void EntryFieldElementDraw(
         ctx.set_stroke_style(to_bl_rgba(border_col));
         ctx.stroke_path(fieldPath);
 
-        // Focus glow halo
+        // Focus glow halo (outer soft glow + accent border)
         if (focus && !disabled) {
-            BLPath focusPath;
-            focusPath.add_round_rect(BLRoundRect(0.5, 0.5, w - 1.0, h - 1.0, r + 0.5, r + 0.5));
-            ctx.set_stroke_width(cfg.focus_ring_width);
-            ctx.set_stroke_style(to_bl_rgba(cfg.focus_ring_color));
-            ctx.stroke_path(focusPath);
+            // Outer subtle glow expansion
+            BLPath outerGlowPath;
+            double glow_pad = 0.5;
+            outerGlowPath.add_round_rect(BLRoundRect(glow_pad, glow_pad, w - (glow_pad * 2.0), h - (glow_pad * 2.0), r + 0.5, r + 0.5));
+            ctx.set_stroke_width(cfg.focus_ring_width + 1.0);
+            uint32_t glow_col = blend_colors(cfg.focus_ring_color, 0x00FFFFFF, 0.4f);
+            ctx.set_stroke_style(to_bl_rgba(glow_col));
+            ctx.stroke_path(outerGlowPath);
+
+            // Inner focused accent border
+            BLPath innerFocusPath;
+            innerFocusPath.add_round_rect(BLRoundRect(pad, pad, w - (pad * 2.0), h - (pad * 2.0), r, r));
+            ctx.set_stroke_width(1.5);
+            ctx.set_stroke_style(to_bl_rgba(cfg.input_focus_border));
+            ctx.stroke_path(innerFocusPath);
         }
     });
 }

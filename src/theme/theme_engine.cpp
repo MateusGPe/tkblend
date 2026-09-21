@@ -329,7 +329,9 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
            << "      -padding {10 6 10 6} \\\n"
            << "      -fieldbackground \"" << in_bg << "\" \\\n"
            << "      -foreground \"" << in_fg << "\" \\\n"
-           << "      -insertcolor \"" << in_fg << "\"\n";
+           << "      -insertcolor \"" << in_fg << "\" \\\n"
+           << "      -selectbackground \"" << sel_bg << "\" \\\n"
+           << "      -selectforeground \"" << sel_fg << "\"\n";
     script << "    ttk::style map TEntry \\\n"
            << "      -foreground [list disabled \"" << dis_fg << "\"] \\\n"
            << "      -fieldbackground [list disabled \"" << dis_bg << "\"]\n";
@@ -343,7 +345,7 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
            << "        }\n"
            << "      }\n"
            << "    }\n";
-    script << "    ttk::style configure TCombobox -padding {10 6 6 6} -fieldbackground \"" << in_bg << "\" -foreground \"" << in_fg << "\" -insertcolor \"" << in_fg << "\"\n";
+    script << "    ttk::style configure TCombobox -padding {10 6 6 6} -fieldbackground \"" << in_bg << "\" -foreground \"" << in_fg << "\" -insertcolor \"" << in_fg << "\" -selectbackground \"" << sel_bg << "\" -selectforeground \"" << sel_fg << "\"\n";
     script << "    ttk::style map TCombobox \\\n"
            << "      -foreground [list disabled \"" << dis_fg << "\"] \\\n"
            << "      -fieldbackground [list disabled \"" << dis_bg << "\"]\n";
@@ -360,7 +362,7 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
            << "        }\n"
            << "      }\n"
            << "    }\n";
-    script << "    ttk::style configure TSpinbox -padding {10 6 4 6} -fieldbackground \"" << in_bg << "\" -foreground \"" << in_fg << "\" -insertcolor \"" << in_fg << "\"\n";
+    script << "    ttk::style configure TSpinbox -padding {10 6 4 6} -fieldbackground \"" << in_bg << "\" -foreground \"" << in_fg << "\" -insertcolor \"" << in_fg << "\" -selectbackground \"" << sel_bg << "\" -selectforeground \"" << sel_fg << "\"\n";
     script << "    ttk::style map TSpinbox \\\n"
            << "      -foreground [list disabled \"" << dis_fg << "\"] \\\n"
            << "      -fieldbackground [list disabled \"" << dis_bg << "\"]\n";
@@ -416,8 +418,35 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
            << "        Vertical.Scrollbar.thumb -sticky nswe\n"
            << "      }\n"
            << "    }\n";
-    script << "    ttk::style configure Horizontal.TScrollbar -arrowsize 0\n";
-    script << "    ttk::style configure Vertical.TScrollbar -arrowsize 0\n";
+    script << "    ttk::style configure Horizontal.TScrollbar -arrowsize 0 -thickness 12\n";
+    script << "    ttk::style configure Vertical.TScrollbar -arrowsize 0 -thickness 12\n";
+
+    // Floating Overlay Scrollbars (Slim 6px idle, 10px on hover)
+    script << "    ttk::style layout Floating.Horizontal.TScrollbar {\n"
+           << "      Horizontal.Scrollbar.trough -sticky we -children {\n"
+           << "        Horizontal.Scrollbar.thumb -sticky nswe\n"
+           << "      }\n"
+           << "    }\n";
+    script << "    ttk::style layout Floating.Vertical.TScrollbar {\n"
+           << "      Vertical.Scrollbar.trough -sticky ns -children {\n"
+           << "        Vertical.Scrollbar.thumb -sticky nswe\n"
+           << "      }\n"
+           << "    }\n";
+    script << "    ttk::style configure Floating.Horizontal.TScrollbar -arrowsize 0 -thickness 6\n";
+    script << "    ttk::style configure Floating.Vertical.TScrollbar -arrowsize 0 -thickness 6\n";
+
+    script << "    ttk::style layout Hover.Floating.Horizontal.TScrollbar {\n"
+           << "      Horizontal.Scrollbar.trough -sticky we -children {\n"
+           << "        Horizontal.Scrollbar.thumb -sticky nswe\n"
+           << "      }\n"
+           << "    }\n";
+    script << "    ttk::style layout Hover.Floating.Vertical.TScrollbar {\n"
+           << "      Vertical.Scrollbar.trough -sticky ns -children {\n"
+           << "        Vertical.Scrollbar.thumb -sticky nswe\n"
+           << "      }\n"
+           << "    }\n";
+    script << "    ttk::style configure Hover.Floating.Horizontal.TScrollbar -arrowsize 0 -thickness 10\n";
+    script << "    ttk::style configure Hover.Floating.Vertical.TScrollbar -arrowsize 0 -thickness 10\n";
 
     // TScale (Slider) Layout & Geometry
     script << "    ttk::style layout Horizontal.TScale {\n"
@@ -469,6 +498,15 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
 
     script << "  }\n";
     script << "}\n";
+
+    // Dynamic Option Database for Combobox Popdown Listbox
+    script << "option add *TCombobox*Listbox.background \"" << in_bg << "\" widgetDefault\n";
+    script << "option add *TCombobox*Listbox.foreground \"" << in_fg << "\" widgetDefault\n";
+    script << "option add *TCombobox*Listbox.selectBackground \"" << sel_bg << "\" widgetDefault\n";
+    script << "option add *TCombobox*Listbox.selectForeground \"" << sel_fg << "\" widgetDefault\n";
+    script << "option add *TCombobox*Listbox.borderWidth 1 widgetDefault\n";
+    script << "option add *TCombobox*Listbox.relief flat widgetDefault\n";
+    script << "option add *TCombobox*Listbox.highlightThickness 0 widgetDefault\n";
 
     int code = Tcl_Eval(interp, script.str().c_str());
     if (code != TCL_OK) {
