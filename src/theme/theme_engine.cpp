@@ -139,11 +139,7 @@ void ThemeEngine::set_config(const ThemeConfig& cfg) {
 
 void ThemeEngine::set_dark_mode(bool dark) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (dark) {
-        config_ = ThemeConfig::create_dark();
-    } else {
-        config_ = ThemeConfig::create_light();
-    }
+    config_ = dark ? ThemeConfig::create_dark() : ThemeConfig::create_light();
 }
 
 static std::string hex_str(uint32_t argb) {
@@ -151,6 +147,87 @@ static std::string hex_str(uint32_t argb) {
     ss << "#" << std::hex << std::setfill('0') << std::setw(6) << (argb & 0x00FFFFFF);
     return ss.str();
 }
+
+// ---------------------------------------------------------------------------
+// StyleScript — DRY builder for ttk::style configure / map / layout calls.
+// Encapsulates the repetitive ostringstream patterns in init_ttk_theme.
+// ---------------------------------------------------------------------------
+struct StyleScript {
+    std::ostringstream ss;
+
+    /// Emit a ttk::style configure line with arbitrary options string.
+    void configure(const std::string& style, const std::string& opts) {
+        ss << "    ttk::style configure " << style << " " << opts << "\n";
+    }
+
+    /// Emit a standard three-state map for a single property.
+    void map_states(const std::string& style, const std::string& prop,
+                    const std::string& disabled_val,
+                    const std::string& pressed_val,
+                    const std::string& active_val) {
+        ss << "    ttk::style map " << style << " \\\n"
+           << "      -" << prop << " [list"
+           << " disabled \"" << disabled_val << "\""
+           << " pressed \"" << pressed_val << "\""
+           << " active \"" << active_val << "\"]\n";
+    }
+
+    /// Emit configure + two-state (bg + fg) map for a button-like widget.
+    void button_style(const std::string& style,
+                      const std::string& bg,   const std::string& fg,
+                      const std::string& dis_bg, const std::string& dis_fg,
+                      const std::string& pressed_bg, const std::string& pressed_fg,
+                      const std::string& active_bg, const std::string& active_fg) {
+        configure(style, "-anchor center -padding {16 7 16 7}"
+                  " -background \"" + bg + "\" -foreground \"" + fg + "\"");
+        ss << "    ttk::style map " << style << " \\\n"
+           << "      -background [list"
+           << " disabled \"" << dis_bg << "\""
+           << " pressed \"" << pressed_bg << "\""
+           << " active \"" << active_bg << "\"] \\\n"
+           << "      -foreground [list"
+           << " disabled \"" << dis_fg << "\""
+           << " pressed \"" << pressed_fg << "\""
+           << " active \"" << active_fg << "\"]\n";
+    }
+
+    /// Emit configure + map for an input-like widget (Entry, Combobox, Spinbox).
+    void input_style(const std::string& style, const std::string& padding,
+                     const std::string& field_bg, const std::string& fg,
+                     const std::string& insert_col,
+                     const std::string& sel_bg, const std::string& sel_fg,
+                     const std::string& dis_fg, const std::string& dis_bg) {
+        ss << "    ttk::style configure " << style
+           << " -padding " << padding
+           << " -fieldbackground \"" << field_bg << "\""
+           << " -foreground \"" << fg << "\""
+           << " -insertcolor \"" << insert_col << "\""
+           << " -selectbackground \"" << sel_bg << "\""
+           << " -selectforeground \"" << sel_fg << "\"\n";
+        ss << "    ttk::style map " << style << " \\\n"
+           << "      -foreground [list disabled \"" << dis_fg << "\"] \\\n"
+           << "      -fieldbackground [list disabled \"" << dis_bg << "\"]\n";
+    }
+
+    /// Emit a scrollbar layout + configure pair (avoids 4× duplication).
+    void scrollbar_style(const std::string& orient_prefix,
+                         const std::string& style_prefix,
+                         const std::string& trough_sticky,
+                         int thickness) {
+        std::string trough = orient_prefix + ".Scrollbar.trough";
+        std::string thumb  = orient_prefix + ".Scrollbar.thumb";
+        std::string style  = style_prefix + "." + orient_prefix + ".TScrollbar";
+        ss << "    ttk::style layout " << style << " {\n"
+           << "      " << trough << " -sticky " << trough_sticky << " -children {\n"
+           << "        " << thumb << " -sticky nswe\n"
+           << "      }\n"
+           << "    }\n";
+        ss << "    ttk::style configure " << style
+           << " -arrowsize 0 -thickness " << thickness << "\n";
+    }
+
+    std::string str() const { return ss.str(); }
+};
 
 bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
     if (!interp) return false;
@@ -185,331 +262,257 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
     }
 
     // Register Blend2D custom elements (with generic and oriented names)
-    Ttk_RegisterElement(interp, theme, "button", &ButtonElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Button.button", &ButtonElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "field", &EntryFieldElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Entry.field", &EntryFieldElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Combobox.field", &EntryFieldElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Spinbox.field", &EntryFieldElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "indicator", &CheckIndicatorElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Checkbutton.indicator", &CheckIndicatorElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Radiobutton.indicator", &RadioIndicatorElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "trough", &PbarTroughElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "pbar", &PbarBarElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "bar", &PbarBarElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Progressbar.trough", &PbarTroughElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Progressbar.pbar", &PbarBarElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Horizontal.Progressbar.trough", &PbarTroughElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Horizontal.Progressbar.pbar", &PbarBarElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Vertical.Progressbar.trough", &PbarTroughElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Vertical.Progressbar.pbar", &PbarBarElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "thumb", &ScrollbarThumbElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Scrollbar.trough", &ScrollbarTroughElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Scrollbar.thumb", &ScrollbarThumbElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Horizontal.Scrollbar.trough", &ScrollbarTroughElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Horizontal.Scrollbar.thumb", &ScrollbarThumbElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Vertical.Scrollbar.trough", &ScrollbarTroughElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Vertical.Scrollbar.thumb", &ScrollbarThumbElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "slider", &ScaleSliderElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Scale.trough", &ScaleTroughElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Scale.slider", &ScaleSliderElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Horizontal.Scale.trough", &ScaleTroughElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Horizontal.Scale.slider", &ScaleSliderElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Vertical.Scale.trough", &ScaleTroughElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Vertical.Scale.slider", &ScaleSliderElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "downarrow", &ComboboxDownArrowElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Combobox.downarrow", &ComboboxDownArrowElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Combobox.arrow", &ComboboxDownArrowElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "uparrow", &SpinboxUpArrowElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Spinbox.uparrow", &SpinboxUpArrowElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Spinbox.downarrow", &SpinboxDownArrowElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Spinbox.buttons", &SpinboxButtonsElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "tab", &NotebookTabElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Tab.tab", &NotebookTabElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Notebook.tab", &NotebookTabElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Labelframe.border", &LabelframeBorderElementSpec, nullptr);
+    Ttk_RegisterElement(interp, theme, "button",                          &ButtonElementSpec,          nullptr);
+    Ttk_RegisterElement(interp, theme, "Button.button",                   &ButtonElementSpec,          nullptr);
+    Ttk_RegisterElement(interp, theme, "field",                           &EntryFieldElementSpec,      nullptr);
+    Ttk_RegisterElement(interp, theme, "Entry.field",                     &EntryFieldElementSpec,      nullptr);
+    Ttk_RegisterElement(interp, theme, "Combobox.field",                  &EntryFieldElementSpec,      nullptr);
+    Ttk_RegisterElement(interp, theme, "Spinbox.field",                   &EntryFieldElementSpec,      nullptr);
+    Ttk_RegisterElement(interp, theme, "indicator",                       &CheckIndicatorElementSpec,  nullptr);
+    Ttk_RegisterElement(interp, theme, "Checkbutton.indicator",           &CheckIndicatorElementSpec,  nullptr);
+    Ttk_RegisterElement(interp, theme, "Radiobutton.indicator",           &RadioIndicatorElementSpec,  nullptr);
+    Ttk_RegisterElement(interp, theme, "trough",                          &PbarTroughElementSpec,      nullptr);
+    Ttk_RegisterElement(interp, theme, "pbar",                            &PbarBarElementSpec,         nullptr);
+    Ttk_RegisterElement(interp, theme, "bar",                             &PbarBarElementSpec,         nullptr);
+    Ttk_RegisterElement(interp, theme, "Progressbar.trough",              &PbarTroughElementSpec,      nullptr);
+    Ttk_RegisterElement(interp, theme, "Progressbar.pbar",                &PbarBarElementSpec,         nullptr);
+    Ttk_RegisterElement(interp, theme, "Horizontal.Progressbar.trough",   &PbarTroughElementSpec,      nullptr);
+    Ttk_RegisterElement(interp, theme, "Horizontal.Progressbar.pbar",     &PbarBarElementSpec,         nullptr);
+    Ttk_RegisterElement(interp, theme, "Vertical.Progressbar.trough",     &PbarTroughElementSpec,      nullptr);
+    Ttk_RegisterElement(interp, theme, "Vertical.Progressbar.pbar",       &PbarBarElementSpec,         nullptr);
+    Ttk_RegisterElement(interp, theme, "thumb",                           &ScrollbarThumbElementSpec,  nullptr);
+    Ttk_RegisterElement(interp, theme, "Scrollbar.trough",                &ScrollbarTroughElementSpec, nullptr);
+    Ttk_RegisterElement(interp, theme, "Scrollbar.thumb",                 &ScrollbarThumbElementSpec,  nullptr);
+    Ttk_RegisterElement(interp, theme, "Horizontal.Scrollbar.trough",     &ScrollbarTroughElementSpec, nullptr);
+    Ttk_RegisterElement(interp, theme, "Horizontal.Scrollbar.thumb",      &ScrollbarThumbElementSpec,  nullptr);
+    Ttk_RegisterElement(interp, theme, "Vertical.Scrollbar.trough",       &ScrollbarTroughElementSpec, nullptr);
+    Ttk_RegisterElement(interp, theme, "Vertical.Scrollbar.thumb",        &ScrollbarThumbElementSpec,  nullptr);
+    Ttk_RegisterElement(interp, theme, "slider",                          &ScaleSliderElementSpec,     nullptr);
+    Ttk_RegisterElement(interp, theme, "Scale.trough",                    &ScaleTroughElementSpec,     nullptr);
+    Ttk_RegisterElement(interp, theme, "Scale.slider",                    &ScaleSliderElementSpec,     nullptr);
+    Ttk_RegisterElement(interp, theme, "Horizontal.Scale.trough",         &ScaleTroughElementSpec,     nullptr);
+    Ttk_RegisterElement(interp, theme, "Horizontal.Scale.slider",         &ScaleSliderElementSpec,     nullptr);
+    Ttk_RegisterElement(interp, theme, "Vertical.Scale.trough",           &ScaleTroughElementSpec,     nullptr);
+    Ttk_RegisterElement(interp, theme, "Vertical.Scale.slider",           &ScaleSliderElementSpec,     nullptr);
+    Ttk_RegisterElement(interp, theme, "downarrow",                       &ComboboxDownArrowElementSpec, nullptr);
+    Ttk_RegisterElement(interp, theme, "Combobox.downarrow",              &ComboboxDownArrowElementSpec, nullptr);
+    Ttk_RegisterElement(interp, theme, "Combobox.arrow",                  &ComboboxDownArrowElementSpec, nullptr);
+    Ttk_RegisterElement(interp, theme, "uparrow",                         &SpinboxUpArrowElementSpec,  nullptr);
+    Ttk_RegisterElement(interp, theme, "Spinbox.uparrow",                 &SpinboxUpArrowElementSpec,  nullptr);
+    Ttk_RegisterElement(interp, theme, "Spinbox.downarrow",               &SpinboxDownArrowElementSpec, nullptr);
+    Ttk_RegisterElement(interp, theme, "Spinbox.buttons",                 &SpinboxButtonsElementSpec,  nullptr);
+    Ttk_RegisterElement(interp, theme, "tab",                             &NotebookTabElementSpec,     nullptr);
+    Ttk_RegisterElement(interp, theme, "Tab.tab",                         &NotebookTabElementSpec,     nullptr);
+    Ttk_RegisterElement(interp, theme, "Notebook.tab",                    &NotebookTabElementSpec,     nullptr);
+    Ttk_RegisterElement(interp, theme, "client",                          &NotebookClientElementSpec,  nullptr);
+    Ttk_RegisterElement(interp, theme, "Notebook.client",                 &NotebookClientElementSpec,  nullptr);
+    Ttk_RegisterElement(interp, theme, "Labelframe.border",               &LabelframeBorderElementSpec, nullptr);
 
-    // Build Tcl Theme styling script
-    std::string bg      = hex_str(config_.bg_color);
-    std::string fg      = hex_str(config_.fg_color);
-    std::string card_bg = hex_str(config_.card_bg);
-    std::string card_bd = hex_str(config_.card_border);
-    std::string p_col   = hex_str(config_.primary_color);
-    std::string p_fg    = hex_str(config_.primary_fg);
-    std::string sec_col = hex_str(config_.secondary_color);
-    std::string sec_fg  = hex_str(config_.secondary_fg);
-    std::string d_col   = hex_str(config_.destructive_color);
-    std::string d_fg    = hex_str(config_.destructive_fg);
-    std::string dis_fg  = hex_str(config_.disabled_fg);
-    std::string dis_bg  = hex_str(config_.disabled_bg);
-    std::string in_bg   = hex_str(config_.input_bg);
-    std::string in_fg   = hex_str(config_.fg_color);
-    std::string sel_bg  = hex_str(config_.primary_color);
-    std::string sel_fg  = hex_str(config_.primary_fg);
+    // Resolve color tokens once
+    const std::string bg      = hex_str(config_.bg_color);
+    const std::string fg      = hex_str(config_.fg_color);
+    const std::string card_bg = hex_str(config_.card_bg);
+    const std::string card_bd = hex_str(config_.card_border);
+    const std::string p_col   = hex_str(config_.primary_color);
+    const std::string p_fg    = hex_str(config_.primary_fg);
+    const std::string sec_col = hex_str(config_.secondary_color);
+    const std::string sec_fg  = hex_str(config_.secondary_fg);
+    const std::string d_col   = hex_str(config_.destructive_color);
+    const std::string d_fg    = hex_str(config_.destructive_fg);
+    const std::string dis_fg  = hex_str(config_.disabled_fg);
+    const std::string dis_bg  = hex_str(config_.disabled_bg);
+    const std::string in_bg   = hex_str(config_.input_bg);
+    const std::string in_fg   = hex_str(config_.fg_color);
+    const std::string sel_bg  = hex_str(config_.primary_color);
+    const std::string sel_fg  = hex_str(config_.primary_fg);
 
-    std::ostringstream script;
-    script << "namespace eval ttk::theme::" << theme_name << " {\n";
-    script << "  ttk::style theme settings " << theme_name << " {\n";
+    StyleScript s;
+    s.ss << "namespace eval ttk::theme::" << theme_name << " {\n";
+    s.ss << "  ttk::style theme settings " << theme_name << " {\n";
 
     // General defaults
-    script << "    ttk::style configure . \\\n"
-           << "      -background \"" << bg << "\" \\\n"
-           << "      -foreground \"" << fg << "\" \\\n"
-           << "      -troughcolor \"" << bg << "\" \\\n"
-           << "      -selectbackground \"" << sel_bg << "\" \\\n"
-           << "      -selectforeground \"" << sel_fg << "\" \\\n"
-           << "      -insertcolor \"" << fg << "\" \\\n"
-           << "      -borderwidth 0\n";
+    s.ss << "    ttk::style configure . \\\n"
+         << "      -background \""   << bg      << "\" \\\n"
+         << "      -foreground \""   << fg      << "\" \\\n"
+         << "      -troughcolor \""  << bg      << "\" \\\n"
+         << "      -selectbackground \"" << sel_bg << "\" \\\n"
+         << "      -selectforeground \"" << sel_fg << "\" \\\n"
+         << "      -insertcolor \""  << fg      << "\" \\\n"
+         << "      -borderwidth 0\n";
 
-    // Global map for disabled states
-    script << "    ttk::style map . \\\n"
-           << "      -background [list disabled \"" << dis_bg << "\"] \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\"]\n";
+    // Global disabled state map
+    s.ss << "    ttk::style map . \\\n"
+         << "      -background [list disabled \"" << dis_bg << "\"] \\\n"
+         << "      -foreground [list disabled \"" << dis_fg << "\"]\n";
 
-    // TButton Layout & Mapping
-    script << "    ttk::style layout TButton {\n"
-           << "      Button.button -sticky nswe -children {\n"
-           << "        Button.padding -sticky nswe -children {\n"
-           << "          Button.label -sticky nswe\n"
-           << "        }\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style configure TButton -anchor center -padding {16 7 16 7} -background \"" << sec_col << "\" -foreground \"" << sec_fg << "\"\n";
-    script << "    ttk::style map TButton \\\n"
-           << "      -background [list disabled \"" << dis_bg << "\" pressed \"" << sec_col << "\" active \"" << sec_col << "\"] \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\" pressed \"" << sec_fg << "\" active \"" << sec_fg << "\"]\n";
+    // TButton layout
+    s.ss << "    ttk::style layout TButton {\n"
+         << "      Button.button -sticky nswe -children {\n"
+         << "        Button.padding -sticky nswe -children {\n"
+         << "          Button.label -sticky nswe\n"
+         << "        }\n"
+         << "      }\n"
+         << "    }\n";
 
-    // Accent.TButton & Primary.TButton (Electric Indigo)
-    script << "    ttk::style configure Accent.TButton -anchor center -padding {16 7 16 7} -background \"" << p_col << "\" -foreground \"" << p_fg << "\"\n";
-    script << "    ttk::style map Accent.TButton \\\n"
-           << "      -background [list disabled \"" << dis_bg << "\" pressed \"" << p_col << "\" active \"" << p_col << "\"] \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\" pressed \"" << p_fg << "\" active \"" << p_fg << "\"]\n";
-    script << "    ttk::style configure Primary.TButton -anchor center -padding {16 7 16 7} -background \"" << p_col << "\" -foreground \"" << p_fg << "\"\n";
-    script << "    ttk::style map Primary.TButton \\\n"
-           << "      -background [list disabled \"" << dis_bg << "\" pressed \"" << p_col << "\" active \"" << p_col << "\"] \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\" pressed \"" << p_fg << "\" active \"" << p_fg << "\"]\n";
+    // Button variants (Standard / Secondary / Accent=Primary / Destructive / Ghost / Outline)
+    s.button_style("TButton",           sec_col, sec_fg, dis_bg, dis_fg, sec_col, sec_fg, sec_col, sec_fg);
+    s.button_style("Accent.TButton",    p_col,   p_fg,   dis_bg, dis_fg, p_col,   p_fg,   p_col,   p_fg);
+    s.button_style("Primary.TButton",   p_col,   p_fg,   dis_bg, dis_fg, p_col,   p_fg,   p_col,   p_fg);
+    s.button_style("Destructive.TButton", d_col, d_fg,   dis_bg, dis_fg, d_col,   d_fg,   d_col,   d_fg);
+    s.button_style("Danger.TButton",    d_col,   d_fg,   dis_bg, dis_fg, d_col,   d_fg,   d_col,   d_fg);
+    s.button_style("Secondary.TButton", sec_col, sec_fg, dis_bg, dis_fg, sec_col, sec_fg, sec_col, sec_fg);
+    s.button_style("Ghost.TButton",   "ghost",   fg,     dis_bg, dis_fg, sec_col, fg,     sec_col, fg);
+    s.button_style("Outline.TButton", "outline", fg,     dis_bg, dis_fg, sec_col, p_col,  sec_col, p_col);
 
-    // Destructive.TButton & Danger.TButton (Rose / Red)
-    script << "    ttk::style configure Destructive.TButton -anchor center -padding {16 7 16 7} -background \"" << d_col << "\" -foreground \"" << d_fg << "\"\n";
-    script << "    ttk::style map Destructive.TButton \\\n"
-           << "      -background [list disabled \"" << dis_bg << "\" pressed \"" << d_col << "\" active \"" << d_col << "\"] \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\" pressed \"" << d_fg << "\" active \"" << d_fg << "\"]\n";
-    script << "    ttk::style configure Danger.TButton -anchor center -padding {16 7 16 7} -background \"" << d_col << "\" -foreground \"" << d_fg << "\"\n";
-    script << "    ttk::style map Danger.TButton \\\n"
-           << "      -background [list disabled \"" << dis_bg << "\" pressed \"" << d_col << "\" active \"" << d_col << "\"] \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\" pressed \"" << d_fg << "\" active \"" << d_fg << "\"]\n";
+    // TEntry layout
+    s.ss << "    ttk::style layout TEntry {\n"
+         << "      Entry.field -sticky nswe -children {\n"
+         << "        Entry.padding -sticky nswe -children {\n"
+         << "          Entry.textarea -sticky nswe\n"
+         << "        }\n"
+         << "      }\n"
+         << "    }\n";
+    s.input_style("TEntry",    "{10 6 10 6}", in_bg, in_fg, in_fg, sel_bg, sel_fg, dis_fg, dis_bg);
 
-    // Secondary.TButton (Dark Glass Slate)
-    script << "    ttk::style configure Secondary.TButton -anchor center -padding {16 7 16 7} -background \"" << sec_col << "\" -foreground \"" << sec_fg << "\"\n";
-    script << "    ttk::style map Secondary.TButton \\\n"
-           << "      -background [list disabled \"" << dis_bg << "\" pressed \"" << sec_col << "\" active \"" << sec_col << "\"] \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\" pressed \"" << sec_fg << "\" active \"" << sec_fg << "\"]\n";
+    // TCombobox layout
+    s.ss << "    ttk::style layout TCombobox {\n"
+         << "      Combobox.field -sticky nswe -children {\n"
+         << "        Combobox.downarrow -side right -sticky ns\n"
+         << "        Combobox.padding -sticky nswe -children {\n"
+         << "          Combobox.textarea -sticky nswe\n"
+         << "        }\n"
+         << "      }\n"
+         << "    }\n";
+    s.input_style("TCombobox", "{10 6 6 6}",  in_bg, in_fg, in_fg, sel_bg, sel_fg, dis_fg, dis_bg);
 
-    // Ghost.TButton
-    script << "    ttk::style configure Ghost.TButton -anchor center -padding {16 7 16 7} -background \"ghost\" -foreground \"" << fg << "\"\n";
-    script << "    ttk::style map Ghost.TButton \\\n"
-           << "      -background [list disabled \"" << dis_bg << "\" pressed \"" << sec_col << "\" active \"" << sec_col << "\"] \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\" pressed \"" << fg << "\" active \"" << fg << "\"]\n";
+    // TSpinbox layout
+    s.ss << "    ttk::style layout TSpinbox {\n"
+         << "      Spinbox.field -sticky nswe -children {\n"
+         << "        Spinbox.buttons -side right -sticky ns -children {\n"
+         << "          Spinbox.uparrow -side top -sticky ns\n"
+         << "          Spinbox.downarrow -side bottom -sticky ns\n"
+         << "        }\n"
+         << "        Spinbox.padding -sticky nswe -children {\n"
+         << "          Spinbox.textarea -sticky nswe\n"
+         << "        }\n"
+         << "      }\n"
+         << "    }\n";
+    s.input_style("TSpinbox",  "{10 6 4 6}",  in_bg, in_fg, in_fg, sel_bg, sel_fg, dis_fg, dis_bg);
 
-    // Outline.TButton
-    script << "    ttk::style configure Outline.TButton -anchor center -padding {16 7 16 7} -background \"outline\" -foreground \"" << fg << "\"\n";
-    script << "    ttk::style map Outline.TButton \\\n"
-           << "      -background [list disabled \"" << dis_bg << "\" pressed \"" << sec_col << "\" active \"" << sec_col << "\"] \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\" pressed \"" << p_col << "\" active \"" << p_col << "\"]\n";
+    // TCheckbutton
+    s.ss << "    ttk::style layout TCheckbutton {\n"
+         << "      Checkbutton.padding -sticky nswe -children {\n"
+         << "        Checkbutton.indicator -side left -sticky \"\"\n"
+         << "        Checkbutton.focus -side left -sticky w -children {\n"
+         << "          Checkbutton.label -sticky nswe\n"
+         << "        }\n"
+         << "      }\n"
+         << "    }\n";
+    s.configure("TCheckbutton", "-padding {4 4 8 4} -background \"" + bg + "\" -foreground \"" + fg + "\"");
+    s.map_states("TCheckbutton", "foreground", dis_fg, fg, fg);
 
-    // TEntry Layout & Mapping
-    script << "    ttk::style layout TEntry {\n"
-           << "      Entry.field -sticky nswe -children {\n"
-           << "        Entry.padding -sticky nswe -children {\n"
-           << "          Entry.textarea -sticky nswe\n"
-           << "        }\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style configure TEntry \\\n"
-           << "      -padding {10 6 10 6} \\\n"
-           << "      -fieldbackground \"" << in_bg << "\" \\\n"
-           << "      -foreground \"" << in_fg << "\" \\\n"
-           << "      -insertcolor \"" << in_fg << "\" \\\n"
-           << "      -selectbackground \"" << sel_bg << "\" \\\n"
-           << "      -selectforeground \"" << sel_fg << "\"\n";
-    script << "    ttk::style map TEntry \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\"] \\\n"
-           << "      -fieldbackground [list disabled \"" << dis_bg << "\"]\n";
+    // TRadiobutton
+    s.ss << "    ttk::style layout TRadiobutton {\n"
+         << "      Radiobutton.padding -sticky nswe -children {\n"
+         << "        Radiobutton.indicator -side left -sticky \"\"\n"
+         << "        Radiobutton.focus -side left -sticky w -children {\n"
+         << "          Radiobutton.label -sticky nswe\n"
+         << "        }\n"
+         << "      }\n"
+         << "    }\n";
+    s.configure("TRadiobutton", "-padding {4 4 8 4} -background \"" + bg + "\" -foreground \"" + fg + "\"");
+    s.map_states("TRadiobutton", "foreground", dis_fg, fg, fg);
 
-    // TCombobox Layout & Mapping
-    script << "    ttk::style layout TCombobox {\n"
-           << "      Combobox.field -sticky nswe -children {\n"
-           << "        Combobox.downarrow -side right -sticky ns\n"
-           << "        Combobox.padding -sticky nswe -children {\n"
-           << "          Combobox.textarea -sticky nswe\n"
-           << "        }\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style configure TCombobox -padding {10 6 6 6} -fieldbackground \"" << in_bg << "\" -foreground \"" << in_fg << "\" -insertcolor \"" << in_fg << "\" -selectbackground \"" << sel_bg << "\" -selectforeground \"" << sel_fg << "\"\n";
-    script << "    ttk::style map TCombobox \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\"] \\\n"
-           << "      -fieldbackground [list disabled \"" << dis_bg << "\"]\n";
+    // TProgressbar layouts & geometry
+    s.ss << "    ttk::style layout Horizontal.TProgressbar {\n"
+         << "      Horizontal.Progressbar.trough -sticky nswe -children {\n"
+         << "        Horizontal.Progressbar.pbar -side left -sticky ns\n"
+         << "      }\n"
+         << "    }\n"
+         << "    ttk::style layout Vertical.TProgressbar {\n"
+         << "      Vertical.Progressbar.trough -sticky nswe -children {\n"
+         << "        Vertical.Progressbar.pbar -side bottom -sticky we\n"
+         << "      }\n"
+         << "    }\n";
+    s.configure("Horizontal.TProgressbar", "-thickness 12");
+    s.configure("Vertical.TProgressbar",   "-thickness 12");
 
-    // TSpinbox Layout & Mapping
-    script << "    ttk::style layout TSpinbox {\n"
-           << "      Spinbox.field -sticky nswe -children {\n"
-           << "        Spinbox.buttons -side right -sticky ns -children {\n"
-           << "          Spinbox.uparrow -side top -sticky ns\n"
-           << "          Spinbox.downarrow -side bottom -sticky ns\n"
-           << "        }\n"
-           << "        Spinbox.padding -sticky nswe -children {\n"
-           << "          Spinbox.textarea -sticky nswe\n"
-           << "        }\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style configure TSpinbox -padding {10 6 4 6} -fieldbackground \"" << in_bg << "\" -foreground \"" << in_fg << "\" -insertcolor \"" << in_fg << "\" -selectbackground \"" << sel_bg << "\" -selectforeground \"" << sel_fg << "\"\n";
-    script << "    ttk::style map TSpinbox \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\"] \\\n"
-           << "      -fieldbackground [list disabled \"" << dis_bg << "\"]\n";
+    // TScrollbar — standard (12px) and floating overlay (6px idle / 10px hover)
+    for (const auto& orient : std::initializer_list<std::pair<const char*, const char*>>{
+            {"Horizontal", "we"}, {"Vertical", "ns"}}) {
+        s.scrollbar_style(orient.first, "",       orient.second, 12);
+        s.scrollbar_style(orient.first, "Floating", orient.second, 6);
+        s.scrollbar_style(orient.first, "Hover.Floating", orient.second, 10);
+    }
 
-    // TCheckbutton Layout & Mapping
-    script << "    ttk::style layout TCheckbutton {\n"
-           << "      Checkbutton.padding -sticky nswe -children {\n"
-           << "        Checkbutton.indicator -side left -sticky \"\"\n"
-           << "        Checkbutton.focus -side left -sticky w -children {\n"
-           << "          Checkbutton.label -sticky nswe\n"
-           << "        }\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style configure TCheckbutton -padding {4 4 8 4} -background \"" << bg << "\" -foreground \"" << fg << "\"\n";
-    script << "    ttk::style map TCheckbutton \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\"]\n";
-
-    // TRadiobutton Layout & Mapping
-    script << "    ttk::style layout TRadiobutton {\n"
-           << "      Radiobutton.padding -sticky nswe -children {\n"
-           << "        Radiobutton.indicator -side left -sticky \"\"\n"
-           << "        Radiobutton.focus -side left -sticky w -children {\n"
-           << "          Radiobutton.label -sticky nswe\n"
-           << "        }\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style configure TRadiobutton -padding {4 4 8 4} -background \"" << bg << "\" -foreground \"" << fg << "\"\n";
-    script << "    ttk::style map TRadiobutton \\\n"
-           << "      -foreground [list disabled \"" << dis_fg << "\"]\n";
-
-    // TProgressbar Layout & Geometry
-    script << "    ttk::style layout Horizontal.TProgressbar {\n"
-           << "      Horizontal.Progressbar.trough -sticky nswe -children {\n"
-           << "        Horizontal.Progressbar.pbar -side left -sticky ns\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style layout Vertical.TProgressbar {\n"
-           << "      Vertical.Progressbar.trough -sticky nswe -children {\n"
-           << "        Vertical.Progressbar.pbar -side bottom -sticky we\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style configure Horizontal.TProgressbar -thickness 12\n";
-    script << "    ttk::style configure Vertical.TProgressbar -thickness 12\n";
-
-    // TScrollbar Layout & Geometry
-    script << "    ttk::style layout Horizontal.TScrollbar {\n"
-           << "      Horizontal.Scrollbar.trough -sticky we -children {\n"
-           << "        Horizontal.Scrollbar.thumb -sticky nswe\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style layout Vertical.TScrollbar {\n"
-           << "      Vertical.Scrollbar.trough -sticky ns -children {\n"
-           << "        Vertical.Scrollbar.thumb -sticky nswe\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style configure Horizontal.TScrollbar -arrowsize 0 -thickness 12\n";
-    script << "    ttk::style configure Vertical.TScrollbar -arrowsize 0 -thickness 12\n";
-
-    // Floating Overlay Scrollbars (Slim 6px idle, 10px on hover)
-    script << "    ttk::style layout Floating.Horizontal.TScrollbar {\n"
-           << "      Horizontal.Scrollbar.trough -sticky we -children {\n"
-           << "        Horizontal.Scrollbar.thumb -sticky nswe\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style layout Floating.Vertical.TScrollbar {\n"
-           << "      Vertical.Scrollbar.trough -sticky ns -children {\n"
-           << "        Vertical.Scrollbar.thumb -sticky nswe\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style configure Floating.Horizontal.TScrollbar -arrowsize 0 -thickness 6\n";
-    script << "    ttk::style configure Floating.Vertical.TScrollbar -arrowsize 0 -thickness 6\n";
-
-    script << "    ttk::style layout Hover.Floating.Horizontal.TScrollbar {\n"
-           << "      Horizontal.Scrollbar.trough -sticky we -children {\n"
-           << "        Horizontal.Scrollbar.thumb -sticky nswe\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style layout Hover.Floating.Vertical.TScrollbar {\n"
-           << "      Vertical.Scrollbar.trough -sticky ns -children {\n"
-           << "        Vertical.Scrollbar.thumb -sticky nswe\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style configure Hover.Floating.Horizontal.TScrollbar -arrowsize 0 -thickness 10\n";
-    script << "    ttk::style configure Hover.Floating.Vertical.TScrollbar -arrowsize 0 -thickness 10\n";
-
-    // TScale (Slider) Layout & Geometry
-    script << "    ttk::style layout Horizontal.TScale {\n"
-           << "      Horizontal.Scale.trough -sticky nswe -children {\n"
-           << "        Horizontal.Scale.slider -side left -sticky \"\"\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style layout Vertical.TScale {\n"
-           << "      Vertical.Scale.trough -sticky nswe -children {\n"
-           << "        Vertical.Scale.slider -side top -sticky \"\"\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style configure Horizontal.TScale -sliderlength 20 -thickness 20\n";
-    script << "    ttk::style configure Vertical.TScale -sliderlength 20 -thickness 20\n";
+    // TScale layouts & geometry
+    s.ss << "    ttk::style layout Horizontal.TScale {\n"
+         << "      Horizontal.Scale.trough -sticky nswe -children {\n"
+         << "        Horizontal.Scale.slider -side left -sticky \"\"\n"
+         << "      }\n"
+         << "    }\n"
+         << "    ttk::style layout Vertical.TScale {\n"
+         << "      Vertical.Scale.trough -sticky nswe -children {\n"
+         << "        Vertical.Scale.slider -side top -sticky \"\"\n"
+         << "      }\n"
+         << "    }\n";
+    s.configure("Horizontal.TScale", "-sliderlength 20 -thickness 20");
+    s.configure("Vertical.TScale",   "-sliderlength 20 -thickness 20");
 
     // TLabel, TFrame, TLabelframe (Cards)
-    script << "    ttk::style configure TLabel -background \"" << bg << "\" -foreground \"" << fg << "\"\n";
-    script << "    ttk::style configure TFrame -background \"" << bg << "\"\n";
-    script << "    ttk::style configure Card.TFrame -background \"" << card_bg << "\"\n";
-    script << "    ttk::style layout TLabelframe {\n"
-           << "      Labelframe.border -sticky nswe -children {\n"
-           << "        Labelframe.padding -sticky nswe -children {\n"
-           << "          Labelframe.label -side top -sticky w\n"
-           << "        }\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style configure TLabelframe -background \"" << card_bg << "\" -foreground \"" << fg << "\" -padding {16 12 16 12}\n";
-    script << "    ttk::style configure TLabelframe.Label -background \"" << card_bg << "\" -foreground \"" << fg << "\" -font TkHeadingFont\n";
+    s.configure("TLabel",           "-background \"" + bg      + "\" -foreground \"" + fg + "\"");
+    s.configure("TFrame",           "-background \"" + bg      + "\"");
+    s.configure("Card.TFrame",      "-background \"" + card_bg + "\"");
+    s.ss << "    ttk::style layout TLabelframe {\n"
+         << "      Labelframe.border -sticky nswe -children {\n"
+         << "        Labelframe.padding -sticky nswe -children {\n"
+         << "          Labelframe.label -side top -sticky w\n"
+         << "        }\n"
+         << "      }\n"
+         << "    }\n";
+    s.configure("TLabelframe",       "-background \"" + card_bg + "\" -foreground \"" + fg + "\" -padding {16 12 16 12}");
+    s.configure("TLabelframe.Label", "-background \"" + card_bg + "\" -foreground \"" + fg + "\" -font TkHeadingFont");
 
     // TNotebook (Tabs)
-    script << "    ttk::style layout TNotebook {\n"
-           << "      Notebook.client -sticky nswe\n"
-           << "    }\n";
-    script << "    ttk::style layout TNotebook.Tab {\n"
-           << "      Notebook.tab -sticky nswe -children {\n"
-           << "        Notebook.padding -sticky nswe -children {\n"
-           << "          Notebook.label -sticky nswe\n"
-           << "        }\n"
-           << "      }\n"
-           << "    }\n";
-    script << "    ttk::style configure TNotebook -background \"" << bg << "\" -tabmargins {4 4 4 4}\n";
-    script << "    ttk::style configure TNotebook.Tab -padding {16 7 16 7} -background \"" << card_bg << "\" -foreground \"" << fg << "\"\n";
-    script << "    ttk::style map TNotebook.Tab -background [list selected \"" << p_col << "\" active \"" << sec_col << "\"] -foreground [list selected \"" << p_fg << "\"]\n";
+    s.ss << "    ttk::style layout TNotebook {\n"
+         << "      Notebook.client -sticky nswe\n"
+         << "    }\n"
+         << "    ttk::style layout TNotebook.Tab {\n"
+         << "      Notebook.tab -sticky nswe -children {\n"
+         << "        Notebook.padding -sticky nswe -children {\n"
+         << "          Notebook.label -sticky nswe\n"
+         << "        }\n"
+         << "      }\n"
+         << "    }\n";
+    s.configure("TNotebook",     "-background \"" + bg + "\" -tabmargins {4 4 4 4}");
+    s.configure("TNotebook.Tab", "-padding {16 7 16 7} -background \"" + card_bg + "\" -foreground \"" + fg + "\"");
+    s.ss << "    ttk::style map TNotebook.Tab"
+         << " -background [list selected \"" << p_col << "\" active \"" << sec_col << "\"]"
+         << " -foreground [list selected \"" << p_fg << "\"]\n";
 
     // Treeview
-    script << "    ttk::style configure Treeview -background \"" << card_bg << "\" -foreground \"" << fg << "\" -fieldbackground \"" << card_bg << "\" -borderwidth 0 -rowheight 28\n";
-    script << "    ttk::style configure Treeview.Heading -background \"" << in_bg << "\" -foreground \"" << fg << "\" -relief flat -padding {6 4}\n";
-    script << "    ttk::style map Treeview -background [list selected \"" << p_col << "\"] -foreground [list selected \"" << p_fg << "\"]\n";
+    s.configure("Treeview",
+        "-background \"" + card_bg + "\" -foreground \"" + fg +
+        "\" -fieldbackground \"" + card_bg + "\" -borderwidth 0 -rowheight 28");
+    s.configure("Treeview.Heading",
+        "-background \"" + in_bg + "\" -foreground \"" + fg + "\" -relief flat -padding {6 4}");
+    s.ss << "    ttk::style map Treeview"
+         << " -background [list selected \"" << p_col << "\"]"
+         << " -foreground [list selected \"" << p_fg << "\"]\n";
 
-    script << "  }\n";
-    script << "}\n";
+    s.ss << "  }\n}\n";
 
     // Dynamic Option Database for Combobox Popdown Listbox
-    script << "option add *TCombobox*Listbox.background \"" << in_bg << "\" widgetDefault\n";
-    script << "option add *TCombobox*Listbox.foreground \"" << in_fg << "\" widgetDefault\n";
-    script << "option add *TCombobox*Listbox.selectBackground \"" << sel_bg << "\" widgetDefault\n";
-    script << "option add *TCombobox*Listbox.selectForeground \"" << sel_fg << "\" widgetDefault\n";
-    script << "option add *TCombobox*Listbox.borderWidth 1 widgetDefault\n";
-    script << "option add *TCombobox*Listbox.relief flat widgetDefault\n";
-    script << "option add *TCombobox*Listbox.highlightThickness 0 widgetDefault\n";
+    s.ss << "option add *TCombobox*Listbox.background \""     << in_bg  << "\" widgetDefault\n"
+         << "option add *TCombobox*Listbox.foreground \""     << in_fg  << "\" widgetDefault\n"
+         << "option add *TCombobox*Listbox.selectBackground \"" << sel_bg << "\" widgetDefault\n"
+         << "option add *TCombobox*Listbox.selectForeground \"" << sel_fg << "\" widgetDefault\n"
+         << "option add *TCombobox*Listbox.borderWidth 1 widgetDefault\n"
+         << "option add *TCombobox*Listbox.relief flat widgetDefault\n"
+         << "option add *TCombobox*Listbox.highlightThickness 0 widgetDefault\n";
 
-    int code = Tcl_Eval(interp, script.str().c_str());
-    if (code != TCL_OK) {
+    const std::string script = s.str();
+    if (Tcl_Eval(interp, script.c_str()) != TCL_OK) {
         return false;
     }
 

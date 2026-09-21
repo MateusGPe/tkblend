@@ -103,21 +103,19 @@ static void PbarBarDraw(
         ctx.set_fill_style(grad);
         ctx.fill_path(barPath);
 
-        // Specular highlight
+        // Specular highlight along the leading edge
+        auto draw_specular = [&](double x1, double y1, double x2, double y2) {
+            BLPath hiPath;
+            hiPath.move_to(x1, y1);
+            hiPath.line_to(x2, y2);
+            ctx.set_stroke_width(1.0);
+            ctx.set_stroke_style(to_bl_rgba(0x40FFFFFF));
+            ctx.stroke_path(hiPath);
+        };
         if (w >= h && h >= 6 && w > 12) {
-            BLPath hiPath;
-            hiPath.move_to(r * 0.6, 1.5);
-            hiPath.line_to(w - r * 0.6, 1.5);
-            ctx.set_stroke_width(1.0);
-            ctx.set_stroke_style(to_bl_rgba(0x40FFFFFF));
-            ctx.stroke_path(hiPath);
+            draw_specular(r * 0.6, 1.5, w - r * 0.6, 1.5);
         } else if (w < h && w >= 6 && h > 12) {
-            BLPath hiPath;
-            hiPath.move_to(1.5, r * 0.6);
-            hiPath.line_to(1.5, h - r * 0.6);
-            ctx.set_stroke_width(1.0);
-            ctx.set_stroke_style(to_bl_rgba(0x40FFFFFF));
-            ctx.stroke_path(hiPath);
+            draw_specular(1.5, r * 0.6, 1.5, h - r * 0.6);
         }
     });
 }

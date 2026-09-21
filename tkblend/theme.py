@@ -3,9 +3,12 @@ Native TTK Theme Engine Bridge and Theme Helpers for Tkinter and Blend2D.
 """
 
 from __future__ import annotations
+import logging
 import tkinter as tk
 from tkinter import ttk
 from typing import Optional, Dict, Any, Callable, Tuple, Union
+
+logger = logging.getLogger(__name__)
 
 try:
     from tkblend._tkblend import (  # type: ignore
@@ -14,7 +17,6 @@ try:
         set_theme_dark_mode as _native_set_dark_mode,
         set_theme_config as _native_set_config,
         get_theme_config as _native_get_config,
-        Color as _NativeColor,
     )
 except ImportError:
     ThemeConfig = None  # type: ignore
@@ -22,6 +24,9 @@ except ImportError:
     _native_set_dark_mode = None  # type: ignore
     _native_set_config = None  # type: ignore
     _native_get_config = None  # type: ignore
+
+# Default font for ThemedText widget
+_DEFAULT_TEXT_FONT = ("Helvetica", 10)
 
 # Standard bootstrap fallback colors if ttkbootstrap is not active
 _FALLBACK_BOOTSTRAP_PALETTE = {
@@ -42,13 +47,24 @@ _FALLBACK_BOOTSTRAP_PALETTE = {
     "selectfg": "#ffffff",
 }
 
+# Maps apply_theme() keyword arg names → (cfg attribute, cast function)
+_CFG_FLOAT_OVERRIDES: Tuple[Tuple[str, str], ...] = (
+    ("button_radius",      "button_radius"),
+    ("entry_radius",       "entry_radius"),
+    ("check_radius",       "check_radius"),
+    ("pbar_radius",        "pbar_radius"),
+    ("scrollbar_radius",   "scrollbar_radius"),
+    ("scale_radius",       "scale_radius"),
+    ("scale_thumb_radius", "scale_thumb_radius"),
+    ("focus_ring_width",   "focus_ring_width"),
+    ("shadow_blur",        "shadow_blur"),
+)
+
 
 def _get_interp_addr(widget: Optional[tk.Misc] = None) -> int:
     """Safely extract Tcl_Interp memory address from Tk widget or default root."""
     if widget is None:
-        widget = getattr(tk, "_default_root", None)
-    if widget is None:
-        widget = tk._get_default_root()
+        widget = getattr(tk, "_default_root", None) or tk._get_default_root()
     if widget is not None and hasattr(widget, "tk") and hasattr(widget.tk, "interpaddr"):
         return int(widget.tk.interpaddr())
     return 0
@@ -60,11 +76,11 @@ def register_theme(widget: Optional[tk.Misc] = None, theme_name: str = "tkblend"
     """
     if _native_register_theme is None:
         raise RuntimeError("Native _tkblend extension is not loaded")
-    
+
     interp_addr = _get_interp_addr(widget)
     if not interp_addr:
         raise ValueError("Could not find active Tk interpreter address")
-    
+
     return _native_register_theme(interp_addr, theme_name)
 
 
@@ -104,7 +120,7 @@ def apply_theme(
 ) -> str:
     """
     Register and activate the Native Blend2D TTK theme on the given Tk application.
-    
+
     Parameters
     ----------
     widget : tk.Misc, optional
@@ -133,7 +149,7 @@ def apply_theme(
         Enable or disable soft drop shadows.
     shadow_blur : float, optional
         Custom blur radius for drop shadows.
-        
+
     Returns
     -------
     str
@@ -143,26 +159,14 @@ def apply_theme(
 
     cfg = get_theme_config()
     if cfg is not None:
-        if button_radius is not None:
-            cfg.button_radius = float(button_radius)
-        if entry_radius is not None:
-            cfg.entry_radius = float(entry_radius)
-        if check_radius is not None:
-            cfg.check_radius = float(check_radius)
-        if pbar_radius is not None:
-            cfg.pbar_radius = float(pbar_radius)
-        if scrollbar_radius is not None:
-            cfg.scrollbar_radius = float(scrollbar_radius)
-        if scale_radius is not None:
-            cfg.scale_radius = float(scale_radius)
-        if scale_thumb_radius is not None:
-            cfg.scale_thumb_radius = float(scale_thumb_radius)
-        if focus_ring_width is not None:
-            cfg.focus_ring_width = float(focus_ring_width)
+        # Apply float overrides via DRY dict-driven loop
+        local_vals = locals()
+        for arg_name, attr_name in _CFG_FLOAT_OVERRIDES:
+            val = local_vals[arg_name]
+            if val is not None:
+                setattr(cfg, attr_name, float(val))
         if enable_shadows is not None:
             cfg.enable_shadows = bool(enable_shadows)
-        if shadow_blur is not None:
-            cfg.shadow_blur = float(shadow_blur)
         set_theme_config(cfg)
 
     register_theme(widget, theme_name=theme_name)
@@ -172,27 +176,33 @@ def apply_theme(
 
     # Sync root / toplevel background and broadcast <<ThemeChanged>>
     if widget is not None:
-        try:
-            pal = get_theme_palette()
-            if hasattr(widget, "configure"):
-                try:
-                    widget.configure(background=pal["bg"])
-                except Exception:
-                    pass
-            toplevel = widget.winfo_toplevel()
-            if toplevel is not None and toplevel is not widget and hasattr(toplevel, "configure"):
-                try:
-                    toplevel.configure(background=pal["bg"])
-                except Exception:
-                    pass
-
-            widget.event_generate("<<ThemeChanged>>")
-            if toplevel is not None and toplevel is not widget:
-                toplevel.event_generate("<<ThemeChanged>>")
-        except Exception:
-            pass
+        _sync_root_background(widget)
 
     return theme_name
+
+
+def _sync_root_background(widget: tk.Misc) -> None:
+    """Sync background color on root/toplevel and fire <<ThemeChanged>>."""
+    try:
+        pal = get_theme_palette()
+        bg = pal["bg"]
+        _try_configure_bg(widget, bg)
+        toplevel = widget.winfo_toplevel()
+        if toplevel is not widget:
+            _try_configure_bg(toplevel, bg)
+        widget.event_generate("<<ThemeChanged>>")
+        if toplevel is not widget:
+            toplevel.event_generate("<<ThemeChanged>>")
+    except tk.TclError as exc:
+        logger.debug("ThemeChanged sync error: %s", exc)
+
+
+def _try_configure_bg(widget: tk.Misc, color: str) -> None:
+    """Attempt to set background on a widget, silently ignoring unsupported options."""
+    try:
+        widget.configure(background=color)  # type: ignore[arg-type]
+    except tk.TclError:
+        pass
 
 
 def get_theme_palette() -> Dict[str, str]:
@@ -205,25 +215,25 @@ def get_theme_palette() -> Dict[str, str]:
             return f"#{val & 0x00FFFFFF:06x}"
 
         return {
-            "bg": _h(cfg.bg_color),
-            "fg": _h(cfg.fg_color),
-            "card_bg": _h(cfg.card_bg),
-            "card_border": _h(cfg.card_border),
-            "primary": _h(cfg.primary_color),
-            "secondary": _h(cfg.secondary_color),
-            "input_bg": _h(cfg.input_bg),
-            "input_fg": _h(cfg.fg_color),
-            "input_border": _h(cfg.input_border),
+            "bg":                 _h(cfg.bg_color),
+            "fg":                 _h(cfg.fg_color),
+            "card_bg":            _h(cfg.card_bg),
+            "card_border":        _h(cfg.card_border),
+            "primary":            _h(cfg.primary_color),
+            "secondary":          _h(cfg.secondary_color),
+            "input_bg":           _h(cfg.input_bg),
+            "input_fg":           _h(cfg.fg_color),
+            "input_border":       _h(cfg.input_border),
             "input_focus_border": _h(cfg.input_focus_border),
-            "disabled_bg": _h(cfg.disabled_bg),
-            "disabled_fg": _h(cfg.disabled_fg),
-            "placeholder_fg": _h(cfg.disabled_fg),
-            "track_bg": _h(cfg.track_bg),
-            "thumb_color": _h(cfg.thumb_color),
-            "thumb_hover": _h(cfg.thumb_hover),
-            "thumb_active": _h(cfg.thumb_active),
-            "select_bg": _h(cfg.primary_color),
-            "select_fg": _h(cfg.primary_fg),
+            "disabled_bg":        _h(cfg.disabled_bg),
+            "disabled_fg":        _h(cfg.disabled_fg),
+            "placeholder_fg":     _h(cfg.disabled_fg),
+            "track_bg":           _h(cfg.track_bg),
+            "thumb_color":        _h(cfg.thumb_color),
+            "thumb_hover":        _h(cfg.thumb_hover),
+            "thumb_active":       _h(cfg.thumb_active),
+            "select_bg":          _h(cfg.primary_color),
+            "select_fg":          _h(cfg.primary_fg),
         }
     return dict(_FALLBACK_BOOTSTRAP_PALETTE)
 
@@ -236,7 +246,7 @@ def sync_widget_colors(widget: tk.Misc) -> None:
     w_type = widget.winfo_class() if hasattr(widget, "winfo_class") else ""
     try:
         if w_type == "Text":
-            widget.configure(  # type: ignore
+            widget.configure(  # type: ignore[arg-type]
                 background=pal["card_bg"],
                 foreground=pal["fg"],
                 insertbackground=pal["fg"],
@@ -244,17 +254,17 @@ def sync_widget_colors(widget: tk.Misc) -> None:
                 selectforeground=pal["select_fg"],
             )
         elif w_type == "Canvas":
-            widget.configure(background=pal["card_bg"])  # type: ignore
+            widget.configure(background=pal["card_bg"])  # type: ignore[arg-type]
         elif w_type == "Entry":
-            widget.configure(  # type: ignore
+            widget.configure(  # type: ignore[arg-type]
                 background=pal["input_bg"],
                 foreground=pal["input_fg"],
                 insertbackground=pal["input_fg"],
                 selectbackground=pal["select_bg"],
                 selectforeground=pal["select_fg"],
             )
-    except Exception:
-        pass
+    except tk.TclError as exc:
+        logger.debug("sync_widget_colors error on %s: %s", w_type, exc)
 
 
 def is_ttkbootstrap_installed() -> bool:
@@ -283,7 +293,7 @@ def get_active_theme_name() -> str:
     if style is not None and hasattr(style, "theme_use"):
         try:
             return style.theme_use()
-        except Exception:
+        except tk.TclError:
             pass
     return "default"
 
@@ -323,24 +333,18 @@ def resolve_theme_color(color: Union[str, Any], alpha: Optional[Union[float, int
     raw = color.strip()
     parsed_alpha: Optional[float] = None
 
-    if "/" in raw:
-        name_part, alpha_part = raw.rsplit("/", 1)
-        name_part = name_part.strip()
-        try:
-            val = float(alpha_part.strip())
-            parsed_alpha = val if val <= 1.0 else val / 255.0
-        except ValueError:
-            pass
-        raw = name_part
-    elif ":" in raw and not raw.startswith("#"):
-        name_part, alpha_part = raw.rsplit(":", 1)
-        name_part = name_part.strip()
-        try:
-            val = float(alpha_part.strip())
-            parsed_alpha = val if val <= 1.0 else val / 255.0
-        except ValueError:
-            pass
-        raw = name_part
+    # Parse inline alpha suffix: 'token/0.5' or 'token:0.5'
+    for sep in ("/", ":"):
+        if sep in raw and not (sep == ":" and raw.startswith("#")):
+            name_part, alpha_part = raw.rsplit(sep, 1)
+            # Always consume the separator — resolve the base token even if alpha is invalid
+            raw = name_part.strip()
+            try:
+                val = float(alpha_part.strip())
+                parsed_alpha = val if val <= 1.0 else val / 255.0
+            except ValueError:
+                pass  # invalid alpha portion — base token still resolved
+            break  # only one separator applies
 
     if alpha is not None:
         parsed_alpha = float(alpha) if alpha <= 1.0 else float(alpha) / 255.0
@@ -360,9 +364,8 @@ def resolve_theme_color(color: Union[str, Any], alpha: Optional[Union[float, int
         clean_hex = hex_color[1:]
         if len(clean_hex) == 8:
             clean_hex = clean_hex[:6]
-        elif len(clean_hex) == 3 or len(clean_hex) == 4:
-            clean_hex = "".join([c * 2 for c in clean_hex[:3]])
-
+        elif len(clean_hex) in (3, 4):
+            clean_hex = "".join(c * 2 for c in clean_hex[:3])
         alpha_byte = max(0, min(255, int(parsed_alpha * 255.0)))
         return f"#{clean_hex}{alpha_byte:02x}"
 
@@ -381,8 +384,8 @@ def bind_theme_changed(widget: tk.Misc, callback: Callable[[], None]) -> None:
         toplevel = widget.winfo_toplevel()
         if toplevel is not widget:
             toplevel.bind("<<ThemeChanged>>", _on_theme_changed, add="+")
-    except Exception:
-        pass
+    except tk.TclError as exc:
+        logger.debug("bind_theme_changed error: %s", exc)
 
 
 # =============================================================================
@@ -397,11 +400,11 @@ class ThemedEntry(ttk.Entry):
     def __init__(self, master=None, placeholder: str = "", **kwargs):
         self._placeholder = placeholder
         self._has_placeholder = False
-        self._user_var = kwargs.get("textvariable")
         super().__init__(master, **kwargs)
 
-        self._placeholder_style = f"Placeholder.{self.winfo_name()}.TEntry"
-        
+        # Use id(self) for a guaranteed-unique style name across all instances
+        self._placeholder_style = f"Placeholder.{id(self)}.TEntry"
+
         self.bind("<FocusIn>", self._on_focus_in, add="+")
         self.bind("<FocusOut>", self._on_focus_out, add="+")
         bind_theme_changed(self, self._on_theme_changed)
@@ -480,7 +483,10 @@ class FloatingScrollbar(ttk.Scrollbar):
         orient = kwargs.get("orient", "vertical")
         self._orient = str(orient).lower()
         if "style" not in kwargs:
-            kwargs["style"] = "Floating.Vertical.TScrollbar" if self._orient == "vertical" else "Floating.Horizontal.TScrollbar"
+            kwargs["style"] = (
+                "Floating.Vertical.TScrollbar" if self._orient == "vertical"
+                else "Floating.Horizontal.TScrollbar"
+            )
         super().__init__(master, **kwargs)
 
         self.target = target
@@ -498,7 +504,7 @@ class FloatingScrollbar(ttk.Scrollbar):
         self.bind("<ButtonRelease-1>", self._on_release, add="+")
         self.bind("<B1-Motion>", self._on_motion, add="+")
 
-        # Scrollbar mousewheel handling
+        # Scrollbar mousewheel handling (Windows/macOS + Linux)
         self.bind("<MouseWheel>", self._on_wheel_scroll, add="+")
         self.bind("<Button-4>", lambda e: self._handle_wheel(-1), add="+")
         self.bind("<Button-5>", lambda e: self._handle_wheel(1), add="+")
@@ -515,7 +521,7 @@ class FloatingScrollbar(ttk.Scrollbar):
                 return "vertical"
             if "horiz" in val:
                 return "horizontal"
-        except Exception:
+        except tk.TclError:
             pass
         return self._orient
 
@@ -533,12 +539,13 @@ class FloatingScrollbar(ttk.Scrollbar):
         # Place initial overlay
         self._apply_placement()
 
-        # Target bindings for reveal on activity & wheel
+        # Target bindings: reveal on activity & wheel
+        # Linux: Button-4 = scroll up (delta -1), Button-5 = scroll down (delta +1)
         target.bind("<Enter>", lambda e: self._on_target_enter(), add="+")
         target.bind("<Leave>", lambda e: self._on_target_leave(), add="+")
-        target.bind("<MouseWheel>", self._on_target_wheel, add="+")
-        target.bind("<Button-4>", lambda e: self._on_target_linux_wheel(-1), add="+")
-        target.bind("<Button-5>", lambda e: self._on_target_linux_wheel(1), add="+")
+        target.bind("<MouseWheel>", self._on_wheel_scroll, add="+")
+        target.bind("<Button-4>", lambda e: self._handle_wheel(-1), add="+")
+        target.bind("<Button-5>", lambda e: self._handle_wheel(1), add="+")
         target.bind("<Configure>", lambda e: self._on_target_configure(), add="+")
 
         self._schedule_hide()
@@ -565,7 +572,7 @@ class FloatingScrollbar(ttk.Scrollbar):
             style_name = "Hover.Floating.Horizontal.TScrollbar" if expanded else "Floating.Horizontal.TScrollbar"
         try:
             self.configure(style=style_name)
-        except Exception:
+        except tk.TclError:
             pass
         if self.winfo_ismapped() and self.target is not None:
             self._apply_placement()
@@ -575,11 +582,10 @@ class FloatingScrollbar(ttk.Scrollbar):
         try:
             f, l = float(first), float(last)
             self._is_scrollable = (f > 0.0 or l < 1.0)
-        except Exception:
+        except (ValueError, TypeError):
             self._is_scrollable = True
 
         if not self._is_scrollable:
-            # Content fits completely, hide overlay
             self.place_forget()
         else:
             if not self.winfo_ismapped() and self.target is not None:
@@ -604,7 +610,7 @@ class FloatingScrollbar(ttk.Scrollbar):
         if self._hide_after_id:
             try:
                 self.after_cancel(self._hide_after_id)
-            except Exception:
+            except tk.TclError:
                 pass
             self._hide_after_id = None
 
@@ -661,21 +667,15 @@ class FloatingScrollbar(ttk.Scrollbar):
                 self.target.yview_scroll(delta_units, "units")
             else:
                 self.target.xview_scroll(delta_units, "units")
-        except Exception:
+        except tk.TclError:
             pass
         self.show()
         self._schedule_hide()
 
     def _on_wheel_scroll(self, event):
+        """Handle Windows/macOS MouseWheel — negative delta = scroll up."""
         if event.delta:
-            delta_units = -1 if event.delta > 0 else 1
-            self._handle_wheel(delta_units)
-
-    def _on_target_wheel(self, event):
-        self._on_wheel_scroll(event)
-
-    def _on_target_linux_wheel(self, delta_units: int):
-        self._handle_wheel(delta_units)
+            self._handle_wheel(-1 if event.delta > 0 else 1)
 
     def _on_theme_changed(self):
         orient = self._get_orient()
@@ -685,7 +685,7 @@ class FloatingScrollbar(ttk.Scrollbar):
             style_name = "Floating.Vertical.TScrollbar" if orient == "vertical" else "Floating.Horizontal.TScrollbar"
         try:
             self.configure(style=style_name)
-        except Exception:
+        except tk.TclError:
             pass
 
 
@@ -703,7 +703,7 @@ class ThemedText(ttk.Frame):
             "padx": 12,
             "pady": 12,
             "wrap": "word",
-            "font": ("Helvetica", 10),
+            "font": _DEFAULT_TEXT_FONT,
         }
         text_opts.update(kwargs)
 
@@ -751,6 +751,7 @@ class ThemedScrolledFrame(ttk.Frame):
         self.canvas.bind("<Configure>", self._on_canvas_configure)
         self.canvas.bind("<MouseWheel>", self._on_mousewheel)
         self.content.bind("<MouseWheel>", self._on_mousewheel)
+        # Linux wheel bindings delegate to the canvas directly
         self.canvas.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))
         self.canvas.bind("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))
 
@@ -768,6 +769,6 @@ class ThemedScrolledFrame(ttk.Frame):
             self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def _sync_theme(self):
+        # Use card_bg: this frame is a content container, not a root surface
         pal = get_theme_palette()
-        self.canvas.configure(background=pal["bg"])
-
+        self.canvas.configure(background=pal["card_bg"])

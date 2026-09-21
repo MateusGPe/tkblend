@@ -18,16 +18,9 @@ static void ScrollbarTroughGeometry(void * /*clientData*/,
                                     void * /*elementRecord*/,
                                     Tk_Window /*tkwin*/, int *widthPtr,
                                     int *heightPtr, Ttk_Padding *paddingPtr) {
-  if (widthPtr)
-    *widthPtr = 12;
-  if (heightPtr)
-    *heightPtr = 12;
-  if (paddingPtr) {
-    paddingPtr->left = 1;
-    paddingPtr->top = 1;
-    paddingPtr->right = 1;
-    paddingPtr->bottom = 1;
-  }
+  if (widthPtr)   *widthPtr  = 12;
+  if (heightPtr)  *heightPtr = 12;
+  if (paddingPtr) *paddingPtr = {1, 1, 1, 1};
 }
 
 static void ScrollbarTroughDraw(void * /*clientData*/, void * /*elementRecord*/,
@@ -55,16 +48,9 @@ static void ScrollbarThumbGeometry(void * /*clientData*/,
                                    void * /*elementRecord*/,
                                    Tk_Window /*tkwin*/, int *widthPtr,
                                    int *heightPtr, Ttk_Padding *paddingPtr) {
-  if (widthPtr)
-    *widthPtr = 30;
-  if (heightPtr)
-    *heightPtr = 12;
-  if (paddingPtr) {
-    paddingPtr->left = 0;
-    paddingPtr->top = 0;
-    paddingPtr->right = 0;
-    paddingPtr->bottom = 0;
-  }
+  if (widthPtr)   *widthPtr  = 30;
+  if (heightPtr)  *heightPtr = 12;
+  if (paddingPtr) *paddingPtr = {0, 0, 0, 0};
 }
 
 static void ScrollbarThumbDraw(void * /*clientData*/, void * /*elementRecord*/,

@@ -35,7 +35,9 @@ static bool parse_hex_color(const std::string& str, uint32_t& out_argb) {
             out_argb = static_cast<uint32_t>(val);
         }
         return true;
-    } catch (...) {
+    } catch (const std::invalid_argument&) {
+        return false;
+    } catch (const std::out_of_range&) {
         return false;
     }
 }

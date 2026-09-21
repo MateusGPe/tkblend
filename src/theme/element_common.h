@@ -89,6 +89,7 @@ extern Ttk_ElementSpec SpinboxUpArrowElementSpec;
 extern Ttk_ElementSpec SpinboxDownArrowElementSpec;
 extern Ttk_ElementSpec SpinboxButtonsElementSpec;
 extern Ttk_ElementSpec NotebookTabElementSpec;
+extern Ttk_ElementSpec NotebookClientElementSpec;
 extern Ttk_ElementSpec LabelframeBorderElementSpec;
 
 } // namespace tkblend
