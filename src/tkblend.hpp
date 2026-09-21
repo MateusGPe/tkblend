@@ -85,12 +85,16 @@ public:
     static FontManager& instance();
 
     bool load_font_face(const std::string& name, const std::string& filepath);
+    std::string find_system_font(const std::string& family);
+    std::vector<std::string> get_loaded_fonts();
+    int register_font_directory(const std::string& dir_path);
+
     BLFontFace* get_font_face(const std::string& family);
     BLFont create_font(const std::string& family, float size);
 
 private:
     FontManager();
-    void discover_system_fonts();
+    std::string resolve_system_font_path(const std::string& family);
 
     std::unordered_map<std::string, BLFontFace> font_faces_;
     std::unordered_map<std::string, std::string> font_paths_;

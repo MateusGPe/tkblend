@@ -161,91 +161,278 @@ Path& Path::reset() { path.reset(); return *this; }
 // FontManager Implementation
 // -----------------------------------------------------------------------------
 
+#ifdef __linux__
+#include <dlfcn.h>
+
+namespace {
+struct FontconfigResolver {
+    typedef void* (*FcInitLoadConfigAndFontsFunc)();
+    typedef void* (*FcNameParseFunc)(const unsigned char*);
+    typedef void* (*FcFontMatchFunc)(void* config, void* pattern, int* result);
+    typedef int (*FcPatternGetStringFunc)(void* pattern, const char* object, int n, unsigned char** s);
+    typedef void (*FcPatternDestroyFunc)(void* pattern);
+
+    void* handle = nullptr;
+    FcInitLoadConfigAndFontsFunc init_func = nullptr;
+    FcNameParseFunc name_parse = nullptr;
+    FcFontMatchFunc font_match = nullptr;
+    FcPatternGetStringFunc pattern_get_string = nullptr;
+    FcPatternDestroyFunc pattern_destroy = nullptr;
+    void* config = nullptr;
+    bool attempted = false;
+    bool available = false;
+
+    FontconfigResolver() = default;
+    ~FontconfigResolver() {
+        if (handle) {
+            dlclose(handle);
+            handle = nullptr;
+        }
+    }
+
+    bool init() {
+        if (attempted) return available;
+        attempted = true;
+
+        handle = dlopen("libfontconfig.so.1", RTLD_LAZY | RTLD_LOCAL);
+        if (!handle) {
+            handle = dlopen("libfontconfig.so", RTLD_LAZY | RTLD_LOCAL);
+        }
+        if (!handle) return false;
+
+        init_func = (FcInitLoadConfigAndFontsFunc)dlsym(handle, "FcInitLoadConfigAndFonts");
+        name_parse = (FcNameParseFunc)dlsym(handle, "FcNameParse");
+        font_match = (FcFontMatchFunc)dlsym(handle, "FcFontMatch");
+        pattern_get_string = (FcPatternGetStringFunc)dlsym(handle, "FcPatternGetString");
+        pattern_destroy = (FcPatternDestroyFunc)dlsym(handle, "FcPatternDestroy");
+
+        if (init_func && name_parse && font_match && pattern_get_string && pattern_destroy) {
+            config = init_func();
+            available = (config != nullptr);
+        }
+        return available;
+    }
+
+    std::string match_font(const std::string& family) {
+        if (!init()) return "";
+
+        void* pat = name_parse((const unsigned char*)family.c_str());
+        if (!pat) return "";
+
+        int result = 0;
+        void* match = font_match(config, pat, &result);
+        std::string font_path;
+
+        if (match) {
+            unsigned char* file = nullptr;
+            if (pattern_get_string(match, "file", 0, &file) == 0 && file) {
+                font_path = (const char*)file;
+            }
+            pattern_destroy(match);
+        }
+
+        pattern_destroy(pat);
+        return font_path;
+    }
+};
+
+static FontconfigResolver g_fontconfig;
+} // anonymous namespace
+#endif
+
+namespace {
+const std::vector<std::string>& get_platform_font_candidates() {
+    static std::vector<std::string> candidates = []() {
+        std::vector<std::string> list;
+#if defined(_WIN32)
+        std::string win_dir;
+        if (const char* w = std::getenv("WINDIR")) {
+            win_dir = w;
+        } else if (const char* sr = std::getenv("SystemRoot")) {
+            win_dir = sr;
+        } else if (const char* sd = std::getenv("SystemDrive")) {
+            win_dir = std::string(sd) + "\\Windows";
+        } else {
+            win_dir = "C:\\Windows";
+        }
+        std::string win_fonts = win_dir + "\\Fonts\\";
+
+        std::string user_fonts;
+        if (const char* la = std::getenv("LOCALAPPDATA")) {
+            user_fonts = std::string(la) + "\\Microsoft\\Windows\\Fonts\\";
+        }
+
+        const std::vector<std::string> win_font_files = {
+            "segoeui.ttf", "arial.ttf", "calibri.ttf", "tahoma.ttf", "seguiemj.ttf"
+        };
+
+        for (const auto& f : win_font_files) {
+            list.push_back(win_fonts + f);
+            if (!user_fonts.empty()) {
+                list.push_back(user_fonts + f);
+            }
+        }
+#elif defined(__APPLE__)
+        if (const char* home = std::getenv("HOME")) {
+            list.push_back(std::string(home) + "/Library/Fonts/SFProText-Regular.otf");
+            list.push_back(std::string(home) + "/Library/Fonts/Arial.ttf");
+        }
+        list.push_back("/System/Library/Fonts/SFProText-Regular.otf");
+        list.push_back("/System/Library/Fonts/SFNS.ttf");
+        list.push_back("/System/Library/Fonts/Helvetica.ttc");
+        list.push_back("/Library/Fonts/Arial.ttf");
+        list.push_back("/Library/Fonts/Helvetica.ttc");
+        list.push_back("/System/Library/Fonts/Geneva.ttf");
+#else // Linux / Unix
+        if (const char* xdg = std::getenv("XDG_DATA_HOME")) {
+            list.push_back(std::string(xdg) + "/fonts/dejavu/DejaVuSans.ttf");
+            list.push_back(std::string(xdg) + "/fonts/truetype/dejavu/DejaVuSans.ttf");
+        } else if (const char* home = std::getenv("HOME")) {
+            list.push_back(std::string(home) + "/.local/share/fonts/dejavu/DejaVuSans.ttf");
+            list.push_back(std::string(home) + "/.fonts/DejaVuSans.ttf");
+        }
+        list.push_back("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+        list.push_back("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf");
+        list.push_back("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf");
+        list.push_back("/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf");
+        list.push_back("/usr/share/fonts/truetype/roboto/unhinted/Roboto-Regular.ttf");
+        list.push_back("/usr/share/fonts/TTF/DejaVuSans.ttf");
+        list.push_back("/usr/share/fonts/noto/NotoSans-Regular.ttf");
+        list.push_back("/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf");
+#endif
+        return list;
+    }();
+    return candidates;
+}
+} // anonymous namespace
+
 FontManager& FontManager::instance() {
     static FontManager instance;
     return instance;
 }
 
 FontManager::FontManager() {
-    discover_system_fonts();
+    // Fully lazy on-demand initialization. Zero blocking I/O at startup.
 }
 
-void FontManager::discover_system_fonts() {
-    std::vector<std::string> priority_fonts = {
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-        "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
-        "/usr/share/fonts/truetype/roboto/unhinted/Roboto-Regular.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-        "C:\\Windows\\Fonts\\segoeui.ttf",
-        "C:\\Windows\\Fonts\\arial.ttf",
-        "/System/Library/Fonts/SFProText-Regular.otf",
-        "/Library/Fonts/Arial.ttf"
-    };
+std::string FontManager::resolve_system_font_path(const std::string& family) {
+    std::string lower_family = family;
+    std::transform(lower_family.begin(), lower_family.end(), lower_family.begin(), ::tolower);
 
-    for (const auto& pf : priority_fonts) {
-        if (fs::exists(pf)) {
-            font_paths_["sans-serif"] = pf;
-            font_paths_["default"] = pf;
-            default_font_family_ = "sans-serif";
-            break;
-        }
+    if (lower_family.empty() || lower_family == "default") {
+        lower_family = "sans-serif";
     }
 
-    std::vector<std::string> search_dirs = {
-        "/usr/share/fonts",
-        "/usr/local/share/fonts",
-        "~/.local/share/fonts",
-        "~/.fonts",
-        "C:\\Windows\\Fonts",
-        "/System/Library/Fonts",
-        "/Library/Fonts"
-    };
-
-    auto register_font = [this](const std::string& key, const std::string& path) {
-        if (font_paths_.find(key) == font_paths_.end() && fs::exists(path)) {
-            font_paths_[key] = path;
-            if (default_font_family_.empty()) {
-                default_font_family_ = key;
-            }
-        }
-    };
-
-    for (const auto& d : search_dirs) {
+    // 1. Check cached paths
+    auto it = font_paths_.find(lower_family);
+    if (it != font_paths_.end()) {
         try {
-            if (!fs::exists(d)) continue;
-            for (const auto& entry : fs::recursive_directory_iterator(d, fs::directory_options::skip_permission_denied)) {
-                if (entry.is_regular_file()) {
-                    std::string ext = entry.path().extension().string();
-                    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-                    if (ext == ".ttf" || ext == ".otf" || ext == ".ttc") {
-                        std::string stem = entry.path().stem().string();
-                        std::string lower_stem = stem;
-                        std::transform(lower_stem.begin(), lower_stem.end(), lower_stem.begin(), ::tolower);
-                        
-                        register_font(lower_stem, entry.path().string());
-                        
-                        if (lower_stem.find("dejavusans") != std::string::npos ||
-                            lower_stem.find("liberationsans") != std::string::npos ||
-                            lower_stem.find("roboto") != std::string::npos ||
-                            lower_stem.find("ubuntu") != std::string::npos ||
-                            lower_stem.find("segoeui") != std::string::npos ||
-                            lower_stem.find("arial") != std::string::npos ||
-                            lower_stem.find("sf-pro") != std::string::npos ||
-                            lower_stem.find("inter") != std::string::npos) {
-                            register_font("sans-serif", entry.path().string());
-                            register_font("default", entry.path().string());
-                        }
-                    }
-                }
+            if (fs::exists(it->second)) {
+                return it->second;
             }
-        } catch (...) {
-            // Ignore directory scanning exceptions
+        } catch (...) {}
+    }
+
+#ifdef __linux__
+    // 2. Query Fontconfig dynamically (<1ms, using binary cache)
+    std::string fc_path = g_fontconfig.match_font(lower_family);
+    if (!fc_path.empty()) {
+        try {
+            if (fs::exists(fc_path)) {
+                font_paths_[lower_family] = fc_path;
+                return fc_path;
+            }
+        } catch (...) {}
+    }
+#endif
+
+#if defined(_WIN32)
+    std::string win_dir;
+    if (const char* w = std::getenv("WINDIR")) {
+        win_dir = w;
+    } else if (const char* sr = std::getenv("SystemRoot")) {
+        win_dir = sr;
+    } else if (const char* sd = std::getenv("SystemDrive")) {
+        win_dir = std::string(sd) + "\\Windows";
+    } else {
+        win_dir = "C:\\Windows";
+    }
+    std::string win_fonts = win_dir + "\\Fonts\\";
+
+    std::string user_fonts;
+    if (const char* localappdata = std::getenv("LOCALAPPDATA")) {
+        user_fonts = std::string(localappdata) + "\\Microsoft\\Windows\\Fonts\\";
+    }
+
+    std::vector<std::string> trial_names = { lower_family + ".ttf", lower_family + ".otf" };
+    if (lower_family == "sans-serif") {
+        trial_names = { "segoeui.ttf", "arial.ttf", "calibri.ttf" };
+    }
+
+    for (const auto& name : trial_names) {
+        std::string p1 = win_fonts + name;
+        try {
+            if (fs::exists(p1)) {
+                font_paths_[lower_family] = p1;
+                return p1;
+            }
+        } catch (...) {}
+        if (!user_fonts.empty()) {
+            std::string p2 = user_fonts + name;
+            try {
+                if (fs::exists(p2)) {
+                    font_paths_[lower_family] = p2;
+                    return p2;
+                }
+            } catch (...) {}
         }
     }
+#elif defined(__APPLE__)
+    std::vector<std::string> search_dirs = {
+        "/System/Library/Fonts/",
+        "/Library/Fonts/"
+    };
+    std::vector<std::string> trial_names = { lower_family + ".ttf", lower_family + ".otf", lower_family + ".ttc" };
+    if (lower_family == "sans-serif") {
+        trial_names = { "SFProText-Regular.otf", "SFNS.ttf", "Helvetica.ttc", "Arial.ttf" };
+    }
+    for (const auto& dir : search_dirs) {
+        for (const auto& name : trial_names) {
+            std::string p = dir + name;
+            try {
+                if (fs::exists(p)) {
+                    font_paths_[lower_family] = p;
+                    return p;
+                }
+            } catch (...) {}
+        }
+    }
+#endif
+
+    // 3. Fallback candidates for generic sans-serif / default
+    if (lower_family == "sans-serif" || lower_family == "default") {
+        for (const auto& candidate : get_platform_font_candidates()) {
+            try {
+                if (fs::exists(candidate)) {
+                    font_paths_[lower_family] = candidate;
+                    return candidate;
+                }
+            } catch (...) {}
+        }
+    }
+
+    return "";
 }
 
 bool FontManager::load_font_face(const std::string& name, const std::string& filepath) {
+    try {
+        if (!fs::exists(filepath)) {
+            return false;
+        }
+    } catch (...) {
+        return false;
+    }
+
     std::lock_guard<std::mutex> lock(mutex_);
     BLFontFace face;
     BLResult result = face.create_from_file(filepath.c_str());
@@ -253,9 +440,65 @@ bool FontManager::load_font_face(const std::string& name, const std::string& fil
         std::string lower_name = name;
         std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(), ::tolower);
         font_faces_[lower_name] = face;
+        font_paths_[lower_name] = filepath;
+
+        // Register canonical family name from OpenType metadata
+        const BLString& fam = face.family_name();
+        if (!fam.is_empty()) {
+            std::string real_fam = fam.data();
+            std::string lower_real = real_fam;
+            std::transform(lower_real.begin(), lower_real.end(), lower_real.begin(), ::tolower);
+            if (lower_real != lower_name) {
+                font_faces_[lower_real] = face;
+                font_paths_[lower_real] = filepath;
+            }
+        }
+
+        if (default_font_family_.empty() || lower_name == "sans-serif" || lower_name == "default") {
+            default_font_family_ = lower_name;
+        }
         return true;
     }
     return false;
+}
+
+std::string FontManager::find_system_font(const std::string& family) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return resolve_system_font_path(family);
+}
+
+std::vector<std::string> FontManager::get_loaded_fonts() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<std::string> fonts;
+    fonts.reserve(font_faces_.size());
+    for (const auto& kv : font_faces_) {
+        fonts.push_back(kv.first);
+    }
+    std::sort(fonts.begin(), fonts.end());
+    return fonts;
+}
+
+int FontManager::register_font_directory(const std::string& dir_path) {
+    int count = 0;
+    try {
+        if (!fs::exists(dir_path)) return 0;
+        for (const auto& entry : fs::recursive_directory_iterator(dir_path, fs::directory_options::skip_permission_denied)) {
+            if (entry.is_regular_file()) {
+                std::string ext = entry.path().extension().string();
+                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                if (ext == ".ttf" || ext == ".otf" || ext == ".ttc") {
+                    std::string stem = entry.path().stem().string();
+                    std::string p = entry.path().string();
+                    if (load_font_face(stem, p)) {
+                        count++;
+                    }
+                }
+            }
+        }
+    } catch (...) {
+        // Ignore directory scanning exceptions
+    }
+    return count;
 }
 
 BLFontFace* FontManager::get_font_face(const std::string& family) {
@@ -267,26 +510,60 @@ BLFontFace* FontManager::get_font_face(const std::string& family) {
         lower_family = "sans-serif";
     }
 
+    // 1. Check already loaded face
     auto it = font_faces_.find(lower_family);
     if (it != font_faces_.end()) {
         return &it->second;
     }
 
-    auto path_it = font_paths_.find(lower_family);
-    if (path_it == font_paths_.end()) {
-        path_it = font_paths_.find("sans-serif");
-    }
-    if (path_it == font_paths_.end() && !font_paths_.empty()) {
-        path_it = font_paths_.begin();
-    }
-
-    if (path_it != font_paths_.end()) {
+    // 2. Lazily resolve path
+    std::string path = resolve_system_font_path(lower_family);
+    if (!path.empty()) {
         BLFontFace face;
-        BLResult res = face.create_from_file(path_it->second.c_str());
-        if (res == BL_SUCCESS) {
+        if (face.create_from_file(path.c_str()) == BL_SUCCESS) {
             auto inserted = font_faces_.emplace(lower_family, face);
+            font_paths_[lower_family] = path;
+
+            const BLString& fam = face.family_name();
+            if (!fam.is_empty()) {
+                std::string real_fam = fam.data();
+                std::string lower_real = real_fam;
+                std::transform(lower_real.begin(), lower_real.end(), lower_real.begin(), ::tolower);
+                if (lower_real != lower_family) {
+                    font_faces_.emplace(lower_real, face);
+                    font_paths_[lower_real] = path;
+                }
+            }
+
+            if (default_font_family_.empty()) {
+                default_font_family_ = lower_family;
+            }
             return &inserted.first->second;
         }
+    }
+
+    // 3. Fallback to sans-serif
+    if (lower_family != "sans-serif") {
+        auto sans_it = font_faces_.find("sans-serif");
+        if (sans_it != font_faces_.end()) {
+            return &sans_it->second;
+        }
+
+        std::string default_path = resolve_system_font_path("sans-serif");
+        if (!default_path.empty()) {
+            BLFontFace face;
+            if (face.create_from_file(default_path.c_str()) == BL_SUCCESS) {
+                auto inserted = font_faces_.emplace("sans-serif", face);
+                font_paths_["sans-serif"] = default_path;
+                default_font_family_ = "sans-serif";
+                return &inserted.first->second;
+            }
+        }
+    }
+
+    // 4. Any available font face
+    if (!font_faces_.empty()) {
+        return &font_faces_.begin()->second;
     }
 
     return nullptr;
@@ -912,10 +1189,34 @@ NB_MODULE(_tkblend, m) {
         .def("clear", &tkblend::Path::clear, nb::rv_policy::reference)
         .def("reset", &tkblend::Path::reset, nb::rv_policy::reference);
 
-    // FontManager binding
+    // FontManager bindings
     m.def("load_font_face", [](const std::string& name, const std::string& filepath) {
         return tkblend::FontManager::instance().load_font_face(name, filepath);
     }, nb::arg("name"), nb::arg("filepath"));
+
+    m.def("load_font", [](const std::string& name, const std::string& filepath) {
+        return tkblend::FontManager::instance().load_font_face(name, filepath);
+    }, nb::arg("name"), nb::arg("filepath"));
+
+    m.def("register_font", [](const std::string& name, const std::string& filepath) {
+        return tkblend::FontManager::instance().load_font_face(name, filepath);
+    }, nb::arg("name"), nb::arg("filepath"));
+
+    m.def("find_system_font", [](const std::string& family) -> nb::object {
+        std::string p = tkblend::FontManager::instance().find_system_font(family);
+        if (p.empty()) {
+            return nb::none();
+        }
+        return nb::str(p.c_str());
+    }, nb::arg("family"));
+
+    m.def("get_loaded_fonts", []() {
+        return tkblend::FontManager::instance().get_loaded_fonts();
+    });
+
+    m.def("register_font_directory", [](const std::string& dir_path) {
+        return tkblend::FontManager::instance().register_font_directory(dir_path);
+    }, nb::arg("dir_path"));
 
     // Surface binding
     nb::class_<tkblend::Surface>(m, "Surface")

@@ -245,6 +245,7 @@ endif()
 target_link_libraries(_tkblend PRIVATE
     blend2d::blend2d
     ${PLATFORM_LIBS}
+    ${CMAKE_DL_LIBS}
 )
 
 if(TK_STUB_LIBRARY)
