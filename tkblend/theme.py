@@ -252,6 +252,11 @@ def _apply_card_style(widget: tk.Misc, pal: Dict[str, str]) -> None:
                     widget.configure(style="Card.TCheckbutton")
                 except tk.TclError:
                     pass
+            elif current_style == "Switch.TCheckbutton":
+                try:
+                    widget.configure(style="Card.Switch.TCheckbutton")
+                except tk.TclError:
+                    pass
             return
         elif w_class == "TRadiobutton":
             if current_style in ("", "TRadiobutton"):
@@ -376,7 +381,16 @@ def get_theme_palette() -> Dict[str, str]:
             "card_bg":            _h(cfg.card_bg),
             "card_border":        _h(cfg.card_border),
             "primary":            _h(cfg.primary_color),
+            "primary_hover":      _h(cfg.primary_hover),
+            "primary_active":     _h(cfg.primary_active),
+            "primary_fg":         _h(cfg.primary_fg),
             "secondary":          _h(cfg.secondary_color),
+            "secondary_hover":    _h(cfg.secondary_hover),
+            "secondary_fg":       _h(cfg.secondary_fg),
+            "success":            _h(cfg.success_color),
+            "warning":            _h(cfg.warning_color),
+            "destructive":        _h(cfg.destructive_color),
+            "danger":             _h(cfg.destructive_color),
             "input_bg":           _h(cfg.input_bg),
             "input_fg":           _h(cfg.fg_color),
             "input_border":       _h(cfg.input_border),
@@ -385,6 +399,7 @@ def get_theme_palette() -> Dict[str, str]:
             "disabled_fg":        _h(cfg.disabled_fg),
             "placeholder_fg":     _h(cfg.disabled_fg),
             "track_bg":           _h(cfg.track_bg),
+            "thumb":              _h(cfg.thumb_color),
             "thumb_color":        _h(cfg.thumb_color),
             "thumb_hover":        _h(cfg.thumb_hover),
             "thumb_active":       _h(cfg.thumb_active),

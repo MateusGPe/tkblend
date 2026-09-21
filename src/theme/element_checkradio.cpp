@@ -238,4 +238,117 @@ Ttk_ElementSpec RadioIndicatorElementSpec = {
     RadioIndicatorDraw
 };
 
+// ============================================================================
+// Switch Indicator Element (Modern Pill Toggle)
+// ============================================================================
+static void SwitchIndicatorGeometry(
+    void* /*clientData*/, void* /*elementRecord*/, Tk_Window /*tkwin*/,
+    int* widthPtr, int* heightPtr, Ttk_Padding* paddingPtr
+) {
+    if (widthPtr)  *widthPtr  = 40;
+    if (heightPtr) *heightPtr = 24;
+    if (paddingPtr) {
+        paddingPtr->left   = 2;
+        paddingPtr->top    = 2;
+        paddingPtr->right  = 8;
+        paddingPtr->bottom = 2;
+    }
+}
+
+static void SwitchIndicatorDraw(
+    void* /*clientData*/, void* /*elementRecord*/,
+    Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State state
+) {
+    const auto& cfg = ThemeEngine::instance().config();
+
+    RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
+        if (w <= 0 || h <= 0) return;
+
+        bool disabled = is_disabled(state);
+        bool selected = is_selected(state);
+        bool hover    = is_active(state);
+        bool pressed  = is_pressed(state);
+        bool focus    = is_focus(state);
+
+        double track_w = 38.0;
+        double track_h = 22.0;
+        if (track_w > w) track_w = w;
+        if (track_h > h) track_h = h;
+
+        double x = std::floor((w - track_w) / 2.0);
+        double y = std::floor((h - track_h) / 2.0);
+        double r = track_h / 2.0;
+
+        BLPath trackPath;
+        trackPath.add_round_rect(BLRoundRect(x + 0.5, y + 0.5, track_w - 1.0, track_h - 1.0, r, r));
+
+        uint32_t fill_color, border_color;
+        if (disabled) {
+            fill_color   = cfg.disabled_bg;
+            border_color = cfg.card_border;
+        } else if (selected) {
+            if (pressed) {
+                fill_color = border_color = cfg.primary_active;
+            } else if (hover) {
+                fill_color = border_color = cfg.primary_hover;
+            } else {
+                fill_color = border_color = cfg.primary_color;
+            }
+        } else {
+            fill_color   = pressed ? cfg.secondary_hover : cfg.input_bg;
+            border_color = hover ? cfg.primary_hover : cfg.input_border;
+        }
+
+        ctx.set_fill_style(to_bl_rgba(fill_color));
+        ctx.fill_path(trackPath);
+        ctx.set_stroke_width(1.2);
+        ctx.set_stroke_style(to_bl_rgba(border_color));
+        ctx.stroke_path(trackPath);
+
+        // Circular Thumb
+        double thumb_radius = (track_h - 6.0) / 2.0;
+        double thumb_cx = selected
+            ? (x + track_w - 3.0 - thumb_radius)
+            : (x + 3.0 + thumb_radius);
+        double thumb_cy = y + track_h / 2.0;
+
+        uint32_t thumb_color;
+        if (disabled) {
+            thumb_color = cfg.disabled_fg;
+        } else if (selected) {
+            thumb_color = cfg.primary_fg;
+        } else {
+            thumb_color = hover ? cfg.fg_color : cfg.thumb_color;
+        }
+
+        // Thumb soft shadow
+        if (cfg.enable_shadows && !disabled) {
+            BLCircle shadowCircle(thumb_cx, thumb_cy + 1.0, thumb_radius);
+            ctx.set_fill_style(to_bl_rgba(0x2A000000));
+            ctx.fill_circle(shadowCircle);
+        }
+
+        BLCircle thumbCircle(thumb_cx, thumb_cy, thumb_radius);
+        ctx.set_fill_style(to_bl_rgba(thumb_color));
+        ctx.fill_circle(thumbCircle);
+
+        // Focus Halo Ring
+        if (focus && !disabled) {
+            BLPath focusPath;
+            focusPath.add_round_rect(BLRoundRect(x - 1.0, y - 1.0, track_w + 2.0, track_h + 2.0, r + 1.5, r + 1.5));
+            ctx.set_stroke_width(cfg.focus_ring_width);
+            ctx.set_stroke_style(to_bl_rgba(cfg.focus_ring_color));
+            ctx.stroke_path(focusPath);
+        }
+    });
+}
+
+Ttk_ElementSpec SwitchIndicatorElementSpec = {
+    TTK_LAYOUT_SPEC_VERSION,
+    sizeof(IndicatorElement),
+    IndicatorOptions,
+    SwitchIndicatorGeometry,
+    SwitchIndicatorDraw
+};
+
 } // namespace tkblend

@@ -35,6 +35,16 @@ inline bool is_selected(Ttk_State state) { return (state & TTK_STATE_SELECTED) !
 inline bool is_readonly(Ttk_State state) { return (state & TTK_STATE_READONLY) != 0; }
 inline bool is_alternate(Ttk_State state) { return (state & TTK_STATE_ALTERNATE) != 0; }
 
+#ifndef TTK_STATE_OPEN
+#define TTK_STATE_OPEN (1<<16)
+#endif
+#ifndef TTK_STATE_LEAF
+#define TTK_STATE_LEAF (1<<17)
+#endif
+
+inline bool is_open(Ttk_State state) { return (state & TTK_STATE_OPEN) != 0; }
+inline bool is_leaf(Ttk_State state) { return (state & TTK_STATE_LEAF) != 0; }
+
 // Safe template wrapper for drawing an element into Blend2D and blitting zero-copy
 template<typename RenderFn>
 inline void RenderElement(Tk_Window tkwin, Drawable d, Ttk_Box b, RenderFn&& render_fn) {
@@ -78,6 +88,7 @@ extern Ttk_ElementSpec ButtonElementSpec;
 extern Ttk_ElementSpec EntryFieldElementSpec;
 extern Ttk_ElementSpec CheckIndicatorElementSpec;
 extern Ttk_ElementSpec RadioIndicatorElementSpec;
+extern Ttk_ElementSpec SwitchIndicatorElementSpec;
 extern Ttk_ElementSpec PbarTroughElementSpec;
 extern Ttk_ElementSpec PbarBarElementSpec;
 extern Ttk_ElementSpec ScrollbarTroughElementSpec;
@@ -88,8 +99,17 @@ extern Ttk_ElementSpec ComboboxDownArrowElementSpec;
 extern Ttk_ElementSpec SpinboxUpArrowElementSpec;
 extern Ttk_ElementSpec SpinboxDownArrowElementSpec;
 extern Ttk_ElementSpec SpinboxButtonsElementSpec;
+extern Ttk_ElementSpec MenubuttonIndicatorElementSpec;
 extern Ttk_ElementSpec NotebookTabElementSpec;
 extern Ttk_ElementSpec NotebookClientElementSpec;
 extern Ttk_ElementSpec LabelframeBorderElementSpec;
+extern Ttk_ElementSpec SeparatorElementSpec;
+extern Ttk_ElementSpec HorizontalSeparatorElementSpec;
+extern Ttk_ElementSpec VerticalSeparatorElementSpec;
+extern Ttk_ElementSpec SizegripElementSpec;
+extern Ttk_ElementSpec SashElementSpec;
+extern Ttk_ElementSpec HorizontalSashElementSpec;
+extern Ttk_ElementSpec VerticalSashElementSpec;
+extern Ttk_ElementSpec TreeitemIndicatorElementSpec;
 
 } // namespace tkblend

@@ -216,6 +216,8 @@ set(TKBLEND_SOURCES
     src/theme/element_progressbar.cpp
     src/theme/element_scrollbar.cpp
     src/theme/element_scale.cpp
+    src/theme/element_separator.cpp
+    src/theme/element_treeitem.cpp
     ${PLATFORM_SOURCES}
 )
 

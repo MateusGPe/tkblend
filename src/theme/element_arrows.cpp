@@ -247,4 +247,63 @@ Ttk_ElementSpec SpinboxButtonsElementSpec = {
     SpinboxButtonsDraw
 };
 
+// ============================================================================
+// Menubutton Indicator Element (Dropdown Chevron)
+// ============================================================================
+static void MenubuttonIndicatorGeometry(
+    void* /*clientData*/, void* /*elementRecord*/, Tk_Window /*tkwin*/,
+    int* widthPtr, int* heightPtr, Ttk_Padding* paddingPtr
+) {
+    if (widthPtr)  *widthPtr  = 16;
+    if (heightPtr) *heightPtr = 20;
+    if (paddingPtr) {
+        paddingPtr->left   = 2;
+        paddingPtr->top    = 2;
+        paddingPtr->right  = 6;
+        paddingPtr->bottom = 2;
+    }
+}
+
+static void MenubuttonIndicatorDraw(
+    void* /*clientData*/, void* /*elementRecord*/,
+    Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State state
+) {
+    const auto& cfg = ThemeEngine::instance().config();
+
+    RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
+        if (w <= 0 || h <= 0) return;
+
+        bool disabled = is_disabled(state);
+        bool pressed  = is_pressed(state);
+        bool hover    = is_active(state);
+
+        double cx = w / 2.0;
+        double cy = h / 2.0;
+        double sz = 3.2;
+
+        BLPath arrowPath;
+        arrowPath.move_to(cx - sz, cy - sz * 0.4);
+        arrowPath.line_to(cx, cy + sz * 0.5);
+        arrowPath.line_to(cx + sz, cy - sz * 0.4);
+
+        uint32_t arrow_col = disabled ? cfg.disabled_fg
+                                      : (pressed ? cfg.primary_fg
+                                                 : (hover ? cfg.primary_hover : cfg.fg_color));
+
+        ctx.set_stroke_width(1.6);
+        ctx.set_stroke_caps(BL_STROKE_CAP_ROUND);
+        ctx.set_stroke_join(BL_STROKE_JOIN_ROUND);
+        ctx.set_stroke_style(to_bl_rgba(arrow_col));
+        ctx.stroke_path(arrowPath);
+    });
+}
+
+Ttk_ElementSpec MenubuttonIndicatorElementSpec = {
+    TTK_LAYOUT_SPEC_VERSION,
+    sizeof(ArrowElement),
+    ArrowElementOptions,
+    MenubuttonIndicatorGeometry,
+    MenubuttonIndicatorDraw
+};
+
 } // namespace tkblend

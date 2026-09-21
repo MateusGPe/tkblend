@@ -311,6 +311,20 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
     Ttk_RegisterElement(interp, theme, "client",                          &NotebookClientElementSpec,  nullptr);
     Ttk_RegisterElement(interp, theme, "Notebook.client",                 &NotebookClientElementSpec,  nullptr);
     Ttk_RegisterElement(interp, theme, "Labelframe.border",               &LabelframeBorderElementSpec, nullptr);
+    Ttk_RegisterElement(interp, theme, "Switch.indicator",                &SwitchIndicatorElementSpec, nullptr);
+    Ttk_RegisterElement(interp, theme, "separator",                       &SeparatorElementSpec,       nullptr);
+    Ttk_RegisterElement(interp, theme, "Separator.separator",             &SeparatorElementSpec,       nullptr);
+    Ttk_RegisterElement(interp, theme, "Horizontal.separator",            &HorizontalSeparatorElementSpec, nullptr);
+    Ttk_RegisterElement(interp, theme, "Vertical.separator",              &VerticalSeparatorElementSpec,   nullptr);
+    Ttk_RegisterElement(interp, theme, "sizegrip",                        &SizegripElementSpec,        nullptr);
+    Ttk_RegisterElement(interp, theme, "Sizegrip.sizegrip",               &SizegripElementSpec,        nullptr);
+    Ttk_RegisterElement(interp, theme, "sash",                            &SashElementSpec,            nullptr);
+    Ttk_RegisterElement(interp, theme, "Sash.hsash",                      &HorizontalSashElementSpec,  nullptr);
+    Ttk_RegisterElement(interp, theme, "Sash.vsash",                      &VerticalSashElementSpec,    nullptr);
+    Ttk_RegisterElement(interp, theme, "Panedwindow.sash",                &SashElementSpec,            nullptr);
+    Ttk_RegisterElement(interp, theme, "Menubutton.button",               &ButtonElementSpec,          nullptr);
+    Ttk_RegisterElement(interp, theme, "Menubutton.indicator",            &MenubuttonIndicatorElementSpec, nullptr);
+    Ttk_RegisterElement(interp, theme, "Treeitem.indicator",              &TreeitemIndicatorElementSpec, nullptr);
 
     // Resolve color tokens once
     const std::string bg      = hex_str(config_.bg_color);
@@ -431,6 +445,18 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
     s.configure("Card.TRadiobutton", "-padding {4 4 8 4} -background \"" + card_bg + "\" -foreground \"" + fg + "\"");
     s.map_states("Card.TRadiobutton", "foreground", dis_fg, fg, fg);
 
+    // Switch.TCheckbutton (Modern iOS/Fluent-style pill toggle)
+    s.ss << "    ttk::style layout Switch.TCheckbutton {\n"
+         << "      Switch.padding -sticky nswe -children {\n"
+         << "        Switch.indicator -side left -sticky \"\"\n"
+         << "        Switch.label -side left -sticky w\n"
+         << "      }\n"
+         << "    }\n";
+    s.configure("Switch.TCheckbutton", "-padding {4 4 8 4} -background \"" + bg + "\" -foreground \"" + fg + "\"");
+    s.map_states("Switch.TCheckbutton", "foreground", dis_fg, fg, fg);
+    s.configure("Card.Switch.TCheckbutton", "-padding {4 4 8 4} -background \"" + card_bg + "\" -foreground \"" + fg + "\"");
+    s.map_states("Card.Switch.TCheckbutton", "foreground", dis_fg, fg, fg);
+
     // TProgressbar layouts & geometry
     s.ss << "    ttk::style layout Horizontal.TProgressbar {\n"
          << "      Horizontal.Progressbar.trough -sticky nswe -children {\n"
@@ -510,6 +536,53 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
     s.ss << "    ttk::style map Treeview"
          << " -background [list selected \"" << p_col << "\"]"
          << " -foreground [list selected \"" << p_fg << "\"]\n";
+
+    // TMenubutton layout & variants
+    s.ss << "    ttk::style layout TMenubutton {\n"
+         << "      Menubutton.button -sticky nswe -children {\n"
+         << "        Menubutton.padding -sticky nswe -children {\n"
+         << "          Menubutton.label -side left -sticky w\n"
+         << "          Menubutton.indicator -side right -sticky \"\"\n"
+         << "        }\n"
+         << "      }\n"
+         << "    }\n";
+    s.button_style("TMenubutton",            sec_col, sec_fg, dis_bg, dis_fg, sec_col, sec_fg, sec_col, sec_fg);
+    s.button_style("Accent.TMenubutton",     p_col,   p_fg,   dis_bg, dis_fg, p_col,   p_fg,   p_col,   p_fg);
+    s.button_style("Primary.TMenubutton",    p_col,   p_fg,   dis_bg, dis_fg, p_col,   p_fg,   p_col,   p_fg);
+    s.button_style("Secondary.TMenubutton",  sec_col, sec_fg, dis_bg, dis_fg, sec_col, sec_fg, sec_col, sec_fg);
+    s.button_style("Destructive.TMenubutton", d_col,  d_fg,   dis_bg, dis_fg, d_col,   d_fg,   d_col,   d_fg);
+    s.button_style("Ghost.TMenubutton",      card_bg, fg,     dis_bg, dis_fg, sec_col, fg,     sec_col, fg,     "ghost");
+    s.button_style("Outline.TMenubutton",    card_bg, fg,     dis_bg, dis_fg, sec_col, p_col,  sec_col, p_col,  "outline");
+
+    // TSeparator layouts & styling
+    s.ss << "    ttk::style layout Horizontal.TSeparator {\n"
+         << "      Horizontal.separator -sticky nswe\n"
+         << "    }\n"
+         << "    ttk::style layout Vertical.TSeparator {\n"
+         << "      Vertical.separator -sticky nswe\n"
+         << "    }\n"
+         << "    ttk::style layout TSeparator {\n"
+         << "      Separator.separator -sticky nswe\n"
+         << "    }\n";
+    s.configure("TSeparator",            "-background \"" + card_bd + "\"");
+    s.configure("Horizontal.TSeparator",  "-background \"" + card_bd + "\"");
+    s.configure("Vertical.TSeparator",    "-background \"" + card_bd + "\"");
+
+    // TSizegrip
+    s.ss << "    ttk::style layout TSizegrip {\n"
+         << "      Sizegrip.sizegrip -side bottom -sticky se\n"
+         << "    }\n";
+
+    // TPanedwindow & Sash
+    s.ss << "    ttk::style layout Horizontal.Sash {\n"
+         << "      Sash.hsash -sticky nswe\n"
+         << "    }\n"
+         << "    ttk::style layout Vertical.Sash {\n"
+         << "      Sash.vsash -sticky nswe\n"
+         << "    }\n";
+    s.configure("TPanedwindow",   "-background \"" + bg + "\"");
+    s.configure("Horizontal.Sash", "-sashthickness 6");
+    s.configure("Vertical.Sash",   "-sashthickness 6");
 
     s.ss << "  }\n}\n";
 

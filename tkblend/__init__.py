@@ -67,6 +67,14 @@ from tkblend.theme import (
     ThemedScrolledFrame,
 )
 
+from tkblend.widgets import (
+    ToggleSwitch,
+    Badge,
+    SegmentedControl,
+    Card,
+    blend_color_hex,
+)
+
 # Friendly aliases
 resolve_color = resolve_theme_color
 get_theme_color = resolve_theme_color
@@ -100,6 +108,11 @@ __all__ = [
     "SearchEntry",
     "ThemedText",
     "ThemedScrolledFrame",
+    "ToggleSwitch",
+    "Badge",
+    "SegmentedControl",
+    "Card",
+    "blend_color_hex",
     # Theme & ttkbootstrap bridge
     "resolve_theme_color",
     "resolve_color",
