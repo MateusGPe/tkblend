@@ -92,6 +92,7 @@ class ToggleSwitch(BlendCanvas):
         self.bind("<Enter>", self._on_enter, add="+")
         self.bind("<Leave>", self._on_leave, add="+")
         self.bind("<Button-1>", self._on_click, add="+")
+        self.bind("<Destroy>", self._on_destroy_switch, add="+")
 
         bind_theme_changed(self, self._redraw)
         self.after_idle(self._redraw)
@@ -138,7 +139,9 @@ class ToggleSwitch(BlendCanvas):
             self._anim_timer = None
         self._step_animation()
 
-    def destroy(self):
+    def _on_destroy_switch(self, event=None):
+        if event is not None and getattr(event, "widget", None) != self:
+            return
         if self._anim_timer is not None:
             try:
                 self.after_cancel(self._anim_timer)
@@ -150,6 +153,9 @@ class ToggleSwitch(BlendCanvas):
                 self.variable.trace_remove("write", self._trace_id)
             except Exception:
                 pass
+
+    def destroy(self):
+        self._on_destroy_switch()
         super().destroy()
 
     def _step_animation(self):

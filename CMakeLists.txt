@@ -180,6 +180,7 @@ message(STATUS "TCL_STUB_LIBRARY: ${TCL_STUB_LIBRARY}")
 # Sanitizers & Coverage Options
 # ------------------------------------------------------------------------------
 option(ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(ENABLE_NANOBIND_LEAK_CHECK "Enable nanobind debug leak tracking and abort on leak" OFF)
 option(ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
 
 # ------------------------------------------------------------------------------
@@ -279,6 +280,10 @@ else()
     else()
         target_compile_options(_tkblend PRIVATE -O3 -fexceptions -Wall -Wextra -Wno-unused-parameter)
     endif()
+endif()
+
+if(ENABLE_NANOBIND_LEAK_CHECK)
+    target_compile_definitions(_tkblend PRIVATE NB_DEBUG=1 NB_ABORT_ON_LEAK=1)
 endif()
 
 # Install target for packaging

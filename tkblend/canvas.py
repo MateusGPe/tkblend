@@ -73,6 +73,7 @@ class BlendCanvas(tk.Label):
         )
 
         self.bind("<Configure>", self._on_configure)
+        self.bind("<Destroy>", self._on_destroy_event, add="+")
 
         if self._auto_theme_redraw:
             bind_theme_changed(self, self._on_theme_changed)
@@ -158,11 +159,17 @@ class BlendCanvas(tk.Label):
             pass
         self.redraw()
 
-    def destroy(self) -> None:
-        """Clean up surface, backing photo, and callbacks cleanly on widget destruction."""
+    def _on_destroy_event(self, event=None) -> None:
+        """Proactively release native Surface and Photo when Tk destroys the widget."""
+        if event is not None and getattr(event, "widget", None) != self:
+            return
         self._on_draw = None
         self._surface = None
         self._photo = None
+
+    def destroy(self) -> None:
+        """Clean up surface, backing photo, and callbacks cleanly on widget destruction."""
+        self._on_destroy_event()
         super().destroy()
 
     # -------------------------------------------------------------------------

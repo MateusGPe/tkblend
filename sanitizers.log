@@ -1,0 +1,840 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- /home/mateusgp/projects/tkblend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/mateusgp/projects/tkblend
+configfile: pyproject.toml
+testpaths: tests
+plugins: cov-7.1.0
+collecting ... collected 105 items
+
+tests/test_blitting.py::TestBlitting::test_invalid_interp_or_photo_name PASSED [  0%]
+tests/test_blitting.py::TestBlitting::test_valid_photo_blit_and_offsets PASSED [  1%]
+tests/test_canvas.py::TestBlendCanvas::test_canvas_bootstyle_and_bg_options PASSED [  2%]
+tests/test_canvas.py::TestBlendCanvas::test_canvas_configure_event PASSED [  3%]
+tests/test_canvas.py::TestBlendCanvas::test_canvas_draw_callback PASSED  [  4%]
+tests/test_canvas.py::TestBlendCanvas::test_canvas_drawing_methods PASSED [  5%]
+tests/test_canvas.py::TestBlendCanvas::test_canvas_init_and_properties PASSED [  6%]
+tests/test_canvas.py::TestBlendCanvas::test_canvas_render_context PASSED [  7%]
+tests/test_canvas.py::TestBlendCanvas::test_canvas_theme_changed PASSED  [  8%]
+tests/test_card_styling.py::test_card_styles_registered PASSED           [  9%]
+tests/test_card_styling.py::test_is_inside_card PASSED                   [ 10%]
+tests/test_card_styling.py::test_sync_card_children_upgrades_default_styles PASSED [ 11%]
+tests/test_card_styling.py::test_theme_mode_toggle_card_sync PASSED      [ 12%]
+tests/test_color.py::TestColor::test_constructor_defaults_and_values PASSED [ 13%]
+tests/test_color.py::TestColor::test_hex_parsing_formats PASSED          [ 14%]
+tests/test_color.py::TestColor::test_parse_color_types PASSED            [ 15%]
+tests/test_color.py::TestColor::test_repr PASSED                         [ 16%]
+tests/test_color.py::TestColor::test_u32_roundtrip PASSED                [ 17%]
+tests/test_edge_cases_and_errors.py::TestEdgeCasesAndErrors::test_empty_paths_and_resets PASSED [ 18%]
+tests/test_edge_cases_and_errors.py::TestEdgeCasesAndErrors::test_extreme_and_negative_dimensions PASSED [ 19%]
+tests/test_edge_cases_and_errors.py::TestEdgeCasesAndErrors::test_gradients_with_no_or_single_stop PASSED [ 20%]
+tests/test_edge_cases_and_errors.py::TestEdgeCasesAndErrors::test_out_of_bounds_rendering_coordinates PASSED [ 20%]
+tests/test_edge_cases_and_errors.py::TestEdgeCasesAndErrors::test_rapid_resize_stress_loop PASSED [ 21%]
+tests/test_gradient.py::TestGradient::test_linear_gradient PASSED        [ 22%]
+tests/test_gradient.py::TestGradient::test_native_gradient_direct PASSED [ 23%]
+tests/test_gradient.py::TestGradient::test_radial_gradient PASSED        [ 24%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_buttons_dark] FAILED [ 25%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_buttons_light] FAILED [ 26%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_inputs_dark] FAILED [ 27%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_inputs_light] FAILED [ 28%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_check_radio_dark] FAILED [ 29%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_check_radio_light] FAILED [ 30%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_sliders_progress_dark] FAILED [ 31%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_sliders_progress_light] FAILED [ 32%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_tabs_cards_dark] FAILED [ 33%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_tabs_cards_light] FAILED [ 34%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_treeview_dark] FAILED [ 35%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_treeview_light] FAILED [ 36%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_edge_cases_dark] FAILED [ 37%]
+tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_edge_cases_light] FAILED [ 38%]
+tests/test_inputs_and_scrollbars.py::test_theme_palette_resolution PASSED [ 39%]
+tests/test_inputs_and_scrollbars.py::test_themed_entry_placeholder_and_get PASSED [ 40%]
+tests/test_inputs_and_scrollbars.py::test_searchentry PASSED             [ 40%]
+tests/test_inputs_and_scrollbars.py::test_docked_scrollbar_geometry_and_tracking PASSED [ 41%]
+tests/test_inputs_and_scrollbars.py::test_themed_text_and_sync PASSED    [ 42%]
+tests/test_inputs_and_scrollbars.py::test_themed_scrolled_frame PASSED   [ 43%]
+tests/test_inputs_and_scrollbars.py::test_sync_widget_colors PASSED      [ 44%]
+tests/test_new_controls.py::TestNewControls::test_badge_widget PASSED    [ 45%]
+tests/test_new_controls.py::TestNewControls::test_blend_color_hex PASSED [ 46%]
+tests/test_new_controls.py::TestNewControls::test_card_container_sync PASSED [ 47%]
+tests/test_new_controls.py::TestNewControls::test_native_menubutton PASSED [ 48%]
+tests/test_new_controls.py::TestNewControls::test_native_panedwindow_and_sash PASSED [ 49%]
+tests/test_new_controls.py::TestNewControls::test_native_separator PASSED [ 50%]
+tests/test_new_controls.py::TestNewControls::test_native_sizegrip PASSED [ 51%]
+tests/test_new_controls.py::TestNewControls::test_native_treeview_indicator PASSED [ 52%]
+tests/test_new_controls.py::TestNewControls::test_segmented_control_widget PASSED [ 53%]
+tests/test_new_controls.py::TestNewControls::test_switch_checkbutton_style PASSED [ 54%]
+tests/test_new_controls.py::TestNewControls::test_toggle_switch_widget PASSED [ 55%]
+tests/test_path.py::TestPath::test_native_path_direct PASSED             [ 56%]
+tests/test_path.py::TestPath::test_path_builder_methods PASSED           [ 57%]
+tests/test_shadow_engine.py::TestShadowEngine::test_shadow_blur_radii_and_spread PASSED [ 58%]
+tests/test_shadow_engine.py::TestShadowEngine::test_shadow_cache_and_lru_eviction PASSED [ 59%]
+tests/test_surface.py::TestSurface::test_buffer_access_and_flush PASSED  [ 60%]
+tests/test_surface.py::TestSurface::test_circles_and_ellipses PASSED     [ 60%]
+tests/test_surface.py::TestSurface::test_clear_and_clear_rect PASSED     [ 61%]
+tests/test_surface.py::TestSurface::test_clipping PASSED                 [ 62%]
+tests/test_surface.py::TestSurface::test_comp_op_and_global_alpha PASSED [ 63%]
+tests/test_surface.py::TestSurface::test_lines_and_paths PASSED          [ 64%]
+tests/test_surface.py::TestSurface::test_rectangles_and_rounded_rects PASSED [ 65%]
+tests/test_surface.py::TestSurface::test_shadow_and_card PASSED          [ 66%]
+tests/test_surface.py::TestSurface::test_surface_init_and_resize PASSED  [ 67%]
+tests/test_surface.py::TestSurface::test_transformations_and_context_manager PASSED [ 68%]
+tests/test_text_and_fonts.py::TestTextAndFonts::test_draw_text_alignments PASSED [ 69%]
+tests/test_text_and_fonts.py::TestTextAndFonts::test_find_system_font PASSED [ 70%]
+tests/test_text_and_fonts.py::TestTextAndFonts::test_load_and_register_font PASSED [ 71%]
+tests/test_text_and_fonts.py::TestTextAndFonts::test_load_font_face PASSED [ 72%]
+tests/test_text_and_fonts.py::TestTextAndFonts::test_loaded_fonts_registry PASSED [ 73%]
+tests/test_text_and_fonts.py::TestTextAndFonts::test_register_font_directory PASSED [ 74%]
+tests/test_text_and_fonts.py::TestTextAndFonts::test_startup_and_draw_latency PASSED [ 75%]
+tests/test_theme_bridge.py::TestThemeBridge::test_alpha_notation_resolution PASSED [ 76%]
+tests/test_theme_bridge.py::TestThemeBridge::test_bind_theme_changed PASSED [ 77%]
+tests/test_theme_bridge.py::TestThemeBridge::test_bootstrap_token_resolution PASSED [ 78%]
+tests/test_theme_bridge.py::TestThemeBridge::test_get_theme_colors PASSED [ 79%]
+tests/test_theme_bridge.py::TestThemeBridge::test_mocked_ttkbootstrap_integration PASSED [ 80%]
+tests/test_theme_bridge.py::TestThemeBridge::test_parse_color_with_tokens PASSED [ 80%]
+tests/test_theme_bridge.py::TestThemeBridge::test_theme_name_and_status PASSED [ 81%]
+tests/test_tkblend.py::TestColor::test_color_creation PASSED             [ 82%]
+tests/test_tkblend.py::TestColor::test_hex_parsing PASSED                [ 83%]
+tests/test_tkblend.py::TestColor::test_u32_conversion PASSED             [ 84%]
+tests/test_tkblend.py::TestSurface::test_drawing_primitives PASSED       [ 85%]
+tests/test_tkblend.py::TestSurface::test_gradients PASSED                [ 86%]
+tests/test_tkblend.py::TestSurface::test_path PASSED                     [ 87%]
+tests/test_tkblend.py::TestSurface::test_surface_creation_and_resize PASSED [ 88%]
+tests/test_tkblend.py::TestTkinterIntegration::test_blend_canvas_widget PASSED [ 89%]
+tests/test_tkblend.py::TestTkinterIntegration::test_blit_to_photo PASSED [ 90%]
+tests/test_ttk_theme.py::TestTtkThemeEngine::test_theme_registration_and_apply PASSED [ 91%]
+tests/test_ttk_theme.py::TestTtkThemeEngine::test_theme_widgets_creation_and_render PASSED [ 92%]
+tests/test_ttk_theme.py::TestTtkThemeEngine::test_widget_state_transitions PASSED [ 93%]
+tests/test_ttk_theme.py::TestTtkThemeEngine::test_theme_mode_switching_and_custom_config PASSED [ 94%]
+tests/test_ttk_theme.py::TestTtkThemeEngine::test_zero_dimensions_resilience PASSED [ 95%]
+tests/test_ttk_theme.py::TestTtkThemeEngine::test_theme_config_object PASSED [ 96%]
+tests/test_visual_snapshots.py::TestVisualAppearanceSnapshots::test_theme_snapshot_matches_baseline[target0] FAILED [ 97%]
+tests/test_visual_snapshots.py::TestVisualAppearanceSnapshots::test_theme_snapshot_matches_baseline[target1] FAILED [ 98%]
+tests/test_visual_snapshots.py::TestVisualAppearanceSnapshots::test_theme_snapshot_matches_baseline[target2] FAILED [ 99%]
+tests/test_visual_snapshots.py::TestVisualAppearanceSnapshots::test_theme_snapshot_matches_baseline[target3] FAILED [100%]
+
+=================================== FAILURES ===================================
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_buttons_dark] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x504000980430>
+target_key = 'matrix_buttons_dark'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_buttons_dark (Buttons Matrix (Dark Mode)): 82.19% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_buttons_dark_diff.png)
+E       assert 82.19253130590339 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_buttons_light] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x504000980630>
+target_key = 'matrix_buttons_light'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_buttons_light (Buttons Matrix (Light Mode)): 81.34% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_buttons_light_diff.png)
+E       assert 81.337656529517 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_inputs_dark] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x5040009808b0>
+target_key = 'matrix_inputs_dark'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_inputs_dark (Input Fields Matrix (Dark Mode)): 90.95% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_inputs_dark_diff.png)
+E       assert 90.94961240310077 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_inputs_light] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x504000980ab0>
+target_key = 'matrix_inputs_light'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_inputs_light (Input Fields Matrix (Light Mode)): 89.03% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_inputs_light_diff.png)
+E       assert 89.02740863787375 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_check_radio_dark] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x504000980cb0>
+target_key = 'matrix_check_radio_dark'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_check_radio_dark (Check & Radio Matrix (Dark Mode)): 90.06% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_check_radio_dark_diff.png)
+E       assert 90.05703211517165 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_check_radio_light] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x504000980eb0>
+target_key = 'matrix_check_radio_light'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_check_radio_light (Check & Radio Matrix (Light Mode)): 88.70% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_check_radio_light_diff.png)
+E       assert 88.70265780730897 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_sliders_progress_dark] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x5040009810b0>
+target_key = 'matrix_sliders_progress_dark'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_sliders_progress_dark (Sliders & Progress Matrix (Dark Mode)): 74.14% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_sliders_progress_dark_diff.png)
+E       assert 74.13891196013289 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_sliders_progress_light] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x5040009812b0>
+target_key = 'matrix_sliders_progress_light'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_sliders_progress_light (Sliders & Progress Matrix (Light Mode)): 65.38% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_sliders_progress_light_diff.png)
+E       assert 65.38330564784053 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_tabs_cards_dark] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x5040009814b0>
+target_key = 'matrix_tabs_cards_dark'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_tabs_cards_dark (Tabs & Cards Matrix (Dark Mode)): 89.41% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_tabs_cards_dark_diff.png)
+E       assert 89.40818798449612 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_tabs_cards_light] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x5040009816b0>
+target_key = 'matrix_tabs_cards_light'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_tabs_cards_light (Tabs & Cards Matrix (Light Mode)): 88.95% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_tabs_cards_light_diff.png)
+E       assert 88.95227713178294 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_treeview_dark] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x5040009818b0>
+target_key = 'matrix_treeview_dark'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_treeview_dark (Treeview Table Matrix (Dark Mode)): 81.53% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_treeview_dark_diff.png)
+E       assert 81.5266913319239 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_treeview_light] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x504000981ab0>
+target_key = 'matrix_treeview_light'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_treeview_light (Treeview Table Matrix (Light Mode)): 82.78% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_treeview_light_diff.png)
+E       assert 82.77536997885835 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_edge_cases_dark] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x504000981cb0>
+target_key = 'matrix_edge_cases_dark'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_edge_cases_dark (Edge Cases & Custom Colors (Dark Mode)): 87.91% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_edge_cases_dark_diff.png)
+E       assert 87.90748230535895 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestGranularVisualAppearance.test_granular_target_matches_baseline[matrix_edge_cases_light] _
+
+self = <test_granular_appearance.TestGranularVisualAppearance object at 0x504000981eb0>
+target_key = 'matrix_edge_cases_light'
+
+    @pytest.mark.parametrize("target_key", list(TARGET_BUILDERS.keys()))
+    def test_granular_target_matches_baseline(self, target_key):
+        desc, builder_fn = TARGET_BUILDERS[target_key]
+        baseline_file = os.path.join(BASELINES_DIR, f"{target_key}.png")
+    
+        root = builder_fn()
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {target_key}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{target_key}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{target_key}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{target_key}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match tolerance for system font antialiasing variations
+>       assert match_pct >= 98.5, f"Visual mismatch for {target_key} ({desc}): {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual mismatch for matrix_edge_cases_light (Edge Cases & Custom Colors (Light Mode)): 88.08% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_edge_cases_light_diff.png)
+E       assert 88.08114256825075 >= 98.5
+
+tests/test_granular_appearance.py:51: AssertionError
+_ TestVisualAppearanceSnapshots.test_theme_snapshot_matches_baseline[target0] __
+
+self = <test_visual_snapshots.TestVisualAppearanceSnapshots object at 0x504000a27530>
+target = {'name': 'showcase_dark_tab1', 'dark': True, 'tab': 0}
+
+    @pytest.mark.parametrize("target", [
+        {"name": "showcase_dark_tab1", "dark": True, "tab": 0},
+        {"name": "showcase_dark_tab2", "dark": True, "tab": 1},
+        {"name": "showcase_light_tab1", "dark": False, "tab": 0},
+        {"name": "showcase_light_tab2", "dark": False, "tab": 1},
+    ])
+    def test_theme_snapshot_matches_baseline(self, target):
+        name = target["name"]
+        baseline_file = os.path.join(BASELINES_DIR, f"{name}.png")
+    
+        root = build_showcase_window(dark=target["dark"], tab_index=target["tab"])
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {name}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{name}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{name}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{name}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match threshold to tolerate subtle subpixel font antialiasing variance across systems
+>       assert match_pct >= 98.5, f"Visual snapshot mismatch for {name}: {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual snapshot mismatch for showcase_dark_tab1: 86.42% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/showcase_dark_tab1_diff.png)
+E       assert 86.42398648648648 >= 98.5
+
+tests/test_visual_snapshots.py:56: AssertionError
+_ TestVisualAppearanceSnapshots.test_theme_snapshot_matches_baseline[target1] __
+
+self = <test_visual_snapshots.TestVisualAppearanceSnapshots object at 0x504000a27730>
+target = {'name': 'showcase_dark_tab2', 'dark': True, 'tab': 1}
+
+    @pytest.mark.parametrize("target", [
+        {"name": "showcase_dark_tab1", "dark": True, "tab": 0},
+        {"name": "showcase_dark_tab2", "dark": True, "tab": 1},
+        {"name": "showcase_light_tab1", "dark": False, "tab": 0},
+        {"name": "showcase_light_tab2", "dark": False, "tab": 1},
+    ])
+    def test_theme_snapshot_matches_baseline(self, target):
+        name = target["name"]
+        baseline_file = os.path.join(BASELINES_DIR, f"{name}.png")
+    
+        root = build_showcase_window(dark=target["dark"], tab_index=target["tab"])
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {name}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{name}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{name}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{name}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match threshold to tolerate subtle subpixel font antialiasing variance across systems
+>       assert match_pct >= 98.5, f"Visual snapshot mismatch for {name}: {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual snapshot mismatch for showcase_dark_tab2: 84.84% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/showcase_dark_tab2_diff.png)
+E       assert 84.83829852579852 >= 98.5
+
+tests/test_visual_snapshots.py:56: AssertionError
+_ TestVisualAppearanceSnapshots.test_theme_snapshot_matches_baseline[target2] __
+
+self = <test_visual_snapshots.TestVisualAppearanceSnapshots object at 0x504000a27930>
+target = {'name': 'showcase_light_tab1', 'dark': False, 'tab': 0}
+
+    @pytest.mark.parametrize("target", [
+        {"name": "showcase_dark_tab1", "dark": True, "tab": 0},
+        {"name": "showcase_dark_tab2", "dark": True, "tab": 1},
+        {"name": "showcase_light_tab1", "dark": False, "tab": 0},
+        {"name": "showcase_light_tab2", "dark": False, "tab": 1},
+    ])
+    def test_theme_snapshot_matches_baseline(self, target):
+        name = target["name"]
+        baseline_file = os.path.join(BASELINES_DIR, f"{name}.png")
+    
+        root = build_showcase_window(dark=target["dark"], tab_index=target["tab"])
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {name}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{name}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{name}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{name}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match threshold to tolerate subtle subpixel font antialiasing variance across systems
+>       assert match_pct >= 98.5, f"Visual snapshot mismatch for {name}: {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual snapshot mismatch for showcase_light_tab1: 85.03% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/showcase_light_tab1_diff.png)
+E       assert 85.03332309582309 >= 98.5
+
+tests/test_visual_snapshots.py:56: AssertionError
+_ TestVisualAppearanceSnapshots.test_theme_snapshot_matches_baseline[target3] __
+
+self = <test_visual_snapshots.TestVisualAppearanceSnapshots object at 0x504000a27b30>
+target = {'name': 'showcase_light_tab2', 'dark': False, 'tab': 1}
+
+    @pytest.mark.parametrize("target", [
+        {"name": "showcase_dark_tab1", "dark": True, "tab": 0},
+        {"name": "showcase_dark_tab2", "dark": True, "tab": 1},
+        {"name": "showcase_light_tab1", "dark": False, "tab": 0},
+        {"name": "showcase_light_tab2", "dark": False, "tab": 1},
+    ])
+    def test_theme_snapshot_matches_baseline(self, target):
+        name = target["name"]
+        baseline_file = os.path.join(BASELINES_DIR, f"{name}.png")
+    
+        root = build_showcase_window(dark=target["dark"], tab_index=target["tab"])
+        try:
+            actual = capture_window_image(root)
+        finally:
+            root.destroy()
+    
+        if not os.path.exists(baseline_file):
+            actual.save(baseline_file)
+            pytest.skip(f"Created initial baseline for {name}")
+    
+        baseline = Image.open(baseline_file).convert("RGB")
+        match_pct, diff_img, heat_img = compare_images(actual, baseline)
+    
+        actual_out = os.path.join(REPORTS_DIR, f"{name}_actual.png")
+        diff_out = os.path.join(REPORTS_DIR, f"{name}_diff.png")
+        heat_out = os.path.join(REPORTS_DIR, f"{name}_heatmap.png")
+    
+        actual.save(actual_out)
+        diff_img.save(diff_out)
+        heat_img.save(heat_out)
+    
+        # Allow 98.5% match threshold to tolerate subtle subpixel font antialiasing variance across systems
+>       assert match_pct >= 98.5, f"Visual snapshot mismatch for {name}: {match_pct:.2f}% (diff saved to {diff_out})"
+E       AssertionError: Visual snapshot mismatch for showcase_light_tab2: 86.54% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/showcase_light_tab2_diff.png)
+E       assert 86.54299754299754 >= 98.5
+
+tests/test_visual_snapshots.py:56: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_buttons_dark] - AssertionError: Visual mismatch for matrix_buttons_dark (Buttons Matrix (Dark Mode)): 82.19% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_buttons_dark_diff.png)
+assert 82.19253130590339 >= 98.5
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_buttons_light] - AssertionError: Visual mismatch for matrix_buttons_light (Buttons Matrix (Light Mode)): 81.34% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_buttons_light_diff.png)
+assert 81.337656529517 >= 98.5
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_inputs_dark] - AssertionError: Visual mismatch for matrix_inputs_dark (Input Fields Matrix (Dark Mode)): 90.95% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_inputs_dark_diff.png)
+assert 90.94961240310077 >= 98.5
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_inputs_light] - AssertionError: Visual mismatch for matrix_inputs_light (Input Fields Matrix (Light Mode)): 89.03% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_inputs_light_diff.png)
+assert 89.02740863787375 >= 98.5
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_check_radio_dark] - AssertionError: Visual mismatch for matrix_check_radio_dark (Check & Radio Matrix (Dark Mode)): 90.06% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_check_radio_dark_diff.png)
+assert 90.05703211517165 >= 98.5
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_check_radio_light] - AssertionError: Visual mismatch for matrix_check_radio_light (Check & Radio Matrix (Light Mode)): 88.70% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_check_radio_light_diff.png)
+assert 88.70265780730897 >= 98.5
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_sliders_progress_dark] - AssertionError: Visual mismatch for matrix_sliders_progress_dark (Sliders & Progress Matrix (Dark Mode)): 74.14% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_sliders_progress_dark_diff.png)
+assert 74.13891196013289 >= 98.5
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_sliders_progress_light] - AssertionError: Visual mismatch for matrix_sliders_progress_light (Sliders & Progress Matrix (Light Mode)): 65.38% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_sliders_progress_light_diff.png)
+assert 65.38330564784053 >= 98.5
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_tabs_cards_dark] - AssertionError: Visual mismatch for matrix_tabs_cards_dark (Tabs & Cards Matrix (Dark Mode)): 89.41% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_tabs_cards_dark_diff.png)
+assert 89.40818798449612 >= 98.5
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_tabs_cards_light] - AssertionError: Visual mismatch for matrix_tabs_cards_light (Tabs & Cards Matrix (Light Mode)): 88.95% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_tabs_cards_light_diff.png)
+assert 88.95227713178294 >= 98.5
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_treeview_dark] - AssertionError: Visual mismatch for matrix_treeview_dark (Treeview Table Matrix (Dark Mode)): 81.53% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_treeview_dark_diff.png)
+assert 81.5266913319239 >= 98.5
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_treeview_light] - AssertionError: Visual mismatch for matrix_treeview_light (Treeview Table Matrix (Light Mode)): 82.78% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_treeview_light_diff.png)
+assert 82.77536997885835 >= 98.5
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_edge_cases_dark] - AssertionError: Visual mismatch for matrix_edge_cases_dark (Edge Cases & Custom Colors (Dark Mode)): 87.91% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_edge_cases_dark_diff.png)
+assert 87.90748230535895 >= 98.5
+FAILED tests/test_granular_appearance.py::TestGranularVisualAppearance::test_granular_target_matches_baseline[matrix_edge_cases_light] - AssertionError: Visual mismatch for matrix_edge_cases_light (Edge Cases & Custom Colors (Light Mode)): 88.08% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/granular/matrix_edge_cases_light_diff.png)
+assert 88.08114256825075 >= 98.5
+FAILED tests/test_visual_snapshots.py::TestVisualAppearanceSnapshots::test_theme_snapshot_matches_baseline[target0] - AssertionError: Visual snapshot mismatch for showcase_dark_tab1: 86.42% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/showcase_dark_tab1_diff.png)
+assert 86.42398648648648 >= 98.5
+FAILED tests/test_visual_snapshots.py::TestVisualAppearanceSnapshots::test_theme_snapshot_matches_baseline[target1] - AssertionError: Visual snapshot mismatch for showcase_dark_tab2: 84.84% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/showcase_dark_tab2_diff.png)
+assert 84.83829852579852 >= 98.5
+FAILED tests/test_visual_snapshots.py::TestVisualAppearanceSnapshots::test_theme_snapshot_matches_baseline[target2] - AssertionError: Visual snapshot mismatch for showcase_light_tab1: 85.03% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/showcase_light_tab1_diff.png)
+assert 85.03332309582309 >= 98.5
+FAILED tests/test_visual_snapshots.py::TestVisualAppearanceSnapshots::test_theme_snapshot_matches_baseline[target3] - AssertionError: Visual snapshot mismatch for showcase_light_tab2: 86.54% (diff saved to /home/mateusgp/projects/tkblend/scripts/../build/visual_reports/showcase_light_tab2_diff.png)
+assert 86.54299754299754 >= 98.5
+======================== 18 failed, 87 passed in 10.19s ========================

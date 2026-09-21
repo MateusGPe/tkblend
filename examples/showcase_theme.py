@@ -532,7 +532,14 @@ class ThemeShowcaseApp:
 def main():
     root = tk.Tk()
     ThemeShowcaseApp(root)
-    root.mainloop()
+    root.protocol("WM_DELETE_WINDOW", root.destroy)
+    try:
+        root.mainloop()
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
