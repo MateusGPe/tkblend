@@ -18,11 +18,8 @@ from tkblend import (
     RadialGradient,
     Path,
     BlendCanvas,
-    ModernFrame,
-    ModernButton,
-    ModernProgressBar,
-    ModernSlider,
-    ModernSwitch,
+    resolve_theme_color,
+    get_theme_colors,
 )
 
 
@@ -152,27 +149,6 @@ class TestTkinterIntegration(unittest.TestCase):
         canvas = BlendCanvas(self.root, width=100, height=60, on_draw=draw)
         canvas.redraw()
         canvas.destroy()
-
-    def test_modern_widgets(self):
-        if not self.root:
-            self.skipTest("Tkinter display not available")
-
-        frame = ModernFrame(self.root, width=200, height=150)
-        btn = ModernButton(frame, text="Hello", width=100, height=36)
-        pbar = ModernProgressBar(frame, width=120, height=12, value=45.0)
-        slider = ModernSlider(frame, width=120, height=24, value=70.0)
-        switch = ModernSwitch(frame, is_on=True)
-
-        frame.render()
-        btn.render()
-        pbar.render()
-        slider.render()
-        switch.render()
-
-        switch.toggle()
-        self.assertFalse(switch.is_on)
-
-        frame.destroy()
 
 
 if __name__ == "__main__":

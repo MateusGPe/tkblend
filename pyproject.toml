@@ -4,8 +4,8 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "tkblend"
-version = "0.1.0"
-description = "High-performance Blend2D vector graphics and modern UI toolkit for Tkinter via direct Tk_PhotoPutBlock blitting"
+version = "0.2.0"
+description = "High-performance Blend2D vector graphics addon for ttkbootstrap and Tkinter via zero-copy Tk_PhotoPutBlock blitting"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
@@ -29,6 +29,9 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
+ttkbootstrap = [
+    "ttkbootstrap>=1.10.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.1.0",
@@ -37,7 +40,9 @@ dev = [
     "build>=1.0.0",
     "twine>=4.0.0",
     "cibuildwheel>=2.19.0",
+    "ttkbootstrap>=1.10.0",
 ]
+
 
 [tool.scikit-build]
 cmake.version = ">=3.20"

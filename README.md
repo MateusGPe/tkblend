@@ -1,87 +1,125 @@
 # tkblend
 
-**tkblend** is a high-performance, standalone Python package that embeds **Blend2D** directly into Python and Tkinter. It blits anti-aliased 2D vector graphics directly into Tkinter's native `tk.PhotoImage` display buffer using `Tk_PhotoPutBlock`.
+**tkblend** is a high-performance Blend2D vector graphics addon for **ttkbootstrap** and **Tkinter**. It blits antialiased 2D vector graphics directly into Tkinter's native `tk.PhotoImage` display buffer using zero-copy `Tk_PhotoPutBlock` C++ blitting.
 
-## Features
-- **Zero-Allocation Direct Blit**: Directly writes raw 32-bit PRGB pixel scanlines to Tkinter's native `tk.PhotoImage` buffer with zero intermediate PIL copies or Tk Canvas overhead.
-- **SIMD-Accelerated 2D Vector Engine**: Full Blend2D rasterization for lines, cubic beziers, circles, ellipses, rounded rectangles, and arbitrary paths.
-- **Modern Effects**: Multi-stop linear and radial gradients, $O(1)$ 3-pass separable box/Gaussian blurs, soft drop shadows, and glassmorphic card rendering.
-- **Native Typography**: Subpixel-antialiased text layout using Blend2D font engine with automatic cross-platform system font discovery.
-- **Modern Tkinter Widgets**: Drop-in widgets (`ModernFrame`, `ModernButton`, `ModernCard`, `ModernProgressBar`, `ModernSlider`, `ModernSwitch`) with smooth hover/press animations and soft elevation shadows.
-- **High-Framerate Canvas**: `BlendCanvas` for real-time 60+ FPS vector graphics and custom interactive visual scenes.
+Designed as a lightweight, super-fast graphics addon, **tkblend** gives you hardware-grade 2D rendering, soft shadows, antialiased beziers/curves, multi-stop gradients, and custom canvas widgets (`BlendCanvas`) that automatically synchronize with `ttkbootstrap` themes and bootstyles.
+
+---
+
+## Key Features
+
+- ⚡ **Zero-Copy Direct Blit**: Blits raw 32-bit PRGB pixels straight to `tk.PhotoImage` via `Tk_PhotoPutBlock` with zero intermediate PIL copies or memory allocations.
+- 🎨 **Seamless ttkbootstrap Integration**: Pass `ttkbootstrap` color tokens (`"primary"`, `"success"`, `"info"`, `"dark"`, `"bg"`, `"border"`, etc.) directly to any drawing command. Automatically updates when themes switch!
+- 🚀 **High-Framerate 60+ FPS Canvas**: `BlendCanvas` widget with immediate-mode callbacks (`on_draw`), convenience drawing methods, and automatic resize/DPI management.
+- 📐 **SIMD-Accelerated 2D Vector Engine**: Full Blend2D rasterization for lines, cubic beziers, circles, ellipses, rounded rectangles, and arbitrary paths.
+- 🌈 **Modern Effects & Soft Shadows**: Multi-stop linear and radial gradients, $O(1)$ soft drop shadows, and modern card rendering.
+- 🔤 **Subpixel Typography**: Antialiased subpixel text layout using Blend2D's native font engine.
+
+---
 
 ## Installation
 
 ```bash
-pip install .
+# Core package
+pip install tkblend
+
+# With ttkbootstrap support
+pip install "tkblend[ttkbootstrap]"
 ```
 
-## Quick Start
+---
+
+## Quick Start with ttkbootstrap
+
+```python
+import ttkbootstrap as tb
+from tkblend import BlendCanvas, LinearGradient
+
+# Create ttkbootstrap window
+app = tb.Window(title="tkblend + ttkbootstrap", themename="darkly", size=(800, 600))
+
+# Define drawing callback
+def draw_dashboard(surface):
+    w, h = surface.width, surface.height
+    
+    # 1. Clear with theme background
+    surface.clear("bg")
+    
+    # 2. Modern card with soft drop shadow
+    surface.draw_card(
+        20, 20, w - 40, h - 40,
+        rx=16, ry=16,
+        bg_color="dark",
+        border_color="border",
+        border_width=1.0,
+        shadow_blur=16.0,
+        shadow_color="#00000055"
+    )
+    
+    # 3. Dynamic multi-stop gradient
+    grad = LinearGradient(40, 0, w - 40, 0)
+    grad.add_stop(0.0, "primary").add_stop(0.5, "info").add_stop(1.0, "success")
+    
+    # 4. Antialiased shapes & text
+    surface.draw_text("⚡ tkblend Graphics Engine", 44, 55, font_size=16, color="primary")
+    surface.fill_rounded_rect(44, 80, w - 88, 8, 4, 4, grad)
+
+# Create BlendCanvas widget
+canvas = BlendCanvas(app, width=760, height=560, on_draw=draw_dashboard)
+canvas.pack(fill="both", expand=True, padx=20, pady=20)
+
+app.mainloop()
+```
+
+---
+
+## Standalone Tkinter Usage
+
+`tkblend` has zero mandatory runtime dependencies beyond standard Python and Tkinter:
 
 ```python
 import tkinter as tk
-from tkblend import Surface, Color, Gradient, ModernButton, ModernCard
+from tkblend import BlendCanvas, Surface
 
 root = tk.Tk()
-root.title("tkblend Demo")
-root.geometry("600x400")
+root.geometry("400x300")
 
-card = ModernCard(root, width=320, height=220, rx=16, ry=16,
-                  bg_color="#1e1e2e", border_color="#313244",
-                  shadow_blur=16.0, shadow_color="#00000088")
-card.pack(pady=40)
+def on_draw(s: Surface):
+    s.clear("#181825")
+    s.draw_card(20, 20, 360, 260, rx=12, ry=12, bg_color="#1e1e2e", shadow_blur=10.0)
+    s.fill_circle(200, 150, 50, "#89b4fa")
+    s.draw_text("Pure Tkinter + Blend2D", 200, 150, font_size=14, color="#ffffff", align="center")
 
-btn = ModernButton(card, text="Click Me", width=140, height=44,
-                   bg_color="#89b4fa", hover_color="#b4befe", text_color="#11111b")
-btn.pack(pady=60)
+canvas = BlendCanvas(root, width=400, height=300, on_draw=on_draw)
+canvas.pack(fill="both", expand=True)
 
 root.mainloop()
 ```
 
-## Development & Testing
+---
 
-### 1. Build Extension Locally
+## Interactive Showcase & Benchmarks
+
+Run the live 60 FPS interactive showcase:
 ```bash
-# Using python script
-python scripts/build.py
-
-# Or using shell script (Linux/macOS)
-./scripts/build.sh
+uv run python examples/showcase.py
 ```
 
-### 2. Run Test Suite
+Run headless and interactive blit benchmarks:
 ```bash
-# Automatically handles headless displays (xvfb) on Linux
-python scripts/run_tests.py -v
-
-# Or via pytest directly
-pytest -v
+uv run python examples/benchmark.py
 ```
 
-### 3. Build Distributions (sdist & wheels)
-```bash
-# Build both source distribution and binary wheel into dist/
-python scripts/build_dist.py
+---
 
-# Build sdist only
-python scripts/build_dist.py --sdist-only
-
-# Build wheel only
-python scripts/build_dist.py --wheel-only
-```
-
-## GitHub Release & CI/CD
-
-This repository includes automated GitHub Actions pipelines:
-
-1. **Continuous Integration (`.github/workflows/ci.yml`)**:
-   - Runs unit tests on every `push` and `pull_request` across Ubuntu, macOS (Intel & Apple Silicon), and Windows with Python 3.9–3.13.
-2. **Release Workflow (`.github/workflows/release.yml`)**:
-   - Automatically builds pure source distributions (`sdist`) and multi-platform native wheels (Linux x86_64/aarch64, macOS x86_64/arm64, Windows AMD64) using `cibuildwheel`.
-   - Creates a GitHub Release and attaches all distribution archives when a version tag is pushed:
+## Running Tests
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+uv run pytest
 ```
 
+---
+
+## License
+
+MIT License.
