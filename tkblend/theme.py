@@ -622,235 +622,12 @@ class SearchEntry(ThemedEntry):
         super().__init__(master, placeholder=placeholder, **kwargs)
 
 
-class FloatingScrollbar(ttk.Scrollbar):
-    """
-    Modern floating overlay scrollbar that sits directly on top of scrollable views
-    (Canvas, Text, Treeview). Features auto-hiding when idle, smooth dynamic expansion
-    on hover (6px slim to 10px interactive pill), drag-lock, and multi-platform wheel support.
-    """
-    def __init__(
-        self,
-        master=None,
-        target: Optional[tk.Widget] = None,
-        autohide: bool = True,
-        hide_delay_ms: int = 1200,
-        **kwargs
-    ):
-        orient = kwargs.get("orient", "vertical")
-        self._orient = str(orient).lower()
-        if "style" not in kwargs:
-            kwargs["style"] = (
-                "Floating.Vertical.TScrollbar" if self._orient == "vertical"
-                else "Floating.Horizontal.TScrollbar"
-            )
-        super().__init__(master, **kwargs)
-
-        self.target = target
-        self.autohide = autohide
-        self.hide_delay_ms = hide_delay_ms
-        self._hide_after_id = None
-        self._is_hovered = False
-        self._is_dragging = False
-        self._is_expanded = False
-        self._is_scrollable = False
-
-        self.bind("<Enter>", self._on_enter, add="+")
-        self.bind("<Leave>", self._on_leave, add="+")
-        self.bind("<ButtonPress-1>", self._on_press, add="+")
-        self.bind("<ButtonRelease-1>", self._on_release, add="+")
-        self.bind("<B1-Motion>", self._on_motion, add="+")
-
-        # Scrollbar mousewheel handling (Windows/macOS + Linux)
-        self.bind("<MouseWheel>", self._on_wheel_scroll, add="+")
-        self.bind("<Button-4>", lambda e: self._handle_wheel(-1), add="+")
-        self.bind("<Button-5>", lambda e: self._handle_wheel(1), add="+")
-
-        bind_theme_changed(self, self._on_theme_changed)
-
-        if self.target is not None:
-            self.attach_to(self.target)
-
-    def _get_orient(self) -> str:
-        try:
-            val = str(self.cget("orient")).lower()
-            if "vert" in val:
-                return "vertical"
-            if "horiz" in val:
-                return "horizontal"
-        except tk.TclError:
-            pass
-        return self._orient
-
-    def attach_to(self, target: tk.Widget):
-        """Attach this floating scrollbar to float on top of the given scrollable widget."""
-        self.target = target
-        orient = self._get_orient()
-        if orient == "vertical":
-            target.configure(yscrollcommand=self._on_target_scroll)
-            self.configure(command=target.yview)
-        else:
-            target.configure(xscrollcommand=self._on_target_scroll)
-            self.configure(command=target.xview)
-
-        # Place initial overlay
-        self._apply_placement()
-
-        # Target bindings: reveal on activity & wheel
-        # Linux: Button-4 = scroll up (delta -1), Button-5 = scroll down (delta +1)
-        target.bind("<Enter>", lambda e: self._on_target_enter(), add="+")
-        target.bind("<Leave>", lambda e: self._on_target_leave(), add="+")
-        target.bind("<MouseWheel>", self._on_wheel_scroll, add="+")
-        target.bind("<Button-4>", lambda e: self._handle_wheel(-1), add="+")
-        target.bind("<Button-5>", lambda e: self._handle_wheel(1), add="+")
-        target.bind("<Configure>", lambda e: self._on_target_configure(), add="+")
-
-        self._schedule_hide()
-
-    def _apply_placement(self):
-        if self.target is None:
-            return
-        orient = self._get_orient()
-        thickness = 10 if self._is_expanded else 6
-        if orient == "vertical":
-            self.place(in_=self.target, relx=1.0, rely=0.0, relheight=1.0, anchor="ne", width=thickness)
-        else:
-            self.place(in_=self.target, relx=0.0, rely=1.0, relwidth=1.0, anchor="sw", height=thickness)
-        self.lift()
-
-    def _set_expanded(self, expanded: bool):
-        if self._is_expanded == expanded:
-            return
-        self._is_expanded = expanded
-        orient = self._get_orient()
-        if orient == "vertical":
-            style_name = "Hover.Floating.Vertical.TScrollbar" if expanded else "Floating.Vertical.TScrollbar"
-        else:
-            style_name = "Hover.Floating.Horizontal.TScrollbar" if expanded else "Floating.Horizontal.TScrollbar"
-        try:
-            self.configure(style=style_name)
-        except tk.TclError:
-            pass
-        if self.winfo_ismapped() and self.target is not None:
-            self._apply_placement()
-
-    def _on_target_scroll(self, first, last):
-        self.set(first, last)
-        try:
-            f, l = float(first), float(last)
-            self._is_scrollable = (f > 0.0 or l < 1.0)
-        except (ValueError, TypeError):
-            self._is_scrollable = True
-
-        if not self._is_scrollable:
-            self.place_forget()
-        else:
-            if not self.winfo_ismapped() and self.target is not None:
-                self._apply_placement()
-            self.show()
-            self._schedule_hide()
-
-    def show(self):
-        self._cancel_hide()
-        if not self._is_scrollable and self.target is not None:
-            return
-        if not self.winfo_ismapped() and self.target is not None:
-            self._apply_placement()
-        else:
-            self.lift()
-
-    def hide(self):
-        if self.autohide and not self._is_hovered and not self._is_dragging:
-            self.place_forget()
-
-    def _cancel_hide(self):
-        if self._hide_after_id:
-            try:
-                self.after_cancel(self._hide_after_id)
-            except tk.TclError:
-                pass
-            self._hide_after_id = None
-
-    def _schedule_hide(self):
-        if not self.autohide or self._is_hovered or self._is_dragging:
-            return
-        self._cancel_hide()
-        self._hide_after_id = self.after(self.hide_delay_ms, self.hide)
-
-    def _on_enter(self, event=None):
-        self._is_hovered = True
-        self._set_expanded(True)
-        self.show()
-
-    def _on_leave(self, event=None):
-        self._is_hovered = False
-        if not self._is_dragging:
-            self._set_expanded(False)
-            self._schedule_hide()
-
-    def _on_press(self, event=None):
-        self._is_dragging = True
-        self._cancel_hide()
-        self.lift()
-
-    def _on_release(self, event=None):
-        self._is_dragging = False
-        if not self._is_hovered:
-            self._set_expanded(False)
-            self._schedule_hide()
-
-    def _on_motion(self, event=None):
-        self._cancel_hide()
-
-    def _on_target_enter(self):
-        if self._is_scrollable:
-            self.show()
-            self._schedule_hide()
-
-    def _on_target_leave(self):
-        if not self._is_hovered and not self._is_dragging:
-            self._schedule_hide()
-
-    def _on_target_configure(self):
-        if self.winfo_ismapped() and self.target is not None:
-            self._apply_placement()
-
-    def _handle_wheel(self, delta_units: int):
-        if self.target is None:
-            return
-        orient = self._get_orient()
-        try:
-            if orient == "vertical":
-                self.target.yview_scroll(delta_units, "units")
-            else:
-                self.target.xview_scroll(delta_units, "units")
-        except tk.TclError:
-            pass
-        self.show()
-        self._schedule_hide()
-
-    def _on_wheel_scroll(self, event):
-        """Handle Windows/macOS MouseWheel — negative delta = scroll up."""
-        if event.delta:
-            self._handle_wheel(-1 if event.delta > 0 else 1)
-
-    def _on_theme_changed(self):
-        orient = self._get_orient()
-        if self._is_expanded:
-            style_name = "Hover.Floating.Vertical.TScrollbar" if orient == "vertical" else "Hover.Floating.Horizontal.TScrollbar"
-        else:
-            style_name = "Floating.Vertical.TScrollbar" if orient == "vertical" else "Floating.Horizontal.TScrollbar"
-        try:
-            self.configure(style=style_name)
-        except tk.TclError:
-            pass
-
-
 class ThemedText(ttk.Frame):
     """
     Modern scrollable multi-line text editor with Blend2D palette synchronization
-    and an integrated FloatingScrollbar overlay.
+    and an integrated docked native TTK scrollbar.
     """
-    def __init__(self, master=None, autohide_scrollbar: bool = True, **kwargs):
+    def __init__(self, master=None, **kwargs):
         super().__init__(master)
 
         text_opts = {
@@ -861,14 +638,20 @@ class ThemedText(ttk.Frame):
             "wrap": "word",
             "font": _DEFAULT_TEXT_FONT,
         }
+        kwargs.pop("autohide_scrollbar", None)
         text_opts.update(kwargs)
 
+        self.scrollbar = ttk.Scrollbar(self, orient="vertical")
         self.text = tk.Text(self, **text_opts)
-        self.text.pack(fill="both", expand=True)
 
-        self.scrollbar = FloatingScrollbar(
-            self, target=self.text, orient="vertical", autohide=autohide_scrollbar
-        )
+        self.scrollbar.configure(command=self.text.yview)
+        self.text.configure(yscrollcommand=self.scrollbar.set)
+
+        self.scrollbar.pack(side="right", fill="y", padx=(2, 4), pady=2)
+        self.text.pack(side="left", fill="both", expand=True)
+
+        self.text.bind("<Button-4>", lambda e: self.text.yview_scroll(-1, "units"), add="+")
+        self.text.bind("<Button-5>", lambda e: self.text.yview_scroll(1, "units"), add="+")
 
         self._sync_theme()
         bind_theme_changed(self, self._sync_theme)
@@ -888,20 +671,23 @@ class ThemedText(ttk.Frame):
 
 class ThemedScrolledFrame(ttk.Frame):
     """
-    Modern scrollable frame container with canvas blitting and attached FloatingScrollbar.
+    Modern scrollable frame container with canvas blitting and attached docked TTK scrollbar.
     """
-    def __init__(self, master=None, autohide_scrollbar: bool = True, **kwargs):
+    def __init__(self, master=None, **kwargs):
+        kwargs.pop("autohide_scrollbar", None)
         super().__init__(master, **kwargs)
 
+        self.scrollbar = ttk.Scrollbar(self, orient="vertical")
         self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0)
-        self.canvas.pack(fill="both", expand=True)
+
+        self.scrollbar.configure(command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.scrollbar.pack(side="right", fill="y", padx=(2, 4), pady=2)
+        self.canvas.pack(side="left", fill="both", expand=True)
 
         self.content = ttk.Frame(self.canvas)
         self._window_id = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
-
-        self.scrollbar = FloatingScrollbar(
-            self, target=self.canvas, orient="vertical", autohide=autohide_scrollbar
-        )
 
         self.content.bind("<Configure>", self._on_content_configure)
         self.canvas.bind("<Configure>", self._on_canvas_configure)
@@ -910,6 +696,8 @@ class ThemedScrolledFrame(ttk.Frame):
         # Linux wheel bindings delegate to the canvas directly
         self.canvas.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))
         self.canvas.bind("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))
+        self.content.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))
+        self.content.bind("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))
 
         self._sync_theme()
         bind_theme_changed(self, self._sync_theme)

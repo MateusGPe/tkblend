@@ -3,11 +3,14 @@
 namespace tkblend {
 
 struct ScrollbarElement {
+  Tcl_Obj *orientObj;
   Tcl_Obj *backgroundObj;
   Tcl_Obj *troughColorObj;
 };
 
 static Ttk_ElementOptionSpec ScrollbarOptions[] = {
+    {"-orient", TK_OPTION_ANY, offsetof(ScrollbarElement, orientObj),
+     "horizontal"},
     {"-background", TK_OPTION_STRING, offsetof(ScrollbarElement, backgroundObj),
      ""},
     {"-troughcolor", TK_OPTION_STRING,
@@ -15,12 +18,22 @@ static Ttk_ElementOptionSpec ScrollbarOptions[] = {
     {nullptr, TK_OPTION_BOOLEAN, 0, nullptr}};
 
 static void ScrollbarTroughGeometry(void * /*clientData*/,
-                                    void * /*elementRecord*/,
+                                    void *elementRecord,
                                     Tk_Window /*tkwin*/, int *widthPtr,
                                     int *heightPtr, Ttk_Padding *paddingPtr) {
-  if (widthPtr)   *widthPtr  = 12;
-  if (heightPtr)  *heightPtr = 12;
-  if (paddingPtr) *paddingPtr = {1, 1, 1, 1};
+  auto *sb = static_cast<ScrollbarElement *>(elementRecord);
+  int orient = TTK_ORIENT_HORIZONTAL;
+  if (sb && sb->orientObj) {
+    Ttk_GetOrientFromObj(nullptr, sb->orientObj, &orient);
+  }
+  if (orient == TTK_ORIENT_VERTICAL) {
+    if (widthPtr)  *widthPtr  = 12;
+    if (heightPtr) *heightPtr = 28;
+  } else {
+    if (widthPtr)  *widthPtr  = 28;
+    if (heightPtr) *heightPtr = 12;
+  }
+  if (paddingPtr) *paddingPtr = {0, 0, 0, 0};
 }
 
 static void ScrollbarTroughDraw(void * /*clientData*/, void * /*elementRecord*/,
@@ -45,11 +58,21 @@ Ttk_ElementSpec ScrollbarTroughElementSpec = {
     ScrollbarTroughGeometry, ScrollbarTroughDraw};
 
 static void ScrollbarThumbGeometry(void * /*clientData*/,
-                                   void * /*elementRecord*/,
+                                   void *elementRecord,
                                    Tk_Window /*tkwin*/, int *widthPtr,
                                    int *heightPtr, Ttk_Padding *paddingPtr) {
-  if (widthPtr)   *widthPtr  = 30;
-  if (heightPtr)  *heightPtr = 12;
+  auto *sb = static_cast<ScrollbarElement *>(elementRecord);
+  int orient = TTK_ORIENT_HORIZONTAL;
+  if (sb && sb->orientObj) {
+    Ttk_GetOrientFromObj(nullptr, sb->orientObj, &orient);
+  }
+  if (orient == TTK_ORIENT_VERTICAL) {
+    if (widthPtr)  *widthPtr  = 12;
+    if (heightPtr) *heightPtr = 28;
+  } else {
+    if (widthPtr)  *widthPtr  = 28;
+    if (heightPtr) *heightPtr = 12;
+  }
   if (paddingPtr) *paddingPtr = {0, 0, 0, 0};
 }
 
@@ -61,6 +84,10 @@ static void ScrollbarThumbDraw(void * /*clientData*/, void * /*elementRecord*/,
   RenderElement(tkwin, d, b, [&](BLContext &ctx, int w, int h) {
     if (w <= 0 || h <= 0)
       return;
+
+    // Fill thumb bounding box with track_bg so rounded corners blend seamlessly
+    // with the trough instead of cutting a hole of container background
+    ctx.fill_all(to_bl_rgba(cfg.track_bg));
 
     bool pressed = is_pressed(state);
     bool hover = is_active(state);
@@ -77,7 +104,7 @@ static void ScrollbarThumbDraw(void * /*clientData*/, void * /*elementRecord*/,
       thumb_col = cfg.thumb_color;
     }
 
-    double pad = (hover || pressed) ? 1.0 : 2.0;
+    double pad = (hover || pressed) ? 1.5 : 2.0;
     double pill_w = w - (pad * 2.0);
     double pill_h = h - (pad * 2.0);
     if (pill_w <= 1.0 || pill_h <= 1.0)

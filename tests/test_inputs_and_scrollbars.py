@@ -71,47 +71,27 @@ def test_searchentry(root):
     assert search.get() == "query"
 
 
-def test_floating_scrollbar_attachment(root):
+def test_docked_scrollbar_geometry_and_tracking(root):
     text = tk.Text(root, wrap="none", height=5, width=20)
-    text.pack()
+    text.pack(side="left", fill="both", expand=True)
     for i in range(50):
         text.insert("end", f"Line {i}\n")
+
+    scroller = ttk.Scrollbar(root, orient="vertical", command=text.yview)
+    text.configure(yscrollcommand=scroller.set)
+    scroller.pack(side="right", fill="y", padx=(2, 4), pady=2)
     root.update()
 
-    scroller = tkblend.FloatingScrollbar(root, target=text, orient="vertical", autohide=False)
-    root.update()
+    assert scroller.winfo_manager() == "pack"
+    assert str(scroller.cget("orient")) == "vertical"
 
-    assert scroller.target is text
-    scroller.show()
-    root.update()
-    assert scroller.winfo_manager() == "place"
+    # Set fractions and test get()
+    scroller.set(0.2, 0.6)
+    assert scroller.get() == (0.2, 0.6)
 
-    # Test hover expansion
-    scroller._on_enter()
-    root.update()
-    assert scroller._is_expanded is True
-    assert scroller.cget("style") == "Hover.Floating.Vertical.TScrollbar"
-
-    scroller._on_leave()
-    root.update()
-    assert scroller._is_expanded is False
-    assert scroller.cget("style") == "Floating.Vertical.TScrollbar"
-
-    # Test drag-lock behavior
-    scroller._on_press()
-    assert scroller._is_dragging is True
-    assert scroller._hide_after_id is None
-
-    # While dragging, leaving scrollbar does not immediately contract/hide
-    scroller._on_leave()
-    assert scroller._is_dragging is True
-
-    scroller._on_release()
-    assert scroller._is_dragging is False
-
-    # Test wheel scroll handling
+    # Test wheel scroll handling directly via text widget
     initial_yview = text.yview()
-    scroller._handle_wheel(2)
+    text.yview_scroll(2, "units")
     root.update()
     new_yview = text.yview()
     assert new_yview != initial_yview
@@ -121,6 +101,9 @@ def test_themed_text_and_sync(root):
     themed_text = tkblend.ThemedText(root, height=6, width=30)
     themed_text.pack()
     root.update()
+
+    assert themed_text.scrollbar.winfo_manager() == "pack"
+    assert str(themed_text.scrollbar.cget("orient")) == "vertical"
 
     themed_text.insert("1.0", "Native Blend2D Theme Line 1\nLine 2\nLine 3\n")
     assert "Native Blend2D Theme" in themed_text.get("1.0", "end")
@@ -149,7 +132,8 @@ def test_themed_scrolled_frame(root):
         btn.pack(pady=4)
 
     root.update()
-    assert scrolled.scrollbar.target is scrolled.canvas
+    assert scrolled.scrollbar.winfo_manager() == "pack"
+    assert str(scrolled.scrollbar.cget("orient")) == "vertical"
 
     # Dynamic theme change
     tkblend.apply_theme(root, dark_mode=False)

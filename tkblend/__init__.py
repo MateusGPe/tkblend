@@ -58,7 +58,6 @@ from tkblend.theme import (
     bind_theme_changed,
     ThemedEntry,
     SearchEntry,
-    FloatingScrollbar,
     ThemedText,
     ThemedScrolledFrame,
 )
@@ -94,7 +93,6 @@ __all__ = [
     "is_inside_card",
     "ThemedEntry",
     "SearchEntry",
-    "FloatingScrollbar",
     "ThemedText",
     "ThemedScrolledFrame",
     # Theme & ttkbootstrap bridge

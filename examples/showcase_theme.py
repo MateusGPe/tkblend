@@ -161,7 +161,7 @@ class ThemeShowcaseApp:
         # Section 3: Sliders & Progress
         metric_frame = ttk.Labelframe(
             parent,
-            text=" Sliders, Smooth Progressbar & Floating Pill Scrollbars ",
+            text=" Sliders, Smooth Progressbar & Modern Docked Scrollbars ",
             padding=16,
         )
         metric_frame.pack(fill="x", pady=10)
@@ -187,9 +187,9 @@ class ThemeShowcaseApp:
 
         sc_row = ttk.Frame(metric_frame)
         sc_row.pack(fill="x", pady=6)
-        ttk.Label(sc_row, text="Floating Pill Scrollbar:", width=22).pack(side="left")
+        ttk.Label(sc_row, text="Modern Pill Scrollbar:", width=22).pack(side="left")
         self.scroll = ttk.Scrollbar(
-            sc_row, orient="horizontal", style="Floating.Horizontal.TScrollbar"
+            sc_row, orient="horizontal"
         )
         self.scroll.pack(side="left", fill="x", expand=True, padx=10)
         self.scroll.set(0.15, 0.65)
@@ -240,13 +240,19 @@ class ThemeShowcaseApp:
         # Treeview Data Grid
         tree_frame = ttk.Labelframe(
             parent,
-            text=" Modern Treeview Data Table With Floating Scrollbar ",
+            text=" Modern Treeview Data Table With Docked Scrollbar ",
             padding=16,
         )
         tree_frame.pack(fill="both", expand=True, pady=10)
 
+        tree_container = ttk.Frame(tree_frame)
+        tree_container.pack(fill="both", expand=True)
+
         cols = ("Component", "Backend", "Latency", "Status")
-        self.tree = ttk.Treeview(tree_frame, columns=cols, show="headings", height=5)
+        self.tree = ttk.Treeview(tree_container, columns=cols, show="headings", height=5)
+        self.tree_scroll = ttk.Scrollbar(tree_container, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=self.tree_scroll.set)
+
         self.tree.heading("Component", text="Engine Component")
         self.tree.heading("Backend", text="Rasterizer")
         self.tree.heading("Latency", text="Draw Latency")
@@ -261,7 +267,7 @@ class ThemeShowcaseApp:
             ("Entry & Focus Halo",     "Blend2D PRGB32",  "0.03 ms", "⚡ Active"),
             ("Pill Progress Bar",      "Blend2D Vector",  "0.05 ms", "⚡ Realtime"),
             ("Indicator Vector Paths", "Blend2D Exact",   "0.02 ms", "⚡ Antialiased"),
-            ("Floating Scrollbar",     "Blend2D PRGB32",  "0.03 ms", "⚡ Floating"),
+            ("Docked Scrollbar",       "Blend2D PRGB32",  "0.03 ms", "⚡ Docked"),
             ("Themed Text Buffer",     "Blend2D Synced",  "0.02 ms", "⚡ Auto Sync"),
             ("Search Entry & Glow",    "Blend2D Focus",   "0.03 ms", "⚡ Halo Glow"),
             ("Scale Slider Trough",    "Blend2D Vector",  "0.03 ms", "⚡ Active"),
@@ -273,13 +279,13 @@ class ThemeShowcaseApp:
         for row in demo_rows:
             self.tree.insert("", "end", values=row)
 
-        self.tree.pack(fill="both", expand=True)
-        tkblend.FloatingScrollbar(tree_frame, target=self.tree, orient="vertical", autohide=True)
+        self.tree_scroll.pack(side="right", fill="y", padx=(2, 4), pady=2)
+        self.tree.pack(side="left", fill="both", expand=True)
 
     def _build_tab_editor(self, parent: ttk.Frame):
         editor_frame = ttk.Labelframe(
             parent,
-            text=" Themed Text Editor & Floating Overlay Scrollbars (Auto-Hide on Idle) ",
+            text=" Themed Text Editor & Docked Pill Scrollbar ",
             padding=16,
         )
         editor_frame.pack(fill="both", expand=True, pady=(0, 10))
@@ -294,8 +300,8 @@ class ThemeShowcaseApp:
             "# Themed Entry with automatic placeholder handling and focus glow\n"
             "entry = tkblend.ThemedEntry(root, placeholder='Enter search term...')\n"
             "entry.pack(padx=20, pady=10)\n\n"
-            "# Multi-line text editor with auto-hiding floating scrollbar overlay\n"
-            "editor = tkblend.ThemedText(root, autohide_scrollbar=True)\n"
+            "# Multi-line text editor with modern docked pill scrollbar\n"
+            "editor = tkblend.ThemedText(root)\n"
             "editor.pack(fill='both', expand=True, padx=20, pady=10)\n\n"
             "# Seamless Dark / Light switching:\n"
             "# Calling tkblend.apply_theme(root, dark_mode=False) re-renders\n"
@@ -305,7 +311,7 @@ class ThemeShowcaseApp:
         )
 
         self.themed_editor = tkblend.ThemedText(
-            editor_frame, autohide_scrollbar=True, font=("Courier New", 10)
+            editor_frame, font=("Courier New", 10)
         )
         self.themed_editor.pack(fill="both", expand=True)
         self.themed_editor.insert("1.0", sample_code)

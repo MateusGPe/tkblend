@@ -138,7 +138,7 @@ def build_showcase_window(dark: bool = True, tab_index: int = 0) -> tk.Tk:
     spin.pack(side="left")
 
     # Metrics Frame
-    metric_frame = ttk.Labelframe(tab1, text=" Sliders, Smooth Progressbar & Floating Pill Scrollbars ", padding=16)
+    metric_frame = ttk.Labelframe(tab1, text=" Sliders, Smooth Progressbar & Modern Docked Scrollbars ", padding=16)
     metric_frame.pack(fill="x", pady=10)
 
     s_row = ttk.Frame(metric_frame)
@@ -157,7 +157,7 @@ def build_showcase_window(dark: bool = True, tab_index: int = 0) -> tk.Tk:
 
     sc_row = ttk.Frame(metric_frame)
     sc_row.pack(fill="x", pady=6)
-    ttk.Label(sc_row, text="Floating Scrollbar:", width=22).pack(side="left")
+    ttk.Label(sc_row, text="Modern Pill Scrollbar:", width=22).pack(side="left")
     scroll = ttk.Scrollbar(sc_row, orient="horizontal")
     scroll.pack(side="left", fill="x", expand=True, padx=10)
     scroll.set(0.15, 0.65)
@@ -396,7 +396,7 @@ def run_pipeline(update_baselines: bool = False, tolerance: float = 98.5) -> boo
 def main():
     parser = argparse.ArgumentParser(description="tkblend Visual Appearance & Regression Pipeline")
     parser.add_argument("--update-baselines", action="store_true", help="Generate or update baseline golden images")
-    parser.add_argument("--tolerance", type=float, default=98.5, help="Minimum percentage match (default: 98.5%)")
+    parser.add_argument("--tolerance", type=float, default=98.5, help="Minimum percentage match (default: 98.5%%)")
     args = parser.parse_args()
 
     success = run_pipeline(update_baselines=args.update_baselines, tolerance=args.tolerance)

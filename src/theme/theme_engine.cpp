@@ -218,7 +218,9 @@ struct StyleScript {
                          int thickness) {
         std::string trough = orient_prefix + ".Scrollbar.trough";
         std::string thumb  = orient_prefix + ".Scrollbar.thumb";
-        std::string style  = style_prefix + "." + orient_prefix + ".TScrollbar";
+        std::string style  = style_prefix.empty()
+            ? (orient_prefix + ".TScrollbar")
+            : (style_prefix + "." + orient_prefix + ".TScrollbar");
         ss << "    ttk::style layout " << style << " {\n"
            << "      " << trough << " -sticky " << trough_sticky << " -children {\n"
            << "        " << thumb << " -sticky nswe\n"
@@ -443,13 +445,15 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
     s.configure("Horizontal.TProgressbar", "-thickness 12");
     s.configure("Vertical.TProgressbar",   "-thickness 12");
 
-    // TScrollbar — standard (12px) and floating overlay (6px idle / 10px hover)
-    for (const auto& orient : std::initializer_list<std::pair<const char*, const char*>>{
-            {"Horizontal", "we"}, {"Vertical", "ns"}}) {
-        s.scrollbar_style(orient.first, "",       orient.second, 12);
-        s.scrollbar_style(orient.first, "Floating", orient.second, 6);
-        s.scrollbar_style(orient.first, "Hover.Floating", orient.second, 10);
-    }
+    // TScrollbar — modern arrowless docked scrollbar (12px)
+    s.scrollbar_style("Horizontal", "", "nswe", 12);
+    s.scrollbar_style("Vertical",   "", "nswe", 12);
+    s.ss << "    ttk::style layout TScrollbar {\n"
+         << "      Scrollbar.trough -sticky nswe -children {\n"
+         << "        Scrollbar.thumb -sticky nswe\n"
+         << "      }\n"
+         << "    }\n";
+    s.ss << "    ttk::style configure TScrollbar -arrowsize 0 -thickness 12\n";
 
     // TScale layouts & geometry
     s.ss << "    ttk::style layout Horizontal.TScale {\n"
