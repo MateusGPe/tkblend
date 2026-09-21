@@ -177,8 +177,10 @@ struct StyleScript {
                       const std::string& bg,   const std::string& fg,
                       const std::string& dis_bg, const std::string& dis_fg,
                       const std::string& pressed_bg, const std::string& pressed_fg,
-                      const std::string& active_bg, const std::string& active_fg) {
-        configure(style, "-anchor center -padding {16 7 16 7}"
+                      const std::string& active_bg, const std::string& active_fg,
+                      const std::string& variant = "") {
+        std::string var_opt = variant.empty() ? "" : (" -variant \"" + variant + "\"");
+        configure(style, "-anchor center -padding {16 7 16 7}" + var_opt +
                   " -background \"" + bg + "\" -foreground \"" + fg + "\"");
         ss << "    ttk::style map " << style << " \\\n"
            << "      -background [list"
@@ -361,8 +363,8 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
     s.button_style("Destructive.TButton", d_col, d_fg,   dis_bg, dis_fg, d_col,   d_fg,   d_col,   d_fg);
     s.button_style("Danger.TButton",    d_col,   d_fg,   dis_bg, dis_fg, d_col,   d_fg,   d_col,   d_fg);
     s.button_style("Secondary.TButton", sec_col, sec_fg, dis_bg, dis_fg, sec_col, sec_fg, sec_col, sec_fg);
-    s.button_style("Ghost.TButton",   "ghost",   fg,     dis_bg, dis_fg, sec_col, fg,     sec_col, fg);
-    s.button_style("Outline.TButton", "outline", fg,     dis_bg, dis_fg, sec_col, p_col,  sec_col, p_col);
+    s.button_style("Ghost.TButton",   card_bg, fg, dis_bg, dis_fg, sec_col, fg,    sec_col, fg,    "ghost");
+    s.button_style("Outline.TButton", card_bg, fg, dis_bg, dis_fg, sec_col, p_col, sec_col, p_col, "outline");
 
     // TEntry layout
     s.ss << "    ttk::style layout TEntry {\n"
@@ -410,6 +412,8 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
          << "    }\n";
     s.configure("TCheckbutton", "-padding {4 4 8 4} -background \"" + bg + "\" -foreground \"" + fg + "\"");
     s.map_states("TCheckbutton", "foreground", dis_fg, fg, fg);
+    s.configure("Card.TCheckbutton", "-padding {4 4 8 4} -background \"" + card_bg + "\" -foreground \"" + fg + "\"");
+    s.map_states("Card.TCheckbutton", "foreground", dis_fg, fg, fg);
 
     // TRadiobutton
     s.ss << "    ttk::style layout TRadiobutton {\n"
@@ -422,6 +426,8 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
          << "    }\n";
     s.configure("TRadiobutton", "-padding {4 4 8 4} -background \"" + bg + "\" -foreground \"" + fg + "\"");
     s.map_states("TRadiobutton", "foreground", dis_fg, fg, fg);
+    s.configure("Card.TRadiobutton", "-padding {4 4 8 4} -background \"" + card_bg + "\" -foreground \"" + fg + "\"");
+    s.map_states("Card.TRadiobutton", "foreground", dis_fg, fg, fg);
 
     // TProgressbar layouts & geometry
     s.ss << "    ttk::style layout Horizontal.TProgressbar {\n"
@@ -461,6 +467,7 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
 
     // TLabel, TFrame, TLabelframe (Cards)
     s.configure("TLabel",           "-background \"" + bg      + "\" -foreground \"" + fg + "\"");
+    s.configure("Card.TLabel",      "-background \"" + card_bg + "\" -foreground \"" + fg + "\"");
     s.configure("TFrame",           "-background \"" + bg      + "\"");
     s.configure("Card.TFrame",      "-background \"" + card_bg + "\"");
     s.ss << "    ttk::style layout TLabelframe {\n"

@@ -26,6 +26,8 @@ def ensure_dirs():
 
 def capture_window_image(root: tk.Tk, wait_ms: int = 150) -> Image.Image:
     """Flush pending rendering passes and grab crisp window pixels."""
+    root.lift()
+    root.attributes("-topmost", True)
     root.update_idletasks()
     root.update()
     time.sleep(wait_ms / 1000.0)

@@ -174,11 +174,166 @@ def apply_theme(
     style = ttk.Style(master=widget)
     style.theme_use(theme_name)
 
-    # Sync root / toplevel background and broadcast <<ThemeChanged>>
+    # Sync root / toplevel background, hook autostyle, and broadcast <<ThemeChanged>>
     if widget is not None:
+        _setup_card_autostyle_hook(widget)
         _sync_root_background(widget)
+        sync_card_children(widget)
 
     return theme_name
+
+
+_MAPPED_HOOKED_ROOTS: set[int] = set()
+
+
+def is_inside_card(widget: tk.Misc) -> bool:
+    """
+    Check if a widget is nested inside a Card or Labelframe container.
+
+    Traverses up the widget hierarchy inspecting parent classes and styles
+    for 'TLabelframe', 'Labelframe', or style names containing 'Card' or 'Notebook'.
+    """
+    try:
+        curr = widget
+        parent_name = curr.winfo_parent()
+        while parent_name:
+            parent = curr._nametowidget(parent_name)
+            p_class = parent.winfo_class()
+            if p_class in ("TLabelframe", "Labelframe") or "Card" in p_class or "Notebook" in p_class:
+                return True
+            if hasattr(parent, "cget"):
+                try:
+                    s = str(parent.cget("style"))
+                    if "Card" in s or "Notebook" in s or "TLabelframe" in s:
+                        return True
+                except (tk.TclError, Exception):
+                    pass
+            curr = parent
+            parent_name = curr.winfo_parent()
+    except Exception:
+        pass
+    return False
+
+
+def _apply_card_style(widget: tk.Misc, pal: Dict[str, str]) -> None:
+    """
+    Apply card-level styling to a widget nested inside a Card/Labelframe.
+    Only upgrades default unstyled widgets to avoid overriding custom user styles.
+    """
+    try:
+        w_class = widget.winfo_class()
+    except Exception:
+        return
+
+    # 1. TTK widgets (inspect style)
+    if hasattr(widget, "cget"):
+        try:
+            current_style = str(widget.cget("style"))
+        except (tk.TclError, Exception):
+            current_style = ""
+
+        if w_class == "TFrame":
+            if current_style in ("", "TFrame"):
+                try:
+                    widget.configure(style="Card.TFrame")
+                except tk.TclError:
+                    pass
+            return
+        elif w_class == "TLabel":
+            if current_style in ("", "TLabel"):
+                try:
+                    widget.configure(style="Card.TLabel")
+                except tk.TclError:
+                    pass
+            return
+        elif w_class == "TCheckbutton":
+            if current_style in ("", "TCheckbutton"):
+                try:
+                    widget.configure(style="Card.TCheckbutton")
+                except tk.TclError:
+                    pass
+            return
+        elif w_class == "TRadiobutton":
+            if current_style in ("", "TRadiobutton"):
+                try:
+                    widget.configure(style="Card.TRadiobutton")
+                except tk.TclError:
+                    pass
+            return
+
+    # 2. Classic Tk widgets
+    try:
+        if w_class == "Frame":
+            widget.configure(background=pal["card_bg"])
+        elif w_class == "Label":
+            widget.configure(background=pal["card_bg"], foreground=pal["fg"])
+        elif w_class in ("Checkbutton", "Radiobutton"):
+            widget.configure(
+                background=pal["card_bg"],
+                activebackground=pal["card_bg"],
+                foreground=pal["fg"],
+                selectcolor=pal["card_bg"],
+            )
+    except (tk.TclError, Exception):
+        pass
+
+
+def sync_card_children(root_or_container: tk.Misc) -> None:
+    """
+    Recursively scan all descendant widgets under root_or_container and
+    synchronize their backgrounds/styles if nested inside a Card or Labelframe.
+    """
+    pal = get_theme_palette()
+
+    def _walk(w: tk.Misc) -> None:
+        try:
+            if is_inside_card(w):
+                _apply_card_style(w, pal)
+            for child in w.winfo_children():
+                _walk(child)
+        except Exception:
+            pass
+
+    _walk(root_or_container)
+
+
+def _setup_card_autostyle_hook(root: tk.Misc) -> None:
+    """
+    Hook a <Map> event listener on the toplevel window so newly created widgets
+    mounted inside Cards/Labelframes are automatically styled with card background.
+    """
+    try:
+        toplevel = root.winfo_toplevel()
+    except Exception:
+        return
+
+    top_id = id(toplevel)
+    if top_id in _MAPPED_HOOKED_ROOTS:
+        return
+    _MAPPED_HOOKED_ROOTS.add(top_id)
+
+    def _on_map(event: Any) -> None:
+        try:
+            w = event.widget
+            if isinstance(w, str):
+                w = toplevel._nametowidget(w)
+            if w and hasattr(w, "winfo_class") and is_inside_card(w):
+                _apply_card_style(w, get_theme_palette())
+        except Exception:
+            pass
+
+    def _on_destroy(event: Any) -> None:
+        try:
+            if event.widget is toplevel:
+                _MAPPED_HOOKED_ROOTS.discard(top_id)
+        except Exception:
+            pass
+
+    try:
+        toplevel.bind_all("<Map>", _on_map, add="+")
+        toplevel.bind("<Destroy>", _on_destroy, add="+")
+    except Exception as exc:
+        logger.debug("Failed to hook card autostyle events: %s", exc)
 
 
 def _sync_root_background(widget: tk.Misc) -> None:
@@ -190,6 +345,7 @@ def _sync_root_background(widget: tk.Misc) -> None:
         toplevel = widget.winfo_toplevel()
         if toplevel is not widget:
             _try_configure_bg(toplevel, bg)
+        sync_card_children(toplevel)
         widget.event_generate("<<ThemeChanged>>")
         if toplevel is not widget:
             toplevel.event_generate("<<ThemeChanged>>")

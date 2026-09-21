@@ -8,12 +8,14 @@ struct ButtonElement {
     Tcl_Obj* backgroundObj;
     Tcl_Obj* reliefObj;
     Tcl_Obj* borderWidthObj;
+    Tcl_Obj* variantObj;
 };
 
 static Ttk_ElementOptionSpec ButtonElementOptions[] = {
     { "-background", TK_OPTION_STRING, offsetof(ButtonElement, backgroundObj), "" },
     { "-relief", TK_OPTION_STRING, offsetof(ButtonElement, reliefObj), "flat" },
     { "-borderwidth", TK_OPTION_STRING, offsetof(ButtonElement, borderWidthObj), "1" },
+    { "-variant", TK_OPTION_STRING, offsetof(ButtonElement, variantObj), "" },
     { nullptr, TK_OPTION_BOOLEAN, 0, nullptr }
 };
 
@@ -67,7 +69,26 @@ static void ButtonElementDraw(
     ButtonVariant variant = ButtonVariant::Standard;
     uint32_t custom_col = 0;
 
-    if (elem && elem->backgroundObj) {
+    if (elem && elem->variantObj) {
+        const char* var_str = Tcl_GetString(elem->variantObj);
+        if (var_str && var_str[0] != '\0') {
+            std::string v(var_str);
+            std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+            if (v.find("ghost") != std::string::npos) {
+                variant = ButtonVariant::Ghost;
+            } else if (v.find("outline") != std::string::npos) {
+                variant = ButtonVariant::Outline;
+            } else if (v.find("accent") != std::string::npos || v.find("primary") != std::string::npos || v.find("indigo") != std::string::npos) {
+                variant = ButtonVariant::Primary;
+            } else if (v.find("destruct") != std::string::npos || v.find("danger") != std::string::npos || v.find("red") != std::string::npos || v.find("rose") != std::string::npos) {
+                variant = ButtonVariant::Destructive;
+            } else if (v.find("secondary") != std::string::npos) {
+                variant = ButtonVariant::Secondary;
+            }
+        }
+    }
+
+    if (variant == ButtonVariant::Standard && elem && elem->backgroundObj) {
         const char* bg_str = Tcl_GetString(elem->backgroundObj);
         if (bg_str && bg_str[0] != '\0') {
             std::string s(bg_str);
