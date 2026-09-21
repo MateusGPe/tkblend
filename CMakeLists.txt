@@ -141,10 +141,40 @@ find_library(TCL_LIBRARY
         "C:/Program Files/Tcl/lib"
 )
 
+find_library(TK_STUB_LIBRARY
+    NAMES tkstub8.6 tkstub86 tkstub
+    HINTS
+        ${TK_PKG_LIBRARY_DIRS}
+        ${Python_LIBRARY_DIRS}
+        /usr/lib
+        /usr/lib/x86_64-linux-gnu
+        /usr/lib/aarch64-linux-gnu
+        /usr/local/lib
+        /opt/homebrew/lib
+        /opt/homebrew/opt/tcl-tk/lib
+        "C:/Program Files/Tcl/lib"
+)
+
+find_library(TCL_STUB_LIBRARY
+    NAMES tclstub8.6 tclstub86 tclstub
+    HINTS
+        ${TCL_PKG_LIBRARY_DIRS}
+        ${Python_LIBRARY_DIRS}
+        /usr/lib
+        /usr/lib/x86_64-linux-gnu
+        /usr/lib/aarch64-linux-gnu
+        /usr/local/lib
+        /opt/homebrew/lib
+        /opt/homebrew/opt/tcl-tk/lib
+        "C:/Program Files/Tcl/lib"
+)
+
 message(STATUS "TK_INCLUDE_PATH: ${TK_INCLUDE_PATH}")
 message(STATUS "TCL_INCLUDE_PATH: ${TCL_INCLUDE_PATH}")
 message(STATUS "TK_LIBRARY: ${TK_LIBRARY}")
 message(STATUS "TCL_LIBRARY: ${TCL_LIBRARY}")
+message(STATUS "TK_STUB_LIBRARY: ${TK_STUB_LIBRARY}")
+message(STATUS "TCL_STUB_LIBRARY: ${TCL_STUB_LIBRARY}")
 
 # ------------------------------------------------------------------------------
 # Sanitizers & Coverage Options
@@ -153,32 +183,80 @@ option(ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer
 option(ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
 
 # ------------------------------------------------------------------------------
+# Platform-specific dependencies (X11, GDI, Cocoa)
+# ------------------------------------------------------------------------------
+set(PLATFORM_SOURCES)
+set(PLATFORM_LIBS)
+
+if(APPLE)
+    find_library(COCOA_LIBRARY Cocoa REQUIRED)
+    find_library(COREGRAPHICS_LIBRARY CoreGraphics REQUIRED)
+    list(APPEND PLATFORM_SOURCES src/blit/blit_macos.mm)
+    list(APPEND PLATFORM_LIBS ${COCOA_LIBRARY} ${COREGRAPHICS_LIBRARY})
+elseif(WIN32)
+    list(APPEND PLATFORM_SOURCES src/blit/blit_win32.cpp)
+    list(APPEND PLATFORM_LIBS gdi32 user32)
+else()
+    find_package(X11 REQUIRED)
+    list(APPEND PLATFORM_SOURCES src/blit/blit_x11.cpp)
+    list(APPEND PLATFORM_LIBS ${X11_LIBRARIES})
+endif()
+
+# ------------------------------------------------------------------------------
 # Module Target
 # ------------------------------------------------------------------------------
+set(TKBLEND_SOURCES
+    src/tkblend.cpp
+    src/theme/theme_engine.cpp
+    src/theme/element_button.cpp
+    src/theme/element_entry.cpp
+    src/theme/element_checkradio.cpp
+    src/theme/element_progressbar.cpp
+    src/theme/element_scrollbar.cpp
+    ${PLATFORM_SOURCES}
+)
+
 nanobind_add_module(
     _tkblend
     NB_STATIC
-    src/tkblend.cpp
+    ${TKBLEND_SOURCES}
 )
 
 target_include_directories(_tkblend PRIVATE
     src
+    src/blit
+    src/theme
     ${blend2d_SOURCE_DIR}
     ${blend2d_SOURCE_DIR}/blend2d
     ${TK_INCLUDE_PATH}
+    ${TK_INCLUDE_PATH}/tk-private/generic
+    ${TK_INCLUDE_PATH}/tk-private/generic/ttk
+    ${TK_INCLUDE_PATH}/tk-private/unix
     ${TCL_INCLUDE_PATH}
 )
 
+if(X11_INCLUDE_DIR)
+    target_include_directories(_tkblend PRIVATE ${X11_INCLUDE_DIR})
+endif()
+
 target_link_libraries(_tkblend PRIVATE
     blend2d::blend2d
+    ${PLATFORM_LIBS}
 )
 
+if(TK_STUB_LIBRARY)
+    target_link_libraries(_tkblend PRIVATE ${TK_STUB_LIBRARY})
+endif()
+if(TCL_STUB_LIBRARY)
+    target_link_libraries(_tkblend PRIVATE ${TCL_STUB_LIBRARY})
+endif()
 if(TK_LIBRARY)
     target_link_libraries(_tkblend PRIVATE ${TK_LIBRARY})
 endif()
 if(TCL_LIBRARY)
     target_link_libraries(_tkblend PRIVATE ${TCL_LIBRARY})
 endif()
+
 
 if(MSVC)
     target_compile_options(_tkblend PRIVATE /O2 /W4 /permissive- /EHsc)
@@ -199,3 +277,4 @@ endif()
 
 # Install target for packaging
 install(TARGETS _tkblend LIBRARY DESTINATION tkblend)
+

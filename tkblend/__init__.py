@@ -1,10 +1,11 @@
 """
-tkblend - High-performance Blend2D vector graphics addon for ttkbootstrap and Tkinter.
+tkblend - High-performance Blend2D vector graphics addon and Native TTK Theme Engine for Tkinter.
 """
 
 from tkblend._tkblend import (  # type: ignore
     Color,
     Gradient,
+    ThemeConfig,
     load_font_face,
     COMP_OP_SRC_OVER,
     COMP_OP_SRC_COPY,
@@ -41,6 +42,11 @@ from tkblend.surface import (
 from tkblend.canvas import BlendCanvas
 
 from tkblend.theme import (
+    apply_theme,
+    register_theme,
+    set_dark_mode,
+    set_theme_config,
+    get_theme_config,
     resolve_theme_color,
     get_theme_colors,
     get_active_theme_name,
@@ -63,9 +69,16 @@ __all__ = [
     "Path",
     "Color",
     "Gradient",
+    "ThemeConfig",
     "parse_color",
     "ColorLike",
     "GradientLike",
+    # TTK Theme Engine
+    "apply_theme",
+    "register_theme",
+    "set_dark_mode",
+    "set_theme_config",
+    "get_theme_config",
     # Theme & ttkbootstrap bridge
     "resolve_theme_color",
     "resolve_color",

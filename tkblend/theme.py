@@ -1,11 +1,27 @@
 """
-Theme bridge and color resolution for ttkbootstrap and Tkinter.
+Native TTK Theme Engine Bridge and Theme Helpers for Tkinter and Blend2D.
 """
 
 from __future__ import annotations
-import re
 import tkinter as tk
+from tkinter import ttk
 from typing import Optional, Dict, Any, Callable, Tuple, Union
+
+try:
+    from tkblend._tkblend import (  # type: ignore
+        ThemeConfig,
+        register_ttk_theme as _native_register_theme,
+        set_theme_dark_mode as _native_set_dark_mode,
+        set_theme_config as _native_set_config,
+        get_theme_config as _native_get_config,
+        Color as _NativeColor,
+    )
+except ImportError:
+    ThemeConfig = None  # type: ignore
+    _native_register_theme = None  # type: ignore
+    _native_set_dark_mode = None  # type: ignore
+    _native_set_config = None  # type: ignore
+    _native_get_config = None  # type: ignore
 
 # Standard bootstrap fallback colors if ttkbootstrap is not active
 _FALLBACK_BOOTSTRAP_PALETTE = {
@@ -27,6 +43,105 @@ _FALLBACK_BOOTSTRAP_PALETTE = {
 }
 
 
+def _get_interp_addr(widget: Optional[tk.Misc] = None) -> int:
+    """Safely extract Tcl_Interp memory address from Tk widget or default root."""
+    if widget is None:
+        widget = getattr(tk, "_default_root", None)
+    if widget is None:
+        widget = tk._get_default_root()
+    if widget is not None and hasattr(widget, "tk") and hasattr(widget.tk, "interpaddr"):
+        return int(widget.tk.interpaddr())
+    return 0
+
+
+def register_theme(widget: Optional[tk.Misc] = None, theme_name: str = "tkblend") -> bool:
+    """
+    Register the native Blend2D TTK theme into the Tcl/Tk interpreter.
+    """
+    if _native_register_theme is None:
+        raise RuntimeError("Native _tkblend extension is not loaded")
+    
+    interp_addr = _get_interp_addr(widget)
+    if not interp_addr:
+        raise ValueError("Could not find active Tk interpreter address")
+    
+    return _native_register_theme(interp_addr, theme_name)
+
+
+def set_dark_mode(dark: bool = True) -> None:
+    """Switch theme mode between Dark Mode and Light Mode."""
+    if _native_set_dark_mode is not None:
+        _native_set_dark_mode(dark)
+
+
+def set_theme_config(config: Any) -> None:
+    """Set custom ThemeConfig structure in native engine."""
+    if _native_set_config is not None:
+        _native_set_config(config)
+
+
+def get_theme_config() -> Any:
+    """Get the active ThemeConfig structure from native engine."""
+    if _native_get_config is not None:
+        return _native_get_config()
+    return None
+
+
+def apply_theme(
+    widget: Optional[tk.Misc] = None,
+    dark_mode: bool = True,
+    theme_name: str = "tkblend",
+    button_radius: Optional[float] = None,
+    entry_radius: Optional[float] = None,
+    enable_shadows: Optional[bool] = None,
+    shadow_blur: Optional[float] = None,
+) -> str:
+    """
+    Register and activate the Native Blend2D TTK theme on the given Tk application.
+    
+    Parameters
+    ----------
+    widget : tk.Misc, optional
+        A Tk widget or Tk instance (defaults to active root).
+    dark_mode : bool
+        Whether to use modern Dark or Light theme palette.
+    theme_name : str
+        The registered TTK theme name (default: "tkblend").
+    button_radius : float, optional
+        Custom corner radius for buttons.
+    entry_radius : float, optional
+        Custom corner radius for entries.
+    enable_shadows : bool, optional
+        Enable or disable soft drop shadows.
+    shadow_blur : float, optional
+        Custom blur radius for drop shadows.
+        
+    Returns
+    -------
+    str
+        The active TTK theme name.
+    """
+    set_dark_mode(dark_mode)
+
+    cfg = get_theme_config()
+    if cfg is not None:
+        if button_radius is not None:
+            cfg.button_radius = float(button_radius)
+        if entry_radius is not None:
+            cfg.entry_radius = float(entry_radius)
+        if enable_shadows is not None:
+            cfg.enable_shadows = bool(enable_shadows)
+        if shadow_blur is not None:
+            cfg.shadow_blur = float(shadow_blur)
+        set_theme_config(cfg)
+
+    register_theme(widget, theme_name=theme_name)
+
+    style = ttk.Style(master=widget)
+    style.theme_use(theme_name)
+    return theme_name
+
+
 def is_ttkbootstrap_installed() -> bool:
     """Check if ttkbootstrap package is installed."""
     try:
@@ -40,7 +155,6 @@ def get_active_style() -> Optional[Any]:
     """Retrieve active ttkbootstrap Style instance if available."""
     try:
         import ttkbootstrap as tb
-        # Return singleton instance if it exists
         if hasattr(tb, "Style"):
             return tb.Style.get_instance()
     except Exception:
@@ -94,7 +208,6 @@ def resolve_theme_color(color: Union[str, Any], alpha: Optional[Union[float, int
     raw = color.strip()
     parsed_alpha: Optional[float] = None
 
-    # Check for slash or colon alpha modifier (e.g. "primary/0.5", "danger:128")
     if "/" in raw:
         name_part, alpha_part = raw.rsplit("/", 1)
         name_part = name_part.strip()
@@ -114,7 +227,6 @@ def resolve_theme_color(color: Union[str, Any], alpha: Optional[Union[float, int
             pass
         raw = name_part
 
-
     if alpha is not None:
         parsed_alpha = float(alpha) if alpha <= 1.0 else float(alpha) / 255.0
 
@@ -130,7 +242,6 @@ def resolve_theme_color(color: Union[str, Any], alpha: Optional[Union[float, int
         hex_color = raw
 
     if parsed_alpha is not None and hex_color.startswith("#"):
-        # Strip existing alpha if 8-char hex
         clean_hex = hex_color[1:]
         if len(clean_hex) == 8:
             clean_hex = clean_hex[:6]
@@ -157,4 +268,3 @@ def bind_theme_changed(widget: tk.Misc, callback: Callable[[], None]) -> None:
             toplevel.bind("<<ThemeChanged>>", _on_theme_changed, add="+")
     except Exception:
         pass
-
