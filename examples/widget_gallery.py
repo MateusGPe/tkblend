@@ -1,16 +1,20 @@
 """
 tkblend Modern Widget Suite Gallery - Comprehensive Interactive Demo
-Demonstrates all modern Blend2D-powered Tkinter UI components with real-time theming.
+Demonstrates all modern Blend2D-powered Tkinter UI components and ttk styling with real-time theming.
 """
 
 from __future__ import annotations
 import tkinter as tk
+from tkinter import ttk
 from typing import Optional
 
 from tkblend import (
     ThemeManager,
     DARK_THEME,
     LIGHT_THEME,
+    apply_ttk_theme,
+    apply_theme,
+    detect_system_theme,
     ModernFrame,
     ModernCard,
     ModernButton,
@@ -27,6 +31,7 @@ from tkblend import (
     ModernBadge,
     ModernAvatar,
     ModernTooltip,
+    ModernLabel,
     ModernAccordion,
     ModernScrollableFrame,
     ModernDialog,
@@ -38,29 +43,29 @@ class WidgetGalleryApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("tkblend Modern Widget Suite Showcase")
-        self.root.geometry("1180x820")
-        self.root.minsize(980, 720)
+        self.root.geometry("1200x840")
+        self.root.minsize(1000, 740)
 
-        # Set default theme
+        # Set default theme and enable animations
         ThemeManager.set_theme(DARK_THEME)
         ThemeManager.animations_enabled = True
 
-        self._current_bg = ThemeManager.get_theme().bg_window
-        self.root.configure(bg=self._current_bg)
+        # Automatically bind root window for live bidirectional theme synchronization
+        ThemeManager.bind_root(self.root)
 
         # Top Header Bar
         self._build_header()
 
-        # Main 3-Column Layout Container
+        # Main Layout Container
         self._build_main_content()
 
-        # Subscribe root to theme changes
+        # Subscribe to update dynamic badge text
         ThemeManager.subscribe(self._on_theme_changed)
 
+        # Apply theme across standard Tk/ttk elements in the entire tree
+        apply_theme(self.root)
+
     def _on_theme_changed(self, theme):
-        self._current_bg = theme.bg_window
-        self.root.configure(bg=self._current_bg)
-        self._header_frame.configure(bg=theme.bg_window)
         self._theme_badge.set_text(f"Theme: {theme.name.upper()}")
 
     def _build_header(self):
@@ -72,21 +77,20 @@ class WidgetGalleryApp:
         title_box = tk.Frame(self._header_frame, bg=t.bg_window)
         title_box.pack(side=tk.LEFT, fill=tk.Y)
 
-        title_lbl = tk.Label(
+        title_lbl = ModernLabel(
             title_box,
             text="tkblend UI Gallery",
-            font=(t.font_family, 18, "bold"),
-            fg=t.primary,
-            bg=t.bg_window,
+            variant="heading",
+            font_size=18,
+            bold=True,
         )
         title_lbl.pack(anchor="w")
 
-        sub_lbl = tk.Label(
+        sub_lbl = ModernLabel(
             title_box,
-            text="High-performance Blend2D vector-drawn Tkinter widgets",
-            font=(t.font_family, 10),
-            fg=t.text_muted,
-            bg=t.bg_window,
+            text="High-performance Blend2D vector-drawn Tkinter widgets & seamless ttk theming",
+            variant="muted",
+            font_size=10,
         )
         sub_lbl.pack(anchor="w")
 
@@ -112,7 +116,7 @@ class WidgetGalleryApp:
         ThemeManager.toggle_theme()
 
     def _build_main_content(self):
-        content = tk.Frame(self.root, bg=self._current_bg)
+        content = tk.Frame(self.root)
         content.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 16))
 
         content.grid_columnconfigure(0, weight=1)
@@ -121,22 +125,21 @@ class WidgetGalleryApp:
         content.grid_rowconfigure(0, weight=1)
 
         # ---------------- Column 1: Controls & Toggles ----------------
-        col1 = tk.Frame(content, bg=self._current_bg)
+        col1 = tk.Frame(content)
         col1.grid(row=0, column=0, sticky="nsew", padx=8, pady=4)
 
         card_controls = ModernCard(
             col1,
             title="Interactive Controls",
             subtitle="Buttons, switches, sliders & selectors",
-            height=680,
+            height=700,
         )
         card_controls.pack(fill=tk.BOTH, expand=True)
 
-        inner1 = tk.Frame(card_controls, bg=ThemeManager.get_theme().bg_card)
-        inner1.place(x=16, y=65, relwidth=0.92, relheight=0.88)
+        inner1 = card_controls.content
 
         # Buttons row
-        btn_row = tk.Frame(inner1, bg=ThemeManager.get_theme().bg_card)
+        btn_row = tk.Frame(inner1)
         btn_row.pack(fill=tk.X, pady=4)
 
         b_pri = ModernButton(btn_row, text="Primary", variant="primary", width=90, height=36, command=lambda: self._on_btn("Primary"))
@@ -149,50 +152,50 @@ class WidgetGalleryApp:
         b_dan.pack(side=tk.LEFT, padx=3)
 
         # Segmented Control
-        seg_lbl = tk.Label(inner1, text="Segmented View Mode:", font=("sans-serif", 10, "bold"), fg="#a6adc8", bg=ThemeManager.get_theme().bg_card)
+        seg_lbl = ModernLabel(inner1, text="Segmented View Mode:", font_size=10, bold=True)
         seg_lbl.pack(anchor="w", pady=(12, 4))
 
         seg = ModernSegmentedControl(inner1, items=["Day", "Week", "Month", "Year"], selected_index=1, width=280)
         seg.pack(anchor="w", pady=2)
 
         # Switch & Checkboxes
-        sw_lbl = tk.Label(inner1, text="Toggles & Options:", font=("sans-serif", 10, "bold"), fg="#a6adc8", bg=ThemeManager.get_theme().bg_card)
+        sw_lbl = ModernLabel(inner1, text="Toggles & Options:", font_size=10, bold=True)
         sw_lbl.pack(anchor="w", pady=(12, 4))
 
-        sw_row = tk.Frame(inner1, bg=ThemeManager.get_theme().bg_card)
+        sw_row = tk.Frame(inner1)
         sw_row.pack(fill=tk.X, pady=4)
 
         sw = ModernSwitch(sw_row, is_on=True, on_toggle=lambda state: self._toast(f"Switch: {state}"))
         sw.pack(side=tk.LEFT, padx=4)
 
-        sw_text = tk.Label(sw_row, text="Enable Vector Anti-Aliasing", font=("sans-serif", 10), fg="#cdd6f4", bg=ThemeManager.get_theme().bg_card)
+        sw_text = ModernLabel(sw_row, text="Enable Vector Anti-Aliasing", font_size=10)
         sw_text.pack(side=tk.LEFT, padx=8)
 
         chk1 = ModernCheckbox(inner1, text="Hardware Acceleration", is_checked=True)
-        chk1.pack(anchor="w", pady=2)
+        chk1.pack(fill=tk.X, anchor="w", pady=2)
 
         chk2 = ModernCheckbox(inner1, text="Subpixel Font Hinting", is_checked=False)
-        chk2.pack(anchor="w", pady=2)
+        chk2.pack(fill=tk.X, anchor="w", pady=2)
 
         # Radio Group
-        rg_lbl = tk.Label(inner1, text="Rendering Backend:", font=("sans-serif", 10, "bold"), fg="#a6adc8", bg=ThemeManager.get_theme().bg_card)
+        rg_lbl = ModernLabel(inner1, text="Rendering Backend:", font_size=10, bold=True)
         rg_lbl.pack(anchor="w", pady=(12, 4))
 
         rgroup = ModernRadioGroup(inner1, options=["Direct Tk Blit", "Async Thread Pool", "Shared Memory"], selected_value="Direct Tk Blit")
-        rgroup.pack(anchor="w", pady=2)
+        rgroup.pack(fill=tk.X, anchor="w", pady=2)
 
         # Slider with value display
-        sl_lbl = tk.Label(inner1, text="Output Quality / Zoom:", font=("sans-serif", 10, "bold"), fg="#a6adc8", bg=ThemeManager.get_theme().bg_card)
+        sl_lbl = ModernLabel(inner1, text="Output Quality / Zoom:", font_size=10, bold=True)
         sl_lbl.pack(anchor="w", pady=(12, 4))
 
-        self.slider_val_lbl = tk.Label(inner1, text="Scale: 75%", font=("sans-serif", 9), fg="#89b4fa", bg=ThemeManager.get_theme().bg_card)
+        self.slider_val_lbl = ModernLabel(inner1, text="Scale: 75%", variant="muted", font_size=9)
         self.slider_val_lbl.pack(anchor="w")
 
         slider = ModernSlider(inner1, min_val=10.0, max_val=100.0, value=75.0, width=280, on_change=self._on_slider)
         slider.pack(anchor="w", pady=4)
 
-        # ---------------- Column 2: Inputs & Containers ----------------
-        col2 = tk.Frame(content, bg=self._current_bg)
+        # ---------------- Column 2: Inputs, ttk & Containers ----------------
+        col2 = tk.Frame(content)
         col2.grid(row=0, column=1, sticky="nsew", padx=8, pady=4)
 
         card_inputs = ModernCard(
@@ -203,50 +206,65 @@ class WidgetGalleryApp:
         )
         card_inputs.pack(fill=tk.X, pady=(0, 12))
 
-        inner2 = tk.Frame(card_inputs, bg=ThemeManager.get_theme().bg_card)
-        inner2.place(x=16, y=65, relwidth=0.92, relheight=0.78)
+        inner2 = card_inputs.content
 
         # Text input
-        e_lbl = tk.Label(inner2, text="User Account Name:", font=("sans-serif", 9), fg="#a6adc8", bg=ThemeManager.get_theme().bg_card)
+        e_lbl = ModernLabel(inner2, text="User Account Name:", variant="muted", font_size=9)
         e_lbl.pack(anchor="w")
 
         self.entry_user = ModernEntry(inner2, placeholder="e.g. blend_master", width=280, height=36)
         self.entry_user.pack(anchor="w", pady=(2, 8))
 
         # Dropdown
-        dd_lbl = tk.Label(inner2, text="Display Profile:", font=("sans-serif", 9), fg="#a6adc8", bg=ThemeManager.get_theme().bg_card)
+        dd_lbl = ModernLabel(inner2, text="Display Profile:", variant="muted", font_size=9)
         dd_lbl.pack(anchor="w")
 
         dd = ModernDropdown(inner2, options=["High Precision sRGB", "Wide Gamut Display P3", "HDR Linear Float", "Custom Calibration"], selected_index=0, width=280, height=36)
         dd.pack(anchor="w", pady=(2, 12))
 
         # Modal Dialog Trigger
-        btn_dialog = ModernButton(inner2, text="Open Modern Dialog 🚀", variant="primary", width=280, height=36, command=self._show_dialog)
+        btn_dialog = ModernButton(inner2, text="Open Modern Dialog ↗", variant="primary", width=280, height=36, command=self._show_dialog)
         btn_dialog.pack(anchor="w")
 
-        # Accordion Container Card
-        card_acc = ModernCard(
+        # Tabs Card showing standard ttk widgets styled with tkblend
+        card_ttk = ModernCard(
             col2,
-            title="Collapsible Sections",
-            subtitle="Modern expandable accordion panels",
-            height=320,
+            title="ttk Style Integration",
+            subtitle="Standard ttk components styled automatically",
+            height=330,
         )
-        card_acc.pack(fill=tk.BOTH, expand=True)
+        card_ttk.pack(fill=tk.BOTH, expand=True)
 
-        acc_box = tk.Frame(card_acc, bg=ThemeManager.get_theme().bg_card)
-        acc_box.place(x=16, y=65, relwidth=0.92, relheight=0.76)
+        ttk_box = card_ttk.content
 
-        accordion = ModernAccordion(acc_box)
-        accordion.pack(fill=tk.BOTH, expand=True)
+        notebook = ttk.Notebook(ttk_box)
+        notebook.pack(fill=tk.BOTH, expand=True)
 
-        sec1 = accordion.add_section("Display Engine Config", is_expanded=True)
-        tk.Label(sec1, text="Blend2D JIT pipelines: Enabled (SSE4.2 / AVX2)\nPhotoPutBlock direct pointer: OK", font=("sans-serif", 9), fg="#cdd6f4", bg=ThemeManager.get_theme().bg_surface_alt, justify="left").pack(anchor="w")
+        tab1 = ttk.Frame(notebook)
+        notebook.add(tab1, text="Overview")
 
-        sec2 = accordion.add_section("Memory & Caching", is_expanded=False)
-        tk.Label(sec2, text="Shadow LRU cache: 256 entries\nGlyph atlas size: 2048x2048", font=("sans-serif", 9), fg="#cdd6f4", bg=ThemeManager.get_theme().bg_surface_alt, justify="left").pack(anchor="w")
+        tab1_inner = tk.Frame(tab1)
+        tab1_inner.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+
+        ModernLabel(tab1_inner, text="Live ttk.Style Theming", variant="heading", font_size=10, bold=True).pack(anchor="w", pady=(0, 4))
+        ModernLabel(tab1_inner, text="ttk.Treeview, ttk.Button, ttk.Notebook dynamic tokens.", variant="muted", font_size=9).pack(anchor="w", pady=2)
+        ttk.Button(tab1_inner, text="Themed ttk.Button", style="Primary.TButton").pack(anchor="w", pady=6)
+
+        tab2 = ttk.Frame(notebook)
+        notebook.add(tab2, text="Treeview")
+
+        tree = ttk.Treeview(tab2, columns=("col1", "col2"), show="headings", height=4)
+        tree.heading("col1", text="Pipeline")
+        tree.heading("col2", text="Status")
+        tree.column("col1", width=120)
+        tree.column("col2", width=100)
+        tree.insert("", "end", values=("JIT Engine", "Active"))
+        tree.insert("", "end", values=("Photo Blit", "Zero-Copy"))
+        tree.insert("", "end", values=("Drop Shadows", "LRU Cached"))
+        tree.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         # ---------------- Column 3: Status, Feedback & Feed ----------------
-        col3 = tk.Frame(content, bg=self._current_bg)
+        col3 = tk.Frame(content)
         col3.grid(row=0, column=2, sticky="nsew", padx=8, pady=4)
 
         card_feedback = ModernCard(
@@ -257,11 +275,10 @@ class WidgetGalleryApp:
         )
         card_feedback.pack(fill=tk.X, pady=(0, 12))
 
-        inner3 = tk.Frame(card_feedback, bg=ThemeManager.get_theme().bg_card)
-        inner3.place(x=16, y=65, relwidth=0.92, relheight=0.78)
+        inner3 = card_feedback.content
 
         # Avatars & Spinner Row
-        avatar_row = tk.Frame(inner3, bg=ThemeManager.get_theme().bg_card)
+        avatar_row = tk.Frame(inner3)
         avatar_row.pack(fill=tk.X, pady=4)
 
         av1 = ModernAvatar(avatar_row, text="AG", size=42, status="online")
@@ -277,7 +294,7 @@ class WidgetGalleryApp:
         ModernTooltip(spinner, "Blend2D 60FPS JIT Renderer Active")
 
         # Badges Row
-        badge_row = tk.Frame(inner3, bg=ThemeManager.get_theme().bg_card)
+        badge_row = tk.Frame(inner3)
         badge_row.pack(fill=tk.X, pady=(10, 4))
 
         b1 = ModernBadge(badge_row, text="Active", variant="success", dot=True)
@@ -290,7 +307,7 @@ class WidgetGalleryApp:
         b3.pack(side=tk.LEFT, padx=2)
 
         # Animated Progress Bar
-        p_lbl = tk.Label(inner3, text="Vector Pipeline Progress:", font=("sans-serif", 9), fg="#a6adc8", bg=ThemeManager.get_theme().bg_card)
+        p_lbl = ModernLabel(inner3, text="Vector Pipeline Progress:", variant="muted", font_size=9)
         p_lbl.pack(anchor="w", pady=(10, 2))
 
         self.pbar = ModernProgressBar(inner3, value=65.0, width=280, height=14)
@@ -301,14 +318,13 @@ class WidgetGalleryApp:
             col3,
             title="Activity Feed",
             subtitle="Smooth scrollable modern container",
-            height=320,
+            height=330,
         )
         card_feed.pack(fill=tk.BOTH, expand=True)
 
-        scroll_container = tk.Frame(card_feed, bg=ThemeManager.get_theme().bg_card)
-        scroll_container.place(x=16, y=65, relwidth=0.92, relheight=0.76)
+        scroll_container = card_feed.content
 
-        s_frame = ModernScrollableFrame(scroll_container, width=280, height=180, parent_bg=ThemeManager.get_theme().bg_card)
+        s_frame = ModernScrollableFrame(scroll_container, width=280, height=180)
         s_frame.pack(fill=tk.BOTH, expand=True)
 
         logs = [
@@ -322,17 +338,17 @@ class WidgetGalleryApp:
         ]
 
         for text, col in logs:
-            row = tk.Frame(s_frame.scrollable_content, bg=ThemeManager.get_theme().bg_card, pady=3)
+            row = tk.Frame(s_frame.scrollable_content, pady=3)
             row.pack(fill=tk.X)
-            tk.Label(row, text="●", fg=col, bg=ThemeManager.get_theme().bg_card, font=("sans-serif", 8)).pack(side=tk.LEFT, padx=(2, 6))
-            tk.Label(row, text=text, fg="#cdd6f4", bg=ThemeManager.get_theme().bg_card, font=("sans-serif", 8), anchor="w").pack(side=tk.LEFT)
+            tk.Label(row, text="●", fg=col, font=("sans-serif", 8)).pack(side=tk.LEFT, padx=(2, 6))
+            tk.Label(row, text=text, font=("sans-serif", 8), anchor="w").pack(side=tk.LEFT)
 
     def _on_btn(self, name: str):
         self._toast(f"Clicked {name} Button")
 
     def _on_slider(self, val: float):
         if hasattr(self, "slider_val_lbl"):
-            self.slider_val_lbl.configure(text=f"Scale: {val:.1f}%")
+            self.slider_val_lbl.set_text(f"Scale: {val:.1f}%")
         if hasattr(self, "pbar"):
             self.pbar.value = val
 

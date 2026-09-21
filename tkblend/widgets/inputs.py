@@ -7,6 +7,7 @@ import tkinter as tk
 from typing import Optional, Callable, List, Tuple, Any
 
 from tkblend.surface import Surface, ColorLike, Path
+from tkblend.widgets.base import _resolve_parent_bg
 from tkblend.widgets.theme import Theme, ThemeManager
 
 
@@ -42,15 +43,16 @@ class ModernEntry(tk.Frame):
         self._theme = t
         self._widget_w = max(1, width)
         self._widget_h = max(1, height)
-        self._rx = rx if rx is not None else t.radius_sm
-        self._parent_bg = parent_bg if parent_bg is not None else t.bg_window
-        self._bg_color = bg_color if bg_color is not None else t.bg_input
-        self._border_color = border_color if border_color is not None else t.border
-        self._focus_border_color = focus_border_color if focus_border_color is not None else t.border_focused
-        self._text_color = text_color if text_color is not None else t.text
-        self._placeholder_color = placeholder_color if placeholder_color is not None else t.placeholder
-        self._font_size = font_size if font_size is not None else t.font_size_md
-        self._font_family = font_family or t.font_family
+        self._custom_rx = rx
+        self._custom_parent_bg = parent_bg
+        self._parent_bg = _resolve_parent_bg(master, self._custom_parent_bg, self._theme)
+        self._custom_bg_color = bg_color
+        self._custom_border_color = border_color
+        self._custom_focus_border_color = focus_border_color
+        self._custom_text_color = text_color
+        self._custom_placeholder_color = placeholder_color
+        self._custom_font_size = font_size
+        self._custom_font_family = font_family
         self._placeholder = placeholder
         self._is_focused = False
         self._is_error = is_error
@@ -82,13 +84,18 @@ class ModernEntry(tk.Frame):
         self._bg_label.lower()
 
         # Native tk.Entry embedded inside
-        tk_font = (self._font_family, int(self._font_size))
+        font_size_val = self._custom_font_size if self._custom_font_size is not None else t.font_size_md
+        font_family_val = self._custom_font_family or t.font_family
+        tk_font = (font_family_val, int(font_size_val))
+        bg_col = self._custom_bg_color if self._custom_bg_color is not None else t.bg_input
+        text_col = self._custom_text_color if self._custom_text_color is not None else t.text
+
         self._entry = tk.Entry(
             self,
             font=tk_font,
-            fg=self._text_color,
-            bg=self._bg_color,
-            insertbackground=self._theme.primary,
+            fg=text_col,
+            bg=bg_col,
+            insertbackground=t.primary,
             relief="flat",
             borderwidth=0,
             highlightthickness=0,
@@ -96,9 +103,9 @@ class ModernEntry(tk.Frame):
         )
         self._entry.place(
             x=12,
-            y=int((self._widget_h - self._font_size * 1.5) / 2),
+            y=int((self._widget_h - font_size_val * 1.5) / 2),
             width=max(1, self._widget_w - 24),
-            height=int(self._font_size * 1.5),
+            height=int(font_size_val * 1.5),
         )
 
         self._placeholder_active = False
@@ -110,50 +117,69 @@ class ModernEntry(tk.Frame):
         self._entry.bind("<FocusIn>", self._on_focus_in)
         self._entry.bind("<FocusOut>", self._on_focus_out)
         self.bind("<Configure>", self._on_configure)
+        self.bind("<Map>", self._on_map)
 
         ThemeManager.subscribe(self._on_theme_changed)
         self.bind("<Destroy>", lambda e: ThemeManager.unsubscribe(self._on_theme_changed))
 
         self.after_idle(self.render)
 
+    def _on_map(self, event) -> None:
+        new_parent_bg = _resolve_parent_bg(self.master, self._custom_parent_bg, self._theme)
+        if new_parent_bg != self._parent_bg:
+            self._parent_bg = new_parent_bg
+            try:
+                self.configure(background=self._parent_bg)
+                self._bg_label.configure(background=self._parent_bg)
+            except Exception:
+                pass
+            self.render()
+
     def _on_theme_changed(self, new_theme: Theme) -> None:
         if self.winfo_exists():
             self._theme = new_theme
-            self._parent_bg = new_theme.bg_window
-            self._bg_color = new_theme.bg_input
-            self._border_color = new_theme.border
-            self._focus_border_color = new_theme.border_focused
-            self._text_color = new_theme.text
-            self._placeholder_color = new_theme.placeholder
-            self.configure(background=self._parent_bg)
+            self._parent_bg = _resolve_parent_bg(self.master, self._custom_parent_bg, new_theme)
+            try:
+                self.configure(background=self._parent_bg)
+                self._bg_label.configure(background=self._parent_bg)
+            except Exception:
+                pass
+
+            bg_col = self._custom_bg_color if self._custom_bg_color is not None else new_theme.bg_input
+            text_col = self._custom_text_color if self._custom_text_color is not None else new_theme.text
+            place_col = self._custom_placeholder_color if self._custom_placeholder_color is not None else new_theme.placeholder
+
             self._entry.configure(
-                bg=self._bg_color,
-                fg=self._placeholder_color if self._placeholder_active else self._text_color,
+                bg=bg_col,
+                fg=place_col if self._placeholder_active else text_col,
                 insertbackground=new_theme.primary,
+                selectbackground=new_theme.selection_bg,
+                selectforeground=new_theme.selection_fg,
             )
             self.render()
 
     def _show_placeholder(self) -> None:
         self._placeholder_active = True
         self._entry.delete(0, tk.END)
+        place_col = self._custom_placeholder_color if self._custom_placeholder_color is not None else self._theme.placeholder
+        self._entry.configure(fg=place_col)
         self._entry.insert(0, self._placeholder)
-        self._entry.configure(fg=self._placeholder_color, show="")
 
     def _hide_placeholder(self) -> None:
         if self._placeholder_active:
             self._placeholder_active = False
             self._entry.delete(0, tk.END)
-            self._entry.configure(fg=self._text_color, show=self._show)
+            text_col = self._custom_text_color if self._custom_text_color is not None else self._theme.text
+            self._entry.configure(fg=text_col)
 
     def _on_focus_in(self, event) -> None:
         self._is_focused = True
-        if self._placeholder_active:
-            self._hide_placeholder()
+        self._hide_placeholder()
         self.render()
 
     def _on_focus_out(self, event) -> None:
         self._is_focused = False
-        if not self._entry.get() and self._placeholder:
+        if not self._entry.get():
             self._show_placeholder()
         self.render()
 
@@ -165,11 +191,10 @@ class ModernEntry(tk.Frame):
             self._widget_h = new_h
             self._photo.configure(width=self._widget_w, height=self._widget_h)
             self._surface.resize(self._widget_w, self._widget_h)
+            font_size_val = self._custom_font_size if self._custom_font_size is not None else self._theme.font_size_md
             self._entry.place_configure(
-                x=12,
-                y=int((self._widget_h - self._font_size * 1.5) / 2),
                 width=max(1, self._widget_w - 24),
-                height=int(self._font_size * 1.5),
+                y=int((self._widget_h - font_size_val * 1.5) / 2),
             )
             self.render()
 
@@ -180,9 +205,10 @@ class ModernEntry(tk.Frame):
 
     def set_text(self, text: str) -> None:
         self._entry.delete(0, tk.END)
+        text_col = self._custom_text_color if self._custom_text_color is not None else self._theme.text
         if text:
             self._placeholder_active = False
-            self._entry.configure(fg=self._text_color, show=self._show)
+            self._entry.configure(fg=text_col, show=self._show)
             self._entry.insert(0, text)
         elif self._placeholder and not self._is_focused:
             self._show_placeholder()
@@ -199,23 +225,29 @@ class ModernEntry(tk.Frame):
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
 
+        t = self._theme
+        rx = self._custom_rx if self._custom_rx is not None else t.radius_sm
+        bg_col = self._custom_bg_color if self._custom_bg_color is not None else t.bg_input
+        border_col = self._custom_border_color if self._custom_border_color is not None else t.border
+        focus_border_col = self._custom_focus_border_color if self._custom_focus_border_color is not None else t.border_focused
+
         pad = 3.0
         w = max(1.0, self._widget_w - pad * 2.0)
         h = max(1.0, self._widget_h - pad * 2.0)
 
         # Border color based on focus / error state
         if self._is_error:
-            b_col = self._theme.danger
+            b_col = t.danger
             border_w = 1.8
-            shadow_col = self._theme.danger
+            shadow_col = t.danger
             shadow_blur = 6.0
         elif self._is_focused:
-            b_col = self._focus_border_color
+            b_col = focus_border_col
             border_w = 1.8
-            shadow_col = self._theme.primary
+            shadow_col = t.primary
             shadow_blur = 6.0
         else:
-            b_col = self._border_color
+            b_col = border_col
             border_w = 1.0
             shadow_col = "#00000000"
             shadow_blur = 0.0
@@ -227,15 +259,15 @@ class ModernEntry(tk.Frame):
                 pad,
                 w,
                 h,
-                self._rx,
-                self._rx,
+                rx,
+                rx,
                 blur_radius=shadow_blur,
                 offset_y=0.0,
                 shadow_color=shadow_col if shadow_blur > 0 else "#00000000",
             )
 
-        self._surface.fill_rounded_rect(pad, pad, w, h, self._rx, self._rx, self._bg_color)
-        self._surface.stroke_rounded_rect(pad, pad, w, h, self._rx, self._rx, b_col, stroke_width=border_w)
+        self._surface.fill_rounded_rect(pad, pad, w, h, rx, rx, bg_col)
+        self._surface.stroke_rounded_rect(pad, pad, w, h, rx, rx, b_col, stroke_width=border_w)
 
         self._surface.blit(self._photo)
 
@@ -259,26 +291,27 @@ class ModernDropdown(tk.Frame):
         **kwargs,
     ):
         t = theme or ThemeManager.get_theme()
-        p_bg = parent_bg if parent_bg is not None else t.bg_window
+        self._theme = t
+        self._custom_parent_bg = parent_bg
+        self._parent_bg = _resolve_parent_bg(master, self._custom_parent_bg, self._theme)
+
         super().__init__(
             master,
             width=width,
             height=height,
-            background=p_bg,
+            background=self._parent_bg,
             borderwidth=0,
             highlightthickness=0,
             **kwargs,
         )
         self.pack_propagate(False)
 
-        self._theme = t
         self._dropdown_options = options or ["Option 1", "Option 2"]
         self._selected_index = max(0, min(len(self._dropdown_options) - 1, selected_index)) if self._dropdown_options else 0
         self._on_select = on_select
         self._widget_w = max(1, width)
         self._widget_h = max(1, height)
-        self._rx = rx if rx is not None else t.radius_sm
-        self._parent_bg = parent_bg if parent_bg is not None else t.bg_window
+        self._custom_rx = rx
         self._is_open = False
         self._is_hovered = False
         self._popup_window: Optional[tk.Toplevel] = None
@@ -299,6 +332,7 @@ class ModernDropdown(tk.Frame):
         self._label.bind("<Enter>", lambda e: self._set_hovered(True))
         self._label.bind("<Leave>", lambda e: self._set_hovered(False))
         self.bind("<Configure>", self._on_configure)
+        self.bind("<Map>", self._on_map)
 
         ThemeManager.subscribe(self._on_theme_changed)
         self.bind("<Destroy>", lambda e: ThemeManager.unsubscribe(self._on_theme_changed))
@@ -309,11 +343,26 @@ class ModernDropdown(tk.Frame):
         self._is_hovered = val
         self.render()
 
+    def _on_map(self, event) -> None:
+        new_parent_bg = _resolve_parent_bg(self.master, self._custom_parent_bg, self._theme)
+        if new_parent_bg != self._parent_bg:
+            self._parent_bg = new_parent_bg
+            try:
+                self.configure(background=self._parent_bg)
+                self._label.configure(background=self._parent_bg)
+            except Exception:
+                pass
+            self.render()
+
     def _on_theme_changed(self, new_theme: Theme) -> None:
         if self.winfo_exists():
             self._theme = new_theme
-            self._parent_bg = new_theme.bg_window
-            self.configure(background=self._parent_bg)
+            self._parent_bg = _resolve_parent_bg(self.master, self._custom_parent_bg, new_theme)
+            try:
+                self.configure(background=self._parent_bg)
+                self._label.configure(background=self._parent_bg)
+            except Exception:
+                pass
             self.render()
 
     def _on_configure(self, event) -> None:
@@ -344,7 +393,7 @@ class ModernDropdown(tk.Frame):
         self._is_open = True
         self.render()
 
-        # Create floating toplevel popup
+    # Create floating toplevel popup
         self._popup_window = tk.Toplevel(self)
         self._popup_window.wm_overrideredirect(True)
         self._popup_window.wm_attributes("-topmost", True)
@@ -401,26 +450,29 @@ class ModernDropdown(tk.Frame):
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
 
+        t = self._theme
+        rx = self._custom_rx if self._custom_rx is not None else t.radius_sm
+
         pad = 2.0
         w = max(1.0, self._widget_w - pad * 2.0)
         h = max(1.0, self._widget_h - pad * 2.0)
 
-        bg = self._theme.bg_hover if self._is_hovered else self._theme.bg_input
-        border_col = self._theme.primary if self._is_open else self._theme.border
+        bg = t.bg_hover if self._is_hovered else t.bg_input
+        border_col = t.primary if self._is_open else t.border
 
-        self._surface.fill_rounded_rect(pad, pad, w, h, self._rx, self._rx, bg)
-        self._surface.stroke_rounded_rect(pad, pad, w, h, self._rx, self._rx, border_col, stroke_width=1.0)
+        self._surface.fill_rounded_rect(pad, pad, w, h, rx, rx, bg)
+        self._surface.stroke_rounded_rect(pad, pad, w, h, rx, rx, border_col, stroke_width=1.0)
 
         # Draw selected text
         text_val = self.selected_value
-        text_y = self._widget_h / 2.0 + (self._theme.font_size_md * 0.35)
+        text_y = self._widget_h / 2.0 + (t.font_size_md * 0.35)
         self._surface.draw_text(
             text_val,
             x=12.0,
             y=text_y,
-            font_size=self._theme.font_size_md,
-            font_family=self._theme.font_family,
-            color=self._theme.text,
+            font_size=t.font_size_md,
+            font_family=t.font_family,
+            color=t.text,
             align="left",
         )
 
@@ -437,5 +489,5 @@ class ModernDropdown(tk.Frame):
             p.line_to(chev_cx, chev_cy + 2.0)
             p.line_to(chev_cx + 4.0, chev_cy - 2.0)
 
-        self._surface.stroke_path(p, self._theme.text_muted, stroke_width=1.8)
+        self._surface.stroke_path(p, t.text_muted, stroke_width=1.8)
         self._surface.blit(self._photo)

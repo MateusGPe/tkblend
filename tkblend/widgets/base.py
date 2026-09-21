@@ -24,6 +24,41 @@ def linear(t: float) -> float:
     return t
 
 
+def _resolve_parent_bg(widget: Optional[tk.Misc], explicit_parent_bg: Optional[str], theme: Theme) -> str:
+    """
+    Intelligently resolve the effective background color of a widget's parent or container.
+    """
+    if explicit_parent_bg is not None and explicit_parent_bg != "":
+        return explicit_parent_bg
+
+    if widget is None:
+        return theme.bg_window
+
+    cur = widget
+    while cur is not None:
+        try:
+            # Check if parent container defines a custom background attribute
+            if hasattr(cur, "_bg_color") and cur._bg_color:
+                return str(cur._bg_color)
+            if hasattr(cur, "_custom_bg_color") and cur._custom_bg_color:
+                return str(cur._custom_bg_color)
+            if hasattr(cur, "_card_bg") and cur._card_bg:
+                return str(cur._card_bg)
+            if hasattr(cur, "_parent_bg") and cur._parent_bg:
+                return str(cur._parent_bg)
+
+            # Query Tkinter widget bg/background config
+            c = cur.cget("background") or cur.cget("bg")
+            if c and c != "" and not str(c).startswith("System"):
+                return str(c)
+        except Exception:
+            pass
+
+        cur = getattr(cur, "master", None)
+
+    return theme.bg_window
+
+
 class ModernWidget(tk.Label):
     """
     Base class for interactive Blend2D vector-drawn Tkinter widgets.
@@ -39,9 +74,13 @@ class ModernWidget(tk.Label):
         **kwargs,
     ):
         self._theme = theme or ThemeManager.get_theme()
-        self._widget_w = max(1, width)
-        self._widget_h = max(1, height)
-        self._bg_window = bg if bg is not None else self._theme.bg_window
+        self._requested_w = max(1, width)
+        self._requested_h = max(1, height)
+        self._widget_w = self._requested_w
+        self._widget_h = self._requested_h
+        self._custom_parent_bg = bg
+        self._parent_bg = _resolve_parent_bg(master, self._custom_parent_bg, self._theme)
+        self._bg_window = self._parent_bg
 
         self._photo = tk.PhotoImage(master=master, width=self._widget_w, height=self._widget_h)
         self._surface = Surface(self._widget_w, self._widget_h)
@@ -66,6 +105,7 @@ class ModernWidget(tk.Label):
         ThemeManager.subscribe(self._on_theme_changed)
 
         self.bind("<Configure>", self._on_configure)
+        self.bind("<Map>", self._on_map)
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
         self.bind("<ButtonPress-1>", self._on_press)
@@ -74,6 +114,18 @@ class ModernWidget(tk.Label):
 
         self.after_idle(self.render)
 
+    def resize(self, width: int, height: int) -> None:
+        """
+        Explicitly update the widget's requested dimensions and resize the rendering surface.
+        """
+        self._requested_w = max(1, width)
+        self._requested_h = max(1, height)
+        self._widget_w = self._requested_w
+        self._widget_h = self._requested_h
+        self._photo.configure(width=self._widget_w, height=self._widget_h)
+        self._surface.resize(self._widget_w, self._widget_h)
+        self.render()
+
     @property
     def theme(self) -> Theme:
         return self._theme
@@ -81,7 +133,23 @@ class ModernWidget(tk.Label):
     @theme.setter
     def theme(self, val: Theme) -> None:
         self._theme = val
+        self._parent_bg = _resolve_parent_bg(self.master, self._custom_parent_bg, self._theme)
+        self._bg_window = self._parent_bg
+        try:
+            self.configure(background=self._bg_window)
+        except Exception:
+            pass
         self.render()
+
+    def resolve_parent_bg(self) -> str:
+        """Dynamically re-evaluate parent background color."""
+        self._parent_bg = _resolve_parent_bg(self.master, self._custom_parent_bg, self._theme)
+        self._bg_window = self._parent_bg
+        try:
+            self.configure(background=self._bg_window)
+        except Exception:
+            pass
+        return self._parent_bg
 
     @property
     def surface(self) -> Surface:
@@ -100,11 +168,26 @@ class ModernWidget(tk.Label):
         self._is_disabled = bool(val)
         self.render()
 
+    def _on_map(self, event) -> None:
+        new_parent_bg = _resolve_parent_bg(self.master, self._custom_parent_bg, self._theme)
+        if new_parent_bg != self._parent_bg:
+            self._parent_bg = new_parent_bg
+            self._bg_window = new_parent_bg
+            try:
+                self.configure(background=self._bg_window)
+            except Exception:
+                pass
+            self.render()
+
     def _on_theme_changed(self, new_theme: Theme) -> None:
         if self.winfo_exists():
             self._theme = new_theme
-            self._bg_window = new_theme.bg_window
-            self.configure(background=self._bg_window)
+            self._parent_bg = _resolve_parent_bg(self.master, self._custom_parent_bg, new_theme)
+            self._bg_window = self._parent_bg
+            try:
+                self.configure(background=self._bg_window)
+            except Exception:
+                pass
             self.render()
 
     def _on_configure(self, event) -> None:
@@ -113,7 +196,12 @@ class ModernWidget(tk.Label):
         if new_w != self._widget_w or new_h != self._widget_h:
             self._widget_w = new_w
             self._widget_h = new_h
-            self._photo.configure(width=self._widget_w, height=self._widget_h)
+            # Preserve requested dimensions on the PhotoImage so transient packing constraints
+            # do not collapse the widget's intrinsic requested size in Tkinter.
+            photo_w = max(self._requested_w, new_w)
+            photo_h = max(self._requested_h, new_h)
+            if self._photo.width() != photo_w or self._photo.height() != photo_h:
+                self._photo.configure(width=photo_w, height=photo_h)
             self._surface.resize(self._widget_w, self._widget_h)
             self.render()
 
@@ -199,5 +287,5 @@ class ModernWidget(tk.Label):
 
     def render(self) -> None:
         """Override in subclasses to draw vector UI."""
-        self._surface.clear("#00000000")
+        self._surface.clear(self._parent_bg)
         self._surface.blit(self._photo)

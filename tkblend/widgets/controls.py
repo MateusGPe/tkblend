@@ -12,7 +12,7 @@ from tkblend.surface import (
     LinearGradient,
     Path,
 )
-from tkblend.widgets.base import ModernWidget
+from tkblend.widgets.base import ModernWidget, _resolve_parent_bg
 from tkblend.widgets.theme import Theme, ThemeManager
 
 
@@ -48,47 +48,22 @@ class ModernButton(ModernWidget):
         self._text = text
         self._command = command
         self._variant = variant
-        self._rx = rx if rx is not None else t.radius_sm
-        self._ry = ry if ry is not None else self._rx
-
-        # Color defaults based on variant
-        if variant == "primary":
-            self._bg_color = bg_color if bg_color is not None else t.primary
-            self._hover_color = hover_color if hover_color is not None else t.primary_hover
-            self._press_color = press_color if press_color is not None else t.primary_press
-            self._text_color = text_color if text_color is not None else t.primary_text
-        elif variant == "secondary":
-            self._bg_color = bg_color if bg_color is not None else t.secondary
-            self._hover_color = hover_color if hover_color is not None else t.secondary_hover
-            self._press_color = press_color if press_color is not None else t.secondary_press
-            self._text_color = text_color if text_color is not None else t.secondary_text
-        elif variant == "danger":
-            self._bg_color = bg_color if bg_color is not None else t.danger
-            self._hover_color = hover_color if hover_color is not None else "#eba0ac"
-            self._press_color = press_color if press_color is not None else "#e78284"
-            self._text_color = text_color if text_color is not None else "#11111b"
-        elif variant == "success":
-            self._bg_color = bg_color if bg_color is not None else t.success
-            self._hover_color = hover_color if hover_color is not None else "#b4eec4"
-            self._press_color = press_color if press_color is not None else "#81c8be"
-            self._text_color = text_color if text_color is not None else "#11111b"
-        else:
-            self._bg_color = bg_color if bg_color is not None else t.primary
-            self._hover_color = hover_color if hover_color is not None else t.primary_hover
-            self._press_color = press_color if press_color is not None else t.primary_press
-            self._text_color = text_color if text_color is not None else t.primary_text
-
-        self._font_size = font_size if font_size is not None else t.font_size_md
-        self._font_family = font_family or t.font_family
-        self._elevation = elevation if elevation is not None else t.elevation_sm
-        self._shadow_color = shadow_color if shadow_color is not None else t.shadow_color
-        self._parent_bg = parent_bg if parent_bg is not None else t.bg_window
+        self._rx_custom = rx
+        self._ry_custom = ry
+        self._custom_bg_color = bg_color
+        self._custom_hover_color = hover_color
+        self._custom_press_color = press_color
+        self._custom_text_color = text_color
+        self._custom_font_size = font_size
+        self._custom_font_family = font_family
+        self._custom_elevation = elevation
+        self._custom_shadow_color = shadow_color
 
         super().__init__(
             master=master,
             width=width,
             height=height,
-            bg=self._parent_bg,
+            bg=parent_bg,
             theme=theme,
             **kwargs,
         )
@@ -104,24 +79,63 @@ class ModernButton(ModernWidget):
         self._text = text
         self.render()
 
+    def _resolve_colors(self) -> Tuple[ColorLike, ColorLike, ColorLike, ColorLike]:
+        t = self._theme
+        if self._variant == "primary":
+            bg = self._custom_bg_color if self._custom_bg_color is not None else t.primary
+            hover = self._custom_hover_color if self._custom_hover_color is not None else t.primary_hover
+            press = self._custom_press_color if self._custom_press_color is not None else t.primary_press
+            text_c = self._custom_text_color if self._custom_text_color is not None else t.primary_text
+        elif self._variant == "secondary":
+            bg = self._custom_bg_color if self._custom_bg_color is not None else t.secondary
+            hover = self._custom_hover_color if self._custom_hover_color is not None else t.secondary_hover
+            press = self._custom_press_color if self._custom_press_color is not None else t.secondary_press
+            text_c = self._custom_text_color if self._custom_text_color is not None else t.secondary_text
+        elif self._variant == "danger":
+            bg = self._custom_bg_color if self._custom_bg_color is not None else t.danger
+            hover = self._custom_hover_color if self._custom_hover_color is not None else ("#eba0ac" if t.name == "dark" else "#ea999c")
+            press = self._custom_press_color if self._custom_press_color is not None else ("#e78284" if t.name == "dark" else "#d20f39")
+            text_c = self._custom_text_color if self._custom_text_color is not None else t.primary_text
+        elif self._variant == "success":
+            bg = self._custom_bg_color if self._custom_bg_color is not None else t.success
+            hover = self._custom_hover_color if self._custom_hover_color is not None else ("#b4eec4" if t.name == "dark" else "#81c8be")
+            press = self._custom_press_color if self._custom_press_color is not None else ("#81c8be" if t.name == "dark" else "#40a02b")
+            text_c = self._custom_text_color if self._custom_text_color is not None else t.primary_text
+        else:
+            bg = self._custom_bg_color if self._custom_bg_color is not None else t.primary
+            hover = self._custom_hover_color if self._custom_hover_color is not None else t.primary_hover
+            press = self._custom_press_color if self._custom_press_color is not None else t.primary_press
+            text_c = self._custom_text_color if self._custom_text_color is not None else t.primary_text
+        return bg, hover, press, text_c
+
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
 
-        cur_bg = self._bg_color
-        cur_elev = self._elevation
+        t = self._theme
+        rx = self._rx_custom if self._rx_custom is not None else t.radius_sm
+        ry = self._ry_custom if self._ry_custom is not None else rx
+        font_size = self._custom_font_size if self._custom_font_size is not None else t.font_size_md
+        font_family = self._custom_font_family or t.font_family
+        elevation = self._custom_elevation if self._custom_elevation is not None else t.elevation_sm
+        shadow_color = self._custom_shadow_color if self._custom_shadow_color is not None else t.shadow_color
+
+        base_bg, base_hover, base_press, base_text = self._resolve_colors()
+
+        cur_bg = base_bg
+        cur_elev = elevation
         offset_y = 2.0
 
         if self._is_disabled:
-            cur_bg = self._theme.secondary
+            cur_bg = t.secondary
             cur_elev = 0.0
             offset_y = 0.0
         elif self._is_pressed:
-            cur_bg = self._press_color
-            cur_elev = max(1.0, self._elevation * 0.4)
+            cur_bg = base_press
+            cur_elev = max(1.0, elevation * 0.4)
             offset_y = 1.0
         elif self._is_hovered:
-            cur_bg = self._hover_color
-            cur_elev = self._elevation * 1.3
+            cur_bg = base_hover
+            cur_elev = elevation * 1.3
             offset_y = 3.0
 
         pad = 4.0
@@ -129,36 +143,37 @@ class ModernButton(ModernWidget):
         btn_h = max(1.0, self._widget_h - pad * 2.0)
 
         # Draw drop shadow + button background
+        border_col = "#ffffff22" if self._variant == "primary" else t.border
         self._surface.draw_card(
             x=pad,
             y=pad,
             w=btn_w,
             h=btn_h,
-            rx=self._rx,
-            ry=self._ry,
+            rx=rx,
+            ry=ry,
             bg_color=cur_bg,
-            border_color="#ffffff22" if self._variant == "primary" else self._theme.border,
+            border_color=border_col,
             border_width=1.0,
             shadow_blur=cur_elev * 1.5,
             shadow_spread=0.0,
             shadow_offset_x=0.0,
             shadow_offset_y=offset_y,
-            shadow_color=self._shadow_color if cur_elev > 0 else "#00000000",
+            shadow_color=shadow_color if cur_elev > 0 else "#00000000",
         )
 
         # Draw centered text
         text_x = self._widget_w / 2.0
-        text_y = self._widget_h / 2.0 + (self._font_size * 0.35)
+        text_y = self._widget_h / 2.0 + (font_size * 0.35)
         if self._is_pressed and not self._is_disabled:
             text_y += 1.0
 
-        color = self._theme.text_disabled if self._is_disabled else self._text_color
+        color = t.text_disabled if self._is_disabled else base_text
         self._surface.draw_text(
             self._text,
             x=text_x,
             y=text_y,
-            font_size=self._font_size,
-            font_family=self._font_family,
+            font_size=font_size,
+            font_family=font_family,
             color=color,
             align="center",
         )
@@ -185,13 +200,11 @@ class ModernSwitch(ModernWidget):
         theme: Optional[Theme] = None,
         **kwargs,
     ):
-        t = theme or ThemeManager.get_theme()
         self._is_on = bool(is_on)
         self._on_toggle = on_toggle
-        self._on_color = on_color if on_color is not None else t.primary
-        self._off_color = off_color if off_color is not None else t.track
-        self._knob_color = knob_color if knob_color is not None else t.knob
-        self._parent_bg = parent_bg if parent_bg is not None else t.bg_window
+        self._custom_on_color = on_color
+        self._custom_off_color = off_color
+        self._custom_knob_color = knob_color
 
         # Animation state: knob progress from 0.0 (off) to 1.0 (on)
         self._progress: float = 1.0 if self._is_on else 0.0
@@ -200,7 +213,7 @@ class ModernSwitch(ModernWidget):
             master=master,
             width=width,
             height=height,
-            bg=self._parent_bg,
+            bg=parent_bg,
             theme=theme,
             **kwargs,
         )
@@ -240,13 +253,18 @@ class ModernSwitch(ModernWidget):
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
 
+        t = self._theme
+        on_color = self._custom_on_color if self._custom_on_color is not None else t.primary
+        off_color = self._custom_off_color if self._custom_off_color is not None else t.track
+        knob_color = self._custom_knob_color if self._custom_knob_color is not None else t.knob
+
         pad = 2.0
         w = self._widget_w - pad * 2.0
         h = self._widget_h - pad * 2.0
         r = h / 2.0
 
         # Background track
-        bg = self._on_color if self._progress > 0.5 else self._off_color
+        bg = on_color if self._progress > 0.5 else off_color
         self._surface.fill_rounded_rect(pad, pad, w, h, r, r, bg)
 
         # Interpolated knob center X
@@ -269,7 +287,7 @@ class ModernSwitch(ModernWidget):
             shadow_color="#00000055",
         )
 
-        self._surface.fill_circle(knob_cx, knob_cy, knob_r, self._knob_color)
+        self._surface.fill_circle(knob_cx, knob_cy, knob_r, knob_color)
         self._surface.blit(self._photo)
 
 
@@ -297,26 +315,29 @@ class ModernCheckbox(ModernWidget):
         height: int = 32,
         **kwargs,
     ):
-        t = theme or ThemeManager.get_theme()
         self._text = text
         self._is_checked = bool(is_checked)
         self._on_change = on_change
         self._box_size = box_size
-        self._checked_color = checked_color if checked_color is not None else t.primary
-        self._box_color = box_color if box_color is not None else t.bg_surface_alt
-        self._checkmark_color = checkmark_color if checkmark_color is not None else t.primary_text
-        self._text_color = text_color if text_color is not None else t.text
-        self._font_size = font_size if font_size is not None else t.font_size_md
-        self._font_family = font_family or t.font_family
-        self._parent_bg = parent_bg if parent_bg is not None else t.bg_window
+        self._custom_checked_color = checked_color
+        self._custom_box_color = box_color
+        self._custom_checkmark_color = checkmarkmark_color if (checkmarkmark_color := checkmark_color) is not None else None
+        self._custom_text_color = text_color
+        self._custom_font_size = font_size
+        self._custom_font_family = font_family
 
         self._check_progress: float = 1.0 if self._is_checked else 0.0
 
+        t = theme or ThemeManager.get_theme()
+        f_size = font_size if font_size is not None else t.font_size_md
+        needed_w = int(box_size + 16.0 + len(text) * f_size * 0.75 + 16.0)
+        calc_w = max(width, needed_w) if width != 160 else needed_w
+
         super().__init__(
             master=master,
-            width=width,
+            width=calc_w,
             height=height,
-            bg=self._parent_bg,
+            bg=parent_bg,
             theme=theme,
             **kwargs,
         )
@@ -356,13 +377,21 @@ class ModernCheckbox(ModernWidget):
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
 
+        t = self._theme
+        checked_color = self._custom_checked_color if self._custom_checked_color is not None else t.primary
+        box_color = self._custom_box_color if self._custom_box_color is not None else t.bg_surface_alt
+        checkmark_color = self._custom_checkmark_color if self._custom_checkmark_color is not None else t.primary_text
+        text_color = self._custom_text_color if self._custom_text_color is not None else t.text
+        font_size = self._custom_font_size if self._custom_font_size is not None else t.font_size_md
+        font_family = self._custom_font_family or t.font_family
+
         box_y = (self._widget_h - self._box_size) / 2.0
         box_x = 4.0
         r = 5.0
 
         # Draw box
-        bg = self._checked_color if self._check_progress > 0.5 else self._box_color
-        border_col = self._checked_color if self._check_progress > 0.5 else self._theme.border
+        bg = checked_color if self._check_progress > 0.5 else box_color
+        border_col = checked_color if self._check_progress > 0.5 else t.border
 
         self._surface.fill_rounded_rect(box_x, box_y, self._box_size, self._box_size, r, r, bg)
         self._surface.stroke_rounded_rect(
@@ -383,18 +412,18 @@ class ModernCheckbox(ModernWidget):
             p.line_to(p2_x, p2_y)
             p.line_to(p3_x, p3_y)
 
-            self._surface.stroke_path(p, self._checkmark_color, stroke_width=2.2)
+            self._surface.stroke_path(p, checkmark_color, stroke_width=2.2)
 
         # Draw Label Text
         text_x = box_x + self._box_size + 10.0
-        text_y = self._widget_h / 2.0 + (self._font_size * 0.35)
-        color = self._theme.text_disabled if self._is_disabled else self._text_color
+        text_y = self._widget_h / 2.0 + (font_size * 0.35)
+        color = t.text_disabled if self._is_disabled else text_color
         self._surface.draw_text(
             self._text,
             x=text_x,
             y=text_y,
-            font_size=self._font_size,
-            font_family=self._font_family,
+            font_size=font_size,
+            font_family=font_family,
             color=color,
             align="left",
         )
@@ -425,25 +454,28 @@ class ModernRadioButton(ModernWidget):
         height: int = 32,
         **kwargs,
     ):
-        t = theme or ThemeManager.get_theme()
         self._text = text
         self._value = value if value is not None else text
         self._is_selected = bool(is_selected)
         self._on_select = on_select
         self._r = radius
-        self._selected_color = selected_color if selected_color is not None else t.primary
-        self._text_color = text_color if text_color is not None else t.text
-        self._font_size = font_size if font_size is not None else t.font_size_md
-        self._font_family = font_family or t.font_family
-        self._parent_bg = parent_bg if parent_bg is not None else t.bg_window
+        self._custom_selected_color = selected_color
+        self._custom_text_color = text_color
+        self._custom_font_size = font_size
+        self._custom_font_family = font_family
 
         self._bullet_progress: float = 1.0 if self._is_selected else 0.0
 
+        t = theme or ThemeManager.get_theme()
+        f_size = font_size if font_size is not None else t.font_size_md
+        needed_w = int(radius * 2.0 + 16.0 + len(text) * f_size * 0.75 + 16.0)
+        calc_w = max(width, needed_w) if width != 150 else needed_w
+
         super().__init__(
             master=master,
-            width=width,
+            width=calc_w,
             height=height,
-            bg=self._parent_bg,
+            bg=parent_bg,
             theme=theme,
             **kwargs,
         )
@@ -487,30 +519,36 @@ class ModernRadioButton(ModernWidget):
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
 
+        t = self._theme
+        selected_color = self._custom_selected_color if self._custom_selected_color is not None else t.primary
+        text_color = self._custom_text_color if self._custom_text_color is not None else t.text
+        font_size = self._custom_font_size if self._custom_font_size is not None else t.font_size_md
+        font_family = self._custom_font_family or t.font_family
+
         cx = 4.0 + self._r
         cy = self._widget_h / 2.0
 
         # Outer ring
-        border_col = self._selected_color if self._bullet_progress > 0.5 else self._theme.border
-        bg_col = self._theme.bg_surface_alt
+        border_col = selected_color if self._bullet_progress > 0.5 else t.border
+        bg_col = t.bg_surface_alt
         self._surface.fill_circle(cx, cy, self._r, bg_col)
         self._surface.stroke_circle(cx, cy, self._r, border_col, stroke_width=1.8)
 
         # Inner bullet
         if self._bullet_progress > 0.05:
             inner_r = (self._r - 4.5) * self._bullet_progress
-            self._surface.fill_circle(cx, cy, max(1.0, inner_r), self._selected_color)
+            self._surface.fill_circle(cx, cy, max(1.0, inner_r), selected_color)
 
         # Label text
         text_x = cx + self._r + 10.0
-        text_y = self._widget_h / 2.0 + (self._font_size * 0.35)
-        color = self._theme.text_disabled if self._is_disabled else self._text_color
+        text_y = self._widget_h / 2.0 + (font_size * 0.35)
+        color = t.text_disabled if self._is_disabled else text_color
         self._surface.draw_text(
             self._text,
             x=text_x,
             y=text_y,
-            font_size=self._font_size,
-            font_family=self._font_family,
+            font_size=font_size,
+            font_family=font_family,
             color=color,
             align="left",
         )
@@ -535,13 +573,18 @@ class ModernRadioGroup(tk.Frame):
         **kwargs,
     ):
         t = theme or ThemeManager.get_theme()
-        self._parent_bg = parent_bg if parent_bg is not None else t.bg_window
+        self._theme = t
+        self._custom_parent_bg = parent_bg
+        self._parent_bg = _resolve_parent_bg(master, self._custom_parent_bg, self._theme)
         super().__init__(master, background=self._parent_bg, **kwargs)
 
         self._on_change = on_change
         self._buttons: List[ModernRadioButton] = []
         self._selected_value = selected_value
-        self._theme = t
+        self._horizontal = horizontal
+
+        ThemeManager.subscribe(self._on_theme_changed)
+        self.bind("<Destroy>", lambda e: ThemeManager.unsubscribe(self._on_theme_changed))
 
         if options:
             for opt in options:
@@ -549,6 +592,14 @@ class ModernRadioGroup(tk.Frame):
 
         if selected_value is not None:
             self.set_value(selected_value)
+
+    def _on_theme_changed(self, new_theme: Theme) -> None:
+        if self.winfo_exists():
+            self._theme = new_theme
+            self._parent_bg = _resolve_parent_bg(self.master, self._custom_parent_bg, new_theme)
+            self.configure(background=self._parent_bg)
+            for btn in self._buttons:
+                btn._on_theme_changed(new_theme)
 
     def add_option(self, label: str, value: Any) -> ModernRadioButton:
         is_sel = (self._selected_value == value)
@@ -558,11 +609,18 @@ class ModernRadioGroup(tk.Frame):
             value=value,
             is_selected=is_sel,
             on_select=self._on_btn_selected,
-            parent_bg=self._parent_bg,
+            parent_bg=self._custom_parent_bg,
             theme=self._theme,
         )
         self._buttons.append(btn)
-        btn.pack(side=tk.LEFT if getattr(self, "_horizontal", False) else tk.TOP, anchor="w", pady=2)
+        btn.pack(
+            side=tk.LEFT if self._horizontal else tk.TOP,
+            anchor="w",
+            fill=tk.X if not self._horizontal else None,
+            expand=True if not self._horizontal else False,
+            pady=2,
+            padx=(0, 8 if self._horizontal else 0),
+        )
         return btn
 
     def _on_btn_selected(self, val: Any) -> None:
@@ -605,24 +663,22 @@ class ModernSlider(ModernWidget):
         theme: Optional[Theme] = None,
         **kwargs,
     ):
-        t = theme or ThemeManager.get_theme()
         self._min = float(min_val)
         self._max = float(max_val)
         self._step = float(step) if step is not None else None
         self._value = max(self._min, min(self._max, float(value)))
         self._on_change = on_change
-        self._track_color = track_color if track_color is not None else t.track
-        self._active_track_color = active_track_color if active_track_color is not None else t.primary
-        self._knob_color = knob_color if knob_color is not None else t.knob
+        self._custom_track_color = track_color
+        self._custom_active_track_color = active_track_color
+        self._custom_knob_color = knob_color
         self._knob_r = knob_radius
-        self._parent_bg = parent_bg if parent_bg is not None else t.bg_window
         self._is_dragging = False
 
         super().__init__(
             master=master,
             width=width,
             height=height,
-            bg=self._parent_bg,
+            bg=parent_bg,
             theme=theme,
             **kwargs,
         )
@@ -662,6 +718,11 @@ class ModernSlider(ModernWidget):
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
 
+        t = self._theme
+        track_color = self._custom_track_color if self._custom_track_color is not None else t.track
+        active_track_color = self._custom_active_track_color if self._custom_active_track_color is not None else t.primary
+        knob_color = self._custom_knob_color if self._custom_knob_color is not None else t.knob
+
         pad = self._knob_r + 4.0
         track_h = 6.0
         track_y = (self._widget_h - track_h) / 2.0
@@ -669,7 +730,7 @@ class ModernSlider(ModernWidget):
 
         # Background track
         self._surface.fill_rounded_rect(
-            pad, track_y, usable_w, track_h, track_h / 2.0, track_h / 2.0, self._track_color
+            pad, track_y, usable_w, track_h, track_h / 2.0, track_h / 2.0, track_color
         )
 
         # Active track portion
@@ -677,7 +738,7 @@ class ModernSlider(ModernWidget):
         knob_cx = pad + rel * usable_w
         if rel > 0.0:
             self._surface.fill_rounded_rect(
-                pad, track_y, rel * usable_w, track_h, track_h / 2.0, track_h / 2.0, self._active_track_color
+                pad, track_y, rel * usable_w, track_h, track_h / 2.0, track_h / 2.0, active_track_color
             )
 
         # Knob Drop Shadow
@@ -694,7 +755,7 @@ class ModernSlider(ModernWidget):
         )
 
         # Knob circle
-        self._surface.fill_circle(knob_cx, self._widget_h / 2.0, self._knob_r, self._knob_color)
+        self._surface.fill_circle(knob_cx, self._widget_h / 2.0, self._knob_r, knob_color)
         self._surface.stroke_circle(
             knob_cx, self._widget_h / 2.0, self._knob_r, "#ffffff88", stroke_width=1.5
         )
@@ -720,21 +781,17 @@ class ModernSegmentedControl(ModernWidget):
         theme: Optional[Theme] = None,
         **kwargs,
     ):
-        t = theme or ThemeManager.get_theme()
         self._items = items or ["Option 1", "Option 2"]
         self._selected_index = max(0, min(len(self._items) - 1, selected_index))
         self._on_select = on_select
-        self._rx = rx if rx is not None else t.radius_sm
-        self._parent_bg = parent_bg if parent_bg is not None else t.bg_window
-
-        # Animation progress for indicator X position
+        self._custom_rx = rx
         self._anim_index: float = float(self._selected_index)
 
         super().__init__(
             master=master,
             width=width,
             height=height,
-            bg=self._parent_bg,
+            bg=parent_bg,
             theme=theme,
             **kwargs,
         )
@@ -776,6 +833,9 @@ class ModernSegmentedControl(ModernWidget):
             self._surface.blit(self._photo)
             return
 
+        t = self._theme
+        rx = self._custom_rx if self._custom_rx is not None else t.radius_sm
+
         pad = 3.0
         w = self._widget_w - pad * 2.0
         h = self._widget_h - pad * 2.0
@@ -783,9 +843,9 @@ class ModernSegmentedControl(ModernWidget):
         seg_w = w / n
 
         # Container backdrop
-        self._surface.fill_rounded_rect(pad, pad, w, h, self._rx, self._rx, self._theme.bg_surface_alt)
+        self._surface.fill_rounded_rect(pad, pad, w, h, rx, rx, t.bg_surface_alt)
         self._surface.stroke_rounded_rect(
-            pad, pad, w, h, self._rx, self._rx, self._theme.border, stroke_width=1.0
+            pad, pad, w, h, rx, rx, t.border, stroke_width=1.0
         )
 
         # Sliding Pill Indicator
@@ -794,7 +854,7 @@ class ModernSegmentedControl(ModernWidget):
         pill_y = pad + pill_pad
         pill_w = max(1.0, seg_w - pill_pad * 2.0)
         pill_h = max(1.0, h - pill_pad * 2.0)
-        pill_r = max(2.0, self._rx - 2.0)
+        pill_r = max(2.0, rx - 2.0)
 
         # Pill Shadow + Background
         self._surface.draw_card(
@@ -804,7 +864,7 @@ class ModernSegmentedControl(ModernWidget):
             h=pill_h,
             rx=pill_r,
             ry=pill_r,
-            bg_color=self._theme.primary,
+            bg_color=t.primary,
             border_color="#ffffff22",
             border_width=1.0,
             shadow_blur=4.0,
@@ -815,15 +875,15 @@ class ModernSegmentedControl(ModernWidget):
         # Draw segment texts
         for i, item in enumerate(self._items):
             item_cx = pad + (i + 0.5) * seg_w
-            item_cy = self._widget_h / 2.0 + (self._theme.font_size_sm * 0.35)
+            item_cy = self._widget_h / 2.0 + (t.font_size_sm * 0.35)
             # Text color depends on whether active
-            color = self._theme.primary_text if i == self._selected_index else self._theme.text_muted
+            color = t.primary_text if i == self._selected_index else t.text_muted
             self._surface.draw_text(
                 item,
                 x=item_cx,
                 y=item_cy,
-                font_size=self._theme.font_size_sm,
-                font_family=self._theme.font_family,
+                font_size=t.font_size_sm,
+                font_family=t.font_family,
                 color=color,
                 align="center",
             )

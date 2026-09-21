@@ -7,6 +7,7 @@ import tkinter as tk
 from typing import Optional, Callable, List, Tuple, Any
 
 from tkblend.surface import Surface, ColorLike, Path
+from tkblend.widgets.base import _resolve_parent_bg
 from tkblend.widgets.theme import Theme, ThemeManager
 
 
@@ -35,15 +36,16 @@ class ModernFrame(tk.Frame):
     ):
         t = theme or ThemeManager.get_theme()
         self._theme = t
-        self._rx = rx if rx is not None else t.radius_lg
-        self._ry = ry if ry is not None else self._rx
-        self._bg_color = bg_color if bg_color is not None else t.bg_surface
-        self._border_color = border_color if border_color is not None else t.border
-        self._border_width = border_width if border_width is not None else t.border_width
-        self._elevation = elevation if elevation is not None else t.elevation_md
-        self._shadow_color = shadow_color if shadow_color is not None else t.shadow_color
+        self._custom_rx = rx
+        self._custom_ry = ry
+        self._custom_bg_color = bg_color
+        self._custom_border_color = border_color
+        self._custom_border_width = border_width
+        self._custom_elevation = elevation
+        self._custom_shadow_color = shadow_color
         self._shadow_offset_y = shadow_offset_y
-        self._parent_bg = parent_bg if parent_bg is not None else t.bg_window
+        self._custom_parent_bg = parent_bg
+        self._parent_bg = _resolve_parent_bg(master, self._custom_parent_bg, self._theme)
 
         super().__init__(
             master,
@@ -74,6 +76,17 @@ class ModernFrame(tk.Frame):
         self._bg_label.place(x=0, y=0, relwidth=1.0, relheight=1.0)
         self._bg_label.lower()
 
+        # Dedicated inner content container
+        elev = self._custom_elevation if self._custom_elevation is not None else self._theme.elevation_md
+        pad = int(max(4.0, elev * 0.8) + 4)
+        self.content = tk.Frame(
+            self,
+            background=str(self._bg_color),
+            borderwidth=0,
+            highlightthickness=0,
+        )
+        self.content.place(x=pad, y=pad, relwidth=1.0, relheight=1.0, width=-(pad * 2), height=-(pad * 2))
+
         self.bind("<Configure>", self._on_configure)
 
         ThemeManager.subscribe(self._on_theme_changed)
@@ -81,12 +94,26 @@ class ModernFrame(tk.Frame):
 
         self.after_idle(self.render)
 
+    @property
+    def _bg_color(self) -> ColorLike:
+        if self._custom_bg_color is not None:
+            return self._custom_bg_color
+        return self._theme.bg_surface
+
+    @property
+    def surface(self) -> Surface:
+        return self._surface
+
     def _on_theme_changed(self, new_theme: Theme) -> None:
         if self.winfo_exists():
             self._theme = new_theme
-            self._parent_bg = new_theme.bg_window
-            self.configure(background=self._parent_bg)
-            self._bg_label.configure(background=self._parent_bg)
+            self._parent_bg = _resolve_parent_bg(self.master, self._custom_parent_bg, new_theme)
+            try:
+                self.configure(background=self._parent_bg)
+                self._bg_label.configure(background=self._parent_bg)
+                self.content.configure(background=str(self._bg_color))
+            except Exception:
+                pass
             self.render()
 
     def _on_configure(self, event) -> None:
@@ -100,13 +127,26 @@ class ModernFrame(tk.Frame):
             self.render()
 
     def set_background(self, bg_color: ColorLike) -> None:
-        self._bg_color = bg_color
+        self._custom_bg_color = bg_color
+        try:
+            self.content.configure(background=str(self._bg_color))
+        except Exception:
+            pass
         self.render()
 
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
 
-        pad = max(4.0, self._elevation * 0.8)
+        t = self._theme
+        rx = self._custom_rx if self._custom_rx is not None else t.radius_lg
+        ry = self._custom_ry if self._custom_ry is not None else rx
+        bg_col = self._bg_color
+        border_col = self._custom_border_color if self._custom_border_color is not None else t.border
+        border_w = self._custom_border_width if self._custom_border_width is not None else t.border_width
+        elevation = self._custom_elevation if self._custom_elevation is not None else t.elevation_md
+        shadow_col = self._custom_shadow_color if self._custom_shadow_color is not None else t.shadow_color
+
+        pad = max(4.0, elevation * 0.8)
         draw_x = pad
         draw_y = pad
         draw_w = max(1.0, self._widget_w - pad * 2.0)
@@ -117,16 +157,16 @@ class ModernFrame(tk.Frame):
             y=draw_y,
             w=draw_w,
             h=draw_h,
-            rx=self._rx,
-            ry=self._ry,
-            bg_color=self._bg_color,
-            border_color=self._border_color,
-            border_width=self._border_width,
-            shadow_blur=self._elevation * 1.5,
+            rx=rx,
+            ry=ry,
+            bg_color=bg_col,
+            border_color=border_col,
+            border_width=border_w,
+            shadow_blur=elevation * 1.5,
             shadow_spread=0.0,
             shadow_offset_x=0.0,
             shadow_offset_y=self._shadow_offset_y,
-            shadow_color=self._shadow_color if self._elevation > 0 else "#00000000",
+            shadow_color=shadow_col if elevation > 0 else "#00000000",
         )
         self._surface.blit(self._photo)
 
@@ -154,6 +194,8 @@ class ModernCard(ModernFrame):
         theme: Optional[Theme] = None,
         **kwargs,
     ):
+        self._title = title
+        self._subtitle = subtitle
         t = theme or ThemeManager.get_theme()
         super().__init__(
             master=master,
@@ -161,21 +203,40 @@ class ModernCard(ModernFrame):
             height=height,
             rx=rx if rx is not None else t.radius_lg,
             ry=ry if ry is not None else rx or t.radius_lg,
-            bg_color=bg_color if bg_color is not None else t.bg_card,
-            border_color=border_color if border_color is not None else t.border,
-            border_width=border_width if border_width is not None else t.border_width,
+            bg_color=bg_color,
+            border_color=border_color,
+            border_width=border_width,
             elevation=elevation if elevation is not None else t.elevation_lg,
-            shadow_color=shadow_color if shadow_color is not None else t.shadow_color,
-            parent_bg=parent_bg if parent_bg is not None else t.bg_window,
+            shadow_color=shadow_color,
+            parent_bg=parent_bg,
             theme=theme,
             **kwargs,
         )
-        self._title = title
-        self._subtitle = subtitle
+
+        # Reposition content frame below title and subtitle
+        elev = self._custom_elevation if self._custom_elevation is not None else self._theme.elevation_lg
+        pad = int(max(4.0, elev * 0.8))
+        header_h = 44 if (self._title and self._subtitle) else 32 if self._title else 4
+        self.content.place_configure(
+            x=pad + 12,
+            y=pad + header_h,
+            relwidth=1.0,
+            relheight=1.0,
+            width=-((pad + 12) * 2),
+            height=-(pad + header_h + 12),
+        )
+
+    @property
+    def _bg_color(self) -> ColorLike:
+        if self._custom_bg_color is not None:
+            return self._custom_bg_color
+        return self._theme.bg_card
 
     def render(self) -> None:
         super().render()
-        pad = max(4.0, self._elevation * 0.8)
+        t = self._theme
+        elevation = self._custom_elevation if self._custom_elevation is not None else t.elevation_lg
+        pad = max(4.0, elevation * 0.8)
         start_y = pad + 24.0
 
         if self._title:
@@ -183,9 +244,9 @@ class ModernCard(ModernFrame):
                 self._title,
                 x=pad + 16.0,
                 y=start_y,
-                font_size=self._theme.font_size_lg,
-                font_family=self._theme.font_family,
-                color=self._theme.text,
+                font_size=t.font_size_lg,
+                font_family=t.font_family,
+                color=t.text,
             )
             start_y += 18.0
 
@@ -194,9 +255,9 @@ class ModernCard(ModernFrame):
                 self._subtitle,
                 x=pad + 16.0,
                 y=start_y,
-                font_size=self._theme.font_size_xs,
-                font_family=self._theme.font_family,
-                color=self._theme.text_muted,
+                font_size=t.font_size_xs,
+                font_family=t.font_family,
+                color=t.text_muted,
             )
 
         if self._title or self._subtitle:
@@ -259,6 +320,23 @@ class ModernAccordionItem(tk.Frame):
         if self._is_expanded:
             self.content_frame.pack(fill=tk.BOTH, expand=True, side=tk.TOP)
 
+    def _on_theme_changed(self, new_theme: Theme) -> None:
+        if self.winfo_exists():
+            self._theme = new_theme
+            self.configure(bg=new_theme.bg_surface)
+            self._header.configure(bg=new_theme.bg_surface)
+            self._title_lbl.configure(
+                font=(new_theme.font_family, int(new_theme.font_size_md)),
+                fg=new_theme.text,
+                bg=new_theme.bg_surface,
+            )
+            self._icon_lbl.configure(
+                font=(new_theme.font_family, 10),
+                fg=new_theme.text_muted,
+                bg=new_theme.bg_surface,
+            )
+            self.content_frame.configure(bg=new_theme.bg_surface_alt)
+
     def toggle(self) -> None:
         self._is_expanded = not self._is_expanded
         self._icon_lbl.configure(text="▼" if self._is_expanded else "▶")
@@ -284,6 +362,16 @@ class ModernAccordion(tk.Frame):
         super().__init__(master, bg=t.bg_surface, **kwargs)
         self._items: List[ModernAccordionItem] = []
 
+        ThemeManager.subscribe(self._on_theme_changed)
+        self.bind("<Destroy>", lambda e: ThemeManager.unsubscribe(self._on_theme_changed))
+
+    def _on_theme_changed(self, new_theme: Theme) -> None:
+        if self.winfo_exists():
+            self._theme = new_theme
+            self.configure(bg=new_theme.bg_surface)
+            for item in self._items:
+                item._on_theme_changed(new_theme)
+
     def add_section(self, title: str, is_expanded: bool = False) -> tk.Frame:
         item = ModernAccordionItem(self, title=title, is_expanded=is_expanded, theme=self._theme)
         item.pack(fill=tk.X, padx=4, pady=4)
@@ -307,7 +395,8 @@ class ModernScrollableFrame(tk.Frame):
     ):
         t = theme or ThemeManager.get_theme()
         self._theme = t
-        self._parent_bg = parent_bg if parent_bg is not None else t.bg_window
+        self._custom_parent_bg = parent_bg
+        self._parent_bg = _resolve_parent_bg(master, self._custom_parent_bg, self._theme)
 
         super().__init__(master, width=width, height=height, bg=self._parent_bg, **kwargs)
 
@@ -336,9 +425,28 @@ class ModernScrollableFrame(tk.Frame):
             lambda e: self._canvas.itemconfig(self._window_id, width=e.width),
         )
 
+        ThemeManager.subscribe(self._on_theme_changed)
+        self.bind("<Destroy>", lambda e: ThemeManager.unsubscribe(self._on_theme_changed))
+
         # Mouse wheel binding
         self.bind("<Enter>", lambda e: self._bind_mousewheel())
         self.bind("<Leave>", lambda e: self._unbind_mousewheel())
+
+    def _on_theme_changed(self, new_theme: Theme) -> None:
+        if self.winfo_exists():
+            self._theme = new_theme
+            self._parent_bg = _resolve_parent_bg(self.master, self._custom_parent_bg, new_theme)
+            self.configure(bg=self._parent_bg)
+            self._canvas.configure(bg=self._parent_bg)
+            self.scrollable_content.configure(bg=self._parent_bg)
+            try:
+                self._scrollbar.configure(
+                    bg=new_theme.scrollbar_thumb,
+                    troughcolor=new_theme.scrollbar_track,
+                    activebackground=new_theme.scrollbar_thumb_hover,
+                )
+            except Exception:
+                pass
 
     def _on_mousewheel(self, event):
         if event.num == 5 or event.delta == -120:

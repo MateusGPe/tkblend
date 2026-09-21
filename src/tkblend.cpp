@@ -170,6 +170,27 @@ FontManager::FontManager() {
 }
 
 void FontManager::discover_system_fonts() {
+    std::vector<std::string> priority_fonts = {
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
+        "/usr/share/fonts/truetype/roboto/unhinted/Roboto-Regular.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "C:\\Windows\\Fonts\\segoeui.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+        "/System/Library/Fonts/SFProText-Regular.otf",
+        "/Library/Fonts/Arial.ttf"
+    };
+
+    for (const auto& pf : priority_fonts) {
+        if (fs::exists(pf)) {
+            font_paths_["sans-serif"] = pf;
+            font_paths_["default"] = pf;
+            default_font_family_ = "sans-serif";
+            break;
+        }
+    }
+
     std::vector<std::string> search_dirs = {
         "/usr/share/fonts",
         "/usr/local/share/fonts",

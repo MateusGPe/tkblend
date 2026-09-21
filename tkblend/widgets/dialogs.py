@@ -54,7 +54,6 @@ class ModernDialog(tk.Toplevel):
             width=width - 20,
             height=height - 20,
             theme=t,
-            parent_bg=t.bg_window,
         )
         card.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
@@ -83,7 +82,6 @@ class ModernDialog(tk.Toplevel):
                 width=100,
                 height=36,
                 command=self._handle_cancel,
-                parent_bg=t.bg_card,
                 theme=t,
             )
             btn_cancel.pack(side=tk.RIGHT, padx=4)
@@ -95,7 +93,6 @@ class ModernDialog(tk.Toplevel):
             width=100,
             height=36,
             command=self._handle_confirm,
-            parent_bg=t.bg_card,
             theme=t,
         )
         btn_ok.pack(side=tk.RIGHT, padx=4)
@@ -121,7 +118,8 @@ def show_alert(
     message: str,
     variant: str = "primary",
     theme: Optional[Theme] = None,
-) -> None:
+    wait: bool = True,
+) -> ModernDialog:
     """Helper to show a simple modal alert."""
     dlg = ModernDialog(
         parent=parent,
@@ -132,4 +130,6 @@ def show_alert(
         variant=variant,
         theme=theme,
     )
-    parent.wait_window(dlg)
+    if wait:
+        parent.wait_window(dlg)
+    return dlg
