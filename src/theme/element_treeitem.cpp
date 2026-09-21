@@ -39,21 +39,23 @@ static void TreeitemIndicatorDraw(
     if (is_leaf(state)) return;
 
     const auto& cfg = ThemeEngine::instance().config();
+    bool selected = is_selected(state);
+    bool disabled = is_disabled(state);
+    bool hover    = is_active(state);
+
+    uint32_t bg_col = selected ? cfg.primary_color : cfg.input_bg;
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
         if (w <= 0 || h <= 0) return;
 
-        bool opened   = is_open(state);
-        bool hover    = is_active(state);
-        bool selected = is_selected(state);
-        bool disabled = is_disabled(state);
+        bool opened = is_open(state);
 
         double cx = w / 2.0;
         double cy = h / 2.0;
         double sz = 3.5;
 
-        // Draw hover pill behind chevron
-        if (!disabled && hover) {
+        // Draw subtle hover pill behind chevron
+        if (!disabled && hover && !selected) {
             BLPath hoverPill;
             double pad = 1.0;
             hoverPill.add_round_rect(BLRoundRect(pad, pad, w - pad * 2.0, h - pad * 2.0, 3.0, 3.0));
@@ -91,7 +93,7 @@ static void TreeitemIndicatorDraw(
         ctx.set_stroke_join(BL_STROKE_JOIN_ROUND);
         ctx.set_stroke_style(to_bl_rgba(arrow_col));
         ctx.stroke_path(arrowPath);
-    });
+    }, bg_col);
 }
 
 Ttk_ElementSpec TreeitemIndicatorElementSpec = {

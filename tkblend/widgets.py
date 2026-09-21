@@ -138,7 +138,25 @@ class ToggleSwitch(BlendCanvas):
             self._anim_timer = None
         self._step_animation()
 
+    def destroy(self):
+        if self._anim_timer is not None:
+            try:
+                self.after_cancel(self._anim_timer)
+            except Exception:
+                pass
+            self._anim_timer = None
+        if hasattr(self, "variable") and hasattr(self, "_trace_id"):
+            try:
+                self.variable.trace_remove("write", self._trace_id)
+            except Exception:
+                pass
+        super().destroy()
+
     def _step_animation(self):
+        if not self.winfo_exists():
+            self._anim_timer = None
+            return
+
         diff = self._target_progress - self._current_progress
         if abs(diff) < 0.04:
             self._current_progress = self._target_progress
@@ -151,17 +169,18 @@ class ToggleSwitch(BlendCanvas):
         self._anim_timer = self.after(16, self._step_animation)
 
     def _redraw(self):
-        if not self.winfo_exists():
+        if not self.winfo_exists() or self.surface is None:
             return
-        w = self.winfo_width()
-        h = self.winfo_height()
-        if w <= 1 or h <= 1:
-            w = int(self.cget("width"))
-            h = int(self.cget("height"))
+        w = max(44, self._canvas_width, self.winfo_width())
+        h = max(24, self._canvas_height, self.winfo_height())
 
         pal = get_theme_palette()
         is_inside = is_inside_card(self)
         bg_color = pal["card_bg"] if is_inside else pal["bg"]
+        try:
+            self.configure(background=bg_color)
+        except Exception:
+            pass
 
         with self.render() as ctx:
             ctx.clear(bg_color)
@@ -239,6 +258,11 @@ class Badge(BlendCanvas):
     def set_text(self, text: str):
         self._text = text
         w = max(42, len(text) * 8 + (32 if self._dot else 20))
+        self._canvas_width = w
+        if self._photo is not None:
+            self._photo.configure(width=w)
+        if self.surface is not None:
+            self.surface.resize(w, self._canvas_height)
         self.configure(width=w)
         self._redraw()
 
@@ -247,17 +271,18 @@ class Badge(BlendCanvas):
         self._redraw()
 
     def _redraw(self):
-        if not self.winfo_exists():
+        if not self.winfo_exists() or self.surface is None:
             return
-        w = self.winfo_width()
-        h = self.winfo_height()
-        if w <= 1 or h <= 1:
-            w = int(self.cget("width"))
-            h = int(self.cget("height"))
+        w = max(42, self._canvas_width, self.winfo_width())
+        h = max(24, self._canvas_height, self.winfo_height())
 
         pal = get_theme_palette()
         is_inside = is_inside_card(self)
         bg_color = pal["card_bg"] if is_inside else pal["bg"]
+        try:
+            self.configure(background=bg_color)
+        except Exception:
+            pass
 
         with self.render() as ctx:
             ctx.clear(bg_color)
@@ -297,13 +322,14 @@ class Badge(BlendCanvas):
             ctx.fill_rounded_rect(px, py, pw, ph, r, r, fill_col)
             ctx.stroke_rounded_rect(px, py, pw, ph, r, r, border_col, stroke_width=1.0)
 
-            text_x = px + pw / 2.0
             if self._dot:
                 dot_r = 3.0
                 dot_x = px + 10.0
                 dot_y = py + ph / 2.0
                 ctx.fill_circle(dot_x, dot_y, dot_r, text_col)
-                text_x += 6.0
+                text_x = px + 16.0 + (pw - 16.0) / 2.0
+            else:
+                text_x = px + pw / 2.0
 
             text_y = py + ph / 2.0 + (self._font_size * 0.35)
             ctx.draw_text(
@@ -354,6 +380,14 @@ class SegmentedControl(ttk.Frame):
         self._update_button_styles()
         bind_theme_changed(self, self._update_button_styles)
 
+    def destroy(self):
+        if hasattr(self, "variable") and hasattr(self, "_trace_id"):
+            try:
+                self.variable.trace_remove("write", self._trace_id)
+            except Exception:
+                pass
+        super().destroy()
+
     def _on_var_changed(self, *args):
         self._update_button_styles()
         if self.command:
@@ -366,8 +400,12 @@ class SegmentedControl(ttk.Frame):
         self.variable.set(value)
 
     def _update_button_styles(self):
+        if not self.winfo_exists():
+            return
         cur = self.variable.get()
         for val, btn in self._buttons:
+            if not btn.winfo_exists():
+                continue
             if val == cur:
                 btn.configure(style="Primary.TButton")
             else:

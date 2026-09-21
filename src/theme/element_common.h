@@ -45,9 +45,34 @@ inline bool is_alternate(Ttk_State state) { return (state & TTK_STATE_ALTERNATE)
 inline bool is_open(Ttk_State state) { return (state & TTK_STATE_OPEN) != 0; }
 inline bool is_leaf(Ttk_State state) { return (state & TTK_STATE_LEAF) != 0; }
 
+inline bool parse_hex_color(const std::string& str, uint32_t& out_argb) {
+    if (str.empty()) return false;
+    std::string s = str;
+    if (s[0] == '#') s = s.substr(1);
+    if (s.length() != 6 && s.length() != 8 && s.length() != 3) return false;
+    if (s.length() == 3) {
+        std::string exp;
+        for (char c : s) { exp += c; exp += c; }
+        s = exp;
+    }
+    try {
+        unsigned long val = std::stoul(s, nullptr, 16);
+        if (s.length() == 6) {
+            out_argb = 0xFF000000u | static_cast<uint32_t>(val);
+        } else {
+            out_argb = static_cast<uint32_t>(val);
+        }
+        return true;
+    } catch (const std::invalid_argument&) {
+        return false;
+    } catch (const std::out_of_range&) {
+        return false;
+    }
+}
+
 // Safe template wrapper for drawing an element into Blend2D and blitting zero-copy
 template<typename RenderFn>
-inline void RenderElement(Tk_Window tkwin, Drawable d, Ttk_Box b, RenderFn&& render_fn) {
+inline void RenderElement(Tk_Window tkwin, Drawable d, Ttk_Box b, RenderFn&& render_fn, uint32_t bg_override = 0) {
     if (!tkwin || d == None) return;
     if (b.width <= 0 || b.height <= 0) return;
 
@@ -58,10 +83,10 @@ inline void RenderElement(Tk_Window tkwin, Drawable d, Ttk_Box b, RenderFn&& ren
     if (ctx.begin(img) != BL_SUCCESS) return;
     ctx.set_comp_op(BL_COMP_OP_SRC_OVER);
 
-    // Pre-fill background with resolved container background to prevent
-    // non-alpha blitting black box artifacts on X11 / Win32
+    // Pre-fill background with resolved container background (or explicit override)
+    // to prevent non-alpha blitting black box artifacts on X11 / Win32
     uint32_t bg_color = ThemeEngine::instance().config().bg_color;
-    uint32_t resolved_bg = ResolveAncestorBackground(tkwin, bg_color);
+    uint32_t resolved_bg = (bg_override != 0) ? bg_override : ResolveAncestorBackground(tkwin, bg_color);
     ctx.fill_all(to_bl_rgba(resolved_bg));
 
     // Execute user render callback

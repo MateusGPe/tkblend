@@ -4,6 +4,7 @@ Native TTK Theme Engine Bridge and Theme Helpers for Tkinter and Blend2D.
 
 from __future__ import annotations
 import logging
+import weakref
 import tkinter as tk
 from tkinter import ttk
 from typing import Optional, Dict, Any, Callable, Tuple, Union
@@ -41,6 +42,7 @@ _FALLBACK_BOOTSTRAP_PALETTE = {
     "bg": "#ffffff",
     "fg": "#212529",
     "border": "#dee2e6",
+    "card_bg": "#ffffff",
     "inputbg": "#ffffff",
     "inputfg": "#212529",
     "selectbg": "#0d6efd",
@@ -265,13 +267,22 @@ def _apply_card_style(widget: tk.Misc, pal: Dict[str, str]) -> None:
                 except tk.TclError:
                     pass
             return
+        elif w_class == "Treeview":
+            try:
+                widget.configure(background=pal["card_bg"], fieldbackground=pal["card_bg"])
+            except tk.TclError:
+                pass
+            return
 
     # 2. Classic Tk widgets
     try:
         if w_class == "Frame":
             widget.configure(background=pal["card_bg"])
         elif w_class == "Label":
-            widget.configure(background=pal["card_bg"], foreground=pal["fg"])
+            try:
+                widget.configure(background=pal["card_bg"], foreground=pal["fg"])
+            except tk.TclError:
+                widget.configure(background=pal["card_bg"])
         elif w_class in ("Checkbutton", "Radiobutton"):
             widget.configure(
                 background=pal["card_bg"],
@@ -526,10 +537,14 @@ def resolve_theme_color(color: Union[str, Any], alpha: Optional[Union[float, int
     hex_color: Optional[str] = None
     if style is not None and hasattr(style, "colors") and hasattr(style.colors, lower_name):
         hex_color = getattr(style.colors, lower_name)
-    elif lower_name in _FALLBACK_BOOTSTRAP_PALETTE:
-        hex_color = _FALLBACK_BOOTSTRAP_PALETTE[lower_name]
     else:
-        hex_color = raw
+        pal = get_theme_palette()
+        if lower_name in pal:
+            hex_color = pal[lower_name]
+        elif lower_name in _FALLBACK_BOOTSTRAP_PALETTE:
+            hex_color = _FALLBACK_BOOTSTRAP_PALETTE[lower_name]
+        else:
+            hex_color = raw
 
     if parsed_alpha is not None and hex_color.startswith("#"):
         clean_hex = hex_color[1:]
@@ -546,16 +561,54 @@ def resolve_theme_color(color: Union[str, Any], alpha: Optional[Union[float, int
 def bind_theme_changed(widget: tk.Misc, callback: Callable[[], None]) -> None:
     """
     Bind a callback to be invoked whenever the ttk/ttkbootstrap theme changes.
+    Safely handles widget destruction without leaking references or callback closures.
     """
-    def _on_theme_changed(event=None):
-        callback()
+    if hasattr(callback, "__self__"):
+        w_ref = weakref.ref(callback.__self__)
+        func = callback.__func__
+        def _safe_callback():
+            inst = w_ref()
+            if inst is not None:
+                try:
+                    if hasattr(inst, "winfo_exists") and not inst.winfo_exists():
+                        return
+                    func(inst)
+                except Exception:
+                    pass
+    else:
+        def _safe_callback():
+            try:
+                if hasattr(widget, "winfo_exists") and not widget.winfo_exists():
+                    return
+                callback()
+            except Exception:
+                pass
 
-    widget.bind("<<ThemeChanged>>", _on_theme_changed, add="+")
+    top_bind_id = None
+    toplevel = None
+
+    def _on_theme(event=None):
+        _safe_callback()
+
+    def _cleanup(event=None):
+        nonlocal top_bind_id, toplevel
+        if event is not None and getattr(event, "widget", None) != widget:
+            return
+        if toplevel is not None and top_bind_id is not None:
+            try:
+                toplevel.unbind("<<ThemeChanged>>", top_bind_id)
+            except Exception:
+                pass
+            top_bind_id = None
+
+    widget.bind("<<ThemeChanged>>", _on_theme, add="+")
+    widget.bind("<Destroy>", _cleanup, add="+")
+
     try:
         toplevel = widget.winfo_toplevel()
         if toplevel is not widget:
-            toplevel.bind("<<ThemeChanged>>", _on_theme_changed, add="+")
-    except tk.TclError as exc:
+            top_bind_id = toplevel.bind("<<ThemeChanged>>", _on_theme, add="+")
+    except (tk.TclError, Exception) as exc:
         logger.debug("bind_theme_changed error: %s", exc)
 
 

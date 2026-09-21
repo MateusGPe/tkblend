@@ -35,11 +35,12 @@ static void ComboboxDownArrowDraw(
     Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State state
 ) {
     const auto& cfg = ThemeEngine::instance().config();
+    bool disabled = is_disabled(state);
+    uint32_t bg_col = disabled ? cfg.disabled_bg : cfg.input_bg;
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
         if (w <= 0 || h <= 0) return;
 
-        bool disabled = is_disabled(state);
         bool pressed  = is_pressed(state);
         bool hover    = is_active(state);
 
@@ -68,12 +69,12 @@ static void ComboboxDownArrowDraw(
                                       : (pressed ? cfg.primary_fg
                                                  : (hover ? cfg.primary_hover : cfg.fg_color));
 
-        ctx.set_stroke_width(1.75);
+        ctx.set_stroke_width(1.6);
         ctx.set_stroke_caps(BL_STROKE_CAP_ROUND);
         ctx.set_stroke_join(BL_STROKE_JOIN_ROUND);
         ctx.set_stroke_style(to_bl_rgba(arrow_col));
         ctx.stroke_path(arrowPath);
-    });
+    }, bg_col);
 }
 
 Ttk_ElementSpec ComboboxDownArrowElementSpec = {
@@ -91,7 +92,7 @@ static void SpinboxArrowGeometry(
     void* /*clientData*/, void* /*elementRecord*/, Tk_Window /*tkwin*/,
     int* widthPtr, int* heightPtr, Ttk_Padding* paddingPtr
 ) {
-    if (widthPtr)  *widthPtr  = 18;
+    if (widthPtr)  *widthPtr  = 16;
     if (heightPtr) *heightPtr = 11;
     if (paddingPtr) {
         paddingPtr->left   = 1;
@@ -106,11 +107,12 @@ static void SpinboxUpArrowDraw(
     Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State state
 ) {
     const auto& cfg = ThemeEngine::instance().config();
+    bool disabled = is_disabled(state);
+    uint32_t bg_col = disabled ? cfg.disabled_bg : cfg.input_bg;
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
         if (w <= 0 || h <= 0) return;
 
-        bool disabled = is_disabled(state);
         bool pressed  = is_pressed(state);
         bool hover    = is_active(state);
 
@@ -141,7 +143,7 @@ static void SpinboxUpArrowDraw(
         ctx.set_stroke_join(BL_STROKE_JOIN_ROUND);
         ctx.set_stroke_style(to_bl_rgba(arrow_col));
         ctx.stroke_path(arrowPath);
-    });
+    }, bg_col);
 }
 
 static void SpinboxDownArrowDraw(
@@ -149,11 +151,12 @@ static void SpinboxDownArrowDraw(
     Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State state
 ) {
     const auto& cfg = ThemeEngine::instance().config();
+    bool disabled = is_disabled(state);
+    uint32_t bg_col = disabled ? cfg.disabled_bg : cfg.input_bg;
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
         if (w <= 0 || h <= 0) return;
 
-        bool disabled = is_disabled(state);
         bool pressed  = is_pressed(state);
         bool hover    = is_active(state);
 
@@ -184,7 +187,7 @@ static void SpinboxDownArrowDraw(
         ctx.set_stroke_join(BL_STROKE_JOIN_ROUND);
         ctx.set_stroke_style(to_bl_rgba(arrow_col));
         ctx.stroke_path(arrowPath);
-    });
+    }, bg_col);
 }
 
 Ttk_ElementSpec SpinboxUpArrowElementSpec = {
@@ -222,9 +225,11 @@ static void SpinboxButtonsGeometry(
 
 static void SpinboxButtonsDraw(
     void* /*clientData*/, void* /*elementRecord*/,
-    Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State /*state*/
+    Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State state
 ) {
     const auto& cfg = ThemeEngine::instance().config();
+    bool disabled = is_disabled(state);
+    uint32_t bg_col = disabled ? cfg.disabled_bg : cfg.input_bg;
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
         if (w <= 0 || h <= 0) return;
@@ -236,7 +241,7 @@ static void SpinboxButtonsDraw(
         ctx.set_stroke_width(1.0);
         ctx.set_stroke_style(to_bl_rgba(cfg.input_border));
         ctx.stroke_path(divPath);
-    });
+    }, bg_col);
 }
 
 Ttk_ElementSpec SpinboxButtonsElementSpec = {
@@ -265,17 +270,67 @@ static void MenubuttonIndicatorGeometry(
 }
 
 static void MenubuttonIndicatorDraw(
-    void* /*clientData*/, void* /*elementRecord*/,
+    void* /*clientData*/, void* elementRecord,
     Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State state
 ) {
     const auto& cfg = ThemeEngine::instance().config();
+    auto* elem = static_cast<ArrowElement*>(elementRecord);
+
+    bool disabled = is_disabled(state);
+    bool pressed  = is_pressed(state);
+    bool hover    = is_active(state);
+
+    uint32_t fill_bg = 0;
+    uint32_t arrow_col = 0;
+
+    if (elem && elem->backgroundObj) {
+        const char* bg_str = Tcl_GetString(elem->backgroundObj);
+        if (bg_str && bg_str[0] != '\0') {
+            std::string s(bg_str);
+            std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+            uint32_t parsed = 0;
+            if (s.find("accent") != std::string::npos || s.find("primary") != std::string::npos || s.find("indigo") != std::string::npos) {
+                fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.primary_active : (hover ? cfg.primary_hover : cfg.primary_color));
+                arrow_col = disabled ? cfg.disabled_fg : cfg.primary_fg;
+            } else if (s.find("destruct") != std::string::npos || s.find("danger") != std::string::npos || s.find("red") != std::string::npos) {
+                fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.destructive_active : (hover ? cfg.destructive_hover : cfg.destructive_color));
+                arrow_col = disabled ? cfg.disabled_fg : cfg.destructive_fg;
+            } else if (s.find("ghost") != std::string::npos) {
+                uint32_t parent_bg = ResolveAncestorBackground(tkwin, cfg.bg_color);
+                fill_bg = (hover || pressed) ? cfg.secondary_color : parent_bg;
+                arrow_col = disabled ? cfg.disabled_fg : cfg.fg_color;
+            } else if (s.find("outline") != std::string::npos) {
+                uint32_t parent_bg = ResolveAncestorBackground(tkwin, cfg.bg_color);
+                fill_bg = (hover || pressed) ? cfg.secondary_color : parent_bg;
+                arrow_col = disabled ? cfg.disabled_fg : ((hover || pressed) ? cfg.primary_color : cfg.fg_color);
+            } else if (s.find("secondary") != std::string::npos) {
+                fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.secondary_hover : (hover ? cfg.secondary_hover : cfg.secondary_color));
+                arrow_col = disabled ? cfg.disabled_fg : cfg.secondary_fg;
+            } else if (parse_hex_color(s, parsed)) {
+                if ((parsed & 0x00FFFFFF) == (cfg.primary_color & 0x00FFFFFF)) {
+                    fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.primary_active : (hover ? cfg.primary_hover : cfg.primary_color));
+                    arrow_col = disabled ? cfg.disabled_fg : cfg.primary_fg;
+                } else if ((parsed & 0x00FFFFFF) == (cfg.destructive_color & 0x00FFFFFF)) {
+                    fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.destructive_active : (hover ? cfg.destructive_hover : cfg.destructive_color));
+                    arrow_col = disabled ? cfg.disabled_fg : cfg.destructive_fg;
+                } else if ((parsed & 0x00FFFFFF) == (cfg.secondary_color & 0x00FFFFFF)) {
+                    fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.secondary_hover : (hover ? cfg.secondary_hover : cfg.secondary_color));
+                    arrow_col = disabled ? cfg.disabled_fg : cfg.secondary_fg;
+                } else {
+                    fill_bg = parsed;
+                    arrow_col = disabled ? cfg.disabled_fg : cfg.fg_color;
+                }
+            }
+        }
+    }
+
+    if (fill_bg == 0) {
+        fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.secondary_hover : (hover ? cfg.secondary_hover : cfg.secondary_color));
+        arrow_col = disabled ? cfg.disabled_fg : cfg.secondary_fg;
+    }
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
         if (w <= 0 || h <= 0) return;
-
-        bool disabled = is_disabled(state);
-        bool pressed  = is_pressed(state);
-        bool hover    = is_active(state);
 
         double cx = w / 2.0;
         double cy = h / 2.0;
@@ -286,16 +341,12 @@ static void MenubuttonIndicatorDraw(
         arrowPath.line_to(cx, cy + sz * 0.5);
         arrowPath.line_to(cx + sz, cy - sz * 0.4);
 
-        uint32_t arrow_col = disabled ? cfg.disabled_fg
-                                      : (pressed ? cfg.primary_fg
-                                                 : (hover ? cfg.primary_hover : cfg.fg_color));
-
         ctx.set_stroke_width(1.6);
         ctx.set_stroke_caps(BL_STROKE_CAP_ROUND);
         ctx.set_stroke_join(BL_STROKE_JOIN_ROUND);
         ctx.set_stroke_style(to_bl_rgba(arrow_col));
         ctx.stroke_path(arrowPath);
-    });
+    }, fill_bg);
 }
 
 Ttk_ElementSpec MenubuttonIndicatorElementSpec = {

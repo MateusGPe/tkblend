@@ -8,7 +8,12 @@ from typing import Optional, Callable, Union, Any, Tuple
 from contextlib import contextmanager
 
 from tkblend.surface import Surface, ColorLike, GradientLike, Path
-from tkblend.theme import resolve_theme_color, bind_theme_changed, is_ttkbootstrap_installed
+from tkblend.theme import (
+    resolve_theme_color,
+    bind_theme_changed,
+    is_ttkbootstrap_installed,
+    is_inside_card,
+)
 
 
 class BlendCanvas(tk.Label):
@@ -42,7 +47,12 @@ class BlendCanvas(tk.Label):
         else:
             self._bg_color = "bg"
 
-        resolved_bg = resolve_theme_color(self._bg_color)
+        # Check if nested inside card for initial bg
+        bg_token = self._bg_color
+        if bg_token in ("bg", "card_bg") and is_inside_card(master if master is not None else self):
+            bg_token = "card_bg"
+
+        resolved_bg = resolve_theme_color(bg_token)
         if resolved_bg.startswith("#") and len(resolved_bg) == 9:
             # Tkinter Label background requires 6-digit hex (#rrggbb)
             resolved_bg = resolved_bg[:7]
@@ -70,12 +80,12 @@ class BlendCanvas(tk.Label):
         self.after_idle(self.redraw)
 
     @property
-    def surface(self) -> Surface:
+    def surface(self) -> Optional[Surface]:
         """Access the underlying Blend2D Surface object."""
         return self._surface
 
     @property
-    def photo(self) -> tk.PhotoImage:
+    def photo(self) -> Optional[tk.PhotoImage]:
         """Access the backing Tkinter PhotoImage."""
         return self._photo
 
@@ -99,29 +109,47 @@ class BlendCanvas(tk.Label):
         Context manager for custom rendering blocks.
         Automatically blits changes upon block exit if auto_blit is True.
         """
+        if self._surface is None:
+            raise RuntimeError("Cannot render on a destroyed BlendCanvas")
         yield self._surface
-        if auto_blit:
+        if auto_blit and self._photo is not None and self._surface is not None:
             self._surface.blit(self._photo)
 
     def redraw(self) -> None:
-        """Execute the draw callback and blit the result to the screen."""
-        if self._on_draw:
+        """Execute the draw callback or subclass _redraw and blit the result to the screen."""
+        if not self.winfo_exists():
+            return
+        if self._on_draw is not None and self._surface is not None and self._photo is not None:
             self._on_draw(self._surface)
-        self._surface.blit(self._photo)
+            self._surface.blit(self._photo)
+        elif hasattr(self, "_redraw") and callable(getattr(self, "_redraw")):
+            # Delegate to specialized subclass redraw (e.g. Badge, ToggleSwitch)
+            self._redraw()
+        elif self._surface is not None and self._photo is not None:
+            self._surface.blit(self._photo)
 
     def _on_configure(self, event) -> None:
-        new_w = max(1, event.width)
-        new_h = max(1, event.height)
-        if new_w != self._canvas_width or new_h != self._canvas_height:
-            self._canvas_width = new_w
-            self._canvas_height = new_h
+        # Ignore unmapped / transient 1x1 geometry events from hidden notebook tabs
+        if event.width <= 1 or event.height <= 1:
+            return
+        if self._surface is None or self._photo is None:
+            return
+
+        if event.width != self._canvas_width or event.height != self._canvas_height:
+            self._canvas_width = event.width
+            self._canvas_height = event.height
             self._photo.configure(width=self._canvas_width, height=self._canvas_height)
             self._surface.resize(self._canvas_width, self._canvas_height)
             self.redraw()
 
     def _on_theme_changed(self) -> None:
         """Handle ttkbootstrap theme change event."""
-        resolved_bg = resolve_theme_color(self._bg_color)
+        if not self.winfo_exists():
+            return
+        bg_token = self._bg_color
+        if bg_token in ("bg", "card_bg"):
+            bg_token = "card_bg" if is_inside_card(self) else "bg"
+        resolved_bg = resolve_theme_color(bg_token)
         if resolved_bg.startswith("#") and len(resolved_bg) == 9:
             resolved_bg = resolved_bg[:7]
         try:
@@ -129,6 +157,13 @@ class BlendCanvas(tk.Label):
         except Exception:
             pass
         self.redraw()
+
+    def destroy(self) -> None:
+        """Clean up surface, backing photo, and callbacks cleanly on widget destruction."""
+        self._on_draw = None
+        self._surface = None
+        self._photo = None
+        super().destroy()
 
     # -------------------------------------------------------------------------
     # High-level Drawing Convenience Methods

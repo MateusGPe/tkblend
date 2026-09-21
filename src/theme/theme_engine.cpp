@@ -334,6 +334,7 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
     const std::string p_col   = hex_str(config_.primary_color);
     const std::string p_fg    = hex_str(config_.primary_fg);
     const std::string sec_col = hex_str(config_.secondary_color);
+    const std::string sec_hov = hex_str(config_.secondary_hover);
     const std::string sec_fg  = hex_str(config_.secondary_fg);
     const std::string d_col   = hex_str(config_.destructive_color);
     const std::string d_fg    = hex_str(config_.destructive_fg);
@@ -531,8 +532,14 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
     s.configure("Treeview",
         "-background \"" + card_bg + "\" -foreground \"" + fg +
         "\" -fieldbackground \"" + card_bg + "\" -borderwidth 0 -rowheight 28");
+    s.configure("Heading",
+        "-background \"" + sec_col + "\" -foreground \"" + fg + "\" -relief flat -padding {8 6}");
     s.configure("Treeview.Heading",
-        "-background \"" + in_bg + "\" -foreground \"" + fg + "\" -relief flat -padding {6 4}");
+        "-background \"" + sec_col + "\" -foreground \"" + fg + "\" -relief flat -padding {8 6}");
+    s.ss << "    ttk::style map Heading"
+         << " -background [list active \"" << sec_hov << "\"]\n";
+    s.ss << "    ttk::style map Treeview.Heading"
+         << " -background [list active \"" << sec_hov << "\"]\n";
     s.ss << "    ttk::style map Treeview"
          << " -background [list selected \"" << p_col << "\"]"
          << " -foreground [list selected \"" << p_fg << "\"]\n";

@@ -1,10 +1,12 @@
 #include "tkblend.hpp"
 #include "theme/theme_engine.h"
 
+#include <optional>
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/pair.h>
+#include <nanobind/stl/optional.h>
 
 #include <filesystem>
 #include <fstream>
@@ -1260,33 +1262,62 @@ NB_MODULE(_tkblend, m) {
         .def("stroke_path", &tkblend::Surface::stroke_path, nb::arg("path"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
 
         // Typography
-        .def("draw_text", &tkblend::Surface::draw_text,
+        .def("draw_text", [](tkblend::Surface& s,
+                             const std::string& text, double x, double y,
+                             float font_size, const std::string& font_family,
+                             std::optional<tkblend::Color> color, int align) {
+            tkblend::Color col = color.value_or(tkblend::Color(255, 255, 255, 255));
+            s.draw_text(text, x, y, font_size, font_family, col, align);
+        },
              nb::arg("text"), nb::arg("x"), nb::arg("y"),
              nb::arg("font_size") = 14.0f,
              nb::arg("font_family") = "sans-serif",
-             nb::arg("color") = tkblend::Color(255, 255, 255, 255),
+             nb::arg("color") = nb::none(),
              nb::arg("align") = 0)
 
         // Shadows & Cards
-        .def("draw_shadow_rounded_rect", &tkblend::Surface::draw_shadow_rounded_rect,
+        .def("draw_shadow_rounded_rect", [](tkblend::Surface& s,
+                                            double x, double y, double w, double h,
+                                            double rx, double ry,
+                                            double blur_radius, double spread,
+                                            double offset_x, double offset_y,
+                                            std::optional<tkblend::Color> shadow_color) {
+            tkblend::Color sc = shadow_color.value_or(tkblend::Color(0, 0, 0, 128));
+            s.draw_shadow_rounded_rect(x, y, w, h, rx, ry, blur_radius, spread, offset_x, offset_y, sc);
+        },
              nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"),
              nb::arg("rx"), nb::arg("ry"),
              nb::arg("blur_radius"), nb::arg("spread") = 0.0,
              nb::arg("offset_x") = 0.0, nb::arg("offset_y") = 0.0,
-             nb::arg("shadow_color") = tkblend::Color(0, 0, 0, 128),
+             nb::arg("shadow_color") = nb::none(),
              nb::call_guard<nb::gil_scoped_release>())
 
-        .def("draw_card", &tkblend::Surface::draw_card,
+        .def("draw_card", [](tkblend::Surface& s,
+                             double x, double y, double w, double h,
+                             double rx, double ry,
+                             const tkblend::Color& bg_color,
+                             std::optional<tkblend::Color> border_color,
+                             double border_width,
+                             double shadow_blur,
+                             double shadow_spread,
+                             double shadow_offset_x,
+                             double shadow_offset_y,
+                             std::optional<tkblend::Color> shadow_color) {
+            tkblend::Color bc = border_color.value_or(tkblend::Color(0, 0, 0, 0));
+            tkblend::Color sc = shadow_color.value_or(tkblend::Color(0, 0, 0, 0));
+            s.draw_card(x, y, w, h, rx, ry, bg_color, bc, border_width,
+                        shadow_blur, shadow_spread, shadow_offset_x, shadow_offset_y, sc);
+        },
              nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"),
              nb::arg("rx"), nb::arg("ry"),
              nb::arg("bg_color"),
-             nb::arg("border_color") = tkblend::Color(0, 0, 0, 0),
+             nb::arg("border_color") = nb::none(),
              nb::arg("border_width") = 0.0,
              nb::arg("shadow_blur") = 0.0,
              nb::arg("shadow_spread") = 0.0,
              nb::arg("shadow_offset_x") = 0.0,
              nb::arg("shadow_offset_y") = 0.0,
-             nb::arg("shadow_color") = tkblend::Color(0, 0, 0, 0),
+             nb::arg("shadow_color") = nb::none(),
              nb::call_guard<nb::gil_scoped_release>())
 
         // Tkinter Blit & Buffer

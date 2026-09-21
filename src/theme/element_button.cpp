@@ -19,31 +19,6 @@ static Ttk_ElementOptionSpec ButtonElementOptions[] = {
     { nullptr, TK_OPTION_BOOLEAN, 0, nullptr }
 };
 
-static bool parse_hex_color(const std::string& str, uint32_t& out_argb) {
-    if (str.empty()) return false;
-    std::string s = str;
-    if (s[0] == '#') s = s.substr(1);
-    if (s.length() != 6 && s.length() != 8 && s.length() != 3) return false;
-    if (s.length() == 3) {
-        std::string exp;
-        for (char c : s) { exp += c; exp += c; }
-        s = exp;
-    }
-    try {
-        unsigned long val = std::stoul(s, nullptr, 16);
-        if (s.length() == 6) {
-            out_argb = 0xFF000000u | static_cast<uint32_t>(val);
-        } else {
-            out_argb = static_cast<uint32_t>(val);
-        }
-        return true;
-    } catch (const std::invalid_argument&) {
-        return false;
-    } catch (const std::out_of_range&) {
-        return false;
-    }
-}
-
 static void ButtonElementGeometry(
     void* /*clientData*/, void* /*elementRecord*/, Tk_Window /*tkwin*/,
     int* widthPtr, int* heightPtr, Ttk_Padding* paddingPtr
