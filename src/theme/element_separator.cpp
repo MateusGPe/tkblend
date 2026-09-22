@@ -28,17 +28,6 @@ static void SeparatorGeometry(
     }
 }
 
-static void HorizontalSeparatorGeometry(
-    void* /*clientData*/, void* /*elementRecord*/, Tk_Window /*tkwin*/,
-    int* widthPtr, int* heightPtr, Ttk_Padding* paddingPtr
-) {
-    if (widthPtr)  *widthPtr  = 1;
-    if (heightPtr) *heightPtr = 9;
-    if (paddingPtr) {
-        paddingPtr->left = 0; paddingPtr->top = 4; paddingPtr->right = 0; paddingPtr->bottom = 4;
-    }
-}
-
 static void VerticalSeparatorGeometry(
     void* /*clientData*/, void* /*elementRecord*/, Tk_Window /*tkwin*/,
     int* widthPtr, int* heightPtr, Ttk_Padding* paddingPtr
@@ -113,7 +102,7 @@ Ttk_ElementSpec HorizontalSeparatorElementSpec = {
     TTK_LAYOUT_SPEC_VERSION,
     sizeof(SeparatorElement),
     SeparatorOptions,
-    HorizontalSeparatorGeometry,
+    SeparatorGeometry,
     HorizontalSeparatorDraw
 };
 
@@ -128,15 +117,6 @@ Ttk_ElementSpec VerticalSeparatorElementSpec = {
 // ============================================================================
 // Sizegrip Element
 // ============================================================================
-
-struct SizegripElement {
-    Tcl_Obj* backgroundObj;
-};
-
-static Ttk_ElementOptionSpec SizegripOptions[] = {
-    { "-background", TK_OPTION_STRING, offsetof(SizegripElement, backgroundObj), "" },
-    { nullptr, TK_OPTION_BOOLEAN, 0, nullptr }
-};
 
 static void SizegripGeometry(
     void* /*clientData*/, void* /*elementRecord*/, Tk_Window /*tkwin*/,
@@ -185,8 +165,8 @@ static void SizegripDraw(
 
 Ttk_ElementSpec SizegripElementSpec = {
     TTK_LAYOUT_SPEC_VERSION,
-    sizeof(SizegripElement),
-    SizegripOptions,
+    sizeof(BaseBackgroundElement),
+    BaseBackgroundOptions,
     SizegripGeometry,
     SizegripDraw
 };
@@ -194,15 +174,6 @@ Ttk_ElementSpec SizegripElementSpec = {
 // ============================================================================
 // Panedwindow Sash Elements
 // ============================================================================
-
-struct SashElement {
-    Tcl_Obj* backgroundObj;
-};
-
-static Ttk_ElementOptionSpec SashOptions[] = {
-    { "-background", TK_OPTION_STRING, offsetof(SashElement, backgroundObj), "" },
-    { nullptr, TK_OPTION_BOOLEAN, 0, nullptr }
-};
 
 static void HorizontalSashGeometry(
     void* /*clientData*/, void* /*elementRecord*/, Tk_Window /*tkwin*/,
@@ -317,24 +288,24 @@ static void GeneralSashDraw(
 
 Ttk_ElementSpec SashElementSpec = {
     TTK_LAYOUT_SPEC_VERSION,
-    sizeof(SashElement),
-    SashOptions,
+    sizeof(BaseBackgroundElement),
+    BaseBackgroundOptions,
     HorizontalSashGeometry,
     GeneralSashDraw
 };
 
 Ttk_ElementSpec HorizontalSashElementSpec = {
     TTK_LAYOUT_SPEC_VERSION,
-    sizeof(SashElement),
-    SashOptions,
+    sizeof(BaseBackgroundElement),
+    BaseBackgroundOptions,
     HorizontalSashGeometry,
     HorizontalSashDraw
 };
 
 Ttk_ElementSpec VerticalSashElementSpec = {
     TTK_LAYOUT_SPEC_VERSION,
-    sizeof(SashElement),
-    SashOptions,
+    sizeof(BaseBackgroundElement),
+    BaseBackgroundOptions,
     VerticalSashGeometry,
     VerticalSashDraw
 };

@@ -108,6 +108,88 @@ inline void RenderElement(Tk_Window tkwin, Drawable d, Ttk_Box b, RenderFn&& ren
     }
 }
 
+// Common single-option element structure and spec for elements taking only -background
+struct BaseBackgroundElement {
+    Tcl_Obj* backgroundObj;
+};
+
+inline Ttk_ElementOptionSpec BaseBackgroundOptions[] = {
+    { "-background", TK_OPTION_STRING, offsetof(BaseBackgroundElement, backgroundObj), "" },
+    { nullptr, TK_OPTION_BOOLEAN, 0, nullptr }
+};
+
+// Canonical button and widget style variants
+enum class WidgetVariant {
+    Standard,
+    Primary,
+    Destructive,
+    Secondary,
+    Ghost,
+    Outline,
+    Custom
+};
+
+inline WidgetVariant ParseVariantString(const std::string& str, const ThemeConfig& cfg, uint32_t& out_custom_col) {
+    if (str.empty()) return WidgetVariant::Standard;
+    std::string s = str;
+    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+
+    if (s.find("ghost") != std::string::npos) {
+        return WidgetVariant::Ghost;
+    }
+    if (s.find("outline") != std::string::npos) {
+        return WidgetVariant::Outline;
+    }
+    if (s.find("accent") != std::string::npos || s.find("primary") != std::string::npos || s.find("indigo") != std::string::npos) {
+        return WidgetVariant::Primary;
+    }
+    if (s.find("destruct") != std::string::npos || s.find("danger") != std::string::npos || s.find("red") != std::string::npos || s.find("rose") != std::string::npos) {
+        return WidgetVariant::Destructive;
+    }
+    if (s.find("secondary") != std::string::npos) {
+        return WidgetVariant::Secondary;
+    }
+    if (s[0] == '#') {
+        uint32_t parsed = 0;
+        if (parse_hex_color(s, parsed)) {
+            if ((parsed & 0x00FFFFFF) == (cfg.primary_color & 0x00FFFFFF)) {
+                return WidgetVariant::Primary;
+            } else if ((parsed & 0x00FFFFFF) == (cfg.destructive_color & 0x00FFFFFF)) {
+                return WidgetVariant::Destructive;
+            } else if ((parsed & 0x00FFFFFF) == (cfg.secondary_color & 0x00FFFFFF)) {
+                return WidgetVariant::Secondary;
+            } else {
+                out_custom_col = parsed;
+                return WidgetVariant::Custom;
+            }
+        }
+    }
+    return WidgetVariant::Standard;
+}
+
+inline WidgetVariant ResolveWidgetVariant(
+    Tcl_Obj* variantObj,
+    Tcl_Obj* backgroundObj,
+    const ThemeConfig& cfg,
+    uint32_t& out_custom_col
+) {
+    out_custom_col = 0;
+    if (variantObj) {
+        const char* var_str = Tcl_GetString(variantObj);
+        if (var_str && var_str[0] != '\0') {
+            WidgetVariant v = ParseVariantString(var_str, cfg, out_custom_col);
+            if (v != WidgetVariant::Standard) return v;
+        }
+    }
+    if (backgroundObj) {
+        const char* bg_str = Tcl_GetString(backgroundObj);
+        if (bg_str && bg_str[0] != '\0') {
+            return ParseVariantString(bg_str, cfg, out_custom_col);
+        }
+    }
+    return WidgetVariant::Standard;
+}
+
 // Forward declarations of Element Specs
 extern Ttk_ElementSpec ButtonElementSpec;
 extern Ttk_ElementSpec EntryFieldElementSpec;

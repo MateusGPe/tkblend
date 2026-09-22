@@ -266,65 +266,74 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
     }
 
     // Register Blend2D custom elements (with generic and oriented names)
-    Ttk_RegisterElement(interp, theme, "button",                          &ButtonElementSpec,          nullptr);
-    Ttk_RegisterElement(interp, theme, "Button.button",                   &ButtonElementSpec,          nullptr);
-    Ttk_RegisterElement(interp, theme, "field",                           &EntryFieldElementSpec,      nullptr);
-    Ttk_RegisterElement(interp, theme, "Entry.field",                     &EntryFieldElementSpec,      nullptr);
-    Ttk_RegisterElement(interp, theme, "Combobox.field",                  &EntryFieldElementSpec,      nullptr);
-    Ttk_RegisterElement(interp, theme, "Spinbox.field",                   &EntryFieldElementSpec,      nullptr);
-    Ttk_RegisterElement(interp, theme, "indicator",                       &CheckIndicatorElementSpec,  nullptr);
-    Ttk_RegisterElement(interp, theme, "Checkbutton.indicator",           &CheckIndicatorElementSpec,  nullptr);
-    Ttk_RegisterElement(interp, theme, "Radiobutton.indicator",           &RadioIndicatorElementSpec,  nullptr);
-    Ttk_RegisterElement(interp, theme, "trough",                          &PbarTroughElementSpec,      nullptr);
-    Ttk_RegisterElement(interp, theme, "pbar",                            &PbarBarElementSpec,         nullptr);
-    Ttk_RegisterElement(interp, theme, "bar",                             &PbarBarElementSpec,         nullptr);
-    Ttk_RegisterElement(interp, theme, "Progressbar.trough",              &PbarTroughElementSpec,      nullptr);
-    Ttk_RegisterElement(interp, theme, "Progressbar.pbar",                &PbarBarElementSpec,         nullptr);
-    Ttk_RegisterElement(interp, theme, "Horizontal.Progressbar.trough",   &PbarTroughElementSpec,      nullptr);
-    Ttk_RegisterElement(interp, theme, "Horizontal.Progressbar.pbar",     &PbarBarElementSpec,         nullptr);
-    Ttk_RegisterElement(interp, theme, "Vertical.Progressbar.trough",     &PbarTroughElementSpec,      nullptr);
-    Ttk_RegisterElement(interp, theme, "Vertical.Progressbar.pbar",       &PbarBarElementSpec,         nullptr);
-    Ttk_RegisterElement(interp, theme, "thumb",                           &ScrollbarThumbElementSpec,  nullptr);
-    Ttk_RegisterElement(interp, theme, "Scrollbar.trough",                &ScrollbarTroughElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Scrollbar.thumb",                 &ScrollbarThumbElementSpec,  nullptr);
-    Ttk_RegisterElement(interp, theme, "Horizontal.Scrollbar.trough",     &ScrollbarTroughElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Horizontal.Scrollbar.thumb",      &ScrollbarThumbElementSpec,  nullptr);
-    Ttk_RegisterElement(interp, theme, "Vertical.Scrollbar.trough",       &ScrollbarTroughElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Vertical.Scrollbar.thumb",        &ScrollbarThumbElementSpec,  nullptr);
-    Ttk_RegisterElement(interp, theme, "slider",                          &ScaleSliderElementSpec,     nullptr);
-    Ttk_RegisterElement(interp, theme, "Scale.trough",                    &ScaleTroughElementSpec,     nullptr);
-    Ttk_RegisterElement(interp, theme, "Scale.slider",                    &ScaleSliderElementSpec,     nullptr);
-    Ttk_RegisterElement(interp, theme, "Horizontal.Scale.trough",         &ScaleTroughElementSpec,     nullptr);
-    Ttk_RegisterElement(interp, theme, "Horizontal.Scale.slider",         &ScaleSliderElementSpec,     nullptr);
-    Ttk_RegisterElement(interp, theme, "Vertical.Scale.trough",           &ScaleTroughElementSpec,     nullptr);
-    Ttk_RegisterElement(interp, theme, "Vertical.Scale.slider",           &ScaleSliderElementSpec,     nullptr);
-    Ttk_RegisterElement(interp, theme, "downarrow",                       &ComboboxDownArrowElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Combobox.downarrow",              &ComboboxDownArrowElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Combobox.arrow",                  &ComboboxDownArrowElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "uparrow",                         &SpinboxUpArrowElementSpec,  nullptr);
-    Ttk_RegisterElement(interp, theme, "Spinbox.uparrow",                 &SpinboxUpArrowElementSpec,  nullptr);
-    Ttk_RegisterElement(interp, theme, "Spinbox.downarrow",               &SpinboxDownArrowElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Spinbox.buttons",                 &SpinboxButtonsElementSpec,  nullptr);
-    Ttk_RegisterElement(interp, theme, "tab",                             &NotebookTabElementSpec,     nullptr);
-    Ttk_RegisterElement(interp, theme, "Tab.tab",                         &NotebookTabElementSpec,     nullptr);
-    Ttk_RegisterElement(interp, theme, "Notebook.tab",                    &NotebookTabElementSpec,     nullptr);
-    Ttk_RegisterElement(interp, theme, "client",                          &NotebookClientElementSpec,  nullptr);
-    Ttk_RegisterElement(interp, theme, "Notebook.client",                 &NotebookClientElementSpec,  nullptr);
-    Ttk_RegisterElement(interp, theme, "Labelframe.border",               &LabelframeBorderElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Switch.indicator",                &SwitchIndicatorElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "separator",                       &SeparatorElementSpec,       nullptr);
-    Ttk_RegisterElement(interp, theme, "Separator.separator",             &SeparatorElementSpec,       nullptr);
-    Ttk_RegisterElement(interp, theme, "Horizontal.separator",            &HorizontalSeparatorElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Vertical.separator",              &VerticalSeparatorElementSpec,   nullptr);
-    Ttk_RegisterElement(interp, theme, "sizegrip",                        &SizegripElementSpec,        nullptr);
-    Ttk_RegisterElement(interp, theme, "Sizegrip.sizegrip",               &SizegripElementSpec,        nullptr);
-    Ttk_RegisterElement(interp, theme, "sash",                            &SashElementSpec,            nullptr);
-    Ttk_RegisterElement(interp, theme, "Sash.hsash",                      &HorizontalSashElementSpec,  nullptr);
-    Ttk_RegisterElement(interp, theme, "Sash.vsash",                      &VerticalSashElementSpec,    nullptr);
-    Ttk_RegisterElement(interp, theme, "Panedwindow.sash",                &SashElementSpec,            nullptr);
-    Ttk_RegisterElement(interp, theme, "Menubutton.button",               &ButtonElementSpec,          nullptr);
-    Ttk_RegisterElement(interp, theme, "Menubutton.indicator",            &MenubuttonIndicatorElementSpec, nullptr);
-    Ttk_RegisterElement(interp, theme, "Treeitem.indicator",              &TreeitemIndicatorElementSpec, nullptr);
+    static const struct {
+        const char* name;
+        Ttk_ElementSpec* spec;
+    } kElements[] = {
+        { "button",                          &ButtonElementSpec },
+        { "Button.button",                   &ButtonElementSpec },
+        { "field",                           &EntryFieldElementSpec },
+        { "Entry.field",                     &EntryFieldElementSpec },
+        { "Combobox.field",                  &EntryFieldElementSpec },
+        { "Spinbox.field",                   &EntryFieldElementSpec },
+        { "indicator",                       &CheckIndicatorElementSpec },
+        { "Checkbutton.indicator",           &CheckIndicatorElementSpec },
+        { "Radiobutton.indicator",           &RadioIndicatorElementSpec },
+        { "trough",                          &PbarTroughElementSpec },
+        { "pbar",                            &PbarBarElementSpec },
+        { "bar",                             &PbarBarElementSpec },
+        { "Progressbar.trough",              &PbarTroughElementSpec },
+        { "Progressbar.pbar",                &PbarBarElementSpec },
+        { "Horizontal.Progressbar.trough",   &PbarTroughElementSpec },
+        { "Horizontal.Progressbar.pbar",     &PbarBarElementSpec },
+        { "Vertical.Progressbar.trough",     &PbarTroughElementSpec },
+        { "Vertical.Progressbar.pbar",       &PbarBarElementSpec },
+        { "thumb",                           &ScrollbarThumbElementSpec },
+        { "Scrollbar.trough",                &ScrollbarTroughElementSpec },
+        { "Scrollbar.thumb",                 &ScrollbarThumbElementSpec },
+        { "Horizontal.Scrollbar.trough",     &ScrollbarTroughElementSpec },
+        { "Horizontal.Scrollbar.thumb",      &ScrollbarThumbElementSpec },
+        { "Vertical.Scrollbar.trough",       &ScrollbarTroughElementSpec },
+        { "Vertical.Scrollbar.thumb",        &ScrollbarThumbElementSpec },
+        { "slider",                          &ScaleSliderElementSpec },
+        { "Scale.trough",                    &ScaleTroughElementSpec },
+        { "Scale.slider",                    &ScaleSliderElementSpec },
+        { "Horizontal.Scale.trough",         &ScaleTroughElementSpec },
+        { "Horizontal.Scale.slider",         &ScaleSliderElementSpec },
+        { "Vertical.Scale.trough",           &ScaleTroughElementSpec },
+        { "Vertical.Scale.slider",           &ScaleSliderElementSpec },
+        { "downarrow",                       &ComboboxDownArrowElementSpec },
+        { "Combobox.downarrow",              &ComboboxDownArrowElementSpec },
+        { "Combobox.arrow",                  &ComboboxDownArrowElementSpec },
+        { "uparrow",                         &SpinboxUpArrowElementSpec },
+        { "Spinbox.uparrow",                 &SpinboxUpArrowElementSpec },
+        { "Spinbox.downarrow",               &SpinboxDownArrowElementSpec },
+        { "Spinbox.buttons",                 &SpinboxButtonsElementSpec },
+        { "tab",                             &NotebookTabElementSpec },
+        { "Tab.tab",                         &NotebookTabElementSpec },
+        { "Notebook.tab",                    &NotebookTabElementSpec },
+        { "client",                          &NotebookClientElementSpec },
+        { "Notebook.client",                 &NotebookClientElementSpec },
+        { "Labelframe.border",               &LabelframeBorderElementSpec },
+        { "Switch.indicator",                &SwitchIndicatorElementSpec },
+        { "separator",                       &SeparatorElementSpec },
+        { "Separator.separator",             &SeparatorElementSpec },
+        { "Horizontal.separator",            &HorizontalSeparatorElementSpec },
+        { "Vertical.separator",              &VerticalSeparatorElementSpec },
+        { "sizegrip",                        &SizegripElementSpec },
+        { "Sizegrip.sizegrip",               &SizegripElementSpec },
+        { "sash",                            &SashElementSpec },
+        { "Sash.hsash",                      &HorizontalSashElementSpec },
+        { "Sash.vsash",                      &VerticalSashElementSpec },
+        { "Panedwindow.sash",                &SashElementSpec },
+        { "Menubutton.button",               &ButtonElementSpec },
+        { "Menubutton.indicator",            &MenubuttonIndicatorElementSpec },
+        { "Treeitem.indicator",              &TreeitemIndicatorElementSpec },
+    };
+
+    for (const auto& elem : kElements) {
+        Ttk_RegisterElement(interp, theme, elem.name, elem.spec, nullptr);
+    }
 
     // Resolve color tokens once
     const std::string bg      = hex_str(config_.bg_color);

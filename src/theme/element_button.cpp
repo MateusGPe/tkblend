@@ -40,61 +40,13 @@ static void ButtonElementDraw(
     const auto& cfg = ThemeEngine::instance().config();
     auto* elem = static_cast<ButtonElement*>(elementRecord);
 
-    enum class ButtonVariant { Standard, Primary, Destructive, Secondary, Ghost, Outline, Custom };
-    ButtonVariant variant = ButtonVariant::Standard;
     uint32_t custom_col = 0;
-
-    if (elem && elem->variantObj) {
-        const char* var_str = Tcl_GetString(elem->variantObj);
-        if (var_str && var_str[0] != '\0') {
-            std::string v(var_str);
-            std::transform(v.begin(), v.end(), v.begin(), ::tolower);
-            if (v.find("ghost") != std::string::npos) {
-                variant = ButtonVariant::Ghost;
-            } else if (v.find("outline") != std::string::npos) {
-                variant = ButtonVariant::Outline;
-            } else if (v.find("accent") != std::string::npos || v.find("primary") != std::string::npos || v.find("indigo") != std::string::npos) {
-                variant = ButtonVariant::Primary;
-            } else if (v.find("destruct") != std::string::npos || v.find("danger") != std::string::npos || v.find("red") != std::string::npos || v.find("rose") != std::string::npos) {
-                variant = ButtonVariant::Destructive;
-            } else if (v.find("secondary") != std::string::npos) {
-                variant = ButtonVariant::Secondary;
-            }
-        }
-    }
-
-    if (variant == ButtonVariant::Standard && elem && elem->backgroundObj) {
-        const char* bg_str = Tcl_GetString(elem->backgroundObj);
-        if (bg_str && bg_str[0] != '\0') {
-            std::string s(bg_str);
-            std::transform(s.begin(), s.end(), s.begin(), ::tolower);
-            if (s.find("accent") != std::string::npos || s.find("primary") != std::string::npos || s.find("indigo") != std::string::npos) {
-                variant = ButtonVariant::Primary;
-            } else if (s.find("destruct") != std::string::npos || s.find("danger") != std::string::npos || s.find("red") != std::string::npos || s.find("rose") != std::string::npos) {
-                variant = ButtonVariant::Destructive;
-            } else if (s.find("ghost") != std::string::npos) {
-                variant = ButtonVariant::Ghost;
-            } else if (s.find("outline") != std::string::npos) {
-                variant = ButtonVariant::Outline;
-            } else if (s.find("secondary") != std::string::npos) {
-                variant = ButtonVariant::Secondary;
-            } else if (s[0] == '#') {
-                uint32_t parsed = 0;
-                if (parse_hex_color(s, parsed)) {
-                    if ((parsed & 0x00FFFFFF) == (cfg.primary_color & 0x00FFFFFF)) {
-                        variant = ButtonVariant::Primary;
-                    } else if ((parsed & 0x00FFFFFF) == (cfg.destructive_color & 0x00FFFFFF)) {
-                        variant = ButtonVariant::Destructive;
-                    } else if ((parsed & 0x00FFFFFF) == (cfg.secondary_color & 0x00FFFFFF)) {
-                        variant = ButtonVariant::Secondary;
-                    } else {
-                        variant = ButtonVariant::Custom;
-                        custom_col = parsed;
-                    }
-                }
-            }
-        }
-    }
+    WidgetVariant variant = ResolveWidgetVariant(
+        elem ? elem->variantObj : nullptr,
+        elem ? elem->backgroundObj : nullptr,
+        cfg,
+        custom_col
+    );
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
         if (w <= 0 || h <= 0) return;
@@ -113,7 +65,7 @@ static void ButtonElementDraw(
         bool has_border = true;
 
         switch (variant) {
-        case ButtonVariant::Primary:
+        case WidgetVariant::Primary:
             if (disabled) {
                 fill_top = fill_bot = cfg.disabled_bg;
                 border_color = cfg.card_border;
@@ -132,7 +84,7 @@ static void ButtonElementDraw(
             }
             break;
 
-        case ButtonVariant::Destructive:
+        case WidgetVariant::Destructive:
             if (disabled) {
                 fill_top = fill_bot = cfg.disabled_bg;
                 border_color = cfg.card_border;
@@ -151,7 +103,7 @@ static void ButtonElementDraw(
             }
             break;
 
-        case ButtonVariant::Secondary:
+        case WidgetVariant::Secondary:
             if (disabled) {
                 fill_top = fill_bot = cfg.disabled_bg;
                 border_color = cfg.card_border;
@@ -169,7 +121,7 @@ static void ButtonElementDraw(
             }
             break;
 
-        case ButtonVariant::Ghost:
+        case WidgetVariant::Ghost:
             if (disabled) {
                 has_fill = false;
                 has_border = false;
@@ -189,7 +141,7 @@ static void ButtonElementDraw(
             }
             break;
 
-        case ButtonVariant::Outline:
+        case WidgetVariant::Outline:
             if (disabled) {
                 fill_top = fill_bot = cfg.disabled_bg;
                 border_color = cfg.card_border;
@@ -205,7 +157,7 @@ static void ButtonElementDraw(
             }
             break;
 
-        case ButtonVariant::Custom:
+        case WidgetVariant::Custom:
             if (disabled) {
                 fill_top = fill_bot = cfg.disabled_bg;
                 border_color = cfg.card_border;
@@ -224,7 +176,7 @@ static void ButtonElementDraw(
             }
             break;
 
-        case ButtonVariant::Standard:
+        case WidgetVariant::Standard:
         default:
             if (disabled) {
                 fill_top = fill_bot = cfg.disabled_bg;
@@ -245,12 +197,12 @@ static void ButtonElementDraw(
         }
 
         // Draw modern soft drop shadow
-        if (cfg.enable_shadows && !pressed && !disabled && variant != ButtonVariant::Ghost) {
+        if (cfg.enable_shadows && !pressed && !disabled && variant != WidgetVariant::Ghost) {
             ctx.save();
             BLPath shadowPath;
-            double s_offset = (variant == ButtonVariant::Primary) ? 2.5 : 2.0;
+            double s_offset = (variant == WidgetVariant::Primary) ? 2.5 : 2.0;
             shadowPath.add_round_rect(BLRoundRect(1.0, s_offset, w - 2.0, h - 2.0, r, r));
-            uint32_t s_col = (variant == ButtonVariant::Primary) ? 0x406366F1 : cfg.shadow_color;
+            uint32_t s_col = (variant == WidgetVariant::Primary) ? 0x406366F1 : cfg.shadow_color;
             ctx.set_fill_style(to_bl_rgba(s_col));
             ctx.fill_path(shadowPath);
             ctx.restore();
@@ -280,12 +232,12 @@ static void ButtonElementDraw(
         }
 
         // Top specular edge highlight (1px inset)
-        if (has_fill && !pressed && !disabled && h > 16 && variant != ButtonVariant::Ghost) {
+        if (has_fill && !pressed && !disabled && h > 16 && variant != WidgetVariant::Ghost) {
             BLPath highlightPath;
             highlightPath.move_to(pad + r * 0.6, by + 1.0);
             highlightPath.line_to(w - pad - r * 0.6, by + 1.0);
             ctx.set_stroke_width(1.0);
-            uint32_t hi_col = (variant == ButtonVariant::Primary) ? 0x40FFFFFF : 0x1AFFFFFF;
+            uint32_t hi_col = (variant == WidgetVariant::Primary) ? 0x40FFFFFF : 0x1AFFFFFF;
             ctx.set_stroke_style(to_bl_rgba(hi_col));
             ctx.stroke_path(highlightPath);
         }

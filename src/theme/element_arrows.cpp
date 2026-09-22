@@ -282,51 +282,46 @@ static void MenubuttonIndicatorDraw(
 
     uint32_t fill_bg = 0;
     uint32_t arrow_col = 0;
+    uint32_t custom_col = 0;
 
-    if (elem && elem->backgroundObj) {
-        const char* bg_str = Tcl_GetString(elem->backgroundObj);
-        if (bg_str && bg_str[0] != '\0') {
-            std::string s(bg_str);
-            std::transform(s.begin(), s.end(), s.begin(), ::tolower);
-            uint32_t parsed = 0;
-            if (s.find("accent") != std::string::npos || s.find("primary") != std::string::npos || s.find("indigo") != std::string::npos) {
-                fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.primary_active : (hover ? cfg.primary_hover : cfg.primary_color));
-                arrow_col = disabled ? cfg.disabled_fg : cfg.primary_fg;
-            } else if (s.find("destruct") != std::string::npos || s.find("danger") != std::string::npos || s.find("red") != std::string::npos) {
-                fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.destructive_active : (hover ? cfg.destructive_hover : cfg.destructive_color));
-                arrow_col = disabled ? cfg.disabled_fg : cfg.destructive_fg;
-            } else if (s.find("ghost") != std::string::npos) {
-                uint32_t parent_bg = ResolveAncestorBackground(tkwin, cfg.bg_color);
-                fill_bg = (hover || pressed) ? cfg.secondary_color : parent_bg;
-                arrow_col = disabled ? cfg.disabled_fg : cfg.fg_color;
-            } else if (s.find("outline") != std::string::npos) {
-                uint32_t parent_bg = ResolveAncestorBackground(tkwin, cfg.bg_color);
-                fill_bg = (hover || pressed) ? cfg.secondary_color : parent_bg;
-                arrow_col = disabled ? cfg.disabled_fg : ((hover || pressed) ? cfg.primary_color : cfg.fg_color);
-            } else if (s.find("secondary") != std::string::npos) {
-                fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.secondary_hover : (hover ? cfg.secondary_hover : cfg.secondary_color));
-                arrow_col = disabled ? cfg.disabled_fg : cfg.secondary_fg;
-            } else if (parse_hex_color(s, parsed)) {
-                if ((parsed & 0x00FFFFFF) == (cfg.primary_color & 0x00FFFFFF)) {
-                    fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.primary_active : (hover ? cfg.primary_hover : cfg.primary_color));
-                    arrow_col = disabled ? cfg.disabled_fg : cfg.primary_fg;
-                } else if ((parsed & 0x00FFFFFF) == (cfg.destructive_color & 0x00FFFFFF)) {
-                    fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.destructive_active : (hover ? cfg.destructive_hover : cfg.destructive_color));
-                    arrow_col = disabled ? cfg.disabled_fg : cfg.destructive_fg;
-                } else if ((parsed & 0x00FFFFFF) == (cfg.secondary_color & 0x00FFFFFF)) {
-                    fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.secondary_hover : (hover ? cfg.secondary_hover : cfg.secondary_color));
-                    arrow_col = disabled ? cfg.disabled_fg : cfg.secondary_fg;
-                } else {
-                    fill_bg = parsed;
-                    arrow_col = disabled ? cfg.disabled_fg : cfg.fg_color;
-                }
-            }
-        }
+    WidgetVariant variant = ResolveWidgetVariant(
+        nullptr,
+        elem ? elem->backgroundObj : nullptr,
+        cfg,
+        custom_col
+    );
+
+    switch (variant) {
+    case WidgetVariant::Primary:
+        fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.primary_active : (hover ? cfg.primary_hover : cfg.primary_color));
+        arrow_col = disabled ? cfg.disabled_fg : cfg.primary_fg;
+        break;
+    case WidgetVariant::Destructive:
+        fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.destructive_active : (hover ? cfg.destructive_hover : cfg.destructive_color));
+        arrow_col = disabled ? cfg.disabled_fg : cfg.destructive_fg;
+        break;
+    case WidgetVariant::Ghost: {
+        uint32_t parent_bg = ResolveAncestorBackground(tkwin, cfg.bg_color);
+        fill_bg = (hover || pressed) ? cfg.secondary_color : parent_bg;
+        arrow_col = disabled ? cfg.disabled_fg : cfg.fg_color;
+        break;
     }
-
-    if (fill_bg == 0) {
+    case WidgetVariant::Outline: {
+        uint32_t parent_bg = ResolveAncestorBackground(tkwin, cfg.bg_color);
+        fill_bg = (hover || pressed) ? cfg.secondary_color : parent_bg;
+        arrow_col = disabled ? cfg.disabled_fg : ((hover || pressed) ? cfg.primary_color : cfg.fg_color);
+        break;
+    }
+    case WidgetVariant::Custom:
+        fill_bg = custom_col;
+        arrow_col = disabled ? cfg.disabled_fg : cfg.fg_color;
+        break;
+    case WidgetVariant::Secondary:
+    case WidgetVariant::Standard:
+    default:
         fill_bg = disabled ? cfg.disabled_bg : (pressed ? cfg.secondary_hover : (hover ? cfg.secondary_hover : cfg.secondary_color));
         arrow_col = disabled ? cfg.disabled_fg : cfg.secondary_fg;
+        break;
     }
 
     RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {

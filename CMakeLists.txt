@@ -208,6 +208,7 @@ endif()
 # ------------------------------------------------------------------------------
 set(TKBLEND_SOURCES
     src/tkblend.cpp
+    src/blit/blit_common.cpp
     src/theme/theme_engine.cpp
     src/theme/element_button.cpp
     src/theme/element_entry.cpp
