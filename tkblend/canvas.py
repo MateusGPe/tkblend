@@ -136,9 +136,19 @@ class BlendCanvas(tk.Label):
         if self._surface is None or self._photo is None:
             return
 
-        if event.width != self._canvas_width or event.height != self._canvas_height:
-            self._canvas_width = event.width
-            self._canvas_height = event.height
+        min_w = getattr(self, "_preferred_width", None)
+        min_h = getattr(self, "_preferred_height", None)
+
+        target_w = event.width
+        target_h = event.height
+        if min_w is not None and target_w < min_w:
+            target_w = min_w
+        if min_h is not None and target_h < min_h:
+            target_h = min_h
+
+        if target_w != self._canvas_width or target_h != self._canvas_height:
+            self._canvas_width = target_w
+            self._canvas_height = target_h
             self._photo.configure(width=self._canvas_width, height=self._canvas_height)
             self._surface.resize(self._canvas_width, self._canvas_height)
             self.redraw()

@@ -48,6 +48,7 @@ class Card(ttk.Frame):
     Modern elevated card container with rounded card styling and automatic child color syncing.
     """
     def __init__(self, master=None, style: str = "Card.TFrame", padding: Any = 16, **kwargs):
+        kwargs.setdefault("class_", "Card")
         super().__init__(master, style=style, padding=padding, **kwargs)
         bind_theme_changed(self, self._sync_children)
         self.after_idle(self._sync_children)
@@ -73,6 +74,8 @@ class ToggleSwitch(BlendCanvas):
         **kwargs,
     ):
         super().__init__(master, width=width, height=height, **kwargs)
+        self._preferred_width = width
+        self._preferred_height = height
         self.text = text
         self.command = command
         self._state = state
@@ -254,6 +257,8 @@ class Badge(BlendCanvas):
 
         w = max(42, len(text) * 8 + (32 if dot else 20))
         h = 24
+        self._preferred_width = w
+        self._preferred_height = h
         kwargs.setdefault("width", w)
         kwargs.setdefault("height", h)
         super().__init__(master, **kwargs)
@@ -263,10 +268,11 @@ class Badge(BlendCanvas):
 
     def set_text(self, text: str):
         self._text = text
-        w = max(42, len(text) * 8 + (32 if self._dot else 20))
+        self._preferred_width = max(42, len(text) * 8 + (32 if self._dot else 20))
+        w = max(self._preferred_width, self._canvas_width)
         self._canvas_width = w
         if self._photo is not None:
-            self._photo.configure(width=w)
+            self._photo.configure(width=w, height=self._canvas_height)
         if self.surface is not None:
             self.surface.resize(w, self._canvas_height)
         self.configure(width=w)
@@ -279,8 +285,16 @@ class Badge(BlendCanvas):
     def _redraw(self):
         if not self.winfo_exists() or self.surface is None:
             return
-        w = max(42, self._canvas_width, self.winfo_width())
-        h = max(24, self._canvas_height, self.winfo_height())
+        w = max(self._preferred_width, self._canvas_width, self.winfo_width())
+        h = max(self._preferred_height, self._canvas_height, self.winfo_height())
+
+        # Ensure backing surface and photo match needed dimensions
+        if self.surface.width != w or self.surface.height != h:
+            self.surface.resize(w, h)
+            self._canvas_width = w
+            self._canvas_height = h
+            if self._photo is not None:
+                self._photo.configure(width=w, height=h)
 
         pal = get_theme_palette()
         is_inside = is_inside_card(self)

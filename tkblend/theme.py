@@ -190,10 +190,10 @@ _MAPPED_HOOKED_ROOTS: set[int] = set()
 
 def is_inside_card(widget: tk.Misc) -> bool:
     """
-    Check if a widget is nested inside a Card or Labelframe container.
+    Check if a widget is nested inside a Card, Labelframe, Notebook, or Panedwindow container.
 
     Traverses up the widget hierarchy inspecting parent classes and styles
-    for 'TLabelframe', 'Labelframe', or style names containing 'Card' or 'Notebook'.
+    for 'TLabelframe', 'Labelframe', 'Card', 'Notebook', or 'Panedwindow'.
     """
     try:
         curr = widget
@@ -201,12 +201,17 @@ def is_inside_card(widget: tk.Misc) -> bool:
         while parent_name:
             parent = curr._nametowidget(parent_name)
             p_class = parent.winfo_class()
-            if p_class in ("TLabelframe", "Labelframe") or "Card" in p_class or "Notebook" in p_class:
+            if (
+                p_class in ("TLabelframe", "Labelframe", "Card")
+                or "Card" in p_class
+                or "Notebook" in p_class
+                or "Panedwindow" in p_class
+            ):
                 return True
             if hasattr(parent, "cget"):
                 try:
                     s = str(parent.cget("style"))
-                    if "Card" in s or "Notebook" in s or "TLabelframe" in s:
+                    if "Card" in s or "Notebook" in s or "TLabelframe" in s or "Panedwindow" in s:
                         return True
                 except (tk.TclError, Exception):
                     pass
@@ -273,6 +278,12 @@ def _apply_card_style(widget: tk.Misc, pal: Dict[str, str]) -> None:
             except tk.TclError:
                 pass
             return
+        elif w_class == "TPanedwindow":
+            try:
+                widget.configure(background=pal["card_bg"])
+            except tk.TclError:
+                pass
+            return
 
     # 2. Classic Tk widgets
     try:
@@ -283,6 +294,11 @@ def _apply_card_style(widget: tk.Misc, pal: Dict[str, str]) -> None:
                 widget.configure(background=pal["card_bg"], foreground=pal["fg"])
             except tk.TclError:
                 widget.configure(background=pal["card_bg"])
+            # If this is a BlendCanvas, Badge, or ToggleSwitch, redraw with card background
+            if hasattr(widget, "redraw") and callable(getattr(widget, "redraw")):
+                widget.redraw()
+            elif hasattr(widget, "_redraw") and callable(getattr(widget, "_redraw")):
+                widget._redraw()
         elif w_class in ("Checkbutton", "Radiobutton"):
             widget.configure(
                 background=pal["card_bg"],

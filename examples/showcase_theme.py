@@ -24,8 +24,8 @@ class ThemeShowcaseApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("tkblend - Modern Blend2D Native TTK Theme Engine")
-        self.root.geometry("920x800")
-        self.root.minsize(820, 680)
+        self.root.geometry("940x820")
+        self.root.minsize(860, 680)
 
         self.is_dark = True
         self.check1_var = tk.BooleanVar(value=True)  # shadows — declared early for apply_theme
@@ -70,10 +70,10 @@ class ThemeShowcaseApp:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="both", expand=True, padx=20, pady=8)
 
-        tab1 = ttk.Frame(self.notebook, style="Card.TFrame", padding=16)
-        tab2 = ttk.Frame(self.notebook, style="Card.TFrame", padding=16)
-        tab3 = ttk.Frame(self.notebook, style="Card.TFrame", padding=16)
-        tab4 = ttk.Frame(self.notebook, style="Card.TFrame", padding=16)
+        tab1 = tkblend.Card(self.notebook, padding=16)
+        tab2 = tkblend.Card(self.notebook, padding=16)
+        tab3 = tkblend.Card(self.notebook, padding=16)
+        tab4 = tkblend.Card(self.notebook, padding=16)
         self.notebook.add(tab1, text="  Buttons, Menus & Badges  ")
         self.notebook.add(tab2, text="  Inputs, Switches & Sliders  ")
         self.notebook.add(tab3, text="  Data & Panes  ")
@@ -183,9 +183,9 @@ class ThemeShowcaseApp:
 
         ttk.Label(i_row1, text="Search Bar:", width=12).pack(side="left")
         self.search_entry = tkblend.SearchEntry(
-            i_row1, placeholder="Search widgets, symbols, tokens...", width=28
+            i_row1, placeholder="Search widgets, symbols, tokens...", width=24
         )
-        self.search_entry.pack(side="left", padx=(0, 14))
+        self.search_entry.pack(side="left", fill="x", expand=True, padx=(0, 14))
 
         ttk.Label(i_row1, text="Placeholder Entry:", width=16).pack(side="left")
         self.entry_placeholder = tkblend.ThemedEntry(

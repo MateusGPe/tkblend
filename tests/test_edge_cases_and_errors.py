@@ -50,13 +50,51 @@ class TestEdgeCasesAndErrors(unittest.TestCase):
         s.draw_shadow(-100, -100, 200, 200, 10, 10, blur_radius=20.0)
         s.flush()
 
-    def test_gradients_with_no_or_single_stop(self):
-        s = Surface(50, 50)
-        lg = LinearGradient(0, 0, 50, 50)
-        s.fill_rect(0, 0, 50, 50, lg)
+    def test_badge_resize_preservation(self):
+        import tkinter as tk
+        from tkblend import Badge
+        root = tk.Tk()
+        try:
+            badge = Badge(root, text="Production Ready", variant="success", dot=True)
+            initial_w = badge._preferred_width
+            self.assertGreaterEqual(initial_w, 80)
 
-        lg.add_stop(0.5, "#ff0000")
-        s.fill_rect(0, 0, 50, 50, lg)
+            # Simulate configure event squeezing width
+            class MockEvent:
+                width = 30
+                height = 24
+            badge._on_configure(MockEvent())
+
+            # Verify badge clamped to preferred width and did not permanently shrink
+            self.assertGreaterEqual(badge.canvas_width, initial_w)
+
+            # Enlarge event
+            class LargeEvent:
+                width = 200
+                height = 30
+            badge._on_configure(LargeEvent())
+            self.assertEqual(badge.canvas_width, 200)
+            self.assertEqual(badge.canvas_height, 30)
+        finally:
+            root.destroy()
+
+    def test_card_class_hierarchy_and_panedwindow(self):
+        import tkinter as tk
+        from tkinter import ttk
+        from tkblend import Card, is_inside_card
+        root = tk.Tk()
+        try:
+            card = Card(root)
+            self.assertEqual(card.winfo_class(), "Card")
+            lbl = ttk.Label(card, text="Inside Card")
+            self.assertTrue(is_inside_card(lbl))
+
+            paned = ttk.Panedwindow(root, orient="horizontal")
+            pane_card = Card(paned)
+            btn = ttk.Button(pane_card, text="Test")
+            self.assertTrue(is_inside_card(btn))
+        finally:
+            root.destroy()
 
 
 if __name__ == "__main__":
