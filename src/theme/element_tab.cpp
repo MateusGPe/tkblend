@@ -224,4 +224,54 @@ Ttk_ElementSpec LabelframeBorderElementSpec = {
     TTK_LAYOUT_SPEC_VERSION, sizeof(LabelframeBorderElement),
     LabelframeBorderOptions, LabelframeBorderGeometry, LabelframeBorderDraw};
 
+// ============================================================================
+// Frame Border Element (Solid container / card background filling)
+// ============================================================================
+struct FrameBorderElement {
+  Tcl_Obj *backgroundObj;
+};
+
+static Ttk_ElementOptionSpec FrameBorderOptions[] = {
+    {"-background", TK_OPTION_STRING,
+     offsetof(FrameBorderElement, backgroundObj), ""},
+    {nullptr, TK_OPTION_BOOLEAN, 0, nullptr}};
+
+static void FrameBorderGeometry(void * /*clientData*/,
+                                void * /*elementRecord*/,
+                                Tk_Window /*tkwin*/, int *widthPtr,
+                                int *heightPtr, Ttk_Padding *paddingPtr) {
+  if (widthPtr)
+    *widthPtr = 0;
+  if (heightPtr)
+    *heightPtr = 0;
+  if (paddingPtr) {
+    paddingPtr->left = 0;
+    paddingPtr->top = 0;
+    paddingPtr->right = 0;
+    paddingPtr->bottom = 0;
+  }
+}
+
+static void FrameBorderDraw(void * /*clientData*/,
+                            void *elementRecord, Tk_Window tkwin,
+                            Drawable d, Ttk_Box b, Ttk_State /*state*/
+) {
+  auto *el = static_cast<FrameBorderElement *>(elementRecord);
+  uint32_t fill_color = 0;
+  if (el && el->backgroundObj) {
+    const char *bg_str = Tcl_GetString(el->backgroundObj);
+    if (bg_str && bg_str[0] != '\0') {
+      parse_hex_color(bg_str, fill_color);
+    }
+  }
+
+  RenderElement(tkwin, d, b, [&](BLContext &/*ctx*/, int /*w*/, int /*h*/) {
+    // Base container fill is automatically performed by RenderElement
+  }, fill_color);
+}
+
+Ttk_ElementSpec FrameBorderElementSpec = {
+    TTK_LAYOUT_SPEC_VERSION, sizeof(FrameBorderElement),
+    FrameBorderOptions, FrameBorderGeometry, FrameBorderDraw};
+
 } // namespace tkblend

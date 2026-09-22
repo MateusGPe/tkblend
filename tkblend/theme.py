@@ -284,6 +284,18 @@ def _apply_card_style(widget: tk.Misc, pal: Dict[str, str]) -> None:
             except tk.TclError:
                 pass
             return
+        elif w_class == "TScale":
+            if current_style in ("", "TScale", "Horizontal.TScale"):
+                try:
+                    widget.configure(style="Card.Horizontal.TScale")
+                except tk.TclError:
+                    pass
+            elif current_style == "Vertical.TScale":
+                try:
+                    widget.configure(style="Card.Vertical.TScale")
+                except tk.TclError:
+                    pass
+            return
 
     # 2. Classic Tk widgets
     try:
@@ -354,6 +366,17 @@ def _setup_card_autostyle_hook(root: tk.Misc) -> None:
         except Exception:
             pass
 
+    def _on_tab_changed(event: Any) -> None:
+        try:
+            nb = event.widget
+            if isinstance(nb, str):
+                nb = toplevel._nametowidget(nb)
+            if nb and hasattr(nb, "winfo_class") and nb.winfo_class() == "TNotebook":
+                sync_card_children(nb)
+                toplevel.update_idletasks()
+        except Exception:
+            pass
+
     def _on_destroy(event: Any) -> None:
         try:
             if event.widget is toplevel:
@@ -363,6 +386,7 @@ def _setup_card_autostyle_hook(root: tk.Misc) -> None:
 
     try:
         toplevel.bind_all("<Map>", _on_map, add="+")
+        toplevel.bind_all("<<NotebookTabChanged>>", _on_tab_changed, add="+")
         toplevel.bind("<Destroy>", _on_destroy, add="+")
     except Exception as exc:
         logger.debug("Failed to hook card autostyle events: %s", exc)

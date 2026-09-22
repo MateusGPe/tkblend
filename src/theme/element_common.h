@@ -210,6 +210,7 @@ extern Ttk_ElementSpec MenubuttonIndicatorElementSpec;
 extern Ttk_ElementSpec NotebookTabElementSpec;
 extern Ttk_ElementSpec NotebookClientElementSpec;
 extern Ttk_ElementSpec LabelframeBorderElementSpec;
+extern Ttk_ElementSpec FrameBorderElementSpec;
 extern Ttk_ElementSpec SeparatorElementSpec;
 extern Ttk_ElementSpec HorizontalSeparatorElementSpec;
 extern Ttk_ElementSpec VerticalSeparatorElementSpec;

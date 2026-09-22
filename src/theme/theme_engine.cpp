@@ -314,6 +314,8 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
         { "Notebook.tab",                    &NotebookTabElementSpec },
         { "client",                          &NotebookClientElementSpec },
         { "Notebook.client",                 &NotebookClientElementSpec },
+        { "Frame.border",                    &FrameBorderElementSpec },
+        { "frame",                           &FrameBorderElementSpec },
         { "Labelframe.border",               &LabelframeBorderElementSpec },
         { "Switch.indicator",                &SwitchIndicatorElementSpec },
         { "separator",                       &SeparatorElementSpec },
@@ -353,6 +355,7 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
     const std::string in_fg   = hex_str(config_.fg_color);
     const std::string sel_bg  = hex_str(config_.primary_color);
     const std::string sel_fg  = hex_str(config_.primary_fg);
+    const std::string trk_bg  = hex_str(config_.track_bg);
 
     StyleScript s;
     s.ss << "namespace eval ttk::theme::" << theme_name << " {\n";
@@ -502,20 +505,26 @@ bool ThemeEngine::init_ttk_theme(Tcl_Interp* interp, const char* theme_name) {
          << "        Vertical.Scale.slider -side top -sticky \"\"\n"
          << "      }\n"
          << "    }\n";
-    s.configure("Horizontal.TScale", "-sliderlength 20 -thickness 20");
-    s.configure("Vertical.TScale",   "-sliderlength 20 -thickness 20");
+    s.configure("TScale",                 "-sliderlength 20 -thickness 20 -background \"" + bg + "\" -troughcolor \"" + trk_bg + "\"");
+    s.configure("Horizontal.TScale",      "-sliderlength 20 -thickness 20 -background \"" + bg + "\" -troughcolor \"" + trk_bg + "\"");
+    s.configure("Vertical.TScale",        "-sliderlength 20 -thickness 20 -background \"" + bg + "\" -troughcolor \"" + trk_bg + "\"");
+    s.configure("Card.TScale",            "-sliderlength 20 -thickness 20 -background \"" + card_bg + "\" -troughcolor \"" + trk_bg + "\"");
+    s.configure("Card.Horizontal.TScale", "-sliderlength 20 -thickness 20 -background \"" + card_bg + "\" -troughcolor \"" + trk_bg + "\"");
+    s.configure("Card.Vertical.TScale",   "-sliderlength 20 -thickness 20 -background \"" + card_bg + "\" -troughcolor \"" + trk_bg + "\"");
 
     // TLabel, TFrame, TLabelframe (Cards)
     s.configure("TLabel",           "-background \"" + bg      + "\" -foreground \"" + fg + "\"");
     s.configure("Card.TLabel",      "-background \"" + card_bg + "\" -foreground \"" + fg + "\"");
     s.configure("TFrame",           "-background \"" + bg      + "\"");
     s.configure("Card.TFrame",      "-background \"" + card_bg + "\"");
+    s.ss << "    ttk::style layout TFrame {\n"
+         << "      Frame.border -sticky nswe\n"
+         << "    }\n"
+         << "    ttk::style layout Card.TFrame {\n"
+         << "      Frame.border -sticky nswe\n"
+         << "    }\n";
     s.ss << "    ttk::style layout TLabelframe {\n"
-         << "      Labelframe.border -sticky nswe -children {\n"
-         << "        Labelframe.padding -sticky nswe -children {\n"
-         << "          Labelframe.label -side top -sticky w\n"
-         << "        }\n"
-         << "      }\n"
+         << "      Labelframe.border -sticky nswe\n"
          << "    }\n";
     s.configure("TLabelframe",       "-background \"" + card_bg + "\" -foreground \"" + fg + "\" -padding {16 12 16 12}");
     s.configure("TLabelframe.Label", "-background \"" + card_bg + "\" -foreground \"" + fg + "\" -font TkHeadingFont");
