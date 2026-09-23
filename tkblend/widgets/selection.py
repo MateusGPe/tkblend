@@ -65,34 +65,30 @@ class Switch(Widget):
         pad = 2.0 * self._scale
         w = self._widget_w - pad * 2.0
         h = self._widget_h - pad * 2.0
-        r = h / 2.0
 
         pal = get_theme()
         on_col = self._explicit_on_color or pal.success
         off_col = self._explicit_off_color or pal.track_bg
         knob_col = self._explicit_knob_color or pal.thumb_color
-        bg = on_col if self._is_on else off_col
-        self._surface.fill_rounded_rect(pad, pad, w, h, r, r, bg)
+        track_col = on_col if self._is_on else off_col
+        progress = 1.0 if self._is_on else 0.0
 
-        knob_r = r - 3.0 * self._scale
-        knob_cy = pad + r
-        knob_cx = (pad + w - r) if self._is_on else (pad + r)
+        focus_col = pal.input_focus if self._has_focus else "#00000000"
+        focus_width = 1.5 * self._scale if self._has_focus else 0.0
 
-        inset = 3.0 * self._scale
-        safe_blur = min(2.0 * self._scale, inset * 0.65)
-        safe_offset_y = min(0.6 * self._scale, inset * 0.25)
-        self._surface.draw_shadow(
-            knob_cx - knob_r,
-            knob_cy - knob_r,
-            knob_r * 2.0,
-            knob_r * 2.0,
-            knob_r,
-            knob_r,
-            blur_radius=safe_blur,
-            offset_y=safe_offset_y,
-            shadow_color="#00000030",
+        self._surface.draw_switch(
+            x=pad,
+            y=pad,
+            w=w,
+            h=h,
+            track_color=track_col,
+            thumb_color=knob_col,
+            thumb_border_color="#00000015",
+            progress_t=progress,
+            is_hovered=self._is_hovered,
+            focus_ring_color=focus_col,
+            focus_ring_width=focus_width,
         )
-        self._surface.fill_circle(knob_cx, knob_cy, knob_r, self._knob_color)
         self._surface.blit(self._photo)
 
 
@@ -153,22 +149,42 @@ class Checkbox(Widget):
 
         pal = get_theme()
         if self._checked:
-            self._surface.fill_rounded_rect(box_x, box_y, box_size, box_size, r, r, self._active_color)
-            draw_vector_checkmark(self._surface, box_x + 9.0 * s, box_y + 9.0 * s, s, pal.primary_fg, stroke_width=2.0 * s)
+            box_bg = self._active_color
+            border_col = "#00000000"
+            border_w = 0.0
+            check_col = pal.primary_fg
         else:
-            border = pal.primary if self._is_hovered else pal.card_border
-            bg = pal.secondary if self._is_hovered else pal.surface
-            self._surface.fill_rounded_rect(box_x, box_y, box_size, box_size, r, r, bg)
-            self._surface.stroke_rounded_rect(box_x, box_y, box_size, box_size, r, r, border, 1.2 * s)
+            box_bg = pal.secondary if self._is_hovered else pal.surface
+            border_col = pal.primary if self._is_hovered else pal.card_border
+            border_w = 1.2 * s
+            check_col = "#00000000"
+
+        focus_col = pal.input_focus if self._has_focus else "#00000000"
+        focus_width = 1.5 * s if self._has_focus else 0.0
+
+        self._surface.draw_checkbox(
+            x=box_x,
+            y=box_y,
+            size=box_size,
+            rx=r,
+            ry=r,
+            box_bg=box_bg,
+            border_color=border_col,
+            border_width=border_w,
+            check_color=check_col,
+            is_checked=self._checked,
+            is_hovered=self._is_hovered,
+            focus_ring_color=focus_col,
+            focus_ring_width=focus_width,
+        )
 
         text_x = box_x + box_size + 10.0 * s
-        font_sz = 13.0 * s
+        font_sz = self._font_config.size * s
         self._surface.draw_text(
             self._text,
             text_x,
             self._widget_h / 2.0 + (font_sz * 0.35),
-            font_size=font_sz,
-            font_family="sans-serif",
+            font=self._font_config.copy_with(size=font_sz),
             color=pal.fg,
             align="left",
         )

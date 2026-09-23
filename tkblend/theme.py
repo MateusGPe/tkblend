@@ -149,41 +149,32 @@ def blend_color_hex(c1: str, c2: str, t: float) -> str:
         return c1
     if t >= 1.0:
         return c2
-
-    def _to_rgb(s: str) -> Tuple[int, int, int]:
-        s = s.lstrip("#")
-        if len(s) == 3:
-            s = "".join(c + c for c in s)
-        val = int(s[:6], 16)
-        return ((val >> 16) & 0xFF, (val >> 8) & 0xFF, val & 0xFF)
-
     try:
-        r1, g1, b1 = _to_rgb(c1)
-        r2, g2, b2 = _to_rgb(c2)
-        inv = 1.0 - t
-        r = int(r1 * inv + r2 * t)
-        g = int(g1 * inv + g2 * t)
-        b = int(b1 * inv + b2 * t)
-        return f"#{r:02x}{g:02x}{b:02x}"
+        from tkblend._tkblend import Color
+        col1 = Color.from_hex(c1)
+        col2 = Color.from_hex(c2)
+        res = col1.lerp(col2, float(t))
+        if col1.a < 255 or col2.a < 255:
+            return f"#{res.r:02x}{res.g:02x}{res.b:02x}{res.a:02x}"
+        return f"#{res.r:02x}{res.g:02x}{res.b:02x}"
     except Exception:
         return c1 if t < 0.5 else c2
 
 
 def adjust_brightness(hex_code: str, factor: float) -> str:
     """Lighten (> 1.0) or darken (< 1.0) a hex color."""
-    hex_code = hex_code.lstrip("#")
-    if len(hex_code) == 3:
-        hex_code = "".join(c + c for c in hex_code)
     try:
-        r = int(hex_code[:2], 16)
-        g = int(hex_code[2:4], 16)
-        b = int(hex_code[4:6], 16)
-        r = min(255, max(0, int(r * factor)))
-        g = min(255, max(0, int(g * factor)))
-        b = min(255, max(0, int(b * factor)))
-        return f"#{r:02x}{g:02x}{b:02x}"
+        from tkblend._tkblend import Color
+        col = Color.from_hex(hex_code)
+        if factor >= 1.0:
+            res = col.lighten(float(factor))
+        else:
+            res = col.darken(float(factor))
+        if col.a < 255:
+            return f"#{res.r:02x}{res.g:02x}{res.b:02x}{res.a:02x}"
+        return f"#{res.r:02x}{res.g:02x}{res.b:02x}"
     except Exception:
-        return f"#{hex_code}"
+        return hex_code
 
 
 @dataclass

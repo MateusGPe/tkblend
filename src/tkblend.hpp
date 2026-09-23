@@ -33,6 +33,99 @@ struct Color {
     static Color from_u32(uint32_t argb);
     uint32_t to_u32() const;
     BLRgba32 to_bl_rgba32() const;
+
+    // Fast Color Math
+    Color lighten(double factor) const;
+    Color darken(double factor) const;
+    Color lerp(const Color& other, double t) const;
+    Color with_alpha(uint8_t new_a) const;
+    Color with_alpha_f(double new_a) const;
+};
+
+// Text Metrics & Typography Layout
+struct TextMetrics {
+    double width = 0.0;
+    double height = 0.0;
+    double ascent = 0.0;
+    double descent = 0.0;
+    double advance_x = 0.0;
+};
+
+struct TextLayoutOptions {
+    double max_width = -1.0;
+    double line_height_factor = 1.25;
+    int align = 0; // 0=left, 1=center, 2=right
+    bool wrap_words = true;
+    bool truncate_ellipsis = false;
+    int max_lines = 0;
+};
+
+// Easing curves
+enum class EasingType {
+    Linear = 0,
+    QuadIn, QuadOut, QuadInOut,
+    CubicIn, CubicOut, CubicInOut,
+    QuartIn, QuartOut, QuartInOut,
+    SineIn, SineOut, SineInOut,
+    ExpoIn, ExpoOut, ExpoInOut,
+    CircIn, CircOut, CircInOut,
+    ElasticIn, ElasticOut, ElasticInOut,
+    BackIn, BackOut, BackInOut,
+    BounceIn, BounceOut, BounceInOut
+};
+
+double ease(int easing_type, double t);
+double spring(double t, double mass = 1.0, double stiffness = 100.0, double damping = 10.0);
+
+// Command Batch / Display List
+enum class DrawOpType {
+    Clear,
+    FillRect, StrokeRect,
+    FillRoundedRect, StrokeRoundedRect,
+    FillCircle, StrokeCircle,
+    FillEllipse, StrokeEllipse,
+    DrawLine,
+    DrawText,
+    DrawShadowRoundedRect,
+    DrawCard,
+    Save, Restore, Translate, Scale, Rotate,
+    ClipRect, ClipRoundedRect, ResetClip
+};
+
+struct DrawOp {
+    DrawOpType type;
+    double d[8] = {0};
+    Color c1;
+    Color c2;
+    std::string str;
+    int i1 = 0, i2 = 0, i3 = 0;
+};
+
+class DrawBatch {
+public:
+    std::vector<DrawOp> ops;
+
+    void clear(const Color& c);
+    void fill_rect(double x, double y, double w, double h, const Color& c);
+    void stroke_rect(double x, double y, double w, double h, const Color& c, double stroke_width = 1.0);
+    void fill_rounded_rect(double x, double y, double w, double h, double rx, double ry, const Color& c);
+    void stroke_rounded_rect(double x, double y, double w, double h, double rx, double ry, const Color& c, double stroke_width = 1.0);
+    void fill_circle(double cx, double cy, double r, const Color& c);
+    void stroke_circle(double cx, double cy, double r, const Color& c, double stroke_width = 1.0);
+    void draw_line(double x1, double y1, double x2, double y2, const Color& c, double stroke_width = 1.0);
+    void draw_text(const std::string& text, double x, double y, float font_size, const std::string& font_family, const Color& c, int align = 0, int weight = 400, bool italic = false);
+    void draw_shadow_rounded_rect(double x, double y, double w, double h, double rx, double ry, double blur_radius, double spread, double offset_x, double offset_y, const Color& shadow_color);
+    void draw_card(double x, double y, double w, double h, double rx, double ry, const Color& bg, const Color& border, double border_w, double shadow_blur, double shadow_spread, double shadow_ox, double shadow_oy, const Color& shadow_col);
+    void save();
+    void restore();
+    void translate(double tx, double ty);
+    void scale(double sx, double sy);
+    void rotate(double rad);
+    void clip_rect(double x, double y, double w, double h);
+    void clip_rounded_rect(double x, double y, double w, double h, double rx, double ry);
+    void reset_clip();
+    void reset();
+    size_t size() const { return ops.size(); }
 };
 
 // Gradient representation
@@ -255,7 +348,26 @@ public:
     void fill_path_gradient(const Path& path, const Gradient& gradient);
     void stroke_path(const Path& path, const Color& color, double stroke_width = 1.0);
 
-    // Typography
+    // Typography & Metrics
+    TextMetrics measure_text(
+        const std::string& text,
+        float font_size = 14.0f,
+        const std::string& font_family = "default",
+        int weight = 400,
+        bool italic = false
+    );
+
+    std::vector<std::string> break_lines(
+        const std::string& text,
+        double max_width,
+        float font_size = 14.0f,
+        const std::string& font_family = "default",
+        int weight = 400,
+        bool italic = false,
+        bool truncate_ellipsis = false,
+        int max_lines = 0
+    );
+
     void draw_text(
         const std::string& text,
         double x, double y,
@@ -265,6 +377,21 @@ public:
         int align = 0, // 0=left, 1=center, 2=right
         int weight = 400,
         bool italic = false
+    );
+
+    void draw_text_wrapped(
+        const std::string& text,
+        double x, double y,
+        double max_width,
+        float font_size,
+        const std::string& font_family,
+        const Color& color,
+        int align = 0,
+        int weight = 400,
+        bool italic = false,
+        double line_height_factor = 1.25,
+        bool truncate_ellipsis = false,
+        int max_lines = 0
     );
 
     // Modern Soft Shadows & Cards
@@ -288,6 +415,79 @@ public:
         double shadow_offset_y,
         const Color& shadow_color
     );
+
+    // Specialized Compound Widgets
+    void draw_button(
+        double x, double y, double w, double h,
+        double rx, double ry,
+        const Color& bg_color,
+        const Color& border_color,
+        double border_width,
+        const Color& fg_color,
+        const std::string& text,
+        float font_size = 13.0f,
+        const std::string& font_family = "default",
+        int weight = 400,
+        bool italic = false,
+        double shadow_blur = 0.0,
+        double shadow_offset_y = 0.0,
+        const Color& shadow_color = Color(0, 0, 0, 0),
+        const Color& focus_ring_color = Color(0, 0, 0, 0),
+        double focus_ring_width = 0.0,
+        bool is_pressed = false
+    );
+
+    void draw_switch(
+        double x, double y, double w, double h,
+        const Color& track_color,
+        const Color& thumb_color,
+        const Color& thumb_border_color,
+        double progress_t, // 0.0 = off, 1.0 = on
+        bool is_hovered = false,
+        const Color& focus_ring_color = Color(0, 0, 0, 0),
+        double focus_ring_width = 0.0
+    );
+
+    void draw_slider(
+        double x, double y, double w, double h,
+        const Color& track_bg,
+        const Color& active_bg,
+        const Color& thumb_color,
+        const Color& thumb_border_color,
+        double value_t, // 0.0 - 1.0
+        double track_thickness = 4.0,
+        double thumb_radius = 8.0,
+        bool is_hovered = false,
+        bool is_dragging = false,
+        const Color& focus_ring_color = Color(0, 0, 0, 0),
+        double focus_ring_width = 0.0
+    );
+
+    void draw_progress_bar(
+        double x, double y, double w, double h,
+        double rx, double ry,
+        const Color& track_bg,
+        const Color& bar_bg,
+        double progress_t, // 0.0 - 1.0
+        bool is_indeterminate = false,
+        double phase_offset = 0.0
+    );
+
+    void draw_checkbox(
+        double x, double y, double size,
+        double rx, double ry,
+        const Color& box_bg,
+        const Color& border_color,
+        double border_width,
+        const Color& check_color,
+        bool is_checked,
+        bool is_hovered = false,
+        const Color& focus_ring_color = Color(0, 0, 0, 0),
+        double focus_ring_width = 0.0
+    );
+
+    // Display List Execution
+    void execute_batch(const DrawBatch& batch);
 
     // Tcl/Tk Blitting Bridge
     void blit_to_photo(

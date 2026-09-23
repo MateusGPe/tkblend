@@ -89,17 +89,19 @@ class ProgressBar(Widget):
         pal = get_theme()
         track_col = _resolve_color(self._explicit_track_color, pal.track_bg, pal)
         fill_start = _resolve_color(self._explicit_fill_start, pal.primary, pal)
-        fill_end = _resolve_color(self._explicit_fill_end, pal.accent, pal)
 
-        self._surface.fill_rounded_rect(pad, pad, w, h, r, r, track_col)
-
-        if self._value > 0.5:
-            fill_w = max(r * 2.0, (self._value / 100.0) * w)
-            grad = LinearGradient(pad, pad, pad + fill_w, pad)
-            grad.add_stop(0.0, fill_start)
-            grad.add_stop(1.0, fill_end)
-            self._surface.fill_rounded_rect(pad, pad, fill_w, h, r, r, grad)
-
+        prog = max(0.0, min(1.0, self._value / 100.0))
+        self._surface.draw_progress_bar(
+            x=pad,
+            y=pad,
+            w=w,
+            h=h,
+            rx=r,
+            ry=r,
+            track_bg=track_col,
+            bar_bg=fill_start,
+            progress_t=prog,
+        )
         self._surface.blit(self._photo)
 
 

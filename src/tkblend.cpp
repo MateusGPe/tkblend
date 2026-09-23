@@ -85,6 +85,174 @@ BLRgba32 Color::to_bl_rgba32() const {
     return BLRgba32(r, g, b, a);
 }
 
+Color Color::lighten(double factor) const {
+    if (factor <= 0.0) return Color(0, 0, 0, a);
+    double rf = std::min(255.0, static_cast<double>(r) * factor);
+    double gf = std::min(255.0, static_cast<double>(g) * factor);
+    double bf = std::min(255.0, static_cast<double>(b) * factor);
+    return Color(static_cast<uint8_t>(rf + 0.5),
+                 static_cast<uint8_t>(gf + 0.5),
+                 static_cast<uint8_t>(bf + 0.5),
+                 a);
+}
+
+Color Color::darken(double factor) const {
+    double f = factor;
+    if (f > 1.0) f = 1.0 / f;
+    f = std::max(0.0, std::min(1.0, f));
+    return Color(static_cast<uint8_t>(static_cast<double>(r) * f + 0.5),
+                 static_cast<uint8_t>(static_cast<double>(g) * f + 0.5),
+                 static_cast<uint8_t>(static_cast<double>(b) * f + 0.5),
+                 a);
+}
+
+Color Color::lerp(const Color& other, double t) const {
+    double clamped_t = std::max(0.0, std::min(1.0, t));
+    uint8_t nr = static_cast<uint8_t>(static_cast<double>(r) + (static_cast<double>(other.r) - static_cast<double>(r)) * clamped_t + 0.5);
+    uint8_t ng = static_cast<uint8_t>(static_cast<double>(g) + (static_cast<double>(other.g) - static_cast<double>(g)) * clamped_t + 0.5);
+    uint8_t nb = static_cast<uint8_t>(static_cast<double>(b) + (static_cast<double>(other.b) - static_cast<double>(b)) * clamped_t + 0.5);
+    uint8_t na = static_cast<uint8_t>(static_cast<double>(a) + (static_cast<double>(other.a) - static_cast<double>(a)) * clamped_t + 0.5);
+    return Color(nr, ng, nb, na);
+}
+
+Color Color::with_alpha(uint8_t new_a) const {
+    return Color(r, g, b, new_a);
+}
+
+Color Color::with_alpha_f(double new_a) const {
+    uint8_t na = static_cast<uint8_t>(std::max(0.0, std::min(255.0, new_a * 255.0 + 0.5)));
+    return Color(r, g, b, na);
+}
+
+// -----------------------------------------------------------------------------
+// Easing & Spring Math
+// -----------------------------------------------------------------------------
+
+double ease(int easing_type, double t) {
+    double x = std::max(0.0, std::min(1.0, t));
+    EasingType et = static_cast<EasingType>(easing_type);
+    constexpr double PI = 3.14159265358979323846;
+    constexpr double c1 = 1.70158;
+    constexpr double c2 = c1 * 1.525;
+    constexpr double c3 = c1 + 1.0;
+    constexpr double c4 = (2.0 * PI) / 3.0;
+    constexpr double c5 = (2.0 * PI) / 4.5;
+
+    auto bounce_out = [](double n) -> double {
+        constexpr double n1 = 7.5625;
+        constexpr double d1 = 2.75;
+        if (n < 1.0 / d1) {
+            return n1 * n * n;
+        } else if (n < 2.0 / d1) {
+            n -= 1.5 / d1;
+            return n1 * n * n + 0.75;
+        } else if (n < 2.5 / d1) {
+            n -= 2.25 / d1;
+            return n1 * n * n + 0.9375;
+        } else {
+            n -= 2.625 / d1;
+            return n1 * n * n + 0.984375;
+        }
+    };
+
+    switch (et) {
+        case EasingType::Linear: return x;
+        case EasingType::QuadIn: return x * x;
+        case EasingType::QuadOut: return 1.0 - (1.0 - x) * (1.0 - x);
+        case EasingType::QuadInOut: return x < 0.5 ? 2.0 * x * x : 1.0 - std::pow(-2.0 * x + 2.0, 2.0) / 2.0;
+        case EasingType::CubicIn: return x * x * x;
+        case EasingType::CubicOut: return 1.0 - std::pow(1.0 - x, 3.0);
+        case EasingType::CubicInOut: return x < 0.5 ? 4.0 * x * x * x : 1.0 - std::pow(-2.0 * x + 2.0, 3.0) / 2.0;
+        case EasingType::QuartIn: return x * x * x * x;
+        case EasingType::QuartOut: return 1.0 - std::pow(1.0 - x, 4.0);
+        case EasingType::QuartInOut: return x < 0.5 ? 8.0 * x * x * x * x : 1.0 - std::pow(-2.0 * x + 2.0, 4.0) / 2.0;
+        case EasingType::SineIn: return 1.0 - std::cos((x * PI) / 2.0);
+        case EasingType::SineOut: return std::sin((x * PI) / 2.0);
+        case EasingType::SineInOut: return -(std::cos(PI * x) - 1.0) / 2.0;
+        case EasingType::ExpoIn: return x == 0.0 ? 0.0 : std::pow(2.0, 10.0 * x - 10.0);
+        case EasingType::ExpoOut: return x == 1.0 ? 1.0 : 1.0 - std::pow(2.0, -10.0 * x);
+        case EasingType::ExpoInOut: return x == 0.0 ? 0.0 : (x == 1.0 ? 1.0 : (x < 0.5 ? std::pow(2.0, 20.0 * x - 10.0) / 2.0 : (2.0 - std::pow(2.0, -20.0 * x + 10.0)) / 2.0));
+        case EasingType::CircIn: return 1.0 - std::sqrt(1.0 - std::pow(x, 2.0));
+        case EasingType::CircOut: return std::sqrt(1.0 - std::pow(x - 1.0, 2.0));
+        case EasingType::CircInOut: return x < 0.5 ? (1.0 - std::sqrt(1.0 - std::pow(2.0 * x, 2.0))) / 2.0 : (std::sqrt(1.0 - std::pow(-2.0 * x + 2.0, 2.0)) + 1.0) / 2.0;
+        case EasingType::ElasticIn: return x == 0.0 ? 0.0 : (x == 1.0 ? 1.0 : -std::pow(2.0, 10.0 * x - 10.0) * std::sin((x * 10.0 - 10.75) * c4));
+        case EasingType::ElasticOut: return x == 0.0 ? 0.0 : (x == 1.0 ? 1.0 : std::pow(2.0, -10.0 * x) * std::sin((x * 10.0 - 0.75) * c4) + 1.0);
+        case EasingType::ElasticInOut: return x == 0.0 ? 0.0 : (x == 1.0 ? 1.0 : (x < 0.5 ? -(std::pow(2.0, 20.0 * x - 10.0) * std::sin((20.0 * x - 11.125) * c5)) / 2.0 : (std::pow(2.0, -20.0 * x + 10.0) * std::sin((20.0 * x - 11.125) * c5)) / 2.0 + 1.0));
+        case EasingType::BackIn: return c3 * x * x * x - c1 * x * x;
+        case EasingType::BackOut: return 1.0 + c3 * std::pow(x - 1.0, 3.0) + c1 * std::pow(x - 1.0, 2.0);
+        case EasingType::BackInOut: return x < 0.5 ? (std::pow(2.0 * x, 2.0) * ((c2 + 1.0) * 2.0 * x - c2)) / 2.0 : (std::pow(2.0 * x - 2.0, 2.0) * ((c2 + 1.0) * (x * 2.0 - 2.0) + c2) + 2.0) / 2.0;
+        case EasingType::BounceIn: return 1.0 - bounce_out(1.0 - x);
+        case EasingType::BounceOut: return bounce_out(x);
+        case EasingType::BounceInOut: return x < 0.5 ? (1.0 - bounce_out(1.0 - 2.0 * x)) / 2.0 : (1.0 + bounce_out(2.0 * x - 1.0)) / 2.0;
+    }
+    return x;
+}
+
+double spring(double t, double mass, double stiffness, double damping) {
+    if (t <= 0.0) return 0.0;
+    if (t >= 1.0) return 1.0;
+    double m = std::max(0.001, mass);
+    double k = std::max(0.001, stiffness);
+    double c = std::max(0.0, damping);
+    double w0 = std::sqrt(k / m);
+    double zeta = c / (2.0 * std::sqrt(k * m));
+
+    if (zeta < 1.0) {
+        double wd = w0 * std::sqrt(1.0 - zeta * zeta);
+        return 1.0 - std::exp(-zeta * w0 * t) * (std::cos(wd * t) + (zeta / std::sqrt(1.0 - zeta * zeta)) * std::sin(wd * t));
+    } else {
+        return 1.0 - (1.0 + w0 * t) * std::exp(-w0 * t);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// DrawBatch Implementation
+// -----------------------------------------------------------------------------
+
+void DrawBatch::clear(const Color& c) {
+    DrawOp op; op.type = DrawOpType::Clear; op.c1 = c; ops.push_back(std::move(op));
+}
+void DrawBatch::fill_rect(double x, double y, double w, double h, const Color& c) {
+    DrawOp op; op.type = DrawOpType::FillRect; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.c1=c; ops.push_back(std::move(op));
+}
+void DrawBatch::stroke_rect(double x, double y, double w, double h, const Color& c, double stroke_width) {
+    DrawOp op; op.type = DrawOpType::StrokeRect; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=stroke_width; op.c1=c; ops.push_back(std::move(op));
+}
+void DrawBatch::fill_rounded_rect(double x, double y, double w, double h, double rx, double ry, const Color& c) {
+    DrawOp op; op.type = DrawOpType::FillRoundedRect; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=rx; op.d[5]=ry; op.c1=c; ops.push_back(std::move(op));
+}
+void DrawBatch::stroke_rounded_rect(double x, double y, double w, double h, double rx, double ry, const Color& c, double stroke_width) {
+    DrawOp op; op.type = DrawOpType::StrokeRoundedRect; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=rx; op.d[5]=ry; op.d[6]=stroke_width; op.c1=c; ops.push_back(std::move(op));
+}
+void DrawBatch::fill_circle(double cx, double cy, double r, const Color& c) {
+    DrawOp op; op.type = DrawOpType::FillCircle; op.d[0]=cx; op.d[1]=cy; op.d[2]=r; op.c1=c; ops.push_back(std::move(op));
+}
+void DrawBatch::stroke_circle(double cx, double cy, double r, const Color& c, double stroke_width) {
+    DrawOp op; op.type = DrawOpType::StrokeCircle; op.d[0]=cx; op.d[1]=cy; op.d[2]=r; op.d[3]=stroke_width; op.c1=c; ops.push_back(std::move(op));
+}
+void DrawBatch::draw_line(double x1, double y1, double x2, double y2, const Color& c, double stroke_width) {
+    DrawOp op; op.type = DrawOpType::DrawLine; op.d[0]=x1; op.d[1]=y1; op.d[2]=x2; op.d[3]=y2; op.d[4]=stroke_width; op.c1=c; ops.push_back(std::move(op));
+}
+void DrawBatch::draw_text(const std::string& text, double x, double y, float font_size, const std::string& font_family, const Color& c, int align, int weight, bool italic) {
+    DrawOp op; op.type = DrawOpType::DrawText; op.str = text; op.d[0]=x; op.d[1]=y; op.d[2]=font_size; op.c1=c; op.i1=align; op.i2=weight; op.i3=italic ? 1 : 0;
+    ops.push_back(std::move(op));
+}
+void DrawBatch::draw_shadow_rounded_rect(double x, double y, double w, double h, double rx, double ry, double blur_radius, double spread, double offset_x, double offset_y, const Color& shadow_color) {
+    DrawOp op; op.type = DrawOpType::DrawShadowRoundedRect; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=rx; op.d[5]=ry; op.d[6]=blur_radius; op.d[7]=spread; op.c1=shadow_color; ops.push_back(std::move(op));
+}
+void DrawBatch::draw_card(double x, double y, double w, double h, double rx, double ry, const Color& bg, const Color& border, double border_w, double shadow_blur, double shadow_spread, double shadow_ox, double shadow_oy, const Color& shadow_col) {
+    DrawOp op; op.type = DrawOpType::DrawCard; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=rx; op.d[5]=ry; op.d[6]=border_w; op.d[7]=shadow_blur; op.c1=bg; op.c2=border; ops.push_back(std::move(op));
+}
+void DrawBatch::save() { DrawOp op; op.type = DrawOpType::Save; ops.push_back(std::move(op)); }
+void DrawBatch::restore() { DrawOp op; op.type = DrawOpType::Restore; ops.push_back(std::move(op)); }
+void DrawBatch::translate(double tx, double ty) { DrawOp op; op.type = DrawOpType::Translate; op.d[0]=tx; op.d[1]=ty; ops.push_back(std::move(op)); }
+void DrawBatch::scale(double sx, double sy) { DrawOp op; op.type = DrawOpType::Scale; op.d[0]=sx; op.d[1]=sy; ops.push_back(std::move(op)); }
+void DrawBatch::rotate(double rad) { DrawOp op; op.type = DrawOpType::Rotate; op.d[0]=rad; ops.push_back(std::move(op)); }
+void DrawBatch::clip_rect(double x, double y, double w, double h) { DrawOp op; op.type = DrawOpType::ClipRect; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; ops.push_back(std::move(op)); }
+void DrawBatch::clip_rounded_rect(double x, double y, double w, double h, double rx, double ry) { DrawOp op; op.type = DrawOpType::ClipRoundedRect; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=rx; op.d[5]=ry; ops.push_back(std::move(op)); }
+void DrawBatch::reset_clip() { DrawOp op; op.type = DrawOpType::ResetClip; ops.push_back(std::move(op)); }
+void DrawBatch::reset() { ops.clear(); }
+
 // -----------------------------------------------------------------------------
 // Gradient Implementation
 // -----------------------------------------------------------------------------
@@ -1293,6 +1461,503 @@ void Surface::draw_card(
     }
 }
 
+// -----------------------------------------------------------------------------
+// Typography Measurement & Multi-line Wrapping
+// -----------------------------------------------------------------------------
+
+TextMetrics Surface::measure_text(
+    const std::string& text,
+    float font_size,
+    const std::string& font_family,
+    int weight,
+    bool italic
+) {
+    TextMetrics tm_out;
+    if (text.empty()) return tm_out;
+
+    BLFont font = FontManager::instance().create_font(font_family, font_size, weight, italic);
+    if (font.is_empty()) return tm_out;
+
+    BLTextMetrics tm;
+    BLGlyphBuffer gb;
+    gb.set_utf8_text(text.data(), text.size());
+    font.get_text_metrics(gb, tm);
+
+    tm_out.advance_x = tm.advance.x;
+    tm_out.width = (tm.advance.x > 0.0) ? tm.advance.x : (tm.bounding_box.x1 - tm.bounding_box.x0);
+    tm_out.ascent = font.metrics().ascent;
+    tm_out.descent = font.metrics().descent;
+    tm_out.height = tm_out.ascent + tm_out.descent;
+    return tm_out;
+}
+
+std::vector<std::string> Surface::break_lines(
+    const std::string& text,
+    double max_width,
+    float font_size,
+    const std::string& font_family,
+    int weight,
+    bool italic,
+    bool truncate_ellipsis,
+    int max_lines
+) {
+    std::vector<std::string> result;
+    if (text.empty()) return result;
+
+    if (max_width <= 0.0) {
+        std::stringstream ss(text);
+        std::string line;
+        while (std::getline(ss, line)) {
+            result.push_back(line);
+            if (max_lines > 0 && static_cast<int>(result.size()) >= max_lines) break;
+        }
+        return result;
+    }
+
+    BLFont font = FontManager::instance().create_font(font_family, font_size, weight, italic);
+    if (font.is_empty()) {
+        result.push_back(text);
+        return result;
+    }
+
+    auto get_width = [&](const std::string& s) -> double {
+        if (s.empty()) return 0.0;
+        BLTextMetrics tm;
+        BLGlyphBuffer gb;
+        gb.set_utf8_text(s.data(), s.size());
+        font.get_text_metrics(gb, tm);
+        return (tm.advance.x > 0.0) ? tm.advance.x : (tm.bounding_box.x1 - tm.bounding_box.x0);
+    };
+
+    std::stringstream text_stream(text);
+    std::string paragraph;
+
+    while (std::getline(text_stream, paragraph)) {
+        if (paragraph.empty()) {
+            result.push_back("");
+            if (max_lines > 0 && static_cast<int>(result.size()) >= max_lines) break;
+            continue;
+        }
+
+        std::stringstream word_stream(paragraph);
+        std::string word;
+        std::string current_line;
+
+        while (word_stream >> word) {
+            std::string test_line = current_line.empty() ? word : (current_line + " " + word);
+            if (get_width(test_line) <= max_width) {
+                current_line = std::move(test_line);
+            } else {
+                if (!current_line.empty()) {
+                    if (max_lines > 0 && static_cast<int>(result.size()) + 1 >= max_lines && truncate_ellipsis) {
+                        while (!current_line.empty() && get_width(current_line + "...") > max_width) {
+                            current_line.pop_back();
+                        }
+                        result.push_back(current_line + "...");
+                        return result;
+                    }
+                    result.push_back(current_line);
+                    if (max_lines > 0 && static_cast<int>(result.size()) >= max_lines) {
+                        return result;
+                    }
+                    current_line = word;
+                } else {
+                    result.push_back(word);
+                    if (max_lines > 0 && static_cast<int>(result.size()) >= max_lines) {
+                        return result;
+                    }
+                    current_line.clear();
+                }
+            }
+        }
+        if (!current_line.empty()) {
+            if (max_lines > 0 && static_cast<int>(result.size()) + 1 >= max_lines && truncate_ellipsis && text_stream.good()) {
+                while (!current_line.empty() && get_width(current_line + "...") > max_width) {
+                    current_line.pop_back();
+                }
+                result.push_back(current_line + "...");
+                return result;
+            }
+            result.push_back(current_line);
+            if (max_lines > 0 && static_cast<int>(result.size()) >= max_lines) break;
+        }
+    }
+
+    return result;
+}
+
+void Surface::draw_text_wrapped(
+    const std::string& text,
+    double x, double y,
+    double max_width,
+    float font_size,
+    const std::string& font_family,
+    const Color& color,
+    int align,
+    int weight,
+    bool italic,
+    double line_height_factor,
+    bool truncate_ellipsis,
+    int max_lines
+) {
+    if (text.empty()) return;
+    std::vector<std::string> lines = break_lines(text, max_width, font_size, font_family, weight, italic, truncate_ellipsis, max_lines);
+    double line_step = static_cast<double>(font_size) * line_height_factor;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        draw_text(lines[i], x, y + static_cast<double>(i) * line_step, font_size, font_family, color, align, weight, italic);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Compound Widget Renderers
+// -----------------------------------------------------------------------------
+
+void Surface::draw_button(
+    double x, double y, double w, double h,
+    double rx, double ry,
+    const Color& bg_color,
+    const Color& border_color,
+    double border_width,
+    const Color& fg_color,
+    const std::string& text,
+    float font_size,
+    const std::string& font_family,
+    int weight,
+    bool italic,
+    double shadow_blur,
+    double shadow_offset_y,
+    const Color& shadow_color,
+    const Color& focus_ring_color,
+    double focus_ring_width,
+    bool is_pressed
+) {
+    double press_offset = is_pressed ? 1.0 : 0.0;
+
+    // 1. Drop shadow
+    if (shadow_color.a > 0 && shadow_blur > 0.0 && !is_pressed) {
+        draw_shadow_rounded_rect(x, y + shadow_offset_y, w, h, rx, ry, shadow_blur, 0.0, 0.0, 0.0, shadow_color);
+    }
+
+    // 2. Button container & border
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (bg_color.a > 0) {
+            ctx_.set_fill_style(bg_color.to_bl_rgba32());
+            ctx_.fill_round_rect(BLRoundRect(x, y + press_offset, w, h, rx, ry));
+        }
+
+        if (border_color.a > 0 && border_width > 0.0) {
+            ctx_.set_stroke_style(border_color.to_bl_rgba32());
+            ctx_.set_stroke_width(border_width);
+            ctx_.stroke_round_rect(BLRoundRect(
+                x + border_width * 0.5,
+                y + press_offset + border_width * 0.5,
+                w - border_width,
+                h - border_width,
+                std::max(0.0, rx - border_width * 0.5),
+                std::max(0.0, ry - border_width * 0.5)
+            ));
+        }
+
+        // 3. Focus ring
+        if (focus_ring_color.a > 0 && focus_ring_width > 0.0) {
+            ctx_.set_stroke_style(focus_ring_color.to_bl_rgba32());
+            ctx_.set_stroke_width(focus_ring_width);
+            double fr_pad = 1.5;
+            ctx_.stroke_round_rect(BLRoundRect(
+                x - fr_pad,
+                y + press_offset - fr_pad,
+                w + fr_pad * 2.0,
+                h + fr_pad * 2.0,
+                rx + fr_pad,
+                ry + fr_pad
+            ));
+        }
+    }
+
+    // 4. Centered Button Typography
+    if (!text.empty()) {
+        double text_x = x + w / 2.0;
+        double text_y = y + h / 2.0 + static_cast<double>(font_size) * 0.35 + press_offset;
+        draw_text(text, text_x, text_y, font_size, font_family, fg_color, 1 /* center */, weight, italic);
+    }
+}
+
+void Surface::draw_switch(
+    double x, double y, double w, double h,
+    const Color& track_color,
+    const Color& thumb_color,
+    const Color& thumb_border_color,
+    double progress_t,
+    bool is_hovered,
+    const Color& focus_ring_color,
+    double focus_ring_width
+) {
+    double r = h / 2.0;
+    double clamped_t = std::max(0.0, std::min(1.0, progress_t));
+
+    // Track
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (track_color.a > 0) {
+            ctx_.set_fill_style(track_color.to_bl_rgba32());
+            ctx_.fill_round_rect(BLRoundRect(x, y, w, h, r, r));
+        }
+
+        if (focus_ring_color.a > 0 && focus_ring_width > 0.0) {
+            ctx_.set_stroke_style(focus_ring_color.to_bl_rgba32());
+            ctx_.set_stroke_width(focus_ring_width);
+            double fr_pad = 1.5;
+            ctx_.stroke_round_rect(BLRoundRect(x - fr_pad, y - fr_pad, w + fr_pad * 2.0, h + fr_pad * 2.0, r + fr_pad, r + fr_pad));
+        }
+    }
+
+    // Sliding Thumb
+    double thumb_d = std::max(4.0, h - 6.0);
+    double tr = thumb_d / 2.0;
+    double min_cx = x + 3.0 + tr;
+    double max_cx = x + w - 3.0 - tr;
+    double thumb_cx = min_cx + (max_cx - min_cx) * clamped_t;
+    double thumb_cy = y + h / 2.0;
+
+    // Thumb shadow
+    draw_shadow_rounded_rect(thumb_cx - tr, thumb_cy - tr + 1.0, thumb_d, thumb_d, tr, tr, 2.5, 0.0, 0.0, 1.0, Color(0, 0, 0, 45));
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        ctx_.set_fill_style(thumb_color.to_bl_rgba32());
+        ctx_.fill_circle(BLCircle(thumb_cx, thumb_cy, tr));
+
+        if (thumb_border_color.a > 0) {
+            ctx_.set_stroke_style(thumb_border_color.to_bl_rgba32());
+            ctx_.set_stroke_width(1.0);
+            ctx_.stroke_circle(BLCircle(thumb_cx, thumb_cy, tr));
+        }
+    }
+}
+
+void Surface::draw_slider(
+    double x, double y, double w, double h,
+    const Color& track_bg,
+    const Color& active_bg,
+    const Color& thumb_color,
+    const Color& thumb_border_color,
+    double value_t,
+    double track_thickness,
+    double thumb_radius,
+    bool is_hovered,
+    bool is_dragging,
+    const Color& focus_ring_color,
+    double focus_ring_width
+) {
+    double clamped_val = std::max(0.0, std::min(1.0, value_t));
+    double th = std::max(2.0, track_thickness);
+    double track_y = y + (h - th) / 2.0;
+    double track_rx = th / 2.0;
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        // Inactive track
+        if (track_bg.a > 0) {
+            ctx_.set_fill_style(track_bg.to_bl_rgba32());
+            ctx_.fill_round_rect(BLRoundRect(x, track_y, w, th, track_rx, track_rx));
+        }
+
+        // Active segment
+        double active_w = w * clamped_val;
+        if (active_bg.a > 0 && active_w > 0.0) {
+            ctx_.set_fill_style(active_bg.to_bl_rgba32());
+            ctx_.fill_round_rect(BLRoundRect(x, track_y, active_w, th, track_rx, track_rx));
+        }
+    }
+
+    // Thumb
+    double thumb_cx = x + w * clamped_val;
+    double thumb_cy = y + h / 2.0;
+    double tr = std::max(3.0, thumb_radius);
+
+    // Thumb shadow
+    draw_shadow_rounded_rect(thumb_cx - tr, thumb_cy - tr + 1.0, tr * 2.0, tr * 2.0, tr, tr, 3.0, 0.0, 0.0, 1.0, Color(0, 0, 0, 40));
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        ctx_.set_fill_style(thumb_color.to_bl_rgba32());
+        ctx_.fill_circle(BLCircle(thumb_cx, thumb_cy, tr));
+
+        if (thumb_border_color.a > 0) {
+            ctx_.set_stroke_style(thumb_border_color.to_bl_rgba32());
+            ctx_.set_stroke_width(1.5);
+            ctx_.stroke_circle(BLCircle(thumb_cx, thumb_cy, tr));
+        }
+
+        if (focus_ring_color.a > 0 && focus_ring_width > 0.0) {
+            ctx_.set_stroke_style(focus_ring_color.to_bl_rgba32());
+            ctx_.set_stroke_width(focus_ring_width);
+            ctx_.stroke_circle(BLCircle(thumb_cx, thumb_cy, tr + 2.0));
+        }
+    }
+}
+
+void Surface::draw_progress_bar(
+    double x, double y, double w, double h,
+    double rx, double ry,
+    const Color& track_bg,
+    const Color& bar_bg,
+    double progress_t,
+    bool is_indeterminate,
+    double phase_offset
+) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    // Track
+    if (track_bg.a > 0) {
+        ctx_.set_fill_style(track_bg.to_bl_rgba32());
+        ctx_.fill_round_rect(BLRoundRect(x, y, w, h, rx, ry));
+    }
+
+    if (bar_bg.a == 0) return;
+
+    if (is_indeterminate) {
+        ctx_.save();
+        ctx_.clip_to_rect(BLRect(x, y, w, h));
+        double pill_w = w * 0.35;
+        double shift = std::fmod(std::abs(phase_offset), 1.0);
+        double pill_x = x + shift * (w + pill_w) - pill_w;
+        ctx_.set_fill_style(bar_bg.to_bl_rgba32());
+        ctx_.fill_round_rect(BLRoundRect(pill_x, y, pill_w, h, rx, ry));
+        ctx_.restore();
+    } else {
+        double prog_w = w * std::max(0.0, std::min(1.0, progress_t));
+        if (prog_w > 0.0) {
+            ctx_.set_fill_style(bar_bg.to_bl_rgba32());
+            ctx_.fill_round_rect(BLRoundRect(x, y, prog_w, h, rx, ry));
+        }
+    }
+}
+
+void Surface::draw_checkbox(
+    double x, double y, double size,
+    double rx, double ry,
+    const Color& box_bg,
+    const Color& border_color,
+    double border_width,
+    const Color& check_color,
+    bool is_checked,
+    bool is_hovered,
+    const Color& focus_ring_color,
+    double focus_ring_width
+) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        // Box fill
+        if (box_bg.a > 0) {
+            ctx_.set_fill_style(box_bg.to_bl_rgba32());
+            ctx_.fill_round_rect(BLRoundRect(x, y, size, size, rx, ry));
+        }
+
+        // Box border
+        if (border_color.a > 0 && border_width > 0.0) {
+            ctx_.set_stroke_style(border_color.to_bl_rgba32());
+            ctx_.set_stroke_width(border_width);
+            ctx_.stroke_round_rect(BLRoundRect(
+                x + border_width * 0.5,
+                y + border_width * 0.5,
+                size - border_width,
+                size - border_width,
+                std::max(0.0, rx - border_width * 0.5),
+                std::max(0.0, ry - border_width * 0.5)
+            ));
+        }
+
+        // Focus ring
+        if (focus_ring_color.a > 0 && focus_ring_width > 0.0) {
+            ctx_.set_stroke_style(focus_ring_color.to_bl_rgba32());
+            ctx_.set_stroke_width(focus_ring_width);
+            double fr_pad = 1.5;
+            ctx_.stroke_round_rect(BLRoundRect(x - fr_pad, y - fr_pad, size + fr_pad * 2.0, size + fr_pad * 2.0, rx + fr_pad, ry + fr_pad));
+        }
+
+        // Checkmark vector path
+        if (is_checked && check_color.a > 0) {
+            BLPath checkPath;
+            checkPath.move_to(x + size * 0.22, y + size * 0.52);
+            checkPath.line_to(x + size * 0.42, y + size * 0.72);
+            checkPath.line_to(x + size * 0.78, y + size * 0.28);
+
+            ctx_.set_stroke_style(check_color.to_bl_rgba32());
+            ctx_.set_stroke_width(std::max(1.5, size * 0.13));
+            ctx_.set_stroke_caps(BL_STROKE_CAP_ROUND);
+            ctx_.set_stroke_join(BL_STROKE_JOIN_ROUND);
+            ctx_.stroke_path(checkPath);
+        }
+    }
+}
+
+void Surface::execute_batch(const DrawBatch& batch) {
+    for (const auto& op : batch.ops) {
+        switch (op.type) {
+            case DrawOpType::Clear:
+                clear(op.c1);
+                break;
+            case DrawOpType::FillRect:
+                fill_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.c1);
+                break;
+            case DrawOpType::StrokeRect:
+                stroke_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.c1, op.d[4]);
+                break;
+            case DrawOpType::FillRoundedRect:
+                fill_rounded_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5], op.c1);
+                break;
+            case DrawOpType::StrokeRoundedRect:
+                stroke_rounded_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5], op.c1, op.d[6]);
+                break;
+            case DrawOpType::FillCircle:
+                fill_circle(op.d[0], op.d[1], op.d[2], op.c1);
+                break;
+            case DrawOpType::StrokeCircle:
+                stroke_circle(op.d[0], op.d[1], op.d[2], op.c1, op.d[3]);
+                break;
+            case DrawOpType::DrawLine:
+                draw_line(op.d[0], op.d[1], op.d[2], op.d[3], op.c1, op.d[4]);
+                break;
+            case DrawOpType::DrawText:
+                draw_text(op.str, op.d[0], op.d[1], static_cast<float>(op.d[2]), "default", op.c1, op.i1, op.i2, op.i3 != 0);
+                break;
+            case DrawOpType::DrawShadowRoundedRect:
+                draw_shadow_rounded_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5], op.d[6], op.d[7], 0, 0, op.c1);
+                break;
+            case DrawOpType::DrawCard:
+                draw_card(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5], op.c1, op.c2, op.d[6], op.d[7], 0, 0, 0, Color(0,0,0,0));
+                break;
+            case DrawOpType::Save:
+                save();
+                break;
+            case DrawOpType::Restore:
+                restore();
+                break;
+            case DrawOpType::Translate:
+                translate(op.d[0], op.d[1]);
+                break;
+            case DrawOpType::Scale:
+                scale(op.d[0], op.d[1]);
+                break;
+            case DrawOpType::Rotate:
+                rotate(op.d[0]);
+                break;
+            case DrawOpType::ClipRect:
+                clip_rect(op.d[0], op.d[1], op.d[2], op.d[3]);
+                break;
+            case DrawOpType::ClipRoundedRect:
+                clip_rounded_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5]);
+                break;
+            case DrawOpType::ResetClip:
+                reset_clip();
+                break;
+            default:
+                break;
+        }
+    }
+}
+
 void Surface::flush() {
     std::lock_guard<std::mutex> lock(mutex_);
     ctx_.flush(BL_CONTEXT_FLUSH_SYNC);
@@ -1404,12 +2069,98 @@ NB_MODULE(_tkblend, m) {
         .def_static("from_hex", &tkblend::Color::from_hex, nb::arg("hex"))
         .def_static("from_u32", &tkblend::Color::from_u32, nb::arg("argb"))
         .def("to_u32", &tkblend::Color::to_u32)
+        .def("lighten", &tkblend::Color::lighten, nb::arg("factor"))
+        .def("darken", &tkblend::Color::darken, nb::arg("factor"))
+        .def("lerp", &tkblend::Color::lerp, nb::arg("other"), nb::arg("t"))
+        .def("with_alpha", &tkblend::Color::with_alpha, nb::arg("new_a"))
+        .def("with_alpha_f", &tkblend::Color::with_alpha_f, nb::arg("new_a"))
         .def("__repr__", [](const tkblend::Color& c) {
             std::ostringstream ss;
             ss << "Color(r=" << (int)c.r << ", g=" << (int)c.g
                << ", b=" << (int)c.b << ", a=" << (int)c.a << ")";
             return ss.str();
         });
+
+    // Easing & Spring bindings
+    nb::enum_<tkblend::EasingType>(m, "EasingType", nb::is_arithmetic())
+        .value("Linear", tkblend::EasingType::Linear)
+        .value("QuadIn", tkblend::EasingType::QuadIn)
+        .value("QuadOut", tkblend::EasingType::QuadOut)
+        .value("QuadInOut", tkblend::EasingType::QuadInOut)
+        .value("CubicIn", tkblend::EasingType::CubicIn)
+        .value("CubicOut", tkblend::EasingType::CubicOut)
+        .value("CubicInOut", tkblend::EasingType::CubicInOut)
+        .value("QuartIn", tkblend::EasingType::QuartIn)
+        .value("QuartOut", tkblend::EasingType::QuartOut)
+        .value("QuartInOut", tkblend::EasingType::QuartInOut)
+        .value("SineIn", tkblend::EasingType::SineIn)
+        .value("SineOut", tkblend::EasingType::SineOut)
+        .value("SineInOut", tkblend::EasingType::SineInOut)
+        .value("ExpoIn", tkblend::EasingType::ExpoIn)
+        .value("ExpoOut", tkblend::EasingType::ExpoOut)
+        .value("ExpoInOut", tkblend::EasingType::ExpoInOut)
+        .value("CircIn", tkblend::EasingType::CircIn)
+        .value("CircOut", tkblend::EasingType::CircOut)
+        .value("CircInOut", tkblend::EasingType::CircInOut)
+        .value("ElasticIn", tkblend::EasingType::ElasticIn)
+        .value("ElasticOut", tkblend::EasingType::ElasticOut)
+        .value("ElasticInOut", tkblend::EasingType::ElasticInOut)
+        .value("BackIn", tkblend::EasingType::BackIn)
+        .value("BackOut", tkblend::EasingType::BackOut)
+        .value("BackInOut", tkblend::EasingType::BackInOut)
+        .value("BounceIn", tkblend::EasingType::BounceIn)
+        .value("BounceOut", tkblend::EasingType::BounceOut)
+        .value("BounceInOut", tkblend::EasingType::BounceInOut)
+        .export_values();
+
+    m.def("ease", [](nb::object easing_type, double t) -> double {
+        if (nb::isinstance<tkblend::EasingType>(easing_type)) {
+            return tkblend::ease(static_cast<int>(nb::cast<tkblend::EasingType>(easing_type)), t);
+        }
+        return tkblend::ease(nb::cast<int>(easing_type), t);
+    }, nb::arg("easing_type"), nb::arg("t"));
+
+    m.def("spring", &tkblend::spring, nb::arg("t"), nb::arg("mass") = 1.0, nb::arg("stiffness") = 100.0, nb::arg("damping") = 10.0);
+
+    // TextMetrics binding
+    nb::class_<tkblend::TextMetrics>(m, "TextMetrics")
+        .def_ro("width", &tkblend::TextMetrics::width)
+        .def_ro("height", &tkblend::TextMetrics::height)
+        .def_ro("ascent", &tkblend::TextMetrics::ascent)
+        .def_ro("descent", &tkblend::TextMetrics::descent)
+        .def_ro("advance_x", &tkblend::TextMetrics::advance_x)
+        .def("__repr__", [](const tkblend::TextMetrics& tm) {
+            std::ostringstream ss;
+            ss << "TextMetrics(width=" << tm.width << ", height=" << tm.height
+               << ", ascent=" << tm.ascent << ", descent=" << tm.descent
+               << ", advance_x=" << tm.advance_x << ")";
+            return ss.str();
+        });
+
+    // DrawBatch binding
+    nb::class_<tkblend::DrawBatch>(m, "DrawBatch")
+        .def(nb::init<>())
+        .def("clear", &tkblend::DrawBatch::clear, nb::arg("color"))
+        .def("fill_rect", &tkblend::DrawBatch::fill_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("color"))
+        .def("stroke_rect", &tkblend::DrawBatch::stroke_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("fill_rounded_rect", &tkblend::DrawBatch::fill_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"))
+        .def("stroke_rounded_rect", &tkblend::DrawBatch::stroke_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("fill_circle", &tkblend::DrawBatch::fill_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("color"))
+        .def("stroke_circle", &tkblend::DrawBatch::stroke_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("draw_line", &tkblend::DrawBatch::draw_line, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("draw_text", &tkblend::DrawBatch::draw_text, nb::arg("text"), nb::arg("x"), nb::arg("y"), nb::arg("font_size") = 14.0f, nb::arg("font_family") = "default", nb::arg("color") = tkblend::Color(255, 255, 255, 255), nb::arg("align") = 0, nb::arg("weight") = 400, nb::arg("italic") = false)
+        .def("draw_shadow_rounded_rect", &tkblend::DrawBatch::draw_shadow_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("blur_radius"), nb::arg("spread") = 0.0, nb::arg("offset_x") = 0.0, nb::arg("offset_y") = 0.0, nb::arg("shadow_color") = tkblend::Color(0, 0, 0, 128))
+        .def("draw_card", &tkblend::DrawBatch::draw_card, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("bg_color"), nb::arg("border_color") = tkblend::Color(0, 0, 0, 0), nb::arg("border_width") = 0.0, nb::arg("shadow_blur") = 0.0, nb::arg("shadow_spread") = 0.0, nb::arg("shadow_offset_x") = 0.0, nb::arg("shadow_offset_y") = 0.0, nb::arg("shadow_color") = tkblend::Color(0, 0, 0, 0))
+        .def("save", &tkblend::DrawBatch::save)
+        .def("restore", &tkblend::DrawBatch::restore)
+        .def("translate", &tkblend::DrawBatch::translate, nb::arg("tx"), nb::arg("ty"))
+        .def("scale", &tkblend::DrawBatch::scale, nb::arg("sx"), nb::arg("sy"))
+        .def("rotate", &tkblend::DrawBatch::rotate, nb::arg("rad"))
+        .def("clip_rect", &tkblend::DrawBatch::clip_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"))
+        .def("clip_rounded_rect", &tkblend::DrawBatch::clip_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"))
+        .def("reset_clip", &tkblend::DrawBatch::reset_clip)
+        .def("reset", &tkblend::DrawBatch::reset)
+        .def("__len__", &tkblend::DrawBatch::size);
 
     // Gradient binding
     nb::class_<tkblend::Gradient>(m, "Gradient")
@@ -1531,7 +2282,40 @@ NB_MODULE(_tkblend, m) {
         .def("fill_path_gradient", &tkblend::Surface::fill_path_gradient, nb::arg("path"), nb::arg("gradient"))
         .def("stroke_path", &tkblend::Surface::stroke_path, nb::arg("path"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
 
-        // Typography
+        // Typography & Metrics
+        .def("measure_text", [](tkblend::Surface& s,
+                                const std::string& text, float font_size,
+                                const std::string& font_family, int weight,
+                                bool italic, bool bold) {
+            int eff_weight = weight;
+            if (bold && eff_weight <= 400) eff_weight = 700;
+            return s.measure_text(text, font_size, font_family, eff_weight, italic);
+        },
+             nb::arg("text"),
+             nb::arg("font_size") = 14.0f,
+             nb::arg("font_family") = "default",
+             nb::arg("weight") = 400,
+             nb::arg("italic") = false,
+             nb::arg("bold") = false)
+
+        .def("break_lines", [](tkblend::Surface& s,
+                               const std::string& text, double max_width,
+                               float font_size, const std::string& font_family,
+                               int weight, bool italic, bool bold,
+                               bool truncate_ellipsis, int max_lines) {
+            int eff_weight = weight;
+            if (bold && eff_weight <= 400) eff_weight = 700;
+            return s.break_lines(text, max_width, font_size, font_family, eff_weight, italic, truncate_ellipsis, max_lines);
+        },
+             nb::arg("text"), nb::arg("max_width"),
+             nb::arg("font_size") = 14.0f,
+             nb::arg("font_family") = "default",
+             nb::arg("weight") = 400,
+             nb::arg("italic") = false,
+             nb::arg("bold") = false,
+             nb::arg("truncate_ellipsis") = false,
+             nb::arg("max_lines") = 0)
+
         .def("draw_text", [](tkblend::Surface& s,
                              const std::string& text, double x, double y,
                              float font_size, const std::string& font_family,
@@ -1552,6 +2336,31 @@ NB_MODULE(_tkblend, m) {
              nb::arg("weight") = 400,
              nb::arg("italic") = false,
              nb::arg("bold") = false)
+
+        .def("draw_text_wrapped", [](tkblend::Surface& s,
+                                     const std::string& text, double x, double y,
+                                     double max_width, float font_size,
+                                     const std::string& font_family,
+                                     std::optional<tkblend::Color> color, int align,
+                                     int weight, bool italic, bool bold,
+                                     double line_height_factor, bool truncate_ellipsis,
+                                     int max_lines) {
+            tkblend::Color col = color.value_or(tkblend::Color(255, 255, 255, 255));
+            int eff_weight = weight;
+            if (bold && eff_weight <= 400) eff_weight = 700;
+            s.draw_text_wrapped(text, x, y, max_width, font_size, font_family, col, align, eff_weight, italic, line_height_factor, truncate_ellipsis, max_lines);
+        },
+             nb::arg("text"), nb::arg("x"), nb::arg("y"), nb::arg("max_width"),
+             nb::arg("font_size") = 14.0f,
+             nb::arg("font_family") = "default",
+             nb::arg("color") = nb::none(),
+             nb::arg("align") = 0,
+             nb::arg("weight") = 400,
+             nb::arg("italic") = false,
+             nb::arg("bold") = false,
+             nb::arg("line_height_factor") = 1.25,
+             nb::arg("truncate_ellipsis") = false,
+             nb::arg("max_lines") = 0)
 
         // Shadows & Cards
         .def("draw_shadow_rounded_rect", [](tkblend::Surface& s,
@@ -1596,6 +2405,152 @@ NB_MODULE(_tkblend, m) {
              nb::arg("shadow_offset_x") = 0.0,
              nb::arg("shadow_offset_y") = 0.0,
              nb::arg("shadow_color") = nb::none(),
+             nb::call_guard<nb::gil_scoped_release>())
+
+        // Compound Widgets
+        .def("draw_button", [](tkblend::Surface& s,
+                               double x, double y, double w, double h,
+                               double rx, double ry,
+                               const tkblend::Color& bg_color,
+                               std::optional<tkblend::Color> border_color,
+                               double border_width,
+                               const tkblend::Color& fg_color,
+                               const std::string& text,
+                               float font_size,
+                               const std::string& font_family,
+                               int weight,
+                               bool italic,
+                               bool bold,
+                               double shadow_blur,
+                               double shadow_offset_y,
+                               std::optional<tkblend::Color> shadow_color,
+                               std::optional<tkblend::Color> focus_ring_color,
+                               double focus_ring_width,
+                               bool is_pressed) {
+            tkblend::Color bc = border_color.value_or(tkblend::Color(0, 0, 0, 0));
+            tkblend::Color sc = shadow_color.value_or(tkblend::Color(0, 0, 0, 0));
+            tkblend::Color frc = focus_ring_color.value_or(tkblend::Color(0, 0, 0, 0));
+            int eff_weight = weight;
+            if (bold && eff_weight <= 400) eff_weight = 700;
+            s.draw_button(x, y, w, h, rx, ry, bg_color, bc, border_width, fg_color,
+                          text, font_size, font_family, eff_weight, italic,
+                          shadow_blur, shadow_offset_y, sc, frc, focus_ring_width, is_pressed);
+        },
+             nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"),
+             nb::arg("rx"), nb::arg("ry"),
+             nb::arg("bg_color"),
+             nb::arg("border_color") = nb::none(),
+             nb::arg("border_width") = 0.0,
+             nb::arg("fg_color") = tkblend::Color(255, 255, 255, 255),
+             nb::arg("text") = "",
+             nb::arg("font_size") = 13.0f,
+             nb::arg("font_family") = "default",
+             nb::arg("weight") = 400,
+             nb::arg("italic") = false,
+             nb::arg("bold") = false,
+             nb::arg("shadow_blur") = 0.0,
+             nb::arg("shadow_offset_y") = 0.0,
+             nb::arg("shadow_color") = nb::none(),
+             nb::arg("focus_ring_color") = nb::none(),
+             nb::arg("focus_ring_width") = 0.0,
+             nb::arg("is_pressed") = false,
+             nb::call_guard<nb::gil_scoped_release>())
+
+        .def("draw_switch", [](tkblend::Surface& s,
+                              double x, double y, double w, double h,
+                              const tkblend::Color& track_color,
+                              const tkblend::Color& thumb_color,
+                              std::optional<tkblend::Color> thumb_border_color,
+                              double progress_t,
+                              bool is_hovered,
+                              std::optional<tkblend::Color> focus_ring_color,
+                              double focus_ring_width) {
+            tkblend::Color tbc = thumb_border_color.value_or(tkblend::Color(0, 0, 0, 0));
+            tkblend::Color frc = focus_ring_color.value_or(tkblend::Color(0, 0, 0, 0));
+            s.draw_switch(x, y, w, h, track_color, thumb_color, tbc, progress_t, is_hovered, frc, focus_ring_width);
+        },
+             nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"),
+             nb::arg("track_color"),
+             nb::arg("thumb_color"),
+             nb::arg("thumb_border_color") = nb::none(),
+             nb::arg("progress_t") = 0.0,
+             nb::arg("is_hovered") = false,
+             nb::arg("focus_ring_color") = nb::none(),
+             nb::arg("focus_ring_width") = 0.0,
+             nb::call_guard<nb::gil_scoped_release>())
+
+        .def("draw_slider", [](tkblend::Surface& s,
+                              double x, double y, double w, double h,
+                              const tkblend::Color& track_bg,
+                              const tkblend::Color& active_bg,
+                              const tkblend::Color& thumb_color,
+                              std::optional<tkblend::Color> thumb_border_color,
+                              double value_t,
+                              double track_thickness,
+                              double thumb_radius,
+                              bool is_hovered,
+                              bool is_dragging,
+                              std::optional<tkblend::Color> focus_ring_color,
+                              double focus_ring_width) {
+            tkblend::Color tbc = thumb_border_color.value_or(tkblend::Color(0, 0, 0, 0));
+            tkblend::Color frc = focus_ring_color.value_or(tkblend::Color(0, 0, 0, 0));
+            s.draw_slider(x, y, w, h, track_bg, active_bg, thumb_color, tbc,
+                          value_t, track_thickness, thumb_radius, is_hovered, is_dragging, frc, focus_ring_width);
+        },
+             nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"),
+             nb::arg("track_bg"),
+             nb::arg("active_bg"),
+             nb::arg("thumb_color"),
+             nb::arg("thumb_border_color") = nb::none(),
+             nb::arg("value_t") = 0.0,
+             nb::arg("track_thickness") = 4.0,
+             nb::arg("thumb_radius") = 8.0,
+             nb::arg("is_hovered") = false,
+             nb::arg("is_dragging") = false,
+             nb::arg("focus_ring_color") = nb::none(),
+             nb::arg("focus_ring_width") = 0.0,
+             nb::call_guard<nb::gil_scoped_release>())
+
+        .def("draw_progress_bar", &tkblend::Surface::draw_progress_bar,
+             nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"),
+             nb::arg("rx"), nb::arg("ry"),
+             nb::arg("track_bg"),
+             nb::arg("bar_bg"),
+             nb::arg("progress_t") = 0.0,
+             nb::arg("is_indeterminate") = false,
+             nb::arg("phase_offset") = 0.0,
+             nb::call_guard<nb::gil_scoped_release>())
+
+        .def("draw_checkbox", [](tkblend::Surface& s,
+                                double x, double y, double size,
+                                double rx, double ry,
+                                const tkblend::Color& box_bg,
+                                std::optional<tkblend::Color> border_color,
+                                double border_width,
+                                const tkblend::Color& check_color,
+                                bool is_checked,
+                                bool is_hovered,
+                                std::optional<tkblend::Color> focus_ring_color,
+                                double focus_ring_width) {
+            tkblend::Color bc = border_color.value_or(tkblend::Color(0, 0, 0, 0));
+            tkblend::Color frc = focus_ring_color.value_or(tkblend::Color(0, 0, 0, 0));
+            s.draw_checkbox(x, y, size, rx, ry, box_bg, bc, border_width, check_color, is_checked, is_hovered, frc, focus_ring_width);
+        },
+             nb::arg("x"), nb::arg("y"), nb::arg("size"),
+             nb::arg("rx"), nb::arg("ry"),
+             nb::arg("box_bg"),
+             nb::arg("border_color") = nb::none(),
+             nb::arg("border_width") = 0.0,
+             nb::arg("check_color") = tkblend::Color(255, 255, 255, 255),
+             nb::arg("is_checked") = false,
+             nb::arg("is_hovered") = false,
+             nb::arg("focus_ring_color") = nb::none(),
+             nb::arg("focus_ring_width") = 0.0,
+             nb::call_guard<nb::gil_scoped_release>())
+
+        // Batch Execution
+        .def("execute_batch", &tkblend::Surface::execute_batch,
+             nb::arg("batch"),
              nb::call_guard<nb::gil_scoped_release>())
 
         // Tkinter Blit & Buffer

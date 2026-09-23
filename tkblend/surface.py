@@ -12,6 +12,11 @@ from tkblend._tkblend import (  # type: ignore
     Gradient as _NativeGradient,
     Path as _NativePath,
     Surface as _NativeSurface,
+    DrawBatch,
+    TextMetrics,
+    EasingType,
+    ease,
+    spring,
     COMP_OP_SRC_OVER,
     EXTEND_PAD,
     EXTEND_REPEAT,
@@ -238,7 +243,75 @@ class Surface:
         native_path = path.native if isinstance(path, Path) else path
         self._surface.stroke_path(native_path, parse_color(stroke), float(stroke_width))
 
-    # Typography
+    # Typography & Metrics
+    def measure_text(
+        self,
+        text: str,
+        font_size: Optional[float] = None,
+        font_family: Optional[str] = None,
+        font: Union[FontConfig, Tuple[Any, ...], str, None] = None,
+        bold: Optional[bool] = None,
+        italic: Optional[bool] = None,
+        weight: Optional[Union[int, str]] = None,
+    ) -> TextMetrics:
+        """Measure text metrics (width, height, ascent, descent, advance_x) natively."""
+        from tkblend.font import parse_font
+        cfg = parse_font(
+            font=font,
+            font_size=font_size,
+            font_family=font_family,
+            bold=bold,
+            italic=italic,
+            weight=weight,
+            default_family="default",
+            default_size=14.0,
+        )
+        return self._surface.measure_text(
+            text,
+            float(cfg.size),
+            cfg.family,
+            cfg.weight,
+            cfg.italic,
+            cfg.bold,
+        )
+
+    def break_lines(
+        self,
+        text: str,
+        max_width: float,
+        font_size: Optional[float] = None,
+        font_family: Optional[str] = None,
+        font: Union[FontConfig, Tuple[Any, ...], str, None] = None,
+        bold: Optional[bool] = None,
+        italic: Optional[bool] = None,
+        weight: Optional[Union[int, str]] = None,
+        truncate_ellipsis: bool = False,
+        max_lines: int = 0,
+    ) -> list[str]:
+        """Wrap text into lines fitting within max_width natively using Blend2D."""
+        from tkblend.font import parse_font
+        cfg = parse_font(
+            font=font,
+            font_size=font_size,
+            font_family=font_family,
+            bold=bold,
+            italic=italic,
+            weight=weight,
+            default_family="default",
+            default_size=14.0,
+        )
+        return self._surface.break_lines(
+            text,
+            float(max_width),
+            float(cfg.size),
+            cfg.family,
+            cfg.weight,
+            cfg.italic,
+            cfg.bold,
+            bool(truncate_ellipsis),
+            int(max_lines),
+        )
+
     def draw_text(
         self,
         text: str,
@@ -287,6 +360,54 @@ class Surface:
             cfg.weight,
             cfg.italic,
             cfg.bold,
+        )
+
+    def draw_text_wrapped(
+        self,
+        text: str,
+        x: float,
+        y: float,
+        max_width: float,
+        font_size: Optional[float] = None,
+        font_family: Optional[str] = None,
+        color: ColorLike = "#ffffff",
+        align: str = "left",
+        font: Union[FontConfig, Tuple[Any, ...], str, None] = None,
+        bold: Optional[bool] = None,
+        italic: Optional[bool] = None,
+        weight: Optional[Union[int, str]] = None,
+        line_height_factor: float = 1.25,
+        truncate_ellipsis: bool = False,
+        max_lines: int = 0,
+    ) -> None:
+        """Draw multi-line wrapped text with word wrapping and optional ellipsis truncation in C++."""
+        from tkblend.font import parse_font
+        cfg = parse_font(
+            font=font,
+            font_size=font_size,
+            font_family=font_family,
+            bold=bold,
+            italic=italic,
+            weight=weight,
+            default_family="default",
+            default_size=14.0,
+        )
+        align_code = 1 if align == "center" else (2 if align == "right" else 0)
+        self._surface.draw_text_wrapped(
+            text,
+            float(x),
+            float(y),
+            float(max_width),
+            float(cfg.size),
+            cfg.family,
+            parse_color(color),
+            align_code,
+            cfg.weight,
+            cfg.italic,
+            cfg.bold,
+            float(line_height_factor),
+            bool(truncate_ellipsis),
+            int(max_lines),
         )
 
     # Shadows & Cards
@@ -344,6 +465,185 @@ class Surface:
             float(shadow_offset_y),
             parse_color(shadow_color),
         )
+
+    # Compound Widget Rendering Primitives (C++)
+    def draw_button(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        rx: float = 10.0,
+        ry: float = 10.0,
+        bg_color: ColorLike = "#3b82f6",
+        border_color: ColorLike = "#00000000",
+        border_width: float = 0.0,
+        fg_color: ColorLike = "#ffffff",
+        text: str = "",
+        font: Union[FontConfig, Tuple[Any, ...], str, None] = None,
+        font_size: Optional[float] = None,
+        font_family: Optional[str] = None,
+        bold: Optional[bool] = None,
+        italic: Optional[bool] = None,
+        weight: Optional[Union[int, str]] = None,
+        shadow_blur: float = 0.0,
+        shadow_offset_y: float = 0.0,
+        shadow_color: ColorLike = "#00000000",
+        focus_ring_color: ColorLike = "#00000000",
+        focus_ring_width: float = 0.0,
+        is_pressed: bool = False,
+    ) -> None:
+        """Draw complete modern vector button with shadow, container, border, focus ring, and text in one native call."""
+        from tkblend.font import parse_font
+        cfg = parse_font(
+            font=font,
+            font_size=font_size,
+            font_family=font_family,
+            bold=bold,
+            italic=italic,
+            weight=weight,
+            default_family="default",
+            default_size=13.0,
+        )
+        self._surface.draw_button(
+            float(x), float(y), float(w), float(h),
+            float(rx), float(ry),
+            parse_color(bg_color),
+            parse_color(border_color),
+            float(border_width),
+            parse_color(fg_color),
+            str(text),
+            float(cfg.size),
+            cfg.family,
+            cfg.weight,
+            cfg.italic,
+            cfg.bold,
+            float(shadow_blur),
+            float(shadow_offset_y),
+            parse_color(shadow_color),
+            parse_color(focus_ring_color),
+            float(focus_ring_width),
+            bool(is_pressed),
+        )
+
+    def draw_switch(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        track_color: ColorLike = "#3b82f6",
+        thumb_color: ColorLike = "#ffffff",
+        thumb_border_color: ColorLike = "#00000000",
+        progress_t: float = 0.0,
+        is_hovered: bool = False,
+        focus_ring_color: ColorLike = "#00000000",
+        focus_ring_width: float = 0.0,
+    ) -> None:
+        """Draw sliding toggle switch with track, shadow, thumb, and focus ring in one native call."""
+        self._surface.draw_switch(
+            float(x), float(y), float(w), float(h),
+            parse_color(track_color),
+            parse_color(thumb_color),
+            parse_color(thumb_border_color),
+            float(progress_t),
+            bool(is_hovered),
+            parse_color(focus_ring_color),
+            float(focus_ring_width),
+        )
+
+    def draw_slider(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        track_bg: ColorLike = "#e2e8f0",
+        active_bg: ColorLike = "#3b82f6",
+        thumb_color: ColorLike = "#ffffff",
+        thumb_border_color: ColorLike = "#00000000",
+        value_t: float = 0.0,
+        track_thickness: float = 4.0,
+        thumb_radius: float = 8.0,
+        is_hovered: bool = False,
+        is_dragging: bool = False,
+        focus_ring_color: ColorLike = "#00000000",
+        focus_ring_width: float = 0.0,
+    ) -> None:
+        """Draw slider with track, active fill, thumb shadow, grip, and focus ring in one native call."""
+        self._surface.draw_slider(
+            float(x), float(y), float(w), float(h),
+            parse_color(track_bg),
+            parse_color(active_bg),
+            parse_color(thumb_color),
+            parse_color(thumb_border_color),
+            float(value_t),
+            float(track_thickness),
+            float(thumb_radius),
+            bool(is_hovered),
+            bool(is_dragging),
+            parse_color(focus_ring_color),
+            float(focus_ring_width),
+        )
+
+    def draw_progress_bar(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        rx: float = 6.0,
+        ry: float = 6.0,
+        track_bg: ColorLike = "#e2e8f0",
+        bar_bg: ColorLike = "#3b82f6",
+        progress_t: float = 0.0,
+        is_indeterminate: bool = False,
+        phase_offset: float = 0.0,
+    ) -> None:
+        """Draw progress bar with track and progress strip / glowing indeterminate pill in one native call."""
+        self._surface.draw_progress_bar(
+            float(x), float(y), float(w), float(h),
+            float(rx), float(ry),
+            parse_color(track_bg),
+            parse_color(bar_bg),
+            float(progress_t),
+            bool(is_indeterminate),
+            float(phase_offset),
+        )
+
+    def draw_checkbox(
+        self,
+        x: float,
+        y: float,
+        size: float = 20.0,
+        rx: float = 4.0,
+        ry: float = 4.0,
+        box_bg: ColorLike = "#3b82f6",
+        border_color: ColorLike = "#00000000",
+        border_width: float = 0.0,
+        check_color: ColorLike = "#ffffff",
+        is_checked: bool = False,
+        is_hovered: bool = False,
+        focus_ring_color: ColorLike = "#00000000",
+        focus_ring_width: float = 0.0,
+    ) -> None:
+        """Draw checkbox with rounded container, border, focus ring, and checkmark path in one native call."""
+        self._surface.draw_checkbox(
+            float(x), float(y), float(size),
+            float(rx), float(ry),
+            parse_color(box_bg),
+            parse_color(border_color),
+            float(border_width),
+            parse_color(check_color),
+            bool(is_checked),
+            bool(is_hovered),
+            parse_color(focus_ring_color),
+            float(focus_ring_width),
+        )
+
+    def execute_batch(self, batch: DrawBatch) -> None:
+        """Execute a recorded DrawBatch display list with zero GIL overhead."""
+        self._surface.execute_batch(batch)
 
     def flush(self) -> None:
         """Synchronize and flush all queued Blend2D rendering operations."""

@@ -142,49 +142,38 @@ class Button(Widget):
         btn_w = self._widget_w - pad * 2.0
         btn_h = self._widget_h - pad * 2.0
 
+        safe_blur = 0.0
+        safe_offset_y = 0.0
+        shadow_col = "#00000000"
         if self._variant != "outline" and cur_elev > 0:
             safe_blur = min(cur_elev * 0.8, pad * 0.65)
             safe_offset_y = min(offset_y, pad * 0.25)
-            shadow_color = "#00000040" if self._is_hovered else "#00000028"
-            self._surface.draw_shadow(
-                pad, pad, btn_w, btn_h,
-                self._rx, self._ry,
-                blur_radius=safe_blur,
-                offset_y=safe_offset_y,
-                shadow_color=shadow_color,
-            )
+            shadow_col = "#00000040" if self._is_hovered else "#00000028"
 
-        self._surface.fill_rounded_rect(pad, pad, btn_w, btn_h, self._rx, self._ry, cur_bg)
-        border_col = colors["border"]
-        self._surface.stroke_rounded_rect(pad, pad, btn_w, btn_h, self._rx, self._ry, border_col, 1.0 * self._scale)
-
-        if self._has_focus:
-            pal = get_theme()
-            focus_col = pal.input_focus
-            self._surface.stroke_rounded_rect(
-                pad - 1.5 * self._scale,
-                pad - 1.5 * self._scale,
-                btn_w + 3.0 * self._scale,
-                btn_h + 3.0 * self._scale,
-                self._rx + 1.5 * self._scale,
-                self._ry + 1.5 * self._scale,
-                focus_col,
-                1.5 * self._scale,
-            )
-
+        pal = get_theme()
+        focus_col = pal.input_focus if self._has_focus else "#00000000"
+        focus_width = 1.5 * self._scale if self._has_focus else 0.0
         f_size = self._font_config.size * self._scale
-        text_x = self._widget_w / 2.0
-        text_y = self._widget_h / 2.0 + (f_size * 0.35)
-        if self._is_pressed:
-            text_y += 1.0
 
-        self._surface.draw_text(
-            self._text,
-            x=text_x,
-            y=text_y,
+        self._surface.draw_button(
+            x=pad,
+            y=pad,
+            w=btn_w,
+            h=btn_h,
+            rx=self._rx,
+            ry=self._ry,
+            bg_color=cur_bg,
+            border_color=colors["border"],
+            border_width=1.0 * self._scale,
+            fg_color=colors["fg"],
+            text=self._text,
             font=self._font_config.copy_with(size=f_size),
-            color=colors["fg"],
-            align="center",
+            shadow_blur=safe_blur,
+            shadow_offset_y=safe_offset_y,
+            shadow_color=shadow_col,
+            focus_ring_color=focus_col,
+            focus_ring_width=focus_width,
+            is_pressed=self._is_pressed,
         )
         self._surface.blit(self._photo)
 
