@@ -1,0 +1,203 @@
+"""
+Base classes and display scaling infrastructure for tkblend vector widgets.
+"""
+
+from __future__ import annotations
+import sys
+import tkinter as tk
+from math import floor, ceil
+from typing import Optional, Union, List, Tuple, Any
+
+from tkblend.surface import Surface
+from tkblend.theme import get_theme, Palette, add_theme_listener, remove_theme_listener
+
+
+def _round_half_away(value: float) -> int:
+    """Round halves away from zero without Banker's rounding bias."""
+    if value >= 0:
+        return floor(value + 0.5)
+    return ceil(value - 0.5)
+
+
+class ScalingTracker:
+    """
+    Manages process-level High-DPI awareness, Tk scaling factor tracking,
+    and logical-to-physical pixel conversion for 4K / Retina displays.
+    """
+
+    _dpi_awareness_initialized: bool = False
+    _user_widget_scaling: float = 1.0
+
+    @classmethod
+    def activate_high_dpi_awareness(cls) -> None:
+        """Enable Per-Monitor High-DPI awareness where supported."""
+        if cls._dpi_awareness_initialized:
+            return
+
+        if sys.platform.startswith("win"):
+            try:
+                import ctypes
+                ctypes.windll.shcore.SetProcessDpiAwareness(2)
+            except Exception:
+                try:
+                    import ctypes
+                    ctypes.windll.user32.SetProcessDPIAware()
+                except Exception:
+                    pass
+
+        cls._dpi_awareness_initialized = True
+
+    @classmethod
+    def get_scaling_factor(cls, widget_or_window: Optional[tk.Misc] = None) -> float:
+        """Calculate effective display scaling factor (1.0 = standard 96 DPI)."""
+        if widget_or_window is None:
+            return cls._user_widget_scaling
+
+        try:
+            ws = str(widget_or_window.tk.call("tk", "windowingsystem"))
+            baseline = 1.0 if (ws == "aqua" and tk.TkVersion < 8.7) else (4.0 / 3.0)
+            raw_scaling = float(widget_or_window.tk.call("tk", "scaling"))
+            factor = raw_scaling / baseline
+            quarter = round(factor * 4.0) / 4.0
+            if abs(factor - quarter) <= 0.005:
+                factor = quarter
+            return max(0.5, factor * cls._user_widget_scaling)
+        except Exception:
+            return max(0.5, cls._user_widget_scaling)
+
+    @classmethod
+    def scale(cls, value: Union[int, float, List, Tuple], widget: Optional[tk.Misc] = None) -> Any:
+        """Convert logical UI units to physical pixel values."""
+        factor = cls.get_scaling_factor(widget)
+        if factor == 1.0:
+            if isinstance(value, (int, float)):
+                return int(value)
+            return value
+
+        if isinstance(value, (int, float)):
+            if value == 0:
+                return 0
+            return _round_half_away(float(value) * factor)
+        elif isinstance(value, (tuple, list)):
+            return [cls.scale(v, widget) for v in value]
+        return value
+
+
+# Auto-activate DPI awareness early
+ScalingTracker.activate_high_dpi_awareness()
+
+
+class Widget(tk.Label):
+    """
+    Base vector widget rendering on a Blend2D Surface with zero-copy blit
+    to a backing Tkinter PhotoImage. Handles DPI scaling, resize, mouse states,
+    and dynamic theme notifications.
+    """
+
+    def __init__(
+        self,
+        master: Optional[tk.Misc] = None,
+        width: int = 120,
+        height: int = 40,
+        bg: Optional[str] = None,
+        **kwargs,
+    ):
+        self._logical_w = max(1, width)
+        self._logical_h = max(1, height)
+        self._scale = ScalingTracker.get_scaling_factor(master)
+
+        self._widget_w = max(1, int(self._logical_w * self._scale))
+        self._widget_h = max(1, int(self._logical_h * self._scale))
+        self._explicit_bg = bg
+        self._parent_bg = bg or get_theme().bg
+
+        self._photo = tk.PhotoImage(master=master, width=self._widget_w, height=self._widget_h)
+        self._surface = Surface(self._widget_w, self._widget_h)
+
+        self._is_hovered = False
+        self._is_pressed = False
+        self._is_disabled = False
+
+        super().__init__(
+            master,
+            image=self._photo,
+            borderwidth=0,
+            highlightthickness=0,
+            padx=0,
+            pady=0,
+            background=self._parent_bg,
+            **kwargs,
+        )
+
+        self.bind("<Configure>", self._on_configure)
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<ButtonPress-1>", self._on_press)
+        self.bind("<ButtonRelease-1>", self._on_release)
+        self.bind("<Destroy>", self._on_destroy)
+
+        # Register for theme notifications
+        add_theme_listener(self._on_theme_changed)
+
+        self.after_idle(self.render)
+
+    @property
+    def surface(self) -> Surface:
+        return self._surface
+
+    @property
+    def photo(self) -> tk.PhotoImage:
+        return self._photo
+
+    def _on_destroy(self, event) -> None:
+        remove_theme_listener(self._on_theme_changed)
+
+    def _on_theme_changed(self, palette: Palette) -> None:
+        if not self.winfo_exists():
+            return
+        if self._explicit_bg is None:
+            self._parent_bg = palette.bg
+            try:
+                self.configure(background=self._parent_bg)
+            except Exception:
+                pass
+        self.render()
+
+    def _on_configure(self, event) -> None:
+        new_w = max(1, event.width)
+        new_h = max(1, event.height)
+        if new_w != self._widget_w or new_h != self._widget_h:
+            self._widget_w = new_w
+            self._widget_h = new_h
+            self._photo.configure(width=self._widget_w, height=self._widget_h)
+            self._surface.resize(self._widget_w, self._widget_h)
+            self.render()
+
+    def _on_enter(self, event) -> None:
+        if not self._is_disabled:
+            self._is_hovered = True
+            self.render()
+
+    def _on_leave(self, event) -> None:
+        if not self._is_disabled:
+            self._is_hovered = False
+            self._is_pressed = False
+            self.render()
+
+    def _on_press(self, event) -> None:
+        if not self._is_disabled:
+            self._is_pressed = True
+            self.render()
+
+    def _on_release(self, event) -> None:
+        if not self._is_disabled:
+            self._is_pressed = False
+            self.render()
+
+    def render(self) -> None:
+        """Override in subclasses to draw custom vector UI."""
+        self._surface.clear(self._parent_bg)
+        self._surface.blit(self._photo)
+
+
+ModernWidget = Widget

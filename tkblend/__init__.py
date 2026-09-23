@@ -61,6 +61,7 @@ from tkblend.theme import (
     blend_color_hex,
     adjust_brightness,
     is_inside_card,
+    is_ttkbootstrap_installed,
 )
 
 resolve_color = resolve_theme_color
@@ -142,6 +143,7 @@ __all__ = [
     "resolve_theme_color",
     "resolve_color",
     "is_inside_card",
+    "is_ttkbootstrap_installed",
     # DPI & Scaling
     "ScalingTracker",
     # Vector Widgets
