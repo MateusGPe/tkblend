@@ -29,24 +29,26 @@ except ImportError:
 # Default font for ThemedText widget
 _DEFAULT_TEXT_FONT = ("Helvetica", 10)
 
-# Standard bootstrap fallback colors if ttkbootstrap is not active
+# Fallback theme colors (Catppuccin Mocha) if ttkbootstrap is not active
 _FALLBACK_BOOTSTRAP_PALETTE = {
-    "primary": "#0d6efd",
-    "secondary": "#6c757d",
-    "success": "#198754",
-    "info": "#0dcaf0",
-    "warning": "#ffc107",
-    "danger": "#dc3545",
-    "light": "#f8f9fa",
-    "dark": "#212529",
-    "bg": "#ffffff",
-    "fg": "#212529",
-    "border": "#dee2e6",
-    "card_bg": "#ffffff",
-    "inputbg": "#ffffff",
-    "inputfg": "#212529",
-    "selectbg": "#0d6efd",
-    "selectfg": "#ffffff",
+    "primary": "#89b4fa",
+    "secondary": "#313244",
+    "success": "#a6e3a1",
+    "info": "#89dceb",
+    "warning": "#fab387",
+    "danger": "#f38ba8",
+    "destructive": "#f38ba8",
+    "light": "#eff1f5",
+    "dark": "#11111b",
+    "bg": "#11111b",
+    "fg": "#cdd6f4",
+    "border": "#313244",
+    "card_bg": "#1e1e2e",
+    "card_border": "#313244",
+    "inputbg": "#181825",
+    "inputfg": "#cdd6f4",
+    "selectbg": "#89b4fa",
+    "selectfg": "#11111b",
 }
 
 # Maps apply_theme() keyword arg names → (cfg attribute, cast function)

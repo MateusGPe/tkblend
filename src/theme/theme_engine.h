@@ -11,34 +11,34 @@ namespace tkblend {
 struct ThemeConfig {
     bool dark_mode = true;
 
-    // Palette Colors (ARGB)
-    uint32_t bg_color           = 0xFF0A0F1D; // Deep obsidian slate
-    uint32_t fg_color           = 0xFFF1F5F9; // Crisp light text
-    uint32_t card_bg            = 0xFF121A2D; // Modern elevated card
-    uint32_t card_border        = 0xFF24304A; // Crisp 1px border
-    uint32_t primary_color      = 0xFF6366F1; // Electric Indigo
-    uint32_t primary_hover      = 0xFF818CF8;
-    uint32_t primary_active     = 0xFF4338CA;
-    uint32_t primary_fg         = 0xFFFFFFFF;
-    uint32_t secondary_color    = 0xFF1E283D; // Dark glass slate button
-    uint32_t secondary_hover    = 0xFF2A3752;
-    uint32_t secondary_fg       = 0xFFF1F5F9;
-    uint32_t destructive_color  = 0xFFEF4444; // Modern rose / red
-    uint32_t destructive_hover  = 0xFFF87171;
-    uint32_t destructive_active = 0xFFDC2626;
-    uint32_t destructive_fg     = 0xFFFFFFFF;
-    uint32_t success_color      = 0xFF10B981; // Modern Emerald
-    uint32_t warning_color      = 0xFFF59E0B; // Amber
-    uint32_t input_bg           = 0xFF0D1322;
-    uint32_t input_border       = 0xFF24304A;
-    uint32_t input_focus_border = 0xFF6366F1;
-    uint32_t focus_ring_color   = 0x556366F1;
-    uint32_t disabled_bg        = 0xFF151D2D;
-    uint32_t disabled_fg        = 0xFF5B6987;
-    uint32_t track_bg           = 0xFF121A2D;
-    uint32_t thumb_color        = 0xFF384561;
-    uint32_t thumb_hover        = 0xFF4D5E82;
-    uint32_t thumb_active       = 0xFF6366F1;
+    // Palette Colors (ARGB) - Default: Catppuccin Mocha
+    uint32_t bg_color           = 0xFF11111B; // Mocha Crust
+    uint32_t fg_color           = 0xFFCDD6F4; // Mocha Text
+    uint32_t card_bg            = 0xFF1E1E2E; // Mocha Base
+    uint32_t card_border        = 0xFF313244; // Mocha Surface0
+    uint32_t primary_color      = 0xFF89B4FA; // Mocha Blue
+    uint32_t primary_hover      = 0xFFB4BEFE; // Mocha Lavender
+    uint32_t primary_active     = 0xFF74C7EC; // Mocha Sapphire
+    uint32_t primary_fg         = 0xFF11111B; // Mocha Crust (contrast)
+    uint32_t secondary_color    = 0xFF313244; // Mocha Surface0
+    uint32_t secondary_hover    = 0xFF45475A; // Mocha Surface1
+    uint32_t secondary_fg       = 0xFFCDD6F4; // Mocha Text
+    uint32_t destructive_color  = 0xFFF38BA8; // Mocha Red
+    uint32_t destructive_hover  = 0xFFF5E0DC; // Mocha Rosewater
+    uint32_t destructive_active = 0xFFEBA0AC; // Mocha Maroon
+    uint32_t destructive_fg     = 0xFF11111B; // Mocha Crust
+    uint32_t success_color      = 0xFFA6E3A1; // Mocha Green
+    uint32_t warning_color      = 0xFFFAB387; // Mocha Peach
+    uint32_t input_bg           = 0xFF181825; // Mocha Mantle
+    uint32_t input_border       = 0xFF313244; // Mocha Surface0
+    uint32_t input_focus_border = 0xFF89B4FA; // Mocha Blue
+    uint32_t focus_ring_color   = 0x5589B4FA;
+    uint32_t disabled_bg        = 0xFF181825; // Mocha Mantle
+    uint32_t disabled_fg        = 0xFF6C7086; // Mocha Overlay0
+    uint32_t track_bg           = 0xFF313244; // Mocha Surface0
+    uint32_t thumb_color        = 0xFF585B70; // Mocha Surface2
+    uint32_t thumb_hover        = 0xFF6C7086; // Mocha Overlay0
+    uint32_t thumb_active       = 0xFF89B4FA; // Mocha Blue
 
     // Dimensions & Geometry
     double button_radius        = 8.0;

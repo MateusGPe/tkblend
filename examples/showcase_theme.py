@@ -51,7 +51,7 @@ class ThemeShowcaseApp:
         ).pack(anchor="w")
         ttk.Label(
             title_frame,
-            text="Shadcn Glassmorphism • Electric Indigo • JIT Accelerated Blitting",
+            text="Catppuccin Mocha & Latte • Vector Rendered TTK • JIT Accelerated Blitting",
             font=("Helvetica", 9),
         ).pack(anchor="w", pady=(2, 0))
 
