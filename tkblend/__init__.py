@@ -12,6 +12,8 @@ from tkblend._tkblend import (  # type: ignore
     find_system_font,
     get_loaded_fonts,
     register_font_directory,
+    set_emoji_font,
+    get_emoji_font,
     COMP_OP_SRC_OVER,
     COMP_OP_SRC_COPY,
     COMP_OP_SRC_IN,
@@ -205,6 +207,8 @@ __all__ = [
     "find_system_font",
     "get_loaded_fonts",
     "register_font_directory",
+    "set_emoji_font",
+    "get_emoji_font",
     # Composition Operators & Extend Modes
     "COMP_OP_SRC_OVER",
     "COMP_OP_SRC_COPY",

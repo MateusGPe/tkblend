@@ -136,17 +136,20 @@ class Button(Widget):
             cur_elev = self._elevation * 1.3
             offset_y = 3.0 * self._scale
 
-        pad = 3.0 * self._scale
+        pad = 3.5 * self._scale
         btn_w = self._widget_w - pad * 2.0
         btn_h = self._widget_h - pad * 2.0
 
         if self._variant != "outline" and cur_elev > 0:
+            safe_blur = min(cur_elev * 0.8, pad * 0.65)
+            safe_offset_y = min(offset_y, pad * 0.25)
+            shadow_color = "#00000040" if self._is_hovered else "#00000028"
             self._surface.draw_shadow(
                 pad, pad, btn_w, btn_h,
                 self._rx, self._ry,
-                blur_radius=cur_elev * 1.5,
-                offset_y=offset_y,
-                shadow_color="#00000055",
+                blur_radius=safe_blur,
+                offset_y=safe_offset_y,
+                shadow_color=shadow_color,
             )
 
         self._surface.fill_rounded_rect(pad, pad, btn_w, btn_h, self._rx, self._ry, cur_bg)

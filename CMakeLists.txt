@@ -71,6 +71,26 @@ FetchContent_MakeAvailable(blend2d)
 set(CMAKE_CXX_FLAGS "${_PRE_BLEND2D_CXX_FLAGS}")
 
 # ------------------------------------------------------------------------------
+# FreeType Detection & Fallback (for Color Emojis)
+# ------------------------------------------------------------------------------
+find_package(Freetype QUIET)
+if(NOT Freetype_FOUND AND NOT FREETYPE_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        freetype
+        GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
+        GIT_TAG        VER-2-13-2
+        GIT_SHALLOW    TRUE
+    )
+    set(FT_DISABLE_ZLIB TRUE CACHE BOOL "Disable ZLIB" FORCE)
+    set(FT_DISABLE_BZIP2 TRUE CACHE BOOL "Disable BZIP2" FORCE)
+    set(FT_DISABLE_PNG TRUE CACHE BOOL "Disable PNG" FORCE)
+    set(FT_DISABLE_HARFBUZZ TRUE CACHE BOOL "Disable HARFBUZZ" FORCE)
+    set(FT_DISABLE_BROTLI TRUE CACHE BOOL "Disable BROTLI" FORCE)
+    FetchContent_MakeAvailable(freetype)
+endif()
+
+# ------------------------------------------------------------------------------
 # Tcl/Tk Detection
 # ------------------------------------------------------------------------------
 find_package(PkgConfig QUIET)
@@ -184,23 +204,29 @@ option(ENABLE_NANOBIND_LEAK_CHECK "Enable nanobind debug leak tracking and abort
 option(ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
 
 # ------------------------------------------------------------------------------
-# Platform-specific dependencies (X11, GDI, Cocoa)
+# Platform-specific dependencies (X11, GDI, Cocoa, CoreText, DirectWrite, Fontconfig)
 # ------------------------------------------------------------------------------
 set(PLATFORM_SOURCES)
 set(PLATFORM_LIBS)
+set(PLATFORM_INCLUDES)
 
 if(APPLE)
     find_library(COCOA_LIBRARY Cocoa REQUIRED)
     find_library(COREGRAPHICS_LIBRARY CoreGraphics REQUIRED)
-    list(APPEND PLATFORM_SOURCES src/blit/blit_macos.mm)
-    list(APPEND PLATFORM_LIBS ${COCOA_LIBRARY} ${COREGRAPHICS_LIBRARY})
+    find_library(CORETEXT_LIBRARY CoreText REQUIRED)
+    find_library(COREFOUNDATION_LIBRARY CoreFoundation REQUIRED)
+    list(APPEND PLATFORM_SOURCES src/blit/blit_macos.mm src/font/font_resolver_macos.mm)
+    list(APPEND PLATFORM_LIBS ${COCOA_LIBRARY} ${COREGRAPHICS_LIBRARY} ${CORETEXT_LIBRARY} ${COREFOUNDATION_LIBRARY})
 elseif(WIN32)
-    list(APPEND PLATFORM_SOURCES src/blit/blit_win32.cpp)
-    list(APPEND PLATFORM_LIBS gdi32 user32)
+    list(APPEND PLATFORM_SOURCES src/blit/blit_win32.cpp src/font/font_resolver_win32.cpp)
+    list(APPEND PLATFORM_LIBS gdi32 user32 dwrite)
 else()
     find_package(X11 REQUIRED)
-    list(APPEND PLATFORM_SOURCES src/blit/blit_x11.cpp)
-    list(APPEND PLATFORM_LIBS ${X11_LIBRARIES})
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(FONTCONFIG REQUIRED fontconfig)
+    list(APPEND PLATFORM_SOURCES src/blit/blit_x11.cpp src/font/font_resolver_linux.cpp)
+    list(APPEND PLATFORM_LIBS ${X11_LIBRARIES} ${FONTCONFIG_LIBRARIES})
+    list(APPEND PLATFORM_INCLUDES ${FONTCONFIG_INCLUDE_DIRS})
 endif()
 
 # ------------------------------------------------------------------------------
@@ -221,6 +247,8 @@ nanobind_add_module(
 target_include_directories(_tkblend PRIVATE
     src
     src/blit
+    src/font
+    ${PLATFORM_INCLUDES}
     ${blend2d_SOURCE_DIR}
     ${blend2d_SOURCE_DIR}/blend2d
     ${TK_INCLUDE_PATH}
@@ -228,6 +256,10 @@ target_include_directories(_tkblend PRIVATE
     ${TK_INCLUDE_PATH}/tk-private/unix
     ${TCL_INCLUDE_PATH}
 )
+
+if(FREETYPE_INCLUDE_DIRS)
+    target_include_directories(_tkblend PRIVATE ${FREETYPE_INCLUDE_DIRS})
+endif()
 
 if(X11_INCLUDE_DIR)
     target_include_directories(_tkblend PRIVATE ${X11_INCLUDE_DIR})
@@ -238,6 +270,14 @@ target_link_libraries(_tkblend PRIVATE
     ${PLATFORM_LIBS}
     ${CMAKE_DL_LIBS}
 )
+
+if(TARGET Freetype::Freetype)
+    target_link_libraries(_tkblend PRIVATE Freetype::Freetype)
+elseif(TARGET freetype)
+    target_link_libraries(_tkblend PRIVATE freetype)
+elseif(FREETYPE_LIBRARIES)
+    target_link_libraries(_tkblend PRIVATE ${FREETYPE_LIBRARIES})
+endif()
 
 if(TK_STUB_LIBRARY)
     target_link_libraries(_tkblend PRIVATE ${TK_STUB_LIBRARY})

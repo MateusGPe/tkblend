@@ -37,6 +37,7 @@ class Frame(tk.Frame):
         elevation: float = 8.0,
         shadow_color: Optional[ColorLike] = None,
         shadow_offset_y: float = 4.0,
+        padding: Optional[float] = None,
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
@@ -69,6 +70,9 @@ class Frame(tk.Frame):
         self._elevation = elevation * self._scale
         self._shadow_color = shadow_color or pal.shadow_color
         self._shadow_offset_y = shadow_offset_y * self._scale
+        self._explicit_padding = padding
+        self._padding = (padding * self._scale) if padding is not None else None
+        self._current_pad = 0.0
 
         self._photo = tk.PhotoImage(master=self, width=self._widget_w, height=self._widget_h)
         self._surface = Surface(self._widget_w, self._widget_h)
@@ -145,13 +149,37 @@ class Frame(tk.Frame):
         self.render()
         cascade_bg_to_children(self, str(self._bg_color))
 
+    @property
+    def padding(self) -> float:
+        if self._explicit_padding is not None:
+            return float(self._explicit_padding)
+        return float(self._current_pad / self._scale) if self._scale > 0 else 0.0
+
+    @padding.setter
+    def padding(self, value: Optional[float]) -> None:
+        self._explicit_padding = value
+        self._padding = (value * self._scale) if value is not None else None
+        self.render()
+
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
-        pad = max(4.0 * self._scale, self._elevation * 0.8)
+        if self._padding is not None:
+            pad = max(0.0, self._padding)
+        else:
+            pad = max(8.0 * self._scale, self._elevation * 0.8)
+        self._current_pad = pad
         draw_x = pad
         draw_y = pad
         draw_w = max(1.0, self._widget_w - pad * 2.0)
         draw_h = max(1.0, self._widget_h - pad * 2.0)
+
+        if self._elevation > 0.0 and pad > 0.0:
+            max_blur = pad * 0.6
+            safe_blur = min(self._elevation * 0.8, max_blur)
+            safe_offset_y = min(self._shadow_offset_y, pad * 0.2, safe_blur * 0.4)
+        else:
+            safe_blur = 0.0
+            safe_offset_y = 0.0
 
         self._surface.draw_card(
             x=draw_x,
@@ -163,10 +191,10 @@ class Frame(tk.Frame):
             bg_color=self._bg_color,
             border_color=self._border_color,
             border_width=self._border_width,
-            shadow_blur=self._elevation * 1.5,
+            shadow_blur=safe_blur,
             shadow_spread=0.0,
             shadow_offset_x=0.0,
-            shadow_offset_y=self._shadow_offset_y,
+            shadow_offset_y=safe_offset_y,
             shadow_color=self._shadow_color,
         )
         self._surface.blit(self._photo)
@@ -193,6 +221,8 @@ class Card(Frame):
         border_width: float = 1.0,
         elevation: float = 10.0,
         shadow_color: Optional[ColorLike] = None,
+        shadow_offset_y: float = 4.0,
+        padding: Optional[float] = None,
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
@@ -208,6 +238,8 @@ class Card(Frame):
             border_width=border_width,
             elevation=elevation,
             shadow_color=shadow_color,
+            shadow_offset_y=shadow_offset_y,
+            padding=padding,
             parent_bg=parent_bg,
             **kwargs,
         )
@@ -226,7 +258,7 @@ class Card(Frame):
     def render(self) -> None:
         super().render()
         if self._title:
-            pad = max(4.0 * self._scale, self._elevation * 0.8)
+            pad = self._current_pad
             pal = get_theme()
             self._surface.draw_text(
                 self._title,

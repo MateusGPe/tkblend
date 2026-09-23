@@ -744,4 +744,64 @@ def test_slider_and_range_slider_dynamic_theme_switching(root):
     rs_custom.destroy()
 
 
+def test_frame_and_card_padding_and_shadow_budget(root):
+    # 1. Frame with default padding and elevation
+    frame = Frame(root, width=200, height=120, elevation=8.0)
+    frame.render()
+    assert frame._current_pad >= 8.0
+    assert frame.padding == frame._current_pad / frame._scale
+
+    # 2. Frame with explicit padding
+    frame_padded = Frame(root, width=200, height=120, elevation=12.0, padding=16.0)
+    frame_padded.render()
+    assert frame_padded.padding == 16.0
+    assert frame_padded._current_pad == 16.0 * frame_padded._scale
+
+    # 3. Dynamic padding property setter
+    frame_padded.padding = 20.0
+    assert frame_padded.padding == 20.0
+    assert frame_padded._current_pad == 20.0 * frame_padded._scale
+
+    # 4. Zero padding disables shadow cleanly
+    frame_zero = Frame(root, width=200, height=120, padding=0.0)
+    frame_zero.render()
+    assert frame_zero.padding == 0.0
+    assert frame_zero._current_pad == 0.0
+
+    # 5. Card with explicit padding
+    card = Card(root, title="Padded Card", width=250, height=180, elevation=10.0, padding=14.0)
+    card.render()
+    assert card.padding == 14.0
+    assert card._current_pad == 14.0 * card._scale
+
+    frame.destroy()
+    frame_padded.destroy()
+    frame_zero.destroy()
+    card.destroy()
+
+
+def test_widget_unclipped_shadow_rendering(root):
+    # Verify widgets rendering shadows execute without errors under padding-budget inference
+    btn = Button(root, text="Elevated", elevation=5.0)
+    btn.render()
+
+    sw = Switch(root)
+    sw.render()
+
+    seg = SegmentedControl(root, values=["A", "B", "C"])
+    seg.render()
+
+    slider = Slider(root, min_val=0, max_val=100, value=50)
+    slider.render()
+
+    rslider = RangeSlider(root, min_val=0, max_val=100, low_val=25, high_val=75)
+    rslider.render()
+
+    btn.destroy()
+    sw.destroy()
+    seg.destroy()
+    slider.destroy()
+    rslider.destroy()
+
+
 

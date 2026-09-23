@@ -78,6 +78,9 @@ class Switch(Widget):
         knob_cy = pad + r
         knob_cx = (pad + w - r) if self._is_on else (pad + r)
 
+        inset = 3.0 * self._scale
+        safe_blur = min(2.0 * self._scale, inset * 0.65)
+        safe_offset_y = min(0.6 * self._scale, inset * 0.25)
         self._surface.draw_shadow(
             knob_cx - knob_r,
             knob_cy - knob_r,
@@ -85,9 +88,9 @@ class Switch(Widget):
             knob_r * 2.0,
             knob_r,
             knob_r,
-            blur_radius=4.0 * self._scale,
-            offset_y=1.5 * self._scale,
-            shadow_color="#00000055",
+            blur_radius=safe_blur,
+            offset_y=safe_offset_y,
+            shadow_color="#00000030",
         )
         self._surface.fill_circle(knob_cx, knob_cy, knob_r, self._knob_color)
         self._surface.blit(self._photo)
@@ -369,9 +372,11 @@ class SegmentedControl(Widget):
             self._surface.fill_rounded_rect(hx, pad, seg_w, h, r, r, pal.secondary)
 
         ax = pad + self._selected * seg_w
+        safe_blur = min(1.8 * s, pad * 0.6)
+        safe_offset_y = min(0.6 * s, pad * 0.2)
         self._surface.draw_shadow(
             ax + 1.0, pad + 1.0, seg_w - 2.0, h - 2.0,
-            r, r, blur_radius=4.0 * s, offset_y=1.0 * s, shadow_color="#00000044"
+            r, r, blur_radius=safe_blur, offset_y=safe_offset_y, shadow_color="#00000028"
         )
         self._surface.fill_rounded_rect(ax + 1.0, pad + 1.0, seg_w - 2.0, h - 2.0, r, r, active_col)
 

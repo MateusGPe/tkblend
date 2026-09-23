@@ -143,6 +143,9 @@ class Slider(Widget):
                 pad, track_y, rel * usable_w, track_h, track_h / 2.0, track_h / 2.0, active_col
             )
 
+        v_margin = max(1.0, (self._widget_h / 2.0) - self._knob_r)
+        safe_blur = min(2.5 * self._scale, v_margin * 0.65)
+        safe_offset_y = min(0.8 * self._scale, v_margin * 0.25)
         self._surface.draw_shadow(
             knob_cx - self._knob_r,
             (self._widget_h / 2.0) - self._knob_r,
@@ -150,8 +153,8 @@ class Slider(Widget):
             self._knob_r * 2.0,
             self._knob_r,
             self._knob_r,
-            blur_radius=6.0 * self._scale,
-            offset_y=2.0 * self._scale,
+            blur_radius=safe_blur,
+            offset_y=safe_offset_y,
             shadow_color=shadow_col,
         )
 
@@ -310,6 +313,9 @@ class RangeSlider(Widget):
                 low_x, track_y, high_x - low_x, track_h, track_h / 2.0, track_h / 2.0, active_col
             )
 
+        v_margin = max(1.0, (self._widget_h / 2.0) - self._knob_r)
+        safe_blur = min(2.5 * self._scale, v_margin * 0.65)
+        safe_offset_y = min(0.8 * self._scale, v_margin * 0.25)
         for cx in (low_x, high_x):
             self._surface.draw_shadow(
                 cx - self._knob_r,
@@ -318,8 +324,8 @@ class RangeSlider(Widget):
                 self._knob_r * 2.0,
                 self._knob_r,
                 self._knob_r,
-                blur_radius=5.0 * self._scale,
-                offset_y=1.5 * self._scale,
+                blur_radius=safe_blur,
+                offset_y=safe_offset_y,
                 shadow_color=shadow_col,
             )
             self._surface.fill_circle(cx, self._widget_h / 2.0, self._knob_r, knob_col)

@@ -1,4 +1,8 @@
 #include "tkblend.hpp"
+#include "font/font_resolver.hpp"
+
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 #include <optional>
 #include <nanobind/nanobind.h>
@@ -162,151 +166,6 @@ Path& Path::reset() { path.reset(); return *this; }
 // FontManager Implementation
 // -----------------------------------------------------------------------------
 
-#ifdef __linux__
-#include <dlfcn.h>
-
-namespace {
-struct FontconfigResolver {
-    typedef void* (*FcInitLoadConfigAndFontsFunc)();
-    typedef void* (*FcNameParseFunc)(const unsigned char*);
-    typedef void* (*FcFontMatchFunc)(void* config, void* pattern, int* result);
-    typedef int (*FcPatternGetStringFunc)(void* pattern, const char* object, int n, unsigned char** s);
-    typedef void (*FcPatternDestroyFunc)(void* pattern);
-
-    void* handle = nullptr;
-    FcInitLoadConfigAndFontsFunc init_func = nullptr;
-    FcNameParseFunc name_parse = nullptr;
-    FcFontMatchFunc font_match = nullptr;
-    FcPatternGetStringFunc pattern_get_string = nullptr;
-    FcPatternDestroyFunc pattern_destroy = nullptr;
-    void* config = nullptr;
-    bool attempted = false;
-    bool available = false;
-
-    FontconfigResolver() = default;
-    ~FontconfigResolver() {
-        if (handle) {
-            dlclose(handle);
-            handle = nullptr;
-        }
-    }
-
-    bool init() {
-        if (attempted) return available;
-        attempted = true;
-
-        handle = dlopen("libfontconfig.so.1", RTLD_LAZY | RTLD_LOCAL);
-        if (!handle) {
-            handle = dlopen("libfontconfig.so", RTLD_LAZY | RTLD_LOCAL);
-        }
-        if (!handle) return false;
-
-        init_func = (FcInitLoadConfigAndFontsFunc)dlsym(handle, "FcInitLoadConfigAndFonts");
-        name_parse = (FcNameParseFunc)dlsym(handle, "FcNameParse");
-        font_match = (FcFontMatchFunc)dlsym(handle, "FcFontMatch");
-        pattern_get_string = (FcPatternGetStringFunc)dlsym(handle, "FcPatternGetString");
-        pattern_destroy = (FcPatternDestroyFunc)dlsym(handle, "FcPatternDestroy");
-
-        if (init_func && name_parse && font_match && pattern_get_string && pattern_destroy) {
-            config = init_func();
-            available = (config != nullptr);
-        }
-        return available;
-    }
-
-    std::string match_font(const std::string& family) {
-        if (!init()) return "";
-
-        void* pat = name_parse((const unsigned char*)family.c_str());
-        if (!pat) return "";
-
-        int result = 0;
-        void* match = font_match(config, pat, &result);
-        std::string font_path;
-
-        if (match) {
-            unsigned char* file = nullptr;
-            if (pattern_get_string(match, "file", 0, &file) == 0 && file) {
-                font_path = (const char*)file;
-            }
-            pattern_destroy(match);
-        }
-
-        pattern_destroy(pat);
-        return font_path;
-    }
-};
-
-static FontconfigResolver g_fontconfig;
-} // anonymous namespace
-#endif
-
-namespace {
-const std::vector<std::string>& get_platform_font_candidates() {
-    static std::vector<std::string> candidates = []() {
-        std::vector<std::string> list;
-#if defined(_WIN32)
-        std::string win_dir;
-        if (const char* w = std::getenv("WINDIR")) {
-            win_dir = w;
-        } else if (const char* sr = std::getenv("SystemRoot")) {
-            win_dir = sr;
-        } else if (const char* sd = std::getenv("SystemDrive")) {
-            win_dir = std::string(sd) + "\\Windows";
-        } else {
-            win_dir = "C:\\Windows";
-        }
-        std::string win_fonts = win_dir + "\\Fonts\\";
-
-        std::string user_fonts;
-        if (const char* la = std::getenv("LOCALAPPDATA")) {
-            user_fonts = std::string(la) + "\\Microsoft\\Windows\\Fonts\\";
-        }
-
-        const std::vector<std::string> win_font_files = {
-            "segoeui.ttf", "arial.ttf", "calibri.ttf", "tahoma.ttf", "seguiemj.ttf"
-        };
-
-        for (const auto& f : win_font_files) {
-            list.push_back(win_fonts + f);
-            if (!user_fonts.empty()) {
-                list.push_back(user_fonts + f);
-            }
-        }
-#elif defined(__APPLE__)
-        if (const char* home = std::getenv("HOME")) {
-            list.push_back(std::string(home) + "/Library/Fonts/SFProText-Regular.otf");
-            list.push_back(std::string(home) + "/Library/Fonts/Arial.ttf");
-        }
-        list.push_back("/System/Library/Fonts/SFProText-Regular.otf");
-        list.push_back("/System/Library/Fonts/SFNS.ttf");
-        list.push_back("/System/Library/Fonts/Helvetica.ttc");
-        list.push_back("/Library/Fonts/Arial.ttf");
-        list.push_back("/Library/Fonts/Helvetica.ttc");
-        list.push_back("/System/Library/Fonts/Geneva.ttf");
-#else // Linux / Unix
-        if (const char* xdg = std::getenv("XDG_DATA_HOME")) {
-            list.push_back(std::string(xdg) + "/fonts/dejavu/DejaVuSans.ttf");
-            list.push_back(std::string(xdg) + "/fonts/truetype/dejavu/DejaVuSans.ttf");
-        } else if (const char* home = std::getenv("HOME")) {
-            list.push_back(std::string(home) + "/.local/share/fonts/dejavu/DejaVuSans.ttf");
-            list.push_back(std::string(home) + "/.fonts/DejaVuSans.ttf");
-        }
-        list.push_back("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
-        list.push_back("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf");
-        list.push_back("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf");
-        list.push_back("/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf");
-        list.push_back("/usr/share/fonts/truetype/roboto/unhinted/Roboto-Regular.ttf");
-        list.push_back("/usr/share/fonts/TTF/DejaVuSans.ttf");
-        list.push_back("/usr/share/fonts/noto/NotoSans-Regular.ttf");
-        list.push_back("/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf");
-#endif
-        return list;
-    }();
-    return candidates;
-}
-} // anonymous namespace
-
 FontManager& FontManager::instance() {
     static FontManager instance;
     return instance;
@@ -334,92 +193,19 @@ std::string FontManager::resolve_system_font_path(const std::string& family) {
         } catch (...) {}
     }
 
-#ifdef __linux__
-    // 2. Query Fontconfig dynamically (<1ms, using binary cache)
-    std::string fc_path = g_fontconfig.match_font(lower_family);
-    if (!fc_path.empty()) {
+    // 2. Query native platform resolver (DirectWrite/GDI on Win, CoreText on macOS, Fontconfig on Linux)
+    std::string native_path = resolve_native_font_path(family);
+    if (native_path.empty() && lower_family != family) {
+        native_path = resolve_native_font_path(lower_family);
+    }
+
+    if (!native_path.empty()) {
         try {
-            if (fs::exists(fc_path)) {
-                font_paths_[lower_family] = fc_path;
-                return fc_path;
+            if (fs::exists(native_path)) {
+                font_paths_[lower_family] = native_path;
+                return native_path;
             }
         } catch (...) {}
-    }
-#endif
-
-#if defined(_WIN32)
-    std::string win_dir;
-    if (const char* w = std::getenv("WINDIR")) {
-        win_dir = w;
-    } else if (const char* sr = std::getenv("SystemRoot")) {
-        win_dir = sr;
-    } else if (const char* sd = std::getenv("SystemDrive")) {
-        win_dir = std::string(sd) + "\\Windows";
-    } else {
-        win_dir = "C:\\Windows";
-    }
-    std::string win_fonts = win_dir + "\\Fonts\\";
-
-    std::string user_fonts;
-    if (const char* localappdata = std::getenv("LOCALAPPDATA")) {
-        user_fonts = std::string(localappdata) + "\\Microsoft\\Windows\\Fonts\\";
-    }
-
-    std::vector<std::string> trial_names = { lower_family + ".ttf", lower_family + ".otf" };
-    if (lower_family == "sans-serif") {
-        trial_names = { "segoeui.ttf", "arial.ttf", "calibri.ttf" };
-    }
-
-    for (const auto& name : trial_names) {
-        std::string p1 = win_fonts + name;
-        try {
-            if (fs::exists(p1)) {
-                font_paths_[lower_family] = p1;
-                return p1;
-            }
-        } catch (...) {}
-        if (!user_fonts.empty()) {
-            std::string p2 = user_fonts + name;
-            try {
-                if (fs::exists(p2)) {
-                    font_paths_[lower_family] = p2;
-                    return p2;
-                }
-            } catch (...) {}
-        }
-    }
-#elif defined(__APPLE__)
-    std::vector<std::string> search_dirs = {
-        "/System/Library/Fonts/",
-        "/Library/Fonts/"
-    };
-    std::vector<std::string> trial_names = { lower_family + ".ttf", lower_family + ".otf", lower_family + ".ttc" };
-    if (lower_family == "sans-serif") {
-        trial_names = { "SFProText-Regular.otf", "SFNS.ttf", "Helvetica.ttc", "Arial.ttf" };
-    }
-    for (const auto& dir : search_dirs) {
-        for (const auto& name : trial_names) {
-            std::string p = dir + name;
-            try {
-                if (fs::exists(p)) {
-                    font_paths_[lower_family] = p;
-                    return p;
-                }
-            } catch (...) {}
-        }
-    }
-#endif
-
-    // 3. Fallback candidates for generic sans-serif / default
-    if (lower_family == "sans-serif" || lower_family == "default") {
-        for (const auto& candidate : get_platform_font_candidates()) {
-            try {
-                if (fs::exists(candidate)) {
-                    font_paths_[lower_family] = candidate;
-                    return candidate;
-                }
-            } catch (...) {}
-        }
     }
 
     return "";
@@ -762,6 +548,253 @@ BLImage ShadowEngine::get_or_render_rounded_shadow(
 }
 
 // -----------------------------------------------------------------------------
+// EmojiEngine Implementation
+// -----------------------------------------------------------------------------
+
+EmojiEngine& EmojiEngine::instance() {
+    static EmojiEngine instance;
+    return instance;
+}
+
+EmojiEngine::EmojiEngine() {
+    emoji_font_path_ = resolve_system_emoji_font();
+}
+
+EmojiEngine::~EmojiEngine() {
+    if (ft_face_) {
+        FT_Done_Face(reinterpret_cast<FT_Face>(ft_face_));
+        ft_face_ = nullptr;
+    }
+    if (ft_lib_) {
+        FT_Done_FreeType(reinterpret_cast<FT_Library>(ft_lib_));
+        ft_lib_ = nullptr;
+    }
+}
+
+std::string EmojiEngine::resolve_system_emoji_font() {
+#ifdef __linux__
+    static const char* linux_paths[] = {
+        "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+        "/usr/share/fonts/noto/NotoColorEmoji.ttf",
+        "/usr/share/fonts/truetype/noto-color-emoji/NotoColorEmoji.ttf",
+        "/usr/share/fonts/google-noto-color-emoji-fonts/NotoColorEmoji.ttf",
+        "/home/mateusgp/.local/share/fonts/NotoColorEmoji.ttf"
+    };
+    for (const char* p : linux_paths) {
+        try {
+            if (fs::exists(p)) return p;
+        } catch (...) {}
+    }
+#if defined(__linux__)
+    std::string fc_emoji = resolve_native_font_path("emoji");
+    if (!fc_emoji.empty()) {
+        try {
+            if (fs::exists(fc_emoji)) return fc_emoji;
+        } catch (...) {}
+    }
+#endif
+#elif defined(_WIN32)
+    std::string win_dir = "C:\\Windows";
+    if (const char* w = std::getenv("WINDIR")) win_dir = w;
+    else if (const char* sr = std::getenv("SystemRoot")) win_dir = sr;
+    std::string seg = win_dir + "\\Fonts\\seguiemj.ttf";
+    try {
+        if (fs::exists(seg)) return seg;
+    } catch (...) {}
+#elif defined(__APPLE__)
+    static const char* mac_paths[] = {
+        "/System/Library/Fonts/Apple Color Emoji.ttc",
+        "/System/Library/Fonts/Core/Apple Color Emoji.ttc",
+        "/Library/Fonts/Apple Color Emoji.ttc"
+    };
+    for (const char* p : mac_paths) {
+        try {
+            if (fs::exists(p)) return p;
+        } catch (...) {}
+    }
+#endif
+    return "";
+}
+
+bool EmojiEngine::init() {
+    if (initialized_) return (ft_face_ != nullptr);
+    initialized_ = true;
+
+    FT_Library ft = nullptr;
+    if (FT_Init_FreeType(&ft) != 0) {
+        return false;
+    }
+    ft_lib_ = ft;
+
+    if (emoji_font_path_.empty()) {
+        emoji_font_path_ = resolve_system_emoji_font();
+    }
+    if (emoji_font_path_.empty()) {
+        return false;
+    }
+    try {
+        if (!fs::exists(emoji_font_path_)) return false;
+    } catch (...) {
+        return false;
+    }
+
+    FT_Face face = nullptr;
+    if (FT_New_Face(ft, emoji_font_path_.c_str(), 0, &face) != 0) {
+        return false;
+    }
+    ft_face_ = face;
+
+    if (face->num_fixed_sizes > 0) {
+        FT_Select_Size(face, 0);
+    }
+    return true;
+}
+
+void EmojiEngine::set_emoji_font(const std::string& path) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (path == emoji_font_path_) return;
+    emoji_font_path_ = path;
+    cache_.clear();
+
+    if (ft_face_) {
+        FT_Done_Face(reinterpret_cast<FT_Face>(ft_face_));
+        ft_face_ = nullptr;
+    }
+    if (ft_lib_) {
+        FT_Done_FreeType(reinterpret_cast<FT_Library>(ft_lib_));
+        ft_lib_ = nullptr;
+    }
+    initialized_ = false;
+    init();
+}
+
+std::string EmojiEngine::get_emoji_font_path() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return emoji_font_path_;
+}
+
+bool EmojiEngine::is_emoji(uint32_t cp) {
+    if (cp >= 0x1F300 && cp <= 0x1FAFF) return true;
+    if (cp >= 0x2600 && cp <= 0x27BF) return true;
+    if (cp >= 0x2B00 && cp <= 0x2BFF) return true;
+    if (cp >= 0x2300 && cp <= 0x23FF) return true;
+    if (cp >= 0x1F1E6 && cp <= 0x1F1FF) return true;
+    if (cp == 0xFE0E || cp == 0xFE0F || cp == 0x200D) return true;
+    return false;
+}
+
+bool EmojiEngine::get_emoji_glyph(
+    uint32_t codepoint,
+    float target_size,
+    BLImage& out_img,
+    double& out_advance_x,
+    double& out_bearing_y
+) {
+    int target_sz_int = static_cast<int>(target_size + 0.5f);
+    if (target_sz_int < 1) target_sz_int = 1;
+
+    GlyphKey key{codepoint, target_sz_int};
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = cache_.find(key);
+    if (it != cache_.end()) {
+        if (!it->second.valid) return false;
+        out_img = it->second.image;
+        out_advance_x = it->second.advance_x;
+        out_bearing_y = it->second.bearing_y;
+        return true;
+    }
+
+    if (!init()) {
+        cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+        return false;
+    }
+
+    FT_Face face = reinterpret_cast<FT_Face>(ft_face_);
+    if (!face) {
+        cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+        return false;
+    }
+
+    FT_UInt glyph_index = FT_Get_Char_Index(face, codepoint);
+    if (glyph_index == 0) {
+        cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+        return false;
+    }
+
+    if (FT_Load_Glyph(face, glyph_index, FT_LOAD_COLOR) != 0) {
+        cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+        return false;
+    }
+
+    FT_GlyphSlot slot = face->glyph;
+    if (slot->format != FT_GLYPH_FORMAT_BITMAP) {
+        if (FT_Render_Glyph(slot, FT_RENDER_MODE_NORMAL) != 0) {
+            cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+            return false;
+        }
+    }
+
+    FT_Bitmap& bmp = slot->bitmap;
+    if (bmp.width == 0 || bmp.rows == 0 || !bmp.buffer) {
+        cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+        return false;
+    }
+
+    int raw_w = bmp.width;
+    int raw_h = bmp.rows;
+
+    BLImage raw_bl_img;
+    if (bmp.pixel_mode == FT_PIXEL_MODE_BGRA) {
+        raw_bl_img.create_from_data(raw_w, raw_h, BL_FORMAT_PRGB32, bmp.buffer, bmp.pitch);
+    } else if (bmp.pixel_mode == FT_PIXEL_MODE_GRAY) {
+        raw_bl_img.create(raw_w, raw_h, BL_FORMAT_PRGB32);
+        BLImageData img_data;
+        if (raw_bl_img.make_mutable(&img_data) == BL_SUCCESS) {
+            for (int r = 0; r < raw_h; ++r) {
+                const uint8_t* src_row = bmp.buffer + r * bmp.pitch;
+                uint32_t* dst_row = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(img_data.pixel_data) + r * img_data.stride);
+                for (int c = 0; c < raw_w; ++c) {
+                    uint32_t a = src_row[c];
+                    dst_row[c] = (a << 24) | (a << 16) | (a << 8) | a;
+                }
+            }
+        }
+    } else {
+        cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+        return false;
+    }
+
+    double aspect = static_cast<double>(raw_w) / static_cast<double>(raw_h);
+    int dest_h = target_sz_int;
+    int dest_w = static_cast<int>(dest_h * aspect + 0.5);
+    if (dest_w < 1) dest_w = 1;
+
+    BLImage scaled_img;
+    scaled_img.create(dest_w, dest_h, BL_FORMAT_PRGB32);
+    {
+        BLContext sctx(scaled_img);
+        sctx.clear_all();
+        double sx = static_cast<double>(dest_w) / static_cast<double>(raw_w);
+        double sy = static_cast<double>(dest_h) / static_cast<double>(raw_h);
+        sctx.scale(sx, sy);
+        sctx.blit_image(BLPoint(0, 0), raw_bl_img);
+        sctx.end();
+    }
+
+    double adv_x = dest_w * 1.15;
+    double bear_y = dest_h * 0.82;
+
+    CachedGlyph entry{scaled_img, adv_x, bear_y, true};
+    cache_[key] = entry;
+
+    out_img = scaled_img;
+    out_advance_x = adv_x;
+    out_bearing_y = bear_y;
+    return true;
+}
+
+// -----------------------------------------------------------------------------
 // Surface Implementation
 // -----------------------------------------------------------------------------
 
@@ -959,6 +992,34 @@ void Surface::stroke_path(const Path& path, const Color& color, double stroke_wi
     ctx_.stroke_path(path.path);
 }
 
+namespace {
+inline uint32_t decode_utf8(const char*& p, const char* end) {
+    if (p >= end) return 0;
+    unsigned char c = static_cast<unsigned char>(*p++);
+    if (c < 0x80) return c;
+    if ((c & 0xE0) == 0xC0) {
+        if (p >= end) return 0;
+        return ((c & 0x1F) << 6) | (static_cast<unsigned char>(*p++) & 0x3F);
+    }
+    if ((c & 0xF0) == 0xE0) {
+        if (p + 1 >= end) return 0;
+        uint32_t cp = ((c & 0x0F) << 12);
+        cp |= (static_cast<unsigned char>(*p++) & 0x3F) << 6;
+        cp |= (static_cast<unsigned char>(*p++) & 0x3F);
+        return cp;
+    }
+    if ((c & 0xF8) == 0xF0) {
+        if (p + 2 >= end) return 0;
+        uint32_t cp = ((c & 0x07) << 18);
+        cp |= (static_cast<unsigned char>(*p++) & 0x3F) << 12;
+        cp |= (static_cast<unsigned char>(*p++) & 0x3F) << 6;
+        cp |= (static_cast<unsigned char>(*p++) & 0x3F);
+        return cp;
+    }
+    return 0;
+}
+} // anonymous namespace
+
 void Surface::draw_text(
     const std::string& text,
     double x, double y,
@@ -967,28 +1028,132 @@ void Surface::draw_text(
     const Color& color,
     int align
 ) {
+    if (text.empty()) return;
     std::lock_guard<std::mutex> lock(mutex_);
     BLFont font = FontManager::instance().create_font(font_family, font_size);
     if (font.is_empty()) return;
 
-    double draw_x = x;
-    double draw_y = y;
-
-    if (align != 0) {
-        BLTextMetrics tm;
-        BLGlyphBuffer gb;
-        gb.set_utf8_text(text.data(), text.size());
-        font.get_text_metrics(gb, tm);
-        double text_w = tm.bounding_box.x1 - tm.bounding_box.x0;
-        if (align == 1) {
-            draw_x -= text_w / 2.0;
-        } else if (align == 2) {
-            draw_x -= text_w;
+    // Fast check: does text contain any multibyte characters that could be emoji?
+    bool has_potential_emoji = false;
+    for (size_t i = 0; i < text.size(); ++i) {
+        if (static_cast<unsigned char>(text[i]) >= 0x80) {
+            const char* p = text.data() + i;
+            const char* end = text.data() + text.size();
+            uint32_t cp = decode_utf8(p, end);
+            if (EmojiEngine::is_emoji(cp)) {
+                has_potential_emoji = true;
+                break;
+            }
+            i = (p - text.data()) - 1;
         }
     }
 
+    if (!has_potential_emoji) {
+        double draw_x = x;
+        double draw_y = y;
+
+        if (align != 0) {
+            BLTextMetrics tm;
+            BLGlyphBuffer gb;
+            gb.set_utf8_text(text.data(), text.size());
+            font.get_text_metrics(gb, tm);
+            double text_w = tm.advance.x;
+            if (text_w <= 0.0) text_w = tm.bounding_box.x1 - tm.bounding_box.x0;
+            if (align == 1) {
+                draw_x -= text_w / 2.0;
+            } else if (align == 2) {
+                draw_x -= text_w;
+            }
+        }
+
+        ctx_.set_fill_style(color.to_bl_rgba32());
+        ctx_.fill_utf8_text(BLPoint(draw_x, draw_y), font, text.data(), text.size());
+        return;
+    }
+
+    // Rich text path with emoji run-splitting
+    struct TextRun {
+        bool is_emoji;
+        std::string text;
+        BLImage emoji_img;
+        double width;
+        double bearing_y;
+    };
+
+    std::vector<TextRun> runs;
+    std::string cur_text;
+
+    auto flush_text = [&]() {
+        if (!cur_text.empty()) {
+            BLTextMetrics tm;
+            BLGlyphBuffer gb;
+            gb.set_utf8_text(cur_text.data(), cur_text.size());
+            font.get_text_metrics(gb, tm);
+            double w = tm.advance.x;
+            if (w <= 0.0) {
+                w = tm.bounding_box.x1 - tm.bounding_box.x0;
+            }
+            if (w <= 0.0) {
+                w = cur_text.size() * (font_size * 0.3);
+            }
+            runs.push_back(TextRun{false, cur_text, BLImage(), w, 0.0});
+            cur_text.clear();
+        }
+    };
+
+    const char* p = text.data();
+    const char* end = p + text.size();
+
+    while (p < end) {
+        const char* prev_p = p;
+        uint32_t cp = decode_utf8(p, end);
+        if (cp == 0) break;
+
+        // Skip variation selectors
+        if (cp == 0xFE0E || cp == 0xFE0F) {
+            continue;
+        }
+
+        if (EmojiEngine::is_emoji(cp)) {
+            BLImage emoji_img;
+            double adv_x = 0, bear_y = 0;
+            if (EmojiEngine::instance().get_emoji_glyph(cp, font_size, emoji_img, adv_x, bear_y)) {
+                flush_text();
+                runs.push_back(TextRun{true, "", emoji_img, adv_x, bear_y});
+                continue;
+            }
+        }
+
+        cur_text.append(prev_p, p - prev_p);
+    }
+    flush_text();
+
+    if (runs.empty()) return;
+
+    double total_w = 0.0;
+    for (const auto& r : runs) {
+        total_w += r.width;
+    }
+
+    double draw_x = x;
+    if (align == 1) {
+        draw_x -= total_w / 2.0;
+    } else if (align == 2) {
+        draw_x -= total_w;
+    }
+
+    double curr_x = draw_x;
     ctx_.set_fill_style(color.to_bl_rgba32());
-    ctx_.fill_utf8_text(BLPoint(draw_x, draw_y), font, text.data(), text.size());
+
+    for (const auto& r : runs) {
+        if (r.is_emoji) {
+            ctx_.blit_image(BLPoint(curr_x, y - r.bearing_y), r.emoji_img);
+            curr_x += r.width;
+        } else {
+            ctx_.fill_utf8_text(BLPoint(curr_x, y), font, r.text.data(), r.text.size());
+            curr_x += r.width;
+        }
+    }
 }
 
 void Surface::draw_shadow_rounded_rect(
@@ -1218,6 +1383,14 @@ NB_MODULE(_tkblend, m) {
     m.def("register_font_directory", [](const std::string& dir_path) {
         return tkblend::FontManager::instance().register_font_directory(dir_path);
     }, nb::arg("dir_path"));
+
+    m.def("set_emoji_font", [](const std::string& path) {
+        tkblend::EmojiEngine::instance().set_emoji_font(path);
+    }, nb::arg("path"));
+
+    m.def("get_emoji_font", []() -> std::string {
+        return tkblend::EmojiEngine::instance().get_emoji_font_path();
+    });
 
     // Surface binding
     nb::class_<tkblend::Surface>(m, "Surface")

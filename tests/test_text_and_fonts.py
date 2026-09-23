@@ -15,7 +15,10 @@ from tkblend import (
     find_system_font,
     get_loaded_fonts,
     register_font_directory,
+    set_emoji_font,
+    get_emoji_font,
 )
+import tkblend
 
 
 class TestTextAndFonts(unittest.TestCase):
@@ -27,8 +30,31 @@ class TestTextAndFonts(unittest.TestCase):
     def test_find_system_font(self):
         # sans-serif should be resolvable on any standard OS/Linux system
         path = find_system_font("sans-serif")
-        if path is not None:
-            self.assertTrue(os.path.exists(path), f"Resolved font path does not exist: {path}")
+        self.assertIsNotNone(path, "sans-serif font must be resolved on standard systems")
+        self.assertTrue(os.path.exists(path), f"Resolved font path does not exist: {path}")
+
+    def test_find_system_font_generic_aliases(self):
+        # Generic CSS-like font families
+        for alias in ["sans-serif", "serif", "monospace", "default"]:
+            path = find_system_font(alias)
+            if path is not None:
+                self.assertTrue(os.path.exists(path), f"Resolved path for {alias} does not exist: {path}")
+
+    def test_find_system_font_specific_and_case_insensitive(self):
+        # Try resolving specific known system fonts
+        for family in ["DejaVu Sans", "Noto Sans", "Liberation Sans", "Ubuntu", "Arial"]:
+            path = find_system_font(family)
+            if path:
+                self.assertTrue(os.path.exists(path), f"Font path for {family} does not exist: {path}")
+                # Case insensitivity test
+                lower_path = find_system_font(family.lower())
+                self.assertEqual(path, lower_path, f"Case mismatch resolution for {family}")
+                break
+
+    def test_find_system_font_nonexistent(self):
+        # Non-existent font families should return None
+        path = find_system_font("absolutely_nonexistent_font_family_xyz_12345")
+        self.assertIsNone(path)
 
     def test_loaded_fonts_registry(self):
         # Ensure get_loaded_fonts returns a list
@@ -93,7 +119,38 @@ class TestTextAndFonts(unittest.TestCase):
 
         s.flush()
 
+    def test_draw_text_with_emojis(self):
+        s = Surface(300, 150)
+        s.clear("#181825")
+
+        # Mixed emoji and text
+        s.draw_text("🌙 Dark Mode", 20, 40, font_size=16.0, font_family="sans-serif", color="#cdd6f4")
+        s.draw_text("☀️ Light Mode", 20, 80, font_size=16.0, font_family="sans-serif", color="#f9e2af")
+
+        # Multiple and standalone emojis
+        s.draw_text("⚡🚀🔥", 20, 120, font_size=18.0)
+        s.flush()
+
+    def test_draw_text_alignments_with_emojis(self):
+        s = Surface(300, 150)
+        s.clear("#181825")
+
+        s.draw_text("🌙 Dark", 150, 40, font_size=15.0, align="center")
+        s.draw_text("☀️ Light", 280, 80, font_size=15.0, align="right")
+        s.draw_text("🚀 Fast", 10, 120, font_size=15.0, align="left")
+        s.flush()
+
+    def test_emoji_font_discovery_and_custom_setter(self):
+        current_font = tkblend.get_emoji_font()
+        self.assertIsInstance(current_font, str)
+
+        # Test setting a custom emoji font (re-applying current font)
+        if current_font:
+            tkblend.set_emoji_font(current_font)
+            self.assertEqual(tkblend.get_emoji_font(), current_font)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
