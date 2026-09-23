@@ -4,6 +4,8 @@ Provides semantic colors, built-in Dark and Light themes, and dynamic theme chan
 """
 
 from __future__ import annotations
+import inspect
+import weakref
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, Callable, Optional, Union, Tuple, List
 
@@ -184,102 +186,468 @@ class Palette:
     dark_mode: bool = True
 
     # Canvas & Window background
-    bg: str = "#1e1e2e"
-    fg: str = "#cdd6f4"
-    text_muted: str = "#a6adc8"
+    bg: str = "#100e14"
+    fg: str = "#e6e0e9"
+    text_muted: str = "#cac4d0"
 
     # Surface & Containers
-    card_bg: str = "#252538"
-    card_border: str = "#313244"
-    surface: str = "#181825"
-    surface_border: str = "#313244"
+    card_bg: str = "#25232a"
+    card_border: str = "#49454f"
+    surface: str = "#1d1b20"
+    surface_border: str = "#36343b"
 
     # Primary brand accent
-    primary: str = "#89b4fa"
-    primary_hover: str = "#b4befe"
-    primary_active: str = "#74c7ec"
-    primary_fg: str = "#11111b"
+    primary: str = "#d0bcff"
+    primary_hover: str = "#e8def8"
+    primary_active: str = "#b69df8"
+    primary_fg: str = "#381e72"
 
     # Secondary action
-    secondary: str = "#313244"
-    secondary_hover: str = "#45475a"
-    secondary_active: str = "#585b70"
-    secondary_fg: str = "#cdd6f4"
+    secondary: str = "#4a4458"
+    secondary_hover: str = "#585168"
+    secondary_active: str = "#332d41"
+    secondary_fg: str = "#e8def8"
 
     # Status & Accent colors
-    accent: str = "#cba6f7"
-    success: str = "#a6e3a1"
-    warning: str = "#f9e2af"
-    destructive: str = "#f38ba8"
+    accent: str = "#efb8c8"
+    success: str = "#85d697"
+    warning: str = "#ffb877"
+    destructive: str = "#ffb4ab"
 
     # Inputs & Controls
-    input_bg: str = "#181825"
-    input_border: str = "#313244"
-    input_focus: str = "#89b4fa"
-    track_bg: str = "#313244"
-    thumb_color: str = "#ffffff"
-    shadow_color: str = "#00000066"
+    input_bg: str = "#1d1b20"
+    input_border: str = "#49454f"
+    input_focus: str = "#d0bcff"
+    track_bg: str = "#36343b"
+    thumb_color: str = "#d0bcff"
+    shadow_color: str = "#00000055"
 
 
 DARK_PALETTE = Palette(
     name="dark",
     dark_mode=True,
-    bg="#1e1e2e",
-    fg="#cdd6f4",
-    text_muted="#a6adc8",
-    card_bg="#252538",
-    card_border="#313244",
-    surface="#181825",
-    surface_border="#313244",
-    primary="#89b4fa",
-    primary_hover="#b4befe",
-    primary_active="#74c7ec",
-    primary_fg="#11111b",
-    secondary="#313244",
-    secondary_hover="#45475a",
-    secondary_active="#585b70",
-    secondary_fg="#cdd6f4",
-    accent="#cba6f7",
-    success="#a6e3a1",
-    warning="#f9e2af",
-    destructive="#f38ba8",
-    input_bg="#181825",
-    input_border="#313244",
-    input_focus="#89b4fa",
-    track_bg="#313244",
-    thumb_color="#ffffff",
-    shadow_color="#00000066",
+    bg="#100e14",
+    fg="#e6e0e9",
+    text_muted="#cac4d0",
+    card_bg="#25232a",
+    card_border="#49454f",
+    surface="#1d1b20",
+    surface_border="#36343b",
+    primary="#d0bcff",
+    primary_hover="#e8def8",
+    primary_active="#b69df8",
+    primary_fg="#381e72",
+    secondary="#4a4458",
+    secondary_hover="#585168",
+    secondary_active="#332d41",
+    secondary_fg="#e8def8",
+    accent="#efb8c8",
+    success="#85d697",
+    warning="#ffb877",
+    destructive="#ffb4ab",
+    input_bg="#1d1b20",
+    input_border="#49454f",
+    input_focus="#d0bcff",
+    track_bg="#36343b",
+    thumb_color="#d0bcff",
+    shadow_color="#00000055",
 )
 
 LIGHT_PALETTE = Palette(
     name="light",
     dark_mode=False,
-    bg="#f8f9fa",
-    fg="#1e293b",
-    text_muted="#64748b",
+    bg="#f8f4fa",
+    fg="#1d1b20",
+    text_muted="#49454f",
     card_bg="#ffffff",
-    card_border="#e2e8f0",
-    surface="#f1f5f9",
-    surface_border="#e2e8f0",
-    primary="#2563eb",
-    primary_hover="#1d4ed8",
-    primary_active="#1e40af",
+    card_border="#cac4d0",
+    surface="#f0eaf4",
+    surface_border="#e7e0ec",
+    primary="#6750a4",
+    primary_hover="#7f67be",
+    primary_active="#533d8b",
     primary_fg="#ffffff",
-    secondary="#e2e8f0",
-    secondary_hover="#cbd5e1",
-    secondary_active="#94a3b8",
-    secondary_fg="#1e293b",
-    accent="#7c3aed",
-    success="#16a34a",
-    warning="#d97706",
-    destructive="#dc2626",
+    secondary="#e8def8",
+    secondary_hover="#ded3ee",
+    secondary_active="#cbbcdb",
+    secondary_fg="#1d192b",
+    accent="#7d5260",
+    success="#2e6c43",
+    warning="#8f4c00",
+    destructive="#ba1a1a",
     input_bg="#ffffff",
-    input_border="#cbd5e1",
-    input_focus="#2563eb",
-    track_bg="#e2e8f0",
-    thumb_color="#ffffff",
-    shadow_color="#0000001f",
+    input_border="#79747e",
+    input_focus="#6750a4",
+    track_bg="#e7e0ec",
+    thumb_color="#6750a4",
+    shadow_color="#00000010",
 )
+
+DRACULA_PALETTE = Palette(
+    name="dracula",
+    dark_mode=True,
+    bg="#282a36",
+    fg="#f8f8f2",
+    text_muted="#6272a4",
+    card_bg="#343746",
+    card_border="#44475a",
+    surface="#21222c",
+    surface_border="#44475a",
+    primary="#bd93f9",
+    primary_hover="#caa6fc",
+    primary_active="#a777f5",
+    primary_fg="#282a36",
+    secondary="#6272a4",
+    secondary_hover="#7283b5",
+    secondary_active="#526190",
+    secondary_fg="#f8f8f2",
+    accent="#ff79c6",
+    success="#50fa7b",
+    warning="#ffb86c",
+    destructive="#ff5555",
+    input_bg="#21222c",
+    input_border="#6272a4",
+    input_focus="#bd93f9",
+    track_bg="#44475a",
+    thumb_color="#bd93f9",
+    shadow_color="#00000060",
+)
+
+NORD_PALETTE = Palette(
+    name="nord",
+    dark_mode=True,
+    bg="#2e3440",
+    fg="#eceff4",
+    text_muted="#d8dee9",
+    card_bg="#434c5e",
+    card_border="#4c566a",
+    surface="#3b4252",
+    surface_border="#4c566a",
+    primary="#88c0d0",
+    primary_hover="#8fbcbb",
+    primary_active="#81a1c1",
+    primary_fg="#2e3440",
+    secondary="#4c566a",
+    secondary_hover="#5b677e",
+    secondary_active="#3f4756",
+    secondary_fg="#eceff4",
+    accent="#81a1c1",
+    success="#a3be8c",
+    warning="#ebcb8b",
+    destructive="#bf616a",
+    input_bg="#3b4252",
+    input_border="#4c566a",
+    input_focus="#88c0d0",
+    track_bg="#4c566a",
+    thumb_color="#88c0d0",
+    shadow_color="#00000050",
+)
+
+TOKYO_NIGHT_PALETTE = Palette(
+    name="tokyo_night",
+    dark_mode=True,
+    bg="#1a1b26",
+    fg="#c0caf5",
+    text_muted="#7aa2f7",
+    card_bg="#24283b",
+    card_border="#414868",
+    surface="#16161e",
+    surface_border="#292e42",
+    primary="#7aa2f7",
+    primary_hover="#89b4fa",
+    primary_active="#628be0",
+    primary_fg="#15161e",
+    secondary="#414868",
+    secondary_hover="#565f89",
+    secondary_active="#343b58",
+    secondary_fg="#c0caf5",
+    accent="#bb9af7",
+    success="#9ece6a",
+    warning="#e0af68",
+    destructive="#f7768e",
+    input_bg="#16161e",
+    input_border="#414868",
+    input_focus="#7aa2f7",
+    track_bg="#292e42",
+    thumb_color="#7aa2f7",
+    shadow_color="#00000066",
+)
+
+CATPPUCCIN_MOCHA_PALETTE = Palette(
+    name="catppuccin_mocha",
+    dark_mode=True,
+    bg="#1e1e2e",
+    fg="#cdd6f4",
+    text_muted="#a6adc8",
+    card_bg="#313244",
+    card_border="#45475a",
+    surface="#181825",
+    surface_border="#313244",
+    primary="#cba6f7",
+    primary_hover="#d5b4fc",
+    primary_active="#b485ee",
+    primary_fg="#11111b",
+    secondary="#45475a",
+    secondary_hover="#585b70",
+    secondary_active="#313244",
+    secondary_fg="#cdd6f4",
+    accent="#f5c2e7",
+    success="#a6e3a1",
+    warning="#f9e2af",
+    destructive="#f38ba8",
+    input_bg="#181825",
+    input_border="#45475a",
+    input_focus="#cba6f7",
+    track_bg="#313244",
+    thumb_color="#cba6f7",
+    shadow_color="#00000066",
+)
+
+CATPPUCCIN_LATTE_PALETTE = Palette(
+    name="catppuccin_latte",
+    dark_mode=False,
+    bg="#eff1f5",
+    fg="#4c4f69",
+    text_muted="#6c6f85",
+    card_bg="#ffffff",
+    card_border="#ccd0da",
+    surface="#e6e9ef",
+    surface_border="#ccd0da",
+    primary="#8839ef",
+    primary_hover="#9a52f4",
+    primary_active="#7222df",
+    primary_fg="#ffffff",
+    secondary="#ccd0da",
+    secondary_hover="#bcc0cc",
+    secondary_active="#acb0be",
+    secondary_fg="#4c4f69",
+    accent="#ea76cb",
+    success="#40a02b",
+    warning="#df8e1d",
+    destructive="#d20f39",
+    input_bg="#ffffff",
+    input_border="#bcc0cc",
+    input_focus="#8839ef",
+    track_bg="#dce0e8",
+    thumb_color="#8839ef",
+    shadow_color="#00000010",
+)
+
+CYBERPUNK_PALETTE = Palette(
+    name="cyberpunk",
+    dark_mode=True,
+    bg="#0d0b18",
+    fg="#00f0ff",
+    text_muted="#9b72cf",
+    card_bg="#1e1938",
+    card_border="#ff007f",
+    surface="#151226",
+    surface_border="#2c2250",
+    primary="#ff007f",
+    primary_hover="#ff3399",
+    primary_active="#d9006c",
+    primary_fg="#ffffff",
+    secondary="#2c2250",
+    secondary_hover="#3d306b",
+    secondary_active="#20183b",
+    secondary_fg="#00f0ff",
+    accent="#ffe600",
+    success="#00ff9f",
+    warning="#ff8c00",
+    destructive="#ff0055",
+    input_bg="#151226",
+    input_border="#ff007f88",
+    input_focus="#00f0ff",
+    track_bg="#2b214a",
+    thumb_color="#00f0ff",
+    shadow_color="#ff007f33",
+)
+
+EMERALD_FOREST_PALETTE = Palette(
+    name="emerald_forest",
+    dark_mode=True,
+    bg="#0b1914",
+    fg="#e1f5ec",
+    text_muted="#84bfa6",
+    card_bg="#19332a",
+    card_border="#295243",
+    surface="#12251e",
+    surface_border="#1f4235",
+    primary="#10b981",
+    primary_hover="#34d399",
+    primary_active="#059669",
+    primary_fg="#062319",
+    secondary="#24493b",
+    secondary_hover="#2f5e4c",
+    secondary_active="#19352a",
+    secondary_fg="#e1f5ec",
+    accent="#38bdf8",
+    success="#34d399",
+    warning="#fbbf24",
+    destructive="#f87171",
+    input_bg="#12251e",
+    input_border="#295243",
+    input_focus="#10b981",
+    track_bg="#1e3c31",
+    thumb_color="#10b981",
+    shadow_color="#00000060",
+)
+
+SUNSET_AMBER_PALETTE = Palette(
+    name="sunset_amber",
+    dark_mode=True,
+    bg="#1a120c",
+    fg="#faedd9",
+    text_muted="#c7a58b",
+    card_bg="#36261a",
+    card_border="#543b29",
+    surface="#261b12",
+    surface_border="#422f20",
+    primary="#f59e0b",
+    primary_hover="#fbbf24",
+    primary_active="#d97706",
+    primary_fg="#261404",
+    secondary="#453222",
+    secondary_hover="#5a412d",
+    secondary_active="#332417",
+    secondary_fg="#faedd9",
+    accent="#f43f5e",
+    success="#10b981",
+    warning="#f59e0b",
+    destructive="#ef4444",
+    input_bg="#261b12",
+    input_border="#543b29",
+    input_focus="#f59e0b",
+    track_bg="#3d2a1c",
+    thumb_color="#f59e0b",
+    shadow_color="#00000060",
+)
+
+MONOKAI_PRO_PALETTE = Palette(
+    name="monokai_pro",
+    dark_mode=True,
+    bg="#2d2a2e",
+    fg="#fcfcfa",
+    text_muted="#939293",
+    card_bg="#3a373b",
+    card_border="#504d51",
+    surface="#221f22",
+    surface_border="#403d41",
+    primary="#ffd866",
+    primary_hover="#ffe085",
+    primary_active="#e6be47",
+    primary_fg="#2d2a2e",
+    secondary="#504d51",
+    secondary_hover="#625f63",
+    secondary_active="#3f3c40",
+    secondary_fg="#fcfcfa",
+    accent="#78dce8",
+    success="#a9dc76",
+    warning="#fc9867",
+    destructive="#ff6188",
+    input_bg="#221f22",
+    input_border="#504d51",
+    input_focus="#ffd866",
+    track_bg="#403d41",
+    thumb_color="#ffd866",
+    shadow_color="#00000060",
+)
+
+SOLARIZED_DARK_PALETTE = Palette(
+    name="solarized_dark",
+    dark_mode=True,
+    bg="#002b36",
+    fg="#93a1a1",
+    text_muted="#657b83",
+    card_bg="#0d4351",
+    card_border="#586e75",
+    surface="#073642",
+    surface_border="#1a4d5a",
+    primary="#268bd2",
+    primary_hover="#3ea2e8",
+    primary_active="#1b74b3",
+    primary_fg="#fdf6e3",
+    secondary="#586e75",
+    secondary_hover="#6c848d",
+    secondary_active="#47595f",
+    secondary_fg="#fdf6e3",
+    accent="#2aa198",
+    success="#859900",
+    warning="#b58900",
+    destructive="#dc322f",
+    input_bg="#073642",
+    input_border="#586e75",
+    input_focus="#268bd2",
+    track_bg="#0e4b5a",
+    thumb_color="#268bd2",
+    shadow_color="#00000060",
+)
+
+SOLARIZED_LIGHT_PALETTE = Palette(
+    name="solarized_light",
+    dark_mode=False,
+    bg="#fdf6e3",
+    fg="#586e75",
+    text_muted="#657b83",
+    card_bg="#ffffff",
+    card_border="#93a1a1",
+    surface="#eee8d5",
+    surface_border="#d5cdb8",
+    primary="#268bd2",
+    primary_hover="#3ea2e8",
+    primary_active="#1b74b3",
+    primary_fg="#ffffff",
+    secondary="#eee8d5",
+    secondary_hover="#dfd8c2",
+    secondary_active="#cec7b0",
+    secondary_fg="#586e75",
+    accent="#2aa198",
+    success="#859900",
+    warning="#b58900",
+    destructive="#dc322f",
+    input_bg="#ffffff",
+    input_border="#93a1a1",
+    input_focus="#268bd2",
+    track_bg="#e4dec9",
+    thumb_color="#268bd2",
+    shadow_color="#00000010",
+)
+
+THEME_PRESETS: Dict[str, Palette] = {
+    "dark": DARK_PALETTE,
+    "light": LIGHT_PALETTE,
+    "dracula": DRACULA_PALETTE,
+    "nord": NORD_PALETTE,
+    "tokyo_night": TOKYO_NIGHT_PALETTE,
+    "catppuccin_mocha": CATPPUCCIN_MOCHA_PALETTE,
+    "catppuccin_latte": CATPPUCCIN_LATTE_PALETTE,
+    "cyberpunk": CYBERPUNK_PALETTE,
+    "emerald_forest": EMERALD_FOREST_PALETTE,
+    "sunset_amber": SUNSET_AMBER_PALETTE,
+    "monokai_pro": MONOKAI_PRO_PALETTE,
+    "solarized_dark": SOLARIZED_DARK_PALETTE,
+    "solarized_light": SOLARIZED_LIGHT_PALETTE,
+}
+
+
+def get_available_themes() -> List[str]:
+    """Return list of all registered theme names."""
+    return list(ThemeManager().palettes.keys())
+
+
+def _wrap_listener(callback: Callable[[Palette], None]) -> Any:
+    try:
+        if inspect.ismethod(callback):
+            return weakref.WeakMethod(callback)
+        return weakref.ref(callback)
+    except TypeError:
+        return callback
+
+
+def _unwrap_listener(ref: Any) -> Optional[Callable[[Palette], None]]:
+    if isinstance(ref, (weakref.ref, weakref.WeakMethod)):
+        return ref()
+    return ref
 
 
 class ThemeManager:
@@ -289,15 +657,16 @@ class ThemeManager:
     def __new__(cls) -> ThemeManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._palettes = {
-                "dark": DARK_PALETTE,
-                "light": LIGHT_PALETTE,
-            }
+            cls._instance._palettes = dict(THEME_PRESETS)
             cls._instance._current_palette = DARK_PALETTE
             cls._instance._previous_palette: Optional[Palette] = None
-            cls._instance._listeners: List[Callable[[Palette], None]] = []
-            cls._instance._priority_listeners: List[Callable[[Palette], None]] = []
+            cls._instance._listeners = []
+            cls._instance._priority_listeners = []
         return cls._instance
+
+    @property
+    def palettes(self) -> Dict[str, Palette]:
+        return dict(self._palettes)
 
     @property
     def current(self) -> Palette:
@@ -331,40 +700,67 @@ class ThemeManager:
         return self._current_palette
 
     def add_listener(self, callback: Callable[[Palette], None], priority: bool = False) -> None:
-        if priority:
-            if callback not in self._priority_listeners:
-                self._priority_listeners.append(callback)
-        else:
-            if callback not in self._listeners:
-                self._listeners.append(callback)
+        target_list = self._priority_listeners if priority else self._listeners
+        for ref in list(target_list):
+            unwrapped = _unwrap_listener(ref)
+            if unwrapped is None:
+                try:
+                    target_list.remove(ref)
+                except ValueError:
+                    pass
+            elif unwrapped == callback:
+                return
+        target_list.append(_wrap_listener(callback))
 
     def add_priority_listener(self, callback: Callable[[Palette], None]) -> None:
-        if callback not in self._priority_listeners:
-            self._priority_listeners.append(callback)
+        self.add_listener(callback, priority=True)
 
     def remove_listener(self, callback: Callable[[Palette], None]) -> None:
-        if callback in self._priority_listeners:
-            self._priority_listeners.remove(callback)
-        if callback in self._listeners:
-            self._listeners.remove(callback)
+        for target_list in (self._priority_listeners, self._listeners):
+            for ref in list(target_list):
+                unwrapped = _unwrap_listener(ref)
+                if unwrapped is None or unwrapped == callback:
+                    try:
+                        target_list.remove(ref)
+                    except ValueError:
+                        pass
 
     def remove_priority_listener(self, callback: Callable[[Palette], None]) -> None:
-        if callback in self._priority_listeners:
-            self._priority_listeners.remove(callback)
+        for ref in list(self._priority_listeners):
+            unwrapped = _unwrap_listener(ref)
+            if unwrapped is None or unwrapped == callback:
+                try:
+                    self._priority_listeners.remove(ref)
+                except ValueError:
+                    pass
 
     def notify_listeners(self) -> None:
         # Priority listeners (e.g. root hierarchy apply_theme) execute FIRST top-down
-        for callback in list(self._priority_listeners):
-            try:
-                callback(self._current_palette)
-            except Exception:
-                pass
+        for ref in list(self._priority_listeners):
+            cb = _unwrap_listener(ref)
+            if cb is None:
+                try:
+                    self._priority_listeners.remove(ref)
+                except ValueError:
+                    pass
+            else:
+                try:
+                    cb(self._current_palette)
+                except Exception:
+                    pass
         # Standard listeners execute next
-        for callback in list(self._listeners):
-            try:
-                callback(self._current_palette)
-            except Exception:
-                pass
+        for ref in list(self._listeners):
+            cb = _unwrap_listener(ref)
+            if cb is None:
+                try:
+                    self._listeners.remove(ref)
+                except ValueError:
+                    pass
+            else:
+                try:
+                    cb(self._current_palette)
+                except Exception:
+                    pass
 
 
 # Global singleton and module-level convenience functions
@@ -709,6 +1105,36 @@ def apply_theme(
             if _check_preserve(target, pal):
                 try:
                     target.configure(background=target_bg)
+                    target._tkblend_injected_bg = target_bg
+                except Exception:
+                    pass
+            next_container_bg = target_bg
+        elif isinstance(target, tk.Text):
+            target_bg = pal.surface if is_inside_card(target) else pal.input_bg
+            if _check_preserve(target, pal):
+                try:
+                    target.configure(
+                        background=target_bg,
+                        foreground=pal.fg,
+                        insertbackground=pal.primary,
+                        selectbackground=pal.primary,
+                        selectforeground=pal.primary_fg,
+                    )
+                    target._tkblend_injected_bg = target_bg
+                except Exception:
+                    pass
+            next_container_bg = target_bg
+        elif isinstance(target, tk.Entry):
+            target_bg = pal.input_bg
+            if _check_preserve(target, pal):
+                try:
+                    target.configure(
+                        background=target_bg,
+                        foreground=pal.fg,
+                        insertbackground=pal.primary,
+                        selectbackground=pal.primary,
+                        selectforeground=pal.primary_fg,
+                    )
                     target._tkblend_injected_bg = target_bg
                 except Exception:
                     pass

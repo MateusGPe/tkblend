@@ -92,8 +92,60 @@ class Frame(tk.Frame):
         add_theme_listener(self._on_theme_changed)
         self.after_idle(self.render)
 
-    def _on_destroy(self, event) -> None:
+    def _on_destroy(self, event=None) -> None:
         remove_theme_listener(self._on_theme_changed)
+        self._surface = None  # type: ignore
+        self._photo = None  # type: ignore
+
+    def destroy(self) -> None:
+        self._on_destroy()
+        super().destroy()
+
+    @property
+    def safe_insets(self) -> tuple[float, float, float, float]:
+        """Return (left, top, right, bottom) safe inner margins in logical units."""
+        s = self._scale if self._scale > 0 else 1.0
+        l_px, t_px, r_px, b_px = self.safe_insets_px
+        return (l_px / s, t_px / s, r_px / s, b_px / s)
+
+    @property
+    def safe_insets_px(self) -> tuple[int, int, int, int]:
+        """Return (left, top, right, bottom) safe inner margins in scaled pixels."""
+        s = self._scale
+        pad = self._current_pad if self._current_pad > 0 else (self._padding if self._padding is not None else max(8.0 * s, self._elevation * 0.8))
+        inset_x = int(pad + self._border_width + (self._rx * 0.25))
+        inset_y = int(pad + self._border_width + (self._ry * 0.25))
+        return (inset_x, inset_y, inset_x, inset_y)
+
+    @property
+    def content_bounds(self) -> tuple[int, int, int, int]:
+        """Return (x, y, width, height) of the safe printable inner rectangle in scaled pixels."""
+        left, top, right, bottom = self.safe_insets_px
+        w = max(1, self._widget_w - left - right)
+        h = max(1, self._widget_h - top - bottom)
+        return (left, top, w, h)
+
+    @property
+    def body(self) -> tk.Frame:
+        """
+        Inner content frame automatically bounded within safe insets.
+        Lazily created on first access and packed/placed within the card's safe margins.
+        """
+        if not hasattr(self, "_body_frame") or not self._body_frame.winfo_exists():
+            pal = get_theme()
+            self._body_frame = tk.Frame(
+                self,
+                background=self._bg_color or pal.card_bg,
+                borderwidth=0,
+                highlightthickness=0,
+            )
+            self._update_body_geometry()
+        return self._body_frame
+
+    def _update_body_geometry(self) -> None:
+        if hasattr(self, "_body_frame") and self._body_frame.winfo_exists():
+            x, y, w, h = self.content_bounds
+            self._body_frame.place(x=x, y=y, width=w, height=h)
 
     def set_parent_bg(self, bg: str, force: bool = False) -> None:
         """Update parent background and re-render container."""
@@ -124,6 +176,8 @@ class Frame(tk.Frame):
             self.configure(background=self._parent_bg)
             if hasattr(self, "_bg_label") and self._bg_label.winfo_exists():
                 self._bg_label.configure(background=self._parent_bg)
+            if hasattr(self, "_body_frame") and self._body_frame.winfo_exists():
+                self._body_frame.configure(background=self._bg_color)
         except Exception:
             pass
         self.render()
@@ -137,8 +191,12 @@ class Frame(tk.Frame):
         if new_w != self._widget_w or new_h != self._widget_h:
             self._widget_w = new_w
             self._widget_h = new_h
-            self._photo.configure(width=self._widget_w, height=self._widget_h)
-            self._surface.resize(self._widget_w, self._widget_h)
+            try:
+                self._photo.configure(width=self._widget_w, height=self._widget_h)
+                self._surface.resize(self._widget_w, self._widget_h)
+            except Exception:
+                pass
+            self._update_body_geometry()
             self.render()
 
     def set_background(self, bg_color: ColorLike, force: bool = False) -> None:
@@ -146,6 +204,11 @@ class Frame(tk.Frame):
         self._bg_color = resolved
         if force:
             self._explicit_bg_color = None
+        if hasattr(self, "_body_frame") and self._body_frame.winfo_exists():
+            try:
+                self._body_frame.configure(background=self._bg_color)
+            except Exception:
+                pass
         self.render()
         cascade_bg_to_children(self, str(self._bg_color))
 
@@ -159,45 +222,55 @@ class Frame(tk.Frame):
     def padding(self, value: Optional[float]) -> None:
         self._explicit_padding = value
         self._padding = (value * self._scale) if value is not None else None
+        self._update_body_geometry()
         self.render()
 
     def render(self) -> None:
-        self._surface.clear(self._parent_bg)
-        if self._padding is not None:
-            pad = max(0.0, self._padding)
-        else:
-            pad = max(8.0 * self._scale, self._elevation * 0.8)
-        self._current_pad = pad
-        draw_x = pad
-        draw_y = pad
-        draw_w = max(1.0, self._widget_w - pad * 2.0)
-        draw_h = max(1.0, self._widget_h - pad * 2.0)
+        if self._widget_w <= 1 or self._widget_h <= 1:
+            return
+        try:
+            self._surface.clear(self._parent_bg)
+            if self._padding is not None:
+                pad = max(0.0, self._padding)
+            else:
+                pad = max(8.0 * self._scale, self._elevation * 0.8)
+            self._current_pad = pad
+            draw_x = pad
+            draw_y = pad
+            draw_w = max(1.0, self._widget_w - pad * 2.0)
+            draw_h = max(1.0, self._widget_h - pad * 2.0)
 
-        if self._elevation > 0.0 and pad > 0.0:
-            max_blur = pad * 0.6
-            safe_blur = min(self._elevation * 0.8, max_blur)
-            safe_offset_y = min(self._shadow_offset_y, pad * 0.2, safe_blur * 0.4)
-        else:
-            safe_blur = 0.0
-            safe_offset_y = 0.0
+            if draw_w <= 1.0 or draw_h <= 1.0:
+                self._surface.blit(self._photo)
+                return
 
-        self._surface.draw_card(
-            x=draw_x,
-            y=draw_y,
-            w=draw_w,
-            h=draw_h,
-            rx=self._rx,
-            ry=self._ry,
-            bg_color=self._bg_color,
-            border_color=self._border_color,
-            border_width=self._border_width,
-            shadow_blur=safe_blur,
-            shadow_spread=0.0,
-            shadow_offset_x=0.0,
-            shadow_offset_y=safe_offset_y,
-            shadow_color=self._shadow_color,
-        )
-        self._surface.blit(self._photo)
+            if self._elevation > 0.0 and pad > 0.0:
+                max_blur = pad * 0.6
+                safe_blur = min(self._elevation * 0.8, max_blur)
+                safe_offset_y = min(self._shadow_offset_y, pad * 0.2, safe_blur * 0.4)
+            else:
+                safe_blur = 0.0
+                safe_offset_y = 0.0
+
+            self._surface.draw_card(
+                x=draw_x,
+                y=draw_y,
+                w=draw_w,
+                h=draw_h,
+                rx=self._rx,
+                ry=self._ry,
+                bg_color=self._bg_color,
+                border_color=self._border_color,
+                border_width=self._border_width,
+                shadow_blur=safe_blur,
+                shadow_spread=0.0,
+                shadow_offset_x=0.0,
+                shadow_offset_y=safe_offset_y,
+                shadow_color=self._shadow_color,
+            )
+            self._surface.blit(self._photo)
+        except Exception:
+            pass
 
 
 ModernFrame = Frame
@@ -205,7 +278,8 @@ ModernFrame = Frame
 
 class Card(Frame):
     """
-    Card container with elevation drop shadow and optional header title.
+    Card container with elevation drop shadow, header title support,
+    and automatic safe margin computation.
     """
 
     def __init__(
@@ -246,39 +320,73 @@ class Card(Frame):
         self._title = title
 
     @property
+    def title(self) -> str:
+        return self._title
+
+    @title.setter
+    def title(self, val: str) -> None:
+        self._title = val
+        self._update_body_geometry()
+        self.render()
+
+    @property
+    def safe_insets_px(self) -> tuple[int, int, int, int]:
+        """Return (left, top, right, bottom) safe inner margins in scaled pixels for Card."""
+        s = self._scale
+        pad = self._current_pad if self._current_pad > 0 else (self._padding if self._padding is not None else max(8.0 * s, self._elevation * 0.8))
+        inset_x = int(pad + max(self._border_width + (self._rx * 0.25), 14.0 * s))
+        bottom_inset = int(pad + self._border_width + (self._ry * 0.25) + 4.0 * s)
+        if self._title:
+            top_inset = int(pad + 44.0 * s)
+        else:
+            top_inset = int(pad + self._border_width + (self._ry * 0.25) + 4.0 * s)
+        return (inset_x, top_inset, inset_x, bottom_inset)
+
+    @property
     def content(self) -> Card:
         """Alias returning self for direct packing into Card."""
         return self
 
     def create_content_frame(self, **kwargs) -> tk.Frame:
-        """Helper to create an inner tk.Frame styled with the card's surface background."""
+        """Helper to create an inner tk.Frame styled with the card's surface background and safe bounds."""
         bg = kwargs.pop("bg", kwargs.pop("background", self._bg_color))
-        return tk.Frame(self, bg=bg, **kwargs)
+        frame = tk.Frame(self, bg=bg, **kwargs)
+        x, y, w, h = self.content_bounds
+        frame.place(x=x, y=y, width=w, height=h)
+        return frame
 
     def render(self) -> None:
         super().render()
-        if self._title:
-            pad = self._current_pad
-            pal = get_theme()
-            self._surface.draw_text(
-                self._title,
-                x=pad + 16.0 * self._scale,
-                y=pad + 26.0 * self._scale,
-                font_size=14.0 * self._scale,
-                font_family="sans-serif",
-                color=pal.fg,
-            )
-            # Divider line below title
-            line_y = pad + 36.0 * self._scale
-            self._surface.draw_line(
-                pad + 16.0 * self._scale,
-                line_y,
-                self._widget_w - pad - 16.0 * self._scale,
-                line_y,
-                stroke=pal.card_border,
-                stroke_width=1.0,
-            )
-            self._surface.blit(self._photo)
+        if self._title and self._widget_w > 1 and self._widget_h > 1:
+            try:
+                pad = self._current_pad
+                pal = get_theme()
+                font_sz = 14.0 * self._scale
+                text_x = pad + 16.0 * self._scale
+                text_y = pad + 24.0 * self._scale
+                self._surface.draw_text(
+                    self._title,
+                    x=text_x,
+                    y=text_y,
+                    font_size=font_sz,
+                    font_family="sans-serif",
+                    color=pal.fg,
+                )
+                # Divider line below title
+                line_y = pad + 36.0 * self._scale
+                max_line_w = max(text_x + 10.0, self._widget_w - pad - 16.0 * self._scale)
+                if max_line_w > text_x:
+                    self._surface.draw_line(
+                        text_x,
+                        line_y,
+                        max_line_w,
+                        line_y,
+                        stroke=pal.card_border,
+                        stroke_width=1.0,
+                    )
+                self._surface.blit(self._photo)
+            except Exception:
+                pass
 
 
 ModernCard = Card
@@ -288,7 +396,8 @@ class _AccordionHeader(Widget):
     """Backing vector surface for Accordion header."""
 
     def __init__(self, accordion: "Accordion", master: tk.Misc, width: int, height: int, bg: Optional[str] = None):
-        self._accordion = accordion
+        import weakref
+        self._accordion_ref = weakref.ref(accordion)
         super().__init__(
             master=master,
             width=width,
@@ -298,18 +407,24 @@ class _AccordionHeader(Widget):
             resizable_height=False,
         )
 
+    @property
+    def _accordion(self) -> Optional["Accordion"]:
+        return self._accordion_ref() if hasattr(self, "_accordion_ref") else None
+
     def _on_theme_changed(self, palette: Palette) -> None:
         super()._on_theme_changed(palette)
-        if hasattr(self, "_accordion") and self._accordion.winfo_exists():
+        acc = self._accordion
+        if acc is not None and hasattr(acc, "winfo_exists") and acc.winfo_exists():
             try:
-                self._accordion._content.configure(bg=palette.surface)
-                cascade_bg_to_children(self._accordion._content, palette.surface)
+                acc._content.configure(bg=palette.surface)
+                cascade_bg_to_children(acc._content, palette.surface)
             except Exception:
                 pass
 
     def render(self) -> None:
-        if hasattr(self, "_accordion"):
-            self._accordion._render_header()
+        acc = self._accordion
+        if acc is not None:
+            acc._render_header()
 
 
 class Accordion(tk.Frame):
@@ -348,8 +463,18 @@ class Accordion(tk.Frame):
         add_theme_listener(self._on_theme_changed)
         self._render_header()
 
-    def _on_destroy(self, event) -> None:
+    def _on_destroy(self, event=None) -> None:
         remove_theme_listener(self._on_theme_changed)
+
+    def destroy(self) -> None:
+        remove_theme_listener(self._on_theme_changed)
+        if hasattr(self, "_header") and self._header is not None:
+            try:
+                self._header.destroy()
+            except Exception:
+                pass
+            self._header = None  # type: ignore
+        super().destroy()
 
     def set_parent_bg(self, bg: str, force: bool = False) -> None:
         """Update parent background and re-render."""
@@ -391,49 +516,58 @@ class Accordion(tk.Frame):
         self._header.render()
 
     def _render_header(self) -> None:
-        surf = self._header.surface
-        surf.clear(self._parent_bg)
-        s = self._scale
-        pad = 2.0 * s
-        w = max(1.0, self._header._widget_w - pad * 2.0)
-        h = max(1.0, self._header._widget_h - pad * 2.0)
-        r = 8.0 * s
+        if self._header._widget_w <= 1 or self._header._widget_h <= 1:
+            return
+        try:
+            surf = self._header.surface
+            surf.clear(self._parent_bg)
+            s = self._scale
+            pad = 2.0 * s
+            w = max(1.0, self._header._widget_w - pad * 2.0)
+            h = max(1.0, self._header._widget_h - pad * 2.0)
+            r = 8.0 * s
 
-        pal = get_theme()
-        is_hovered = getattr(self._header, "_is_hovered", False)
-        is_pressed = getattr(self._header, "_is_pressed", False)
+            pal = get_theme()
+            is_hovered = getattr(self._header, "_is_hovered", False)
+            is_pressed = getattr(self._header, "_is_pressed", False)
 
-        if is_pressed:
-            header_bg = pal.secondary_active
-            border_col = pal.primary
-            chev_col = pal.primary_active
-        elif is_hovered:
-            header_bg = pal.card_bg
-            border_col = pal.primary_hover
-            chev_col = pal.primary_hover
-        else:
-            header_bg = pal.surface
-            border_col = pal.card_border
-            chev_col = pal.primary
+            if is_pressed:
+                header_bg = pal.secondary_active
+                border_col = pal.primary
+                chev_col = pal.primary_active
+            elif is_hovered:
+                header_bg = pal.card_bg
+                border_col = pal.primary_hover
+                chev_col = pal.primary_hover
+            else:
+                header_bg = pal.surface
+                border_col = pal.card_border
+                chev_col = pal.primary
 
-        surf.fill_rounded_rect(pad, pad, w, h, r, r, header_bg)
-        surf.stroke_rounded_rect(pad, pad, w, h, r, r, border_col, 1.2 * s if (is_hovered or is_pressed) else 1.0 * s)
+            surf.fill_rounded_rect(pad, pad, w, h, r, r, header_bg)
+            surf.stroke_rounded_rect(pad, pad, w, h, r, r, border_col, 1.2 * s if (is_hovered or is_pressed) else 1.0 * s)
 
-        chev_x = pad + 16.0 * s
-        chev_y = self._header._widget_h / 2.0
-        draw_vector_chevron(surf, chev_x, chev_y, s, "down" if self._is_open else "right", chev_col, stroke_width=1.8 * s)
+            chev_x = pad + 16.0 * s
+            chev_y = self._header._widget_h / 2.0
+            draw_vector_chevron(surf, chev_x, chev_y, s, "down" if self._is_open else "right", chev_col, stroke_width=1.8 * s)
 
-        font_sz = 13.0 * s
-        surf.draw_text(
-            self._title,
-            chev_x + 14.0 * s,
-            self._header._widget_h / 2.0 + (font_sz * 0.35),
-            font_size=font_sz,
-            font_family="sans-serif",
-            color=pal.fg,
-            align="left",
-        )
-        surf.blit(self._header.photo)
+            font_sz = 13.0 * s
+            surf.draw_text(
+                self._title,
+                chev_x + 14.0 * s,
+                self._header._widget_h / 2.0 + (font_sz * 0.35),
+                font_size=font_sz,
+                font_family="sans-serif",
+                color=pal.fg,
+                align="left",
+            )
+            surf.blit(self._header.photo)
+        except Exception:
+            pass
+
+    def render(self) -> None:
+        """Render backing vector accordion header."""
+        self._render_header()
 
 
 ModernAccordion = Accordion

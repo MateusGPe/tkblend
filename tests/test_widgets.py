@@ -49,7 +49,7 @@ from tkblend.widgets import (
     Accordion,
     ModernAccordion,
 )
-from tkblend.theme import set_theme, DARK_PALETTE, LIGHT_PALETTE
+from tkblend.theme import set_theme, get_theme, DARK_PALETTE, LIGHT_PALETTE
 
 
 @pytest.fixture
@@ -161,13 +161,22 @@ def test_range_slider(root):
 
 
 def test_switch(root):
+    set_theme("dark")
     toggled = []
     sw = Switch(root, is_on=False, on_toggle=lambda state: toggled.append(state))
     sw.render()
     assert sw.is_on is False
+    assert sw._on_color == DARK_PALETTE.primary
     sw.toggle()
     assert sw.is_on is True
     assert toggled == [True]
+
+    # Theme switch test
+    set_theme("light")
+    sw.render()
+    assert get_theme().name == "light"
+    set_theme("dark")
+
     sw.destroy()
 
 
@@ -502,14 +511,14 @@ def test_widget_hierarchy_bg_resolution(root):
     # Switch theme to light and verify both adapt
     set_theme("light")
     root.update_idletasks()
-    assert btn._parent_bg == "#ffffff"
-    assert btn_nested._parent_bg == "#ffffff"
+    assert btn._parent_bg == LIGHT_PALETTE.card_bg
+    assert btn_nested._parent_bg == LIGHT_PALETTE.card_bg
 
     # Switch back to dark
     set_theme("dark")
     root.update_idletasks()
-    assert btn._parent_bg == "#252538"
-    assert btn_nested._parent_bg == "#252538"
+    assert btn._parent_bg == DARK_PALETTE.card_bg
+    assert btn_nested._parent_bg == DARK_PALETTE.card_bg
 
     btn.destroy()
     btn_nested.destroy()
@@ -528,16 +537,16 @@ def test_theme_switch_redraw(root):
     # Switch to light
     set_theme("light")
     root.update_idletasks()
-    assert btn._get_variant_colors("primary")["bg"] == "#2563eb"
-    assert card._bg_color == "#ffffff"
-    assert frame._bg_color == "#ffffff"
+    assert btn._get_variant_colors("primary")["bg"] == LIGHT_PALETTE.primary
+    assert card._bg_color == LIGHT_PALETTE.card_bg
+    assert frame._bg_color == LIGHT_PALETTE.card_bg
 
     # Switch back to dark
     set_theme("dark")
     root.update_idletasks()
-    assert btn._get_variant_colors("primary")["bg"] == "#89b4fa"
-    assert card._bg_color == "#252538"
-    assert frame._bg_color == "#252538"
+    assert btn._get_variant_colors("primary")["bg"] == DARK_PALETTE.primary
+    assert card._bg_color == DARK_PALETTE.card_bg
+    assert frame._bg_color == DARK_PALETTE.card_bg
 
     btn.destroy()
     card.destroy()
@@ -568,16 +577,16 @@ def test_deep_mixed_hierarchy_bg_resolution(root):
     # Switch theme to light and verify all deep descendants update
     set_theme("light")
     root.update_idletasks()
-    assert btn._parent_bg == "#ffffff"
-    assert inp._parent_bg == "#ffffff"
-    assert slider._parent_bg == "#ffffff"
+    assert btn._parent_bg == LIGHT_PALETTE.card_bg
+    assert inp._parent_bg == LIGHT_PALETTE.card_bg
+    assert slider._parent_bg == LIGHT_PALETTE.card_bg
 
     # Switch back to dark
     set_theme("dark")
     root.update_idletasks()
-    assert btn._parent_bg == "#252538"
-    assert inp._parent_bg == "#252538"
-    assert slider._parent_bg == "#252538"
+    assert btn._parent_bg == DARK_PALETTE.card_bg
+    assert inp._parent_bg == DARK_PALETTE.card_bg
+    assert slider._parent_bg == DARK_PALETTE.card_bg
 
     btn.destroy()
     inp.destroy()
@@ -802,6 +811,220 @@ def test_widget_unclipped_shadow_rendering(root):
     seg.destroy()
     slider.destroy()
     rslider.destroy()
+
+
+def test_container_safe_insets_and_body(root):
+    # 1. Frame safe insets
+    frame = Frame(root, width=200, height=150, elevation=8.0, rx=16.0, ry=16.0)
+    frame.render()
+    l, t, r, b = frame.safe_insets
+    assert l > 0 and t > 0 and r > 0 and b > 0
+    bx, by, bw, bh = frame.content_bounds
+    assert bw > 0 and bh > 0
+    assert bx == frame.safe_insets_px[0]
+    assert by == frame.safe_insets_px[1]
+
+    # 2. Card safe insets without title vs with title
+    card_no_title = Card(root, title="", width=280, height=180)
+    card_no_title.render()
+    _, t_no_title, _, _ = card_no_title.safe_insets
+
+    card_with_title = Card(root, title="Stats Overview", width=280, height=180)
+    card_with_title.render()
+    _, t_with_title, _, _ = card_with_title.safe_insets
+    # Title adds header and divider clearance
+    assert t_with_title > t_no_title
+
+    # 3. Card body inner content frame
+    body = card_with_title.body
+    assert isinstance(body, tk.Frame)
+    assert body.master is card_with_title
+
+    # 4. Helper create_content_frame
+    custom_frame = card_with_title.create_content_frame()
+    assert isinstance(custom_frame, tk.Frame)
+    assert custom_frame.master is card_with_title
+
+    frame.destroy()
+    card_no_title.destroy()
+    card_with_title.destroy()
+
+
+def test_text_input_and_spinbox_dynamic_bounds_and_resize(root):
+    # 1. TextInput dynamic font metrics update
+    inp = TextInput(root, placeholder="Type here...", width=200, height=36)
+    inp.pack()
+    root.update()
+
+    init_entry_h = inp._entry.winfo_reqheight()
+    # Change to larger font
+    inp.font_size = 20.0
+    root.update()
+    larger_entry_h = inp._entry.winfo_reqheight()
+    assert larger_entry_h >= init_entry_h
+
+    # 2. SpinBox entry geometry bounds
+    spin = SpinBox(root, min_val=0, max_val=100, value=25, width=150, height=36)
+    spin.pack()
+    root.update()
+
+    # Entry width must leave room for stepper buttons
+    entry_w = int(spin._entry.place_info()["width"])
+    assert entry_w > 0
+    assert entry_w < spin._widget_w - 40
+
+    # 3. SpinBox font change adjusts geometry
+    spin.font_size = 18.0
+    root.update()
+
+    inp.destroy()
+    spin.destroy()
+
+
+def test_dropdown_screen_edge_clamping(root):
+    dd = Dropdown(root, options=["Alpha", "Beta", "Gamma"], width=160, height=34)
+    dd.pack()
+    root.update()
+
+    # Open popup and verify it mounts within screen bounds
+    dd._open_popup()
+    assert dd._popup_win is not None
+    assert dd._popup_win.winfo_exists()
+
+    pop_geom = dd._popup_win.geometry()
+    assert "x" in pop_geom and "+" in pop_geom
+
+    dd._close_popup()
+    assert dd._popup_win is None
+    dd.destroy()
+
+
+def test_zero_dimension_and_extreme_resize_robustness(root):
+    # Ensure all widgets render safely without crashes even under 1x1 or extreme sizes
+    widgets = [
+        Button(root, text="B", width=1, height=1),
+        ProgressBar(root, width=1, height=1),
+        CircularProgress(root, size=1),
+        Slider(root, width=1, height=1),
+        RangeSlider(root, width=1, height=1),
+        Switch(root, width=1, height=1),
+        Checkbox(root, width=1, height=1),
+        Radio(root, width=1, height=1),
+        SegmentedControl(root, width=1, height=1),
+        TextInput(root, width=1, height=1),
+        SpinBox(root, width=1, height=1),
+        Dropdown(root, width=1, height=1),
+        Badge(root, width=1, height=1),
+        Avatar(root, size=1),
+        VectorScrollbar(root, width=1, height=1),
+        Frame(root, width=1, height=1),
+        Card(root, width=1, height=1),
+        Accordion(root, width=1),
+    ]
+
+    for w in widgets:
+        w.render()
+
+    for w in widgets:
+        w.destroy()
+
+
+def test_switch_variable_and_command(root):
+    var = tk.BooleanVar(value=True)
+    called = []
+    sw = Switch(root, variable=var, command=lambda val=None: called.append(val))
+    sw.pack()
+    root.update()
+    assert sw.is_on is True
+
+    # Test toggling via method
+    sw.toggle()
+    assert sw.is_on is False
+    assert var.get() is False
+    assert len(called) == 1
+
+    # Test updating variable
+    var.set(True)
+    assert sw.is_on is True
+
+    sw.destroy()
+
+
+def test_segmented_control_command(root):
+    selected_vals = []
+    seg = SegmentedControl(
+        root,
+        values=["List", "Grid", "Icons"],
+        command=lambda val: selected_vals.append(val),
+    )
+    seg.pack()
+    root.update()
+
+    # Simulate selecting index 1
+    seg._handle_click(type("Event", (), {"x": int(seg._widget_w * 0.5)})())
+    assert seg.selected_index == 1
+    assert "Grid" in selected_vals
+    seg.destroy()
+
+
+def test_text_input_bind_forwarding(root):
+    root.deiconify()
+    events = []
+    inp = TextInput(root, placeholder="Type here...")
+    inp.pack()
+    inp.bind("<<CustomEvent>>", lambda e: events.append("custom"))
+    root.update()
+
+    inp.event_generate("<<CustomEvent>>")
+    root.update()
+    assert "custom" in events
+    root.withdraw()
+    inp.destroy()
+
+
+def test_badge_variant_and_text(root):
+    b = Badge(root, text="Initial", variant="primary")
+    b.pack()
+    root.update()
+    assert b.text == "Initial"
+    assert b.variant == "primary"
+
+    b.set_text("Updated")
+    b.set_variant("success")
+    assert b.text == "Updated"
+    assert b.variant == "success"
+    b.destroy()
+
+
+def test_file_explorer_initialization(root):
+    from examples.file_explorer import FileExplorerApp
+    app = FileExplorerApp(root)
+    root.update()
+    assert app.current_dir.exists()
+    assert len(app.current_items) > 0
+    assert app.path_entry.get() == str(app.current_dir)
+
+    # Test sorting
+    app._sort_table_by("size")
+    assert app.sort_column == "size"
+
+    # Test search filter
+    app.search_entry.set("py")
+    app._on_search_changed(None)
+    root.update()
+
+    # Test view mode switch
+    app._on_view_mode_changed("Grid")
+    root.update()
+    app._on_view_mode_changed("Details")
+    root.update()
+
+    # Test toggle theme
+    app.toggle_theme()
+    root.update()
+    app.toggle_theme()
+    root.update()
+
 
 
 

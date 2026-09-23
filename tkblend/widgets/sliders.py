@@ -119,40 +119,45 @@ class Slider(Widget):
                 self._on_change(self._value)
 
     def render(self) -> None:
-        self._surface.clear(self._parent_bg)
-        pad = self._knob_r + 4.0 * self._scale
-        track_h = 6.0 * self._scale
-        usable_w = self._widget_w - pad * 2.0
+        if self._widget_w <= 1 or self._widget_h <= 1:
+            return
+        try:
+            self._surface.clear(self._parent_bg)
+            pad = self._knob_r + 4.0 * self._scale
+            track_h = 6.0 * self._scale
+            usable_w = max(1.0, self._widget_w - pad * 2.0)
 
-        pal = get_theme()
-        track_col = _resolve_color(self._explicit_track_color, pal.track_bg, pal)
-        active_col = _resolve_color(self._explicit_active_track_color, pal.primary, pal)
-        knob_col = _resolve_color(self._explicit_knob_color, pal.thumb_color, pal)
-        border_col = "#ffffff88" if pal.dark_mode else "#00000018"
+            pal = get_theme()
+            track_col = _resolve_color(self._explicit_track_color, pal.track_bg, pal)
+            active_col = _resolve_color(self._explicit_active_track_color, pal.primary, pal)
+            knob_col = _resolve_color(self._explicit_knob_color, pal.thumb_color, pal)
+            border_col = "#ffffff88" if pal.dark_mode else "#00000018"
 
-        rel = (self._value - self._min) / (self._max - self._min) if self._max > self._min else 0.0
+            rel = (self._value - self._min) / (self._max - self._min) if self._max > self._min else 0.0
 
-        focus_col = pal.input_focus if self._has_focus else "#00000000"
-        focus_width = 1.5 * self._scale if self._has_focus else 0.0
+            focus_col = pal.input_focus if self._has_focus else "#00000000"
+            focus_width = 1.5 * self._scale if self._has_focus else 0.0
 
-        self._surface.draw_slider(
-            x=pad,
-            y=0,
-            w=usable_w,
-            h=self._widget_h,
-            track_bg=track_col,
-            active_bg=active_col,
-            thumb_color=knob_col,
-            thumb_border_color=border_col,
-            value_t=rel,
-            track_thickness=track_h,
-            thumb_radius=self._knob_r,
-            is_hovered=self._is_hovered,
-            is_dragging=self._is_pressed,
-            focus_ring_color=focus_col,
-            focus_ring_width=focus_width,
-        )
-        self._surface.blit(self._photo)
+            self._surface.draw_slider(
+                x=pad,
+                y=0,
+                w=usable_w,
+                h=self._widget_h,
+                track_bg=track_col,
+                active_bg=active_col,
+                thumb_color=knob_col,
+                thumb_border_color=border_col,
+                value_t=rel,
+                track_thickness=track_h,
+                thumb_radius=self._knob_r,
+                is_hovered=self._is_hovered,
+                is_dragging=self._is_pressed,
+                focus_ring_color=focus_col,
+                focus_ring_width=focus_width,
+            )
+            self._surface.blit(self._photo)
+        except Exception:
+            pass
 
 
 ModernSlider = Slider
@@ -280,50 +285,55 @@ class RangeSlider(Widget):
         self._dragging_thumb = None
 
     def render(self) -> None:
-        self._surface.clear(self._parent_bg)
-        pad = self._knob_r + 4.0 * self._scale
-        track_h = 6.0 * self._scale
-        track_y = (self._widget_h - track_h) / 2.0
-        usable_w = self._widget_w - pad * 2.0
+        if self._widget_w <= 1 or self._widget_h <= 1:
+            return
+        try:
+            self._surface.clear(self._parent_bg)
+            pad = self._knob_r + 4.0 * self._scale
+            track_h = 6.0 * self._scale
+            track_y = (self._widget_h - track_h) / 2.0
+            usable_w = max(1.0, self._widget_w - pad * 2.0)
 
-        pal = get_theme()
-        track_col = _resolve_color(self._explicit_track_color, pal.track_bg, pal)
-        active_col = _resolve_color(self._explicit_active_color, pal.success, pal)
-        knob_col = _resolve_color(self._explicit_knob_color, pal.thumb_color, pal)
-        shadow_col = pal.shadow_color
-        border_col = "#ffffff88" if pal.dark_mode else "#00000018"
+            pal = get_theme()
+            track_col = _resolve_color(self._explicit_track_color, pal.track_bg, pal)
+            active_col = _resolve_color(self._explicit_active_color, pal.success, pal)
+            knob_col = _resolve_color(self._explicit_knob_color, pal.thumb_color, pal)
+            shadow_col = pal.shadow_color
+            border_col = "#ffffff88" if pal.dark_mode else "#00000018"
 
-        self._surface.fill_rounded_rect(
-            pad, track_y, usable_w, track_h, track_h / 2.0, track_h / 2.0, track_col
-        )
-
-        low_x = self._val_to_x(self._low, pad, usable_w)
-        high_x = self._val_to_x(self._high, pad, usable_w)
-
-        if high_x > low_x:
             self._surface.fill_rounded_rect(
-                low_x, track_y, high_x - low_x, track_h, track_h / 2.0, track_h / 2.0, active_col
+                pad, track_y, usable_w, track_h, track_h / 2.0, track_h / 2.0, track_col
             )
 
-        v_margin = max(1.0, (self._widget_h / 2.0) - self._knob_r)
-        safe_blur = min(2.5 * self._scale, v_margin * 0.65)
-        safe_offset_y = min(0.8 * self._scale, v_margin * 0.25)
-        for cx in (low_x, high_x):
-            self._surface.draw_shadow(
-                cx - self._knob_r,
-                (self._widget_h / 2.0) - self._knob_r,
-                self._knob_r * 2.0,
-                self._knob_r * 2.0,
-                self._knob_r,
-                self._knob_r,
-                blur_radius=safe_blur,
-                offset_y=safe_offset_y,
-                shadow_color=shadow_col,
-            )
-            self._surface.fill_circle(cx, self._widget_h / 2.0, self._knob_r, knob_col)
-            self._surface.stroke_circle(cx, self._widget_h / 2.0, self._knob_r, border_col, stroke_width=1.2)
+            low_x = self._val_to_x(self._low, pad, usable_w)
+            high_x = self._val_to_x(self._high, pad, usable_w)
 
-        self._surface.blit(self._photo)
+            if high_x > low_x:
+                self._surface.fill_rounded_rect(
+                    low_x, track_y, high_x - low_x, track_h, track_h / 2.0, track_h / 2.0, active_col
+                )
+
+            v_margin = max(1.0, (self._widget_h / 2.0) - self._knob_r)
+            safe_blur = min(2.5 * self._scale, v_margin * 0.65)
+            safe_offset_y = min(0.8 * self._scale, v_margin * 0.25)
+            for cx in (low_x, high_x):
+                self._surface.draw_shadow(
+                    cx - self._knob_r,
+                    (self._widget_h / 2.0) - self._knob_r,
+                    self._knob_r * 2.0,
+                    self._knob_r * 2.0,
+                    self._knob_r,
+                    self._knob_r,
+                    blur_radius=safe_blur,
+                    offset_y=safe_offset_y,
+                    shadow_color=shadow_col,
+                )
+                self._surface.fill_circle(cx, self._widget_h / 2.0, self._knob_r, knob_col)
+                self._surface.stroke_circle(cx, self._widget_h / 2.0, self._knob_r, border_col, stroke_width=1.2)
+
+            self._surface.blit(self._photo)
+        except Exception:
+            pass
 
 
 ModernRangeSlider = RangeSlider

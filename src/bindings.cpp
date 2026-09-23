@@ -9,6 +9,7 @@
 #include <sstream>
 #include <optional>
 #include <stdexcept>
+#include <cstring>
 
 namespace nb = nanobind;
 
@@ -136,9 +137,57 @@ void bind_draw_batch(nb::module_& m) {
         .def("fill_circle", &DrawBatch::fill_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("color"))
         .def("stroke_circle", &DrawBatch::stroke_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
         .def("draw_line", &DrawBatch::draw_line, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
-        .def("draw_text", &DrawBatch::draw_text, nb::arg("text"), nb::arg("x"), nb::arg("y"), nb::arg("font_size") = 14.0f, nb::arg("font_family") = "default", nb::arg("color") = Color(255, 255, 255, 255), nb::arg("align") = 0, nb::arg("weight") = 400, nb::arg("italic") = false)
-        .def("draw_shadow_rounded_rect", &DrawBatch::draw_shadow_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("blur_radius"), nb::arg("spread") = 0.0, nb::arg("offset_x") = 0.0, nb::arg("offset_y") = 0.0, nb::arg("shadow_color") = Color(0, 0, 0, 128))
-        .def("draw_card", &DrawBatch::draw_card, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("bg_color"), nb::arg("border_color") = Color(0, 0, 0, 0), nb::arg("border_width") = 0.0, nb::arg("shadow_blur") = 0.0, nb::arg("shadow_spread") = 0.0, nb::arg("shadow_offset_x") = 0.0, nb::arg("shadow_offset_y") = 0.0, nb::arg("shadow_color") = Color(0, 0, 0, 0))
+        .def("draw_text", [](DrawBatch& b,
+                             const std::string& text, double x, double y,
+                             float font_size, const std::string& font_family,
+                             std::optional<Color> color, int align,
+                             int weight, bool italic) {
+            Color col = color.value_or(Color(255, 255, 255, 255));
+            b.draw_text(text, x, y, font_size, font_family, col, align, weight, italic);
+        },
+             nb::arg("text"), nb::arg("x"), nb::arg("y"),
+             nb::arg("font_size") = 14.0f, nb::arg("font_family") = "default",
+             nb::arg("color") = nb::none(), nb::arg("align") = 0,
+             nb::arg("weight") = 400, nb::arg("italic") = false)
+        .def("draw_shadow_rounded_rect", [](DrawBatch& b,
+                                            double x, double y, double w, double h,
+                                            double rx, double ry,
+                                            double blur_radius, double spread,
+                                            double offset_x, double offset_y,
+                                            std::optional<Color> shadow_color) {
+            Color sc = shadow_color.value_or(Color(0, 0, 0, 128));
+            b.draw_shadow_rounded_rect(x, y, w, h, rx, ry, blur_radius, spread, offset_x, offset_y, sc);
+        },
+             nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"),
+             nb::arg("rx"), nb::arg("ry"), nb::arg("blur_radius"),
+             nb::arg("spread") = 0.0, nb::arg("offset_x") = 0.0,
+             nb::arg("offset_y") = 0.0, nb::arg("shadow_color") = nb::none())
+        .def("draw_card", [](DrawBatch& b,
+                             double x, double y, double w, double h,
+                             double rx, double ry,
+                             const Color& bg_color,
+                             std::optional<Color> border_color,
+                             double border_width,
+                             double shadow_blur,
+                             double shadow_spread,
+                             double shadow_offset_x,
+                             double shadow_offset_y,
+                             std::optional<Color> shadow_color) {
+            Color bc = border_color.value_or(Color(0, 0, 0, 0));
+            Color sc = shadow_color.value_or(Color(0, 0, 0, 0));
+            b.draw_card(x, y, w, h, rx, ry, bg_color, bc, border_width,
+                        shadow_blur, shadow_spread, shadow_offset_x, shadow_offset_y, sc);
+        },
+             nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"),
+             nb::arg("rx"), nb::arg("ry"),
+             nb::arg("bg_color"),
+             nb::arg("border_color") = nb::none(),
+             nb::arg("border_width") = 0.0,
+             nb::arg("shadow_blur") = 0.0,
+             nb::arg("shadow_spread") = 0.0,
+             nb::arg("shadow_offset_x") = 0.0,
+             nb::arg("shadow_offset_y") = 0.0,
+             nb::arg("shadow_color") = nb::none())
         .def("save", &DrawBatch::save)
         .def("restore", &DrawBatch::restore)
         .def("translate", &DrawBatch::translate, nb::arg("tx"), nb::arg("ty"))
@@ -406,7 +455,7 @@ void bind_surface(nb::module_& m) {
                                const Color& bg_color,
                                std::optional<Color> border_color,
                                double border_width,
-                               const Color& fg_color,
+                               std::optional<Color> fg_color,
                                const std::string& text,
                                float font_size,
                                const std::string& font_family,
@@ -420,11 +469,12 @@ void bind_surface(nb::module_& m) {
                                double focus_ring_width,
                                bool is_pressed) {
             Color bc = border_color.value_or(Color(0, 0, 0, 0));
+            Color fgc = fg_color.value_or(Color(255, 255, 255, 255));
             Color sc = shadow_color.value_or(Color(0, 0, 0, 0));
             Color frc = focus_ring_color.value_or(Color(0, 0, 0, 0));
             int eff_weight = weight;
             if (bold && eff_weight <= 400) eff_weight = 700;
-            s.draw_button(x, y, w, h, rx, ry, bg_color, bc, border_width, fg_color,
+            s.draw_button(x, y, w, h, rx, ry, bg_color, bc, border_width, fgc,
                           text, font_size, font_family, eff_weight, italic,
                           shadow_blur, shadow_offset_y, sc, frc, focus_ring_width, is_pressed);
         },
@@ -433,7 +483,7 @@ void bind_surface(nb::module_& m) {
              nb::arg("bg_color"),
              nb::arg("border_color") = nb::none(),
              nb::arg("border_width") = 0.0,
-             nb::arg("fg_color") = Color(255, 255, 255, 255),
+             nb::arg("fg_color") = nb::none(),
              nb::arg("text") = "",
              nb::arg("font_size") = 13.0f,
              nb::arg("font_family") = "default",
@@ -519,21 +569,22 @@ void bind_surface(nb::module_& m) {
                                 const Color& box_bg,
                                 std::optional<Color> border_color,
                                 double border_width,
-                                const Color& check_color,
+                                std::optional<Color> check_color,
                                 bool is_checked,
                                 bool is_hovered,
                                 std::optional<Color> focus_ring_color,
                                 double focus_ring_width) {
             Color bc = border_color.value_or(Color(0, 0, 0, 0));
+            Color cc = check_color.value_or(Color(255, 255, 255, 255));
             Color frc = focus_ring_color.value_or(Color(0, 0, 0, 0));
-            s.draw_checkbox(x, y, size, rx, ry, box_bg, bc, border_width, check_color, is_checked, is_hovered, frc, focus_ring_width);
+            s.draw_checkbox(x, y, size, rx, ry, box_bg, bc, border_width, cc, is_checked, is_hovered, frc, focus_ring_width);
         },
              nb::arg("x"), nb::arg("y"), nb::arg("size"),
              nb::arg("rx"), nb::arg("ry"),
              nb::arg("box_bg"),
              nb::arg("border_color") = nb::none(),
              nb::arg("border_width") = 0.0,
-             nb::arg("check_color") = Color(255, 255, 255, 255),
+             nb::arg("check_color") = nb::none(),
              nb::arg("is_checked") = false,
              nb::arg("is_hovered") = false,
              nb::arg("focus_ring_color") = nb::none(),
@@ -553,12 +604,24 @@ void bind_surface(nb::module_& m) {
         .def("stride", &Surface::stride)
         .def("size_in_bytes", &Surface::size_in_bytes)
         
-        .def("get_buffer", [](Surface& s) -> nb::object {
-            PyObject* mem = PyMemoryView_FromMemory(
-                reinterpret_cast<char*>(s.data_ptr()),
-                static_cast<Py_ssize_t>(s.size_in_bytes()),
-                PyBUF_WRITE
-            );
+        .def("get_buffer", [](nb::handle self) -> nb::object {
+            Surface& s = nb::cast<Surface&>(self);
+            Py_buffer view;
+            std::memset(&view, 0, sizeof(Py_buffer));
+            view.buf = s.data_ptr();
+            view.obj = self.ptr();
+            view.len = static_cast<Py_ssize_t>(s.size_in_bytes());
+            view.itemsize = 1;
+            view.readonly = 0;
+            view.format = const_cast<char*>("B");
+            view.ndim = 1;
+            Py_ssize_t shape[1] = { view.len };
+            Py_ssize_t strides[1] = { 1 };
+            view.shape = shape;
+            view.strides = strides;
+            view.suboffsets = nullptr;
+
+            PyObject* mem = PyMemoryView_FromBuffer(&view);
             if (!mem) {
                 throw std::runtime_error("Failed to create memoryview from surface buffer");
             }

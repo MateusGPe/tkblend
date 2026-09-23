@@ -55,65 +55,64 @@ class DropdownItem(Widget):
             self._on_select(self._text)
 
     def render(self) -> None:
-        self._surface.clear(self._parent_bg)
-        s = self._scale
-        w = float(self._widget_w)
-        h = float(self._widget_h)
-        pal = get_theme()
+        if self._widget_w <= 1 or self._widget_h <= 1:
+            return
+        try:
+            self._surface.clear(self._parent_bg)
+            s = self._scale
+            w = float(self._widget_w)
+            h = float(self._widget_h)
+            pal = get_theme()
 
-        pad_x = 4.0 * s
-        pad_y = 2.0 * s
-        pill_w = max(1.0, w - pad_x * 2.0)
-        pill_h = max(1.0, h - pad_y * 2.0)
-        r = 6.0 * s
+            pad_x = 4.0 * s
+            pad_y = 2.0 * s
+            pill_w = max(1.0, w - pad_x * 2.0)
+            pill_h = max(1.0, h - pad_y * 2.0)
+            r = 6.0 * s
 
-        # High-contrast states
-        if self._is_selected:
-            if pal.dark_mode:
-                sel_bg = "#2a3d66" if not self._is_hovered else "#344c7d"
-                sel_border = pal.primary
-                text_color = "#ffffff"
-                chk_color = pal.primary
-            else:
-                sel_bg = blend_color_hex(pal.primary, "#ffffff", 0.25)
+            # High-contrast states
+            if self._is_selected:
+                sel_bg = blend_color_hex(pal.secondary, pal.primary, 0.25)
                 sel_border = pal.primary
                 text_color = pal.primary
                 chk_color = pal.primary
 
-            self._surface.fill_rounded_rect(pad_x, pad_y, pill_w, pill_h, r, r, sel_bg)
-            self._surface.stroke_rounded_rect(pad_x, pad_y, pill_w, pill_h, r, r, sel_border, 1.2 * s)
+                self._surface.fill_rounded_rect(pad_x, pad_y, pill_w, pill_h, r, r, sel_bg)
+                self._surface.stroke_rounded_rect(pad_x, pad_y, pill_w, pill_h, r, r, sel_border, 1.2 * s)
 
-        elif self._is_hovered:
-            hover_bg = "#383a52" if pal.dark_mode else "#e2e8f0"
-            hover_border = "#585b70" if pal.dark_mode else "#cbd5e1"
-            text_color = "#ffffff" if pal.dark_mode else "#0f172a"
-            self._surface.fill_rounded_rect(pad_x, pad_y, pill_w, pill_h, r, r, hover_bg)
-            self._surface.stroke_rounded_rect(pad_x, pad_y, pill_w, pill_h, r, r, hover_border, 1.0 * s)
+            elif self._is_hovered:
+                hover_bg = pal.secondary_hover
+                hover_border = pal.card_border
+                text_color = pal.fg
+                self._surface.fill_rounded_rect(pad_x, pad_y, pill_w, pill_h, r, r, hover_bg)
+                self._surface.stroke_rounded_rect(pad_x, pad_y, pill_w, pill_h, r, r, hover_border, 1.0 * s)
 
-        else:
-            text_color = pal.fg if pal.dark_mode else "#1e293b"
+            else:
+                text_color = pal.fg
 
-        # Typography
-        font_sz = 12.5 * s
-        text_x = pad_x + 12.0 * s
-        text_y = h / 2.0 + (font_sz * 0.35)
-        self._surface.draw_text(
-            self._text,
-            text_x,
-            text_y,
-            font_size=font_sz,
-            font_family="sans-serif",
-            color=text_color,
-            align="left",
-        )
+            # Typography
+            font_sz = 12.5 * s
+            text_x = pad_x + 12.0 * s
+            text_y = h / 2.0 + (font_sz * 0.35)
+            self._surface.draw_text(
+                self._text,
+                text_x,
+                text_y,
+                font_size=font_sz,
+                font_family="sans-serif",
+                color=text_color,
+                align="left",
+            )
 
-        # Draw vector checkmark on the right if selected
-        if self._is_selected:
-            chk_x = w - pad_x - 14.0 * s
-            chk_y = h / 2.0
-            draw_vector_checkmark(self._surface, chk_x, chk_y, s, chk_color, stroke_width=2.2 * s)
+            # Draw vector checkmark on the right if selected
+            if self._is_selected:
+                chk_x = w - pad_x - 14.0 * s
+                chk_y = h / 2.0
+                draw_vector_checkmark(self._surface, chk_x, chk_y, s, chk_color, stroke_width=2.2 * s)
 
-        self._surface.blit(self._photo)
+            self._surface.blit(self._photo)
+        except Exception:
+            pass
 
 
 class Dropdown(Widget):
@@ -291,6 +290,7 @@ class Dropdown(Widget):
         pop_pad = int(4 * s)
         pop_h = visible_count * item_h + pop_pad * 2 + int(4 * s)
 
+        screen_w = self.winfo_screenwidth()
         screen_h = self.winfo_screenheight()
         space_below = screen_h - (ry + rh + int(4 * s))
 
@@ -300,14 +300,23 @@ class Dropdown(Widget):
         else:
             pop_y = ry + rh + int(4 * s)
 
+        # Clamp Y to screen boundaries
+        if pop_y < 0:
+            pop_y = 0
+        elif pop_y + pop_h > screen_h:
+            pop_y = max(0, screen_h - pop_h - 4)
+
+        # Clamp X to screen boundaries
         pop_x = max(0, rx)
         pop_w = rw
+        if pop_x + pop_w > screen_w:
+            pop_x = max(0, screen_w - pop_w - 4)
 
         pal = get_theme()
         toplevel = self.winfo_toplevel()
 
-        border_col = "#585b70" if pal.dark_mode else "#94a3b8"
-        popup_bg = "#1e1e2e" if pal.dark_mode else "#ffffff"
+        border_col = pal.card_border
+        popup_bg = pal.card_bg
 
         self._popup_win = tk.Toplevel(self)
         self._popup_win.wm_overrideredirect(True)
@@ -525,85 +534,87 @@ class Dropdown(Widget):
         for it in self._item_widgets:
             it.set_selected(it.text == self._selected)
 
-    def _on_destroy(self, event) -> None:
+    def _on_destroy(self, event=None) -> None:
         self._close_popup()
         super()._on_destroy(event)
 
     def render(self) -> None:
-        self._surface.clear(self._parent_bg)
-        s = self._scale
-        pad = 2.0 * s
-        w = max(1.0, float(self._widget_w) - pad * 2.0)
-        h = max(1.0, float(self._widget_h) - pad * 2.0)
-        r = 8.0 * s
+        if self._widget_w <= 1 or self._widget_h <= 1:
+            return
+        try:
+            self._surface.clear(self._parent_bg)
+            s = self._scale
+            pad = 2.0 * s
+            w = max(1.0, float(self._widget_w) - pad * 2.0)
+            h = max(1.0, float(self._widget_h) - pad * 2.0)
+            r = 8.0 * s
 
-        pal = get_theme()
+            pal = get_theme()
 
-        # High-contrast background for field
-        if pal.dark_mode:
-            field_bg = "#252538" if self._parent_bg in ("#181825", "#11111b", "#1e1e2e") else blend_color_hex(pal.surface, "#ffffff", 0.08)
-        else:
-            field_bg = "#ffffff"
+            # Input surface background
+            field_bg = pal.input_bg
 
-        # Focus ring and border styling with high contrast
-        if self._is_open:
-            border = pal.primary
-            border_w = 2.0 * s
-            field_bg = "#2a2b42" if pal.dark_mode else "#ffffff"
-        elif self._is_focused:
-            border = pal.primary
-            border_w = 1.8 * s
-        elif self._is_hovered:
-            border = pal.primary_hover if hasattr(pal, "primary_hover") else pal.primary
-            border_w = 1.6 * s
-            field_bg = "#2b2c44" if pal.dark_mode else "#ffffff"
-        else:
-            border = "#585b70" if pal.dark_mode else "#cbd5e1"
-            border_w = 1.4 * s
+            # Focus ring and border styling
+            if self._is_open:
+                border = pal.primary
+                border_w = 2.0 * s
+                field_bg = blend_color_hex(pal.input_bg, pal.primary, 0.08)
+            elif self._is_focused:
+                border = pal.primary
+                border_w = 1.8 * s
+            elif self._is_hovered:
+                border = pal.primary_hover
+                border_w = 1.6 * s
+                field_bg = blend_color_hex(pal.input_bg, pal.primary, 0.05)
+            else:
+                border = pal.input_border
+                border_w = 1.2 * s
 
-        # Outer soft focus glow if focused or open
-        if self._is_focused or self._is_open:
-            glow_color = blend_color_hex(pal.primary, self._parent_bg, 0.45)
-            self._surface.stroke_rounded_rect(
-                pad - 1.0 * s,
-                pad - 1.0 * s,
-                w + 2.0 * s,
-                h + 2.0 * s,
-                r + 1.0 * s,
-                r + 1.0 * s,
-                glow_color,
-                2.5 * s,
+            # Outer soft focus glow if focused or open
+            if self._is_focused or self._is_open:
+                glow_color = blend_color_hex(pal.primary, self._parent_bg, 0.45)
+                self._surface.stroke_rounded_rect(
+                    pad - 1.0 * s,
+                    pad - 1.0 * s,
+                    w + 2.0 * s,
+                    h + 2.0 * s,
+                    r + 1.0 * s,
+                    r + 1.0 * s,
+                    glow_color,
+                    2.5 * s,
+                )
+
+            self._surface.fill_rounded_rect(pad, pad, w, h, r, r, field_bg)
+            self._surface.stroke_rounded_rect(pad, pad, w, h, r, r, border, border_w)
+
+            # Draw selected text or placeholder with high contrast
+            font_sz = 13.0 * s
+            display_text = self._selected if self._selected else self._placeholder
+            text_color = ("#ffffff" if pal.dark_mode else "#0f172a") if self._selected else pal.text_muted
+
+            # Truncate text if needed to avoid overlapping chevron
+            max_text_w = self._widget_w - pad * 2.0 - 44.0 * s
+            clipped_text = truncate_text(display_text, max_text_w, font_sz, avg_char_width_ratio=0.58)
+
+            self._surface.draw_text(
+                clipped_text,
+                pad + 12.0 * s,
+                self._widget_h / 2.0 + (font_sz * 0.35),
+                font_size=font_sz,
+                font_family="sans-serif",
+                color=text_color,
+                align="left",
             )
 
-        self._surface.fill_rounded_rect(pad, pad, w, h, r, r, field_bg)
-        self._surface.stroke_rounded_rect(pad, pad, w, h, r, r, border, border_w)
+            # Smooth vector chevron icon (pointing up if open, down if closed)
+            chev_x = self._widget_w - pad - 16.0 * s
+            chev_y = self._widget_h / 2.0
+            chev_color = pal.primary if (self._is_open or self._is_hovered or self._is_focused) else ("#bac2de" if pal.dark_mode else "#64748b")
+            draw_vector_chevron(self._surface, chev_x, chev_y, s, "up" if self._is_open else "down", chev_color, stroke_width=2.0 * s)
 
-        # Draw selected text or placeholder with high contrast
-        font_sz = 13.0 * s
-        display_text = self._selected if self._selected else self._placeholder
-        text_color = ("#ffffff" if pal.dark_mode else "#0f172a") if self._selected else pal.text_muted
-
-        # Truncate text if needed to avoid overlapping chevron
-        max_text_w = self._widget_w - pad * 2.0 - 44.0 * s
-        clipped_text = truncate_text(display_text, max_text_w, font_sz, avg_char_width_ratio=0.58)
-
-        self._surface.draw_text(
-            clipped_text,
-            pad + 12.0 * s,
-            self._widget_h / 2.0 + (font_sz * 0.35),
-            font_size=font_sz,
-            font_family="sans-serif",
-            color=text_color,
-            align="left",
-        )
-
-        # Smooth vector chevron icon (pointing up if open, down if closed)
-        chev_x = self._widget_w - pad - 16.0 * s
-        chev_y = self._widget_h / 2.0
-        chev_color = pal.primary if (self._is_open or self._is_hovered or self._is_focused) else ("#bac2de" if pal.dark_mode else "#64748b")
-        draw_vector_chevron(self._surface, chev_x, chev_y, s, "up" if self._is_open else "down", chev_color, stroke_width=2.0 * s)
-
-        self._surface.blit(self._photo)
+            self._surface.blit(self._photo)
+        except Exception:
+            pass
 
 
 ModernDropdown = Dropdown

@@ -117,31 +117,36 @@ class VectorScrollbar(Widget):
             self.render()
 
     def render(self) -> None:
-        self._surface.clear(self._parent_bg)
-        s = self._scale
-        pad = 1.0 * s
-        w = max(1.0, float(self._widget_w) - pad * 2.0)
-        h = max(1.0, float(self._widget_h) - pad * 2.0)
-        r = min(w / 2.0, 4.0 * s)
+        if self._widget_w <= 1 or self._widget_h <= 1:
+            return
+        try:
+            self._surface.clear(self._parent_bg)
+            s = self._scale
+            pad = 1.0 * s
+            w = max(1.0, float(self._widget_w) - pad * 2.0)
+            h = max(1.0, float(self._widget_h) - pad * 2.0)
+            r = min(w / 2.0, 4.0 * s)
 
-        pal = get_theme()
-        # Draw track with distinct contrast
-        track_col = "#252538" if pal.dark_mode else "#e2e8f0"
-        self._surface.fill_rounded_rect(pad, pad, w, h, r, r, track_col)
+            pal = get_theme()
+            # Draw track with distinct contrast
+            track_col = "#252538" if pal.dark_mode else "#e2e8f0"
+            self._surface.fill_rounded_rect(pad, pad, w, h, r, r, track_col)
 
-        # Draw thumb with high contrast
-        _, ty, tw, th = self._get_thumb_geometry()
-        thumb_r = min(tw / 2.0, 4.0 * s)
+            # Draw thumb with high contrast
+            _, ty, tw, th = self._get_thumb_geometry()
+            thumb_r = min(tw / 2.0, 4.0 * s)
 
-        if self._is_dragging:
-            thumb_col = pal.primary
-        elif self._is_hovered:
-            thumb_col = "#89b4fa" if pal.dark_mode else "#3b82f6"
-        else:
-            thumb_col = "#6c7086" if pal.dark_mode else "#94a3b8"
+            if self._is_dragging:
+                thumb_col = pal.primary
+            elif self._is_hovered:
+                thumb_col = "#89b4fa" if pal.dark_mode else "#3b82f6"
+            else:
+                thumb_col = "#6c7086" if pal.dark_mode else "#94a3b8"
 
-        self._surface.fill_rounded_rect(pad, ty, tw, th, thumb_r, thumb_r, thumb_col)
-        self._surface.blit(self._photo)
+            self._surface.fill_rounded_rect(pad, ty, tw, th, thumb_r, thumb_r, thumb_col)
+            self._surface.blit(self._photo)
+        except Exception:
+            pass
 
 
 ModernScrollbar = VectorScrollbar

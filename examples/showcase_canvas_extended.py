@@ -458,22 +458,22 @@ class ExtendedCanvasShowcaseApp:
         glow_cy = h * 0.4 + math.sin(t * 0.6) * 100.0 * s
         glow_grad = RadialGradient(glow_cx, glow_cy, 0, glow_cx, glow_cy, max(w, h) * 0.7)
         if pal.dark_mode:
-            glow_grad.add_stop(0.0, "#1e1e2e")
-            glow_grad.add_stop(0.6, "#181825")
-            glow_grad.add_stop(1.0, "#11111b")
+            glow_grad.add_stop(0.0, pal.card_bg)
+            glow_grad.add_stop(0.6, pal.surface)
+            glow_grad.add_stop(1.0, pal.bg)
         else:
             glow_grad.add_stop(0.0, "#ffffff")
-            glow_grad.add_stop(0.6, "#f1f5f9")
-            glow_grad.add_stop(1.0, "#e2e8f0")
+            glow_grad.add_stop(0.6, pal.surface)
+            glow_grad.add_stop(1.0, pal.bg)
         surf.fill_rect(0, 0, w, h, glow_grad)
 
         # Dynamic Fluid Waves (wired to controls)
         if self._wave_active:
-            wave_cols = (
-                ["#89b4fa33", "#cba6f744", "#f38ba855"]
-                if pal.dark_mode
-                else ["#2563eb28", "#7c3aed38", "#dc262638"]
-            )
+            wave_cols = [
+                f"{pal.primary[:7]}33",
+                f"{pal.accent[:7]}44",
+                f"{pal.destructive[:7]}55",
+            ]
             for layer, col in enumerate(wave_cols):
                 p = Path()
                 p.move_to(0, h)
@@ -495,15 +495,15 @@ class ExtendedCanvasShowcaseApp:
 
         card1_grad = LinearGradient(card1_x, card1_y, card1_x + card_w, card1_y + card_h)
         if pal.dark_mode:
-            card1_grad.add_stop(0.0, "#313244dd")
-            card1_grad.add_stop(1.0, "#1e1e2edd")
-            c1_border = "#89b4fa66"
-            c1_shadow = "#00000088"
+            card1_grad.add_stop(0.0, f"{pal.card_bg[:7]}dd")
+            card1_grad.add_stop(1.0, f"{pal.surface[:7]}dd")
+            c1_border = f"{pal.primary[:7]}66"
+            c1_shadow = "#00000055"
         else:
             card1_grad.add_stop(0.0, "#ffffffdd")
-            card1_grad.add_stop(1.0, "#f1f5f9dd")
-            c1_border = "#2563eb55"
-            c1_shadow = "#00000022"
+            card1_grad.add_stop(1.0, f"{pal.surface[:7]}dd")
+            c1_border = f"{pal.primary[:7]}44"
+            c1_shadow = "#00000010"
 
         surf.draw_shadow(
             card1_x, card1_y, card_w, card_h,
@@ -525,11 +525,11 @@ class ExtendedCanvasShowcaseApp:
         surf.draw_card(
             card2_x, card2_y, card_w, card_h,
             rx=self._anim_radius, ry=self._anim_radius,
-            bg_color="#181825ee" if pal.dark_mode else "#ffffffee",
-            border_color="#cba6f788" if pal.dark_mode else "#7c3aed66",
+            bg_color=f"{pal.card_bg[:7]}ee" if pal.dark_mode else "#ffffffee",
+            border_color=f"{pal.primary[:7]}66" if pal.dark_mode else f"{pal.primary[:7]}44",
             border_width=1.5 * s,
             shadow_blur=self._anim_radius * 1.2,
-            shadow_color="#00000088" if pal.dark_mode else "#00000022",
+            shadow_color="#00000055" if pal.dark_mode else "#00000010",
             shadow_offset_y=8.0 * s,
         )
         surf.draw_text("Zero-Copy Blit", card2_x + 20 * s, card2_y + 36 * s, font_size=15 * s, color=pal.fg)
@@ -544,11 +544,11 @@ class ExtendedCanvasShowcaseApp:
         surf.draw_card(
             hud_x, hud_y, hud_w, hud_h,
             rx=12 * s, ry=12 * s,
-            bg_color="#181825cc" if pal.dark_mode else "#ffffffdd",
-            border_color="#ffffff22" if pal.dark_mode else "#00000015",
+            bg_color=f"{pal.surface[:7]}cc" if pal.dark_mode else "#ffffffdd",
+            border_color=f"{pal.surface_border[:7]}66" if pal.dark_mode else "#00000015",
             border_width=1.0,
             shadow_blur=8.0 * s,
-            shadow_color="#00000044" if pal.dark_mode else "#00000018",
+            shadow_color="#00000033" if pal.dark_mode else "#0000000e",
         )
         surf.draw_text(
             f"{self._fps:.1f} FPS",

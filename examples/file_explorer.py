@@ -170,6 +170,46 @@ def get_file_info(path: Path) -> Dict[str, Any]:
     return info
 
 
+class ScrolledFrame(ttk.Frame):
+    """A smooth scrollable container frame with vertical scrollbar."""
+
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.content = ttk.Frame(self.canvas)
+
+        self.content.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
+        )
+        self._window_id = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
+        self.canvas.bind(
+            "<Configure>",
+            lambda e: self.canvas.itemconfig(self._window_id, width=e.width),
+        )
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.scrollbar.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
+
+        self._bind_mousewheel(self.canvas)
+        self._bind_mousewheel(self.content)
+
+    def _bind_mousewheel(self, widget):
+        widget.bind("<MouseWheel>", self._on_mousewheel, add="+")
+        widget.bind("<Button-4>", self._on_mousewheel, add="+")
+        widget.bind("<Button-5>", self._on_mousewheel, add="+")
+
+    def _on_mousewheel(self, event):
+        if event.num == 4:
+            self.canvas.yview_scroll(-2, "units")
+        elif event.num == 5:
+            self.canvas.yview_scroll(2, "units")
+        elif event.delta:
+            self.canvas.yview_scroll(int(-1 * (event.delta / 120) * 2), "units")
+
+
 class FileExplorerApp:
     def __init__(self, root: tk.Tk):
         self.root = root
@@ -253,7 +293,7 @@ class FileExplorerApp:
         ttk.Label(path_box, text="📍", font=("Helvetica", 11)).pack(
             side="left", padx=(0, 4)
         )
-        self.path_entry = tkblend.ThemedEntry(path_box)
+        self.path_entry = tkblend.TextInput(path_box, placeholder="Enter folder path...", height=34)
         self.path_entry.pack(side="left", fill="x", expand=True)
         self.path_entry.bind("<Return>", self._on_path_entered)
 
@@ -262,8 +302,8 @@ class FileExplorerApp:
         actions_box.pack(side="right")
 
         # Live Search Field
-        self.search_entry = tkblend.SearchEntry(
-            actions_box, placeholder="Search files...", width=20
+        self.search_entry = tkblend.TextInput(
+            actions_box, placeholder="Search files...", width=160, height=34
         )
         self.search_entry.pack(side="left", padx=(0, 10))
         self.search_entry.bind("<KeyRelease>", self._on_search_changed)
@@ -512,8 +552,8 @@ class FileExplorerApp:
         self.table.bind("<Double-Button-1>", self._on_table_double_click)
         self.table.bind("<Button-3>", self._on_show_context_menu)
 
-        # 2. Grid / Tiles Frame (ThemedScrolledFrame)
-        self.grid_frame = tkblend.ThemedScrolledFrame(self.center_container)
+        # 2. Grid / Tiles Frame (ScrolledFrame)
+        self.grid_frame = ScrolledFrame(self.center_container)
         self.grid_frame.content.bind("<Button-3>", self._on_show_context_menu)
 
         # Pack initial default view mode
@@ -592,12 +632,20 @@ class FileExplorerApp:
         self.prev_container = ttk.Frame(prev_section)
         self.prev_container.pack(fill="both", expand=True)
 
-        # 1. Text Viewer (ThemedText)
-        self.text_preview = tkblend.ThemedText(
-            self.prev_container,
+        # 1. Text Viewer (Text + Scrollbar in container)
+        self.text_box = ttk.Frame(self.prev_container)
+        self.text_scroll = ttk.Scrollbar(self.text_box, orient="vertical")
+        self.text_preview = tk.Text(
+            self.text_box,
             wrap="none",
-            font=("Monospace", 9),
+            font=("Courier", 9),
+            borderwidth=0,
+            highlightthickness=0,
+            yscrollcommand=self.text_scroll.set,
         )
+        self.text_scroll.configure(command=self.text_preview.yview)
+        self.text_scroll.pack(side="right", fill="y")
+        self.text_preview.pack(side="left", fill="both", expand=True)
 
         # 2. Image / Visual Canvas
         self.image_preview_lbl = ttk.Label(
@@ -865,7 +913,7 @@ class FileExplorerApp:
 
         # 1. Directory Preview
         if it["is_dir"]:
-            self.text_preview.pack_forget()
+            self.text_box.pack_forget()
             self.image_preview_lbl.pack(fill="both", expand=True)
             try:
                 sub_count = len(list(target_path.iterdir()))
@@ -896,7 +944,7 @@ class FileExplorerApp:
                 img.thumbnail((260, 240), Image.Resampling.LANCZOS)
                 self._thumbnail_photo = ImageTk.PhotoImage(img)
 
-                self.text_preview.pack_forget()
+                self.text_box.pack_forget()
                 self.image_preview_lbl.pack(fill="both", expand=True)
                 self.image_preview_lbl.configure(
                     image=self._thumbnail_photo,
@@ -943,10 +991,9 @@ class FileExplorerApp:
             try:
                 with open(target_path, "r", encoding="utf-8", errors="replace") as f:
                     lines = [f.readline() for _ in range(300)]
-                    content = "".join(lines)
 
                 self.image_preview_lbl.pack_forget()
-                self.text_preview.pack(fill="both", expand=True)
+                self.text_box.pack(fill="both", expand=True)
                 self.text_preview.delete("1.0", tk.END)
 
                 # Format with line numbers for neat code display
@@ -959,7 +1006,7 @@ class FileExplorerApp:
                 pass
 
         # 4. Binary / Unsupported Preview Placeholder
-        self.text_preview.pack_forget()
+        self.text_box.pack_forget()
         self.image_preview_lbl.pack(fill="both", expand=True)
         self.image_preview_lbl.configure(
             image="",

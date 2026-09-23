@@ -236,8 +236,14 @@ class Widget(tk.Label):
     def font_config(self, fc: Any) -> None:
         self.font = fc
 
-    def _on_destroy(self, event) -> None:
+    def _on_destroy(self, event=None) -> None:
         remove_theme_listener(self._on_theme_changed)
+        self._surface = None  # type: ignore
+        self._photo = None  # type: ignore
+
+    def destroy(self) -> None:
+        self._on_destroy()
+        super().destroy()
 
     def set_parent_bg(self, bg: str, force: bool = False) -> None:
         """Explicitly update the parent background and re-render."""

@@ -16,17 +16,30 @@ class _TextInputBackground(Widget):
     """Backing vector surface for TextInput."""
 
     def __init__(self, owner: "TextInput", master: tk.Misc, width: int, height: int, bg: Optional[str] = None):
-        self._owner = owner
+        import weakref
+        self._owner_ref = weakref.ref(owner)
         super().__init__(master=master, width=width, height=height, bg=bg)
+
+    @property
+    def _owner(self) -> Optional["TextInput"]:
+        return self._owner_ref() if hasattr(self, "_owner_ref") else None
+
+    def _on_configure(self, event) -> None:
+        super()._on_configure(event)
+        owner = self._owner
+        if owner is not None and hasattr(owner, "winfo_exists") and owner.winfo_exists():
+            owner._update_entry_geometry()
 
     def _on_theme_changed(self, palette: Palette) -> None:
         super()._on_theme_changed(palette)
-        if hasattr(self, "_owner") and self._owner.winfo_exists():
-            self._owner._update_theme_colors()
+        owner = self._owner
+        if owner is not None and hasattr(owner, "winfo_exists") and owner.winfo_exists():
+            owner._update_theme_colors()
 
     def render(self) -> None:
-        if hasattr(self, "_owner"):
-            self._owner._render_bg()
+        owner = self._owner
+        if owner is not None:
+            owner._render_bg()
 
 
 class TextInput(tk.Frame):
@@ -89,8 +102,6 @@ class TextInput(tk.Frame):
         self._bg_widget = _TextInputBackground(self, master=self, width=width, height=height, bg=self._parent_bg)
         self._bg_widget.place(x=0, y=0, relwidth=1.0, relheight=1.0)
 
-        entry_pad_x = int(14 * s)
-        entry_pad_r = int(32 * s)
         entry_font = self._get_effective_tk_font()
         self._entry = tk.Entry(
             self,
@@ -105,19 +116,42 @@ class TextInput(tk.Frame):
         if self._custom_font_override:
             self._entry._tkblend_custom_font_override = True
 
-        self._entry.place(x=entry_pad_x, y=int(7 * s), relwidth=1.0, width=-(entry_pad_x + entry_pad_r), height=int(24 * s))
+        self._update_entry_geometry()
 
         if self._placeholder:
             self._placeholder_active = True
             self._entry.insert(0, self._placeholder)
             self._entry.configure(fg=pal.text_muted)
 
+        self.bind("<Configure>", self._on_configure)
         self._entry.bind("<FocusIn>", self._on_focus_in)
         self._entry.bind("<FocusOut>", self._on_focus_out)
         self._entry.bind("<KeyRelease>", self._on_key_release)
         self._bg_widget.bind("<Button-1>", self._on_bg_click)
 
         self._render_bg()
+
+    def _on_configure(self, event) -> None:
+        self._update_entry_geometry()
+
+    def _update_entry_geometry(self) -> None:
+        if not hasattr(self, "_entry") or not self._entry.winfo_exists():
+            return
+        s = self._scale
+        pad_l = int(14.0 * s)
+        pad_r = int(32.0 * s)
+        w_total = getattr(self._bg_widget, "_widget_w", self.winfo_width())
+        h_total = getattr(self._bg_widget, "_widget_h", self.winfo_height())
+        if w_total <= 1:
+            w_total = max(1, self.winfo_reqwidth())
+        if h_total <= 1:
+            h_total = max(1, self.winfo_reqheight())
+        entry_w = max(10, w_total - pad_l - pad_r)
+
+        eff_size = self._font_config.size * s
+        entry_h = max(10, min(h_total - 4, int(eff_size * 1.5 + 4)))
+        entry_y = max(2, int((h_total - entry_h) / 2.0))
+        self._entry.place(x=pad_l, y=entry_y, width=entry_w, height=entry_h)
 
     def _get_effective_tk_font(self) -> Union[Tuple[Any, ...], Any]:
         eff_fc = self._font_config.copy_with(size=self._font_config.size * self._scale)
@@ -130,6 +164,7 @@ class TextInput(tk.Frame):
             self._entry._tkblend_injected_font = entry_font
             if self._custom_font_override:
                 self._entry._tkblend_custom_font_override = True
+            self._update_entry_geometry()
 
     @property
     def font(self) -> Any:
@@ -305,37 +340,63 @@ class TextInput(tk.Frame):
         self._render_bg()
 
     def _render_bg(self) -> None:
-        surf = self._bg_widget.surface
-        surf.clear(self._parent_bg)
-        s = self._scale
-        pad = 2.0 * s
-        w = max(1.0, self._bg_widget._widget_w - pad * 2.0)
-        h = max(1.0, self._bg_widget._widget_h - pad * 2.0)
-        r = 8.0 * s
+        if self._bg_widget._widget_w <= 1 or self._bg_widget._widget_h <= 1:
+            return
+        try:
+            surf = self._bg_widget.surface
+            surf.clear(self._parent_bg)
+            s = self._scale
+            pad = 2.0 * s
+            w = max(1.0, self._bg_widget._widget_w - pad * 2.0)
+            h = max(1.0, self._bg_widget._widget_h - pad * 2.0)
+            r = 8.0 * s
 
-        pal = get_theme()
-        if self._has_focus:
-            border_col = pal.input_focus
-            border_w = 1.5 * s
-        elif getattr(self._bg_widget, "_is_hovered", False):
-            border_col = pal.secondary_hover
-            border_w = 1.2 * s
-        else:
-            border_col = pal.input_border
-            border_w = 1.0 * s
+            pal = get_theme()
+            if self._has_focus:
+                border_col = pal.input_focus
+                border_w = 1.5 * s
+            elif getattr(self._bg_widget, "_is_hovered", False):
+                border_col = pal.secondary_hover
+                border_w = 1.2 * s
+            else:
+                border_col = pal.input_border
+                border_w = 1.0 * s
 
-        surf.fill_rounded_rect(pad, pad, w, h, r, r, pal.input_bg)
-        surf.stroke_rounded_rect(pad, pad, w, h, r, r, border_col, border_w)
+            surf.fill_rounded_rect(pad, pad, w, h, r, r, pal.input_bg)
+            surf.stroke_rounded_rect(pad, pad, w, h, r, r, border_col, border_w)
 
-        if self.get():
-            cx = self._bg_widget._widget_w - 20.0 * s
-            cy = self._bg_widget._widget_h / 2.0
-            surf.fill_circle(cx, cy, 7.0 * s, pal.secondary)
-            cr = 3.0 * s
-            surf.draw_line(cx - cr, cy - cr, cx + cr, cy + cr, pal.fg, 1.2 * s)
-            surf.draw_line(cx + cr, cy - cr, cx - cr, cy + cr, pal.fg, 1.2 * s)
+            if self.get():
+                cx = self._bg_widget._widget_w - 20.0 * s
+                cy = self._bg_widget._widget_h / 2.0
+                surf.fill_circle(cx, cy, 7.0 * s, pal.secondary)
+                cr = 3.0 * s
+                surf.draw_line(cx - cr, cy - cr, cx + cr, cy + cr, pal.fg, 1.2 * s)
+                surf.draw_line(cx + cr, cy - cr, cx - cr, cy + cr, pal.fg, 1.2 * s)
 
-        surf.blit(self._bg_widget.photo)
+            surf.blit(self._bg_widget.photo)
+        except Exception:
+            pass
+
+    def bind(self, sequence=None, func=None, add=None):
+        """Bind event to container frame and internal entry widget."""
+        super().bind(sequence, func, add=add)
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            return self._entry.bind(sequence, func, add=add)
+        return ""
+
+    def render(self) -> None:
+        """Render backing vector entry background."""
+        self._render_bg()
+
+    def destroy(self) -> None:
+        """Cleanly destroy backing widgets and frame."""
+        if hasattr(self, "_bg_widget") and self._bg_widget is not None:
+            try:
+                self._bg_widget.destroy()
+            except Exception:
+                pass
+            self._bg_widget = None  # type: ignore
+        super().destroy()
 
 
 ModernTextInput = TextInput
@@ -413,6 +474,7 @@ class SpinBox(Widget):
             self._entry._tkblend_injected_font = entry_font
             if getattr(self, "_custom_font_override", False):
                 self._entry._tkblend_custom_font_override = True
+            self._update_entry_geometry()
 
     @property
     def font(self) -> Any:
@@ -496,12 +558,15 @@ class SpinBox(Widget):
         return minus_x, plus_x, btn_y, btn_w, btn_h, btn_r
 
     def _update_entry_geometry(self) -> None:
+        if not hasattr(self, "_entry") or not self._entry.winfo_exists():
+            return
         s = self._scale
         minus_x, _, _, _, _, _ = self._button_geometry()
         entry_x = int(12.0 * s)
         entry_w = max(10, int(minus_x - entry_x - 6.0 * s))
-        entry_h = max(10, int(22.0 * s))
-        entry_y = int((self._widget_h - entry_h) / 2.0)
+        eff_size = self._font_config.size * s
+        entry_h = max(10, min(self._widget_h - 4, int(eff_size * 1.5 + 4)))
+        entry_y = max(2, int((self._widget_h - entry_h) / 2.0))
         self._entry.place(x=entry_x, y=entry_y, width=entry_w, height=entry_h)
 
     def _on_configure(self, event) -> None:
@@ -509,7 +574,7 @@ class SpinBox(Widget):
         if hasattr(self, "_entry"):
             self._update_entry_geometry()
 
-    def _on_destroy(self, event) -> None:
+    def _on_destroy(self, event=None) -> None:
         self._cancel_repeat()
         super()._on_destroy(event)
 
@@ -623,60 +688,65 @@ class SpinBox(Widget):
         self._pressed_btn = None
 
     def render(self) -> None:
-        self._surface.clear(self._parent_bg)
-        s = self._scale
-        pad = 2.0 * s
-        w = max(1.0, self._widget_w - pad * 2.0)
-        h = max(1.0, self._widget_h - pad * 2.0)
-        r = 8.0 * s
+        if self._widget_w <= 1 or self._widget_h <= 1:
+            return
+        try:
+            self._surface.clear(self._parent_bg)
+            s = self._scale
+            pad = 2.0 * s
+            w = max(1.0, self._widget_w - pad * 2.0)
+            h = max(1.0, self._widget_h - pad * 2.0)
+            r = 8.0 * s
 
-        pal = get_theme()
-        self._surface.fill_rounded_rect(pad, pad, w, h, r, r, pal.input_bg)
+            pal = get_theme()
+            self._surface.fill_rounded_rect(pad, pad, w, h, r, r, pal.input_bg)
 
-        border_col = pal.input_focus if self._has_focus else pal.input_border
-        border_w = 1.5 * s if self._has_focus else 1.0 * s
-        self._surface.stroke_rounded_rect(pad, pad, w, h, r, r, border_col, border_w)
+            border_col = pal.input_focus if self._has_focus else pal.input_border
+            border_w = 1.5 * s if self._has_focus else 1.0 * s
+            self._surface.stroke_rounded_rect(pad, pad, w, h, r, r, border_col, border_w)
 
-        minus_x, plus_x, btn_y, btn_w, btn_h, btn_r = self._button_geometry()
-        cy = btn_y + btn_h / 2.0
+            minus_x, plus_x, btn_y, btn_w, btn_h, btn_r = self._button_geometry()
+            cy = btn_y + btn_h / 2.0
 
-        # Minus button
-        minus_disabled = (self._value <= self._min)
-        if minus_disabled:
-            minus_bg = pal.input_bg
-            minus_fg = pal.text_muted
-        elif self._pressed_btn == "minus":
-            minus_bg = pal.primary
-            minus_fg = pal.primary_fg
-        elif self._hovered_btn == "minus":
-            minus_bg = pal.secondary_hover
-            minus_fg = pal.fg
-        else:
-            minus_bg = pal.secondary
-            minus_fg = pal.fg
+            # Minus button
+            minus_disabled = (self._value <= self._min)
+            if minus_disabled:
+                minus_bg = pal.input_bg
+                minus_fg = pal.text_muted
+            elif self._pressed_btn == "minus":
+                minus_bg = pal.primary
+                minus_fg = pal.primary_fg
+            elif self._hovered_btn == "minus":
+                minus_bg = pal.secondary_hover
+                minus_fg = pal.fg
+            else:
+                minus_bg = pal.secondary
+                minus_fg = pal.fg
 
-        self._surface.fill_rounded_rect(minus_x, btn_y, btn_w, btn_h, btn_r, btn_r, minus_bg)
-        draw_vector_minus(self._surface, minus_x + btn_w / 2.0, cy, 4.0 * s, minus_fg, 1.6 * s)
+            self._surface.fill_rounded_rect(minus_x, btn_y, btn_w, btn_h, btn_r, btn_r, minus_bg)
+            draw_vector_minus(self._surface, minus_x + btn_w / 2.0, cy, 4.0 * s, minus_fg, 1.6 * s)
 
-        # Plus button
-        plus_disabled = (self._value >= self._max)
-        if plus_disabled:
-            plus_bg = pal.input_bg
-            plus_fg = pal.text_muted
-        elif self._pressed_btn == "plus":
-            plus_bg = pal.primary
-            plus_fg = pal.primary_fg
-        elif self._hovered_btn == "plus":
-            plus_bg = pal.secondary_hover
-            plus_fg = pal.fg
-        else:
-            plus_bg = pal.secondary
-            plus_fg = pal.fg
+            # Plus button
+            plus_disabled = (self._value >= self._max)
+            if plus_disabled:
+                plus_bg = pal.input_bg
+                plus_fg = pal.text_muted
+            elif self._pressed_btn == "plus":
+                plus_bg = pal.primary
+                plus_fg = pal.primary_fg
+            elif self._hovered_btn == "plus":
+                plus_bg = pal.secondary_hover
+                plus_fg = pal.fg
+            else:
+                plus_bg = pal.secondary
+                plus_fg = pal.fg
 
-        self._surface.fill_rounded_rect(plus_x, btn_y, btn_w, btn_h, btn_r, btn_r, plus_bg)
-        draw_vector_plus(self._surface, plus_x + btn_w / 2.0, cy, 4.0 * s, plus_fg, 1.6 * s)
+            self._surface.fill_rounded_rect(plus_x, btn_y, btn_w, btn_h, btn_r, btn_r, plus_bg)
+            draw_vector_plus(self._surface, plus_x + btn_w / 2.0, cy, 4.0 * s, plus_fg, 1.6 * s)
 
-        self._surface.blit(self._photo)
+            self._surface.blit(self._photo)
+        except Exception:
+            pass
 
 
 ModernSpinBox = SpinBox

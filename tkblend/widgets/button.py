@@ -30,24 +30,24 @@ class Button(Widget):
         elif variant == "accent":
             return {
                 "bg": pal.accent,
-                "hover": adjust_brightness(pal.accent, 1.15),
-                "press": adjust_brightness(pal.accent, 0.9),
-                "fg": "#ffffff" if not pal.dark_mode else "#11111b",
+                "hover": adjust_brightness(pal.accent, 1.12),
+                "press": adjust_brightness(pal.accent, 0.88),
+                "fg": "#ffffff" if not pal.dark_mode else "#381e72",
                 "border": "#ffffff22" if pal.dark_mode else "#00000015",
             }
         elif variant == "destructive":
             return {
                 "bg": pal.destructive,
-                "hover": adjust_brightness(pal.destructive, 1.15),
-                "press": adjust_brightness(pal.destructive, 0.9),
-                "fg": "#ffffff",
+                "hover": adjust_brightness(pal.destructive, 1.12),
+                "press": adjust_brightness(pal.destructive, 0.88),
+                "fg": "#ffffff" if not pal.dark_mode else "#410002",
                 "border": "#ffffff22" if pal.dark_mode else "#00000015",
             }
         elif variant == "outline":
             return {
                 "bg": "#00000000",
-                "hover": pal.secondary if not pal.dark_mode else "#31324466",
-                "press": pal.secondary_active if not pal.dark_mode else "#45475a88",
+                "hover": pal.secondary if not pal.dark_mode else "#4a445866",
+                "press": pal.secondary_active if not pal.dark_mode else "#332d4188",
                 "fg": pal.primary,
                 "border": pal.primary,
             }
@@ -70,10 +70,10 @@ class Button(Widget):
         variant: str = "primary",
         width: int = 120,
         height: int = 38,
-        rx: float = 10.0,
-        ry: float = 10.0,
+        rx: float = 19.0,
+        ry: float = 19.0,
         font_size: Optional[float] = None,
-        elevation: float = 5.0,
+        elevation: float = 0.0,
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
@@ -122,60 +122,68 @@ class Button(Widget):
         self.render()
 
     def render(self) -> None:
-        self._surface.clear(self._parent_bg)
-        colors = self._get_variant_colors(self._variant)
+        if self._widget_w <= 1 or self._widget_h <= 1:
+            return
+        try:
+            self._surface.clear(self._parent_bg)
+            colors = self._get_variant_colors(self._variant)
+            pal = get_theme()
 
-        cur_bg = colors["bg"]
-        cur_elev = self._elevation
-        offset_y = 2.0 * self._scale
+            cur_bg = colors["bg"]
+            cur_elev = self._elevation
+            offset_y = 1.5 * self._scale
 
-        if self._is_pressed:
-            cur_bg = colors["press"]
-            cur_elev = max(1.0, self._elevation * 0.3)
-            offset_y = 1.0 * self._scale
-        elif self._is_hovered:
-            cur_bg = colors["hover"]
-            cur_elev = self._elevation * 1.3
-            offset_y = 3.0 * self._scale
+            if self._is_pressed:
+                cur_bg = colors["press"]
+                cur_elev = 0.0
+                offset_y = 0.0
+            elif self._is_hovered:
+                cur_bg = colors["hover"]
+                cur_elev = max(2.0 * self._scale, self._elevation * 1.5)
+                offset_y = 2.0 * self._scale
 
-        pad = 3.5 * self._scale
-        btn_w = self._widget_w - pad * 2.0
-        btn_h = self._widget_h - pad * 2.0
+            pad = 2.5 * self._scale
+            btn_w = max(1.0, self._widget_w - pad * 2.0)
+            btn_h = max(1.0, self._widget_h - pad * 2.0)
 
-        safe_blur = 0.0
-        safe_offset_y = 0.0
-        shadow_col = "#00000000"
-        if self._variant != "outline" and cur_elev > 0:
-            safe_blur = min(cur_elev * 0.8, pad * 0.65)
-            safe_offset_y = min(offset_y, pad * 0.25)
-            shadow_col = "#00000040" if self._is_hovered else "#00000028"
+            safe_blur = 0.0
+            safe_offset_y = 0.0
+            shadow_col = "#00000000"
+            if self._variant != "outline" and cur_elev > 0:
+                safe_blur = min(cur_elev * 1.0, pad * 0.8)
+                safe_offset_y = min(offset_y, pad * 0.3)
+                if self._is_hovered:
+                    shadow_col = "#00000015" if not pal.dark_mode else "#00000038"
+                else:
+                    shadow_col = pal.shadow_color
 
-        pal = get_theme()
-        focus_col = pal.input_focus if self._has_focus else "#00000000"
-        focus_width = 1.5 * self._scale if self._has_focus else 0.0
-        f_size = self._font_config.size * self._scale
+            focus_col = pal.input_focus if self._has_focus else "#00000000"
+            focus_width = 1.5 * self._scale if self._has_focus else 0.0
+            f_size = self._font_config.size * self._scale
 
-        self._surface.draw_button(
-            x=pad,
-            y=pad,
-            w=btn_w,
-            h=btn_h,
-            rx=self._rx,
-            ry=self._ry,
-            bg_color=cur_bg,
-            border_color=colors["border"],
-            border_width=1.0 * self._scale,
-            fg_color=colors["fg"],
-            text=self._text,
-            font=self._font_config.copy_with(size=f_size),
-            shadow_blur=safe_blur,
-            shadow_offset_y=safe_offset_y,
-            shadow_color=shadow_col,
-            focus_ring_color=focus_col,
-            focus_ring_width=focus_width,
-            is_pressed=self._is_pressed,
-        )
-        self._surface.blit(self._photo)
+            self._surface.draw_button(
+                x=pad,
+                y=pad,
+                w=btn_w,
+                h=btn_h,
+                rx=self._rx,
+                ry=self._ry,
+                bg_color=cur_bg,
+                border_color=colors["border"],
+                border_width=1.0 * self._scale,
+                fg_color=colors["fg"],
+                text=self._text,
+                font=self._font_config.copy_with(size=f_size),
+                shadow_blur=safe_blur,
+                shadow_offset_y=safe_offset_y,
+                shadow_color=shadow_col,
+                focus_ring_color=focus_col,
+                focus_ring_width=focus_width,
+                is_pressed=self._is_pressed,
+            )
+            self._surface.blit(self._photo)
+        except Exception:
+            pass
 
 
 ModernButton = Button
