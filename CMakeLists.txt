@@ -240,7 +240,16 @@ endif()
 # Module Target
 # ------------------------------------------------------------------------------
 set(TKBLEND_SOURCES
-    src/tkblend.cpp
+    src/color.cpp
+    src/animation.cpp
+    src/gradient.cpp
+    src/path.cpp
+    src/font_manager.cpp
+    src/shadow_engine.cpp
+    src/emoji_engine.cpp
+    src/draw_batch.cpp
+    src/surface.cpp
+    src/bindings.cpp
     src/blit/blit_common.cpp
     ${PLATFORM_SOURCES}
 )
