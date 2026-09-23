@@ -157,6 +157,7 @@ class Checkbox(Widget):
         master: Optional[tk.Misc] = None,
         text: str = "Checkbox",
         checked: bool = False,
+        is_checked: Optional[bool] = None,
         on_change: Optional[Callable[[bool], None]] = None,
         width: int = 160,
         height: int = 28,
@@ -165,7 +166,7 @@ class Checkbox(Widget):
         **kwargs,
     ):
         self._text = text
-        self._checked = checked
+        self._checked = checked if is_checked is None else bool(is_checked)
         self._on_change = on_change
         pal = get_theme()
         self._active_color = active_color or pal.primary
@@ -260,6 +261,7 @@ class Radio(Widget):
         master: Optional[tk.Misc] = None,
         text: str = "Radio",
         value: str = "",
+        selected: bool = False,
         group: Optional["RadioGroup"] = None,
         width: int = 150,
         height: int = 28,
@@ -272,7 +274,7 @@ class Radio(Widget):
         self._group = group
         pal = get_theme()
         self._active_color = active_color or pal.accent
-        self._selected = False
+        self._selected = bool(selected)
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
         if group:
             group.register(self)
@@ -330,15 +332,52 @@ class Radio(Widget):
 ModernRadio = Radio
 
 
-class RadioGroup:
+class RadioGroup(tk.Frame):
     """
     Manages mutual exclusion and selection state among a group of Radio buttons.
+    Can be used as a compound widget or a pure logical group controller.
     """
 
-    def __init__(self, on_change: Optional[Callable[[str], None]] = None):
+    def __init__(
+        self,
+        master: Optional[tk.Misc] = None,
+        options: Optional[List[str]] = None,
+        selected: Optional[str] = None,
+        on_change: Optional[Callable[[str], None]] = None,
+        orientation: str = "vertical",
+        parent_bg: Optional[str] = None,
+        **kwargs,
+    ):
         self._radios: List[Radio] = []
-        self._value: str = ""
+        self._value: str = selected or ""
         self._on_change = on_change
+
+        pal = get_theme()
+        pbg = parent_bg or (master.cget("background") if master and hasattr(master, "cget") else pal.card_bg)
+
+        super().__init__(
+            master,
+            background=pbg,
+            borderwidth=0,
+            highlightthickness=0,
+            **kwargs,
+        )
+
+        if options:
+            for opt in options:
+                is_sel = (opt == selected) if selected else (len(self._radios) == 0)
+                r = Radio(
+                    self,
+                    text=opt,
+                    value=opt,
+                    selected=is_sel,
+                    group=self,
+                    parent_bg=pbg,
+                )
+                if orientation == "horizontal":
+                    r.pack(side="left", padx=6, pady=2)
+                else:
+                    r.pack(side="top", anchor="w", padx=2, pady=2)
 
     def register(self, radio: Radio) -> None:
         self._radios.append(radio)
@@ -352,6 +391,12 @@ class RadioGroup:
             r.selected = (r._value == value)
         if self._on_change:
             self._on_change(value)
+
+    def get(self) -> str:
+        return self._value
+
+    def set(self, value: str) -> None:
+        self.select(value)
 
     @property
     def value(self) -> str:
@@ -435,6 +480,24 @@ class SegmentedControl(Widget):
                     except TypeError:
                         self._on_change()
 
+    def get(self) -> str:
+        """Return the value of the currently active segment."""
+        if 0 <= self._selected < len(self._values):
+            return self._values[self._selected]
+        return ""
+
+    def set(self, value: str) -> None:
+        """Set the active segment by value name."""
+        if value in self._values:
+            self._selected = self._values.index(value)
+            self.render()
+
+    def configure_values(self, values: List[str]) -> None:
+        """Update segment values."""
+        self._values = list(values)
+        self._selected = max(0, min(len(self._values) - 1, self._selected))
+        self.render()
+
     def render(self) -> None:
         if self._widget_w <= 1 or self._widget_h <= 1:
             return
@@ -480,4 +543,7 @@ class SegmentedControl(Widget):
             pass
 
 
+SegmentedButton = SegmentedControl
 ModernSegmentedControl = SegmentedControl
+ModernSegmentedButton = SegmentedControl
+

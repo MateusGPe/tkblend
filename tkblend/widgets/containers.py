@@ -126,6 +126,12 @@ class Frame(tk.Frame):
         return (left, top, w, h)
 
     @property
+    def bg_color(self) -> str:
+        """Return the current background/fill color of the container."""
+        pal = get_theme()
+        return str(self._bg_color or pal.card_bg)
+
+    @property
     def body(self) -> tk.Frame:
         """
         Inner content frame automatically bounded within safe insets.

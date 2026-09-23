@@ -52,11 +52,14 @@ class TextInput(tk.Frame):
         self,
         master: Optional[tk.Misc] = None,
         placeholder: str = "Enter text...",
+        placeholder_text: Optional[str] = None,
         width: int = 240,
         height: int = 38,
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
+        if placeholder_text is not None:
+            placeholder = placeholder_text
         self._scale = ScalingTracker.get_scaling_factor(master)
         s = self._scale
         pal = get_theme()
@@ -414,6 +417,8 @@ class SpinBox(Widget):
         master: Optional[tk.Misc] = None,
         min_val: int = 0,
         max_val: int = 100,
+        from_: Optional[int] = None,
+        to: Optional[int] = None,
         value: int = 10,
         step: int = 1,
         on_change: Optional[Callable[[int], None]] = None,
@@ -422,6 +427,10 @@ class SpinBox(Widget):
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
+        if from_ is not None:
+            min_val = from_
+        if to is not None:
+            max_val = to
         self._min = min_val
         self._max = max_val
         self._step = step

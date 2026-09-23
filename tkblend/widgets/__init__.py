@@ -11,6 +11,7 @@ from tkblend.widgets.base import (
     Widget,
     ModernWidget,
     _round_half_away,
+    cascade_bg_to_children,
 )
 from tkblend.widgets.drawing import (
     draw_vector_checkmark,
@@ -56,6 +57,8 @@ from tkblend.widgets.selection import (
     ModernRadioGroup,
     SegmentedControl,
     ModernSegmentedControl,
+    SegmentedButton,
+    ModernSegmentedButton,
 )
 from tkblend.widgets.inputs import (
     TextInput,
@@ -79,6 +82,36 @@ from tkblend.widgets.display import (
     ModernBadge,
     Avatar,
     ModernAvatar,
+)
+from tkblend.widgets.tabview import (
+    Tabview,
+    ModernTabview,
+)
+from tkblend.widgets.scrollable import (
+    ScrollableFrame,
+    ModernScrollableFrame,
+)
+from tkblend.widgets.textbox import (
+    TextBox,
+    ModernTextBox,
+)
+from tkblend.widgets.combobox import (
+    OptionMenu,
+    ModernOptionMenu,
+    ComboBox,
+    ModernComboBox,
+)
+from tkblend.widgets.table import (
+    Table,
+    ModernTable,
+)
+from tkblend.widgets.image import (
+    VectorIcon,
+    ModernVectorIcon,
+    IconLabel,
+    ModernIconLabel,
+    VectorImage,
+    ModernVectorImage,
 )
 
 __all__ = [
@@ -110,6 +143,8 @@ __all__ = [
     "ModernRadioGroup",
     "SegmentedControl",
     "ModernSegmentedControl",
+    "SegmentedButton",
+    "ModernSegmentedButton",
     "TextInput",
     "ModernTextInput",
     "VectorScrollbar",
@@ -126,7 +161,26 @@ __all__ = [
     "ModernAvatar",
     "Accordion",
     "ModernAccordion",
+    "Tabview",
+    "ModernTabview",
+    "ScrollableFrame",
+    "ModernScrollableFrame",
+    "TextBox",
+    "ModernTextBox",
+    "OptionMenu",
+    "ModernOptionMenu",
+    "ComboBox",
+    "ModernComboBox",
+    "Table",
+    "ModernTable",
+    "VectorIcon",
+    "ModernVectorIcon",
+    "IconLabel",
+    "ModernIconLabel",
+    "VectorImage",
+    "ModernVectorImage",
     "blend_color_hex",
+    "cascade_bg_to_children",
     # Geometry and drawing utilities
     "draw_vector_checkmark",
     "draw_vector_chevron",
