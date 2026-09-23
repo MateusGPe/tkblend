@@ -136,6 +136,11 @@ class ScrollableFrame(tk.Frame):
         self.bind("<Destroy>", self._on_destroy, add="+")
 
     @property
+    def bg_color(self) -> str:
+        """Return the current interior background color."""
+        return self._card.bg_color
+
+    @property
     def scrollable_frame(self) -> tk.Frame:
         """Access the interior frame where children widgets should be placed."""
         return self._scrollable_content
@@ -177,9 +182,21 @@ class ScrollableFrame(tk.Frame):
         resolved_bg = self._explicit_parent_bg or Widget._resolve_default_bg(self.master, palette)
         self._parent_bg = resolved_bg
         self.configure(background=self._parent_bg)
+        if self._bg_color is None:
+            self._card._bg_color = palette.card_bg
+        if self._border_color is None:
+            self._card._border_color = palette.card_border
+        self._card.set_parent_bg(self._parent_bg)
+        self._card.render()
+
         inner_bg = self._card.bg_color
         self._canvas.configure(background=inner_bg)
         self._scrollable_content.configure(background=inner_bg)
+        if self._v_scrollbar:
+            self._v_scrollbar.set_parent_bg(inner_bg)
+        if self._h_scrollbar:
+            self._h_scrollbar.set_parent_bg(inner_bg)
+        cascade_bg_to_children(self._scrollable_content, inner_bg)
 
     def _on_destroy(self, event) -> None:
         if event.widget == self:

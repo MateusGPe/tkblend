@@ -34,6 +34,12 @@ This skill provides the architectural foundation, development workflow, and widg
 4. **Dynamic Theming with `tkblend.theme`**:
    - Query `get_theme()` for semantic colors: `bg`, `fg`, `primary`, `secondary`, `accent`, `card_bg`, `card_border`, `track_bg`, `thumb_color`.
    - Widgets automatically register with `add_theme_listener` and re-render on `set_theme("light" | "dark")`.
+   - **Avoid Static Color Locking**: Do not pass explicit theme colors (like `parent_bg=parent.bg_color` or `bg_color=pal.card_bg`) in constructors unless a permanent user override is intended. Let child widgets dynamically inherit background via `_resolve_default_bg(master, palette)`.
+   - **Compound Container Protocol (`.bg_color`)**: Any compound container (`ScrollableFrame`, `Tabview`, `Table`, `TextBox`, `Frame`, `Card`) must expose a `.bg_color` property returning its active inner surface fill color so `cascade_bg_to_children()` can properly recurse.
+   - **Subcomponent Cascade in `_on_theme_changed`**:
+     Compound widgets must update their internal frames, canvas viewports, and vector scrollbars with `set_parent_bg()` and call `cascade_bg_to_children(self, inner_bg)`.
+   - **Startup UI Palette Injection**:
+     Call `self._on_theme_changed(pal)` or `tb.cascade_bg_to_children(self, pal.bg)` right after `_build_ui()` so standard helper `tk.Frame`s adapt immediately to theme card colors on first launch.
 
 ## Developing a New Vector Widget
 

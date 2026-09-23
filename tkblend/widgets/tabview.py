@@ -274,7 +274,7 @@ class Tabview(tk.Frame):
             self._content_area,
             rx=max(2.0, self._rx - 6.0),
             ry=max(2.0, self._ry - 6.0),
-            bg_color=self._container_frame.bg_color,
+            bg_color=self._bg_color,
             border_width=0,
             elevation=0,
             parent_bg=self._container_frame.bg_color,
@@ -312,6 +312,11 @@ class Tabview(tk.Frame):
             except TypeError:
                 self._command()
 
+    @property
+    def bg_color(self) -> str:
+        """Return the container card background color."""
+        return self._container_frame.bg_color
+
     def get(self) -> Optional[str]:
         """Return the name of the currently active tab."""
         return self._current_tab
@@ -340,6 +345,24 @@ class Tabview(tk.Frame):
         resolved_bg = self._explicit_parent_bg or Widget._resolve_default_bg(self.master, palette)
         self._parent_bg = resolved_bg
         self.configure(background=self._parent_bg)
+        if self._bg_color is None:
+            self._container_frame._bg_color = palette.card_bg
+        if self._border_color is None:
+            self._container_frame._border_color = palette.card_border
+        self._container_frame.set_parent_bg(self._parent_bg)
+        self._container_frame.render()
+
+        inner_bg = self._container_frame.bg_color
+        self._content_area.configure(background=inner_bg)
+        self._header.set_parent_bg(inner_bg)
+        self._header.render()
+
+        for tab_frame in self._tabs.values():
+            if self._bg_color is None:
+                tab_frame._bg_color = inner_bg
+            tab_frame.set_parent_bg(inner_bg)
+            tab_frame.render()
+            cascade_bg_to_children(tab_frame, inner_bg)
 
     def _on_destroy(self, event) -> None:
         if event.widget == self:

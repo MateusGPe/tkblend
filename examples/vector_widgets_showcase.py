@@ -25,6 +25,7 @@ class VectorWidgetsShowcase(tk.Tk):
         # Build Main UI
         self._build_ui()
         tb.add_theme_listener(self._on_theme_changed)
+        self._on_theme_changed(pal)
 
     def _build_ui(self):
         # Top App Bar
@@ -34,7 +35,6 @@ class VectorWidgetsShowcase(tk.Tk):
             ry=0,
             elevation=2.0,
             height=54,
-            parent_bg=tb.get_theme().bg,
         )
         self.top_bar.pack(fill="x", side="top")
 
@@ -43,7 +43,6 @@ class VectorWidgetsShowcase(tk.Tk):
             self.top_bar,
             icon_name="checkmark",
             size=28,
-            parent_bg=self.top_bar.bg_color,
         )
         self.app_icon.pack(side="left", padx=(16, 6), pady=10)
 
@@ -52,7 +51,6 @@ class VectorWidgetsShowcase(tk.Tk):
             text="tkblend Vector Suite",
             icon="dot",
             font_size=14,
-            parent_bg=self.top_bar.bg_color,
         )
         self.title_label.pack(side="left", padx=4, pady=10)
 
@@ -65,7 +63,6 @@ class VectorWidgetsShowcase(tk.Tk):
             command=self._on_theme_selected,
             width=140,
             height=32,
-            parent_bg=self.top_bar.bg_color,
         )
         self.theme_menu.pack(side="right", padx=16, pady=10)
 
@@ -75,7 +72,6 @@ class VectorWidgetsShowcase(tk.Tk):
             icon="dot",
             font_size=11,
             width=65,
-            parent_bg=self.top_bar.bg_color,
         )
         self.theme_lbl.pack(side="right", padx=4, pady=10)
 
@@ -85,7 +81,6 @@ class VectorWidgetsShowcase(tk.Tk):
             rx=12,
             ry=12,
             elevation=4.0,
-            parent_bg=tb.get_theme().bg,
         )
         self.tabview.pack(fill="both", expand=True, padx=16, pady=(10, 16))
 
@@ -115,7 +110,6 @@ class VectorWidgetsShowcase(tk.Tk):
             selected_index=0,
             width=420,
             height=34,
-            parent_bg=parent.bg_color,
             on_change=lambda idx, val: self._on_seg_changed(val),
         )
         self.seg_bar.grid(row=0, column=0, columnspan=2, padx=12, pady=(10, 8), sticky="ew")
@@ -126,21 +120,20 @@ class VectorWidgetsShowcase(tk.Tk):
             rx=10,
             ry=10,
             elevation=2.0,
-            parent_bg=parent.bg_color,
         )
         self.left_scroll.grid(row=1, column=0, padx=(12, 6), pady=(0, 12), sticky="nsew")
 
         scroll_inner = self.left_scroll.scrollable_frame
 
         # Metric Badges
-        badge_row = tk.Frame(scroll_inner, background=self.left_scroll._card.bg_color)
+        badge_row = tk.Frame(scroll_inner)
         badge_row.pack(fill="x", padx=10, pady=8)
 
-        b1 = tb.Badge(badge_row, text="Active", variant="success", parent_bg=self.left_scroll._card.bg_color)
+        b1 = tb.Badge(badge_row, text="Active", variant="success")
         b1.pack(side="left", padx=4)
-        b2 = tb.Badge(badge_row, text="High Load", variant="warning", parent_bg=self.left_scroll._card.bg_color)
+        b2 = tb.Badge(badge_row, text="High Load", variant="warning")
         b2.pack(side="left", padx=4)
-        b3 = tb.Badge(badge_row, text="Blend2D v0.3", variant="primary", parent_bg=self.left_scroll._card.bg_color)
+        b3 = tb.Badge(badge_row, text="Blend2D v0.3", variant="primary")
         b3.pack(side="left", padx=4)
 
         # Interactive Sliders & Progress
@@ -150,7 +143,6 @@ class VectorWidgetsShowcase(tk.Tk):
             width=280,
             height=26,
             on_change=self._on_dash_slider_change,
-            parent_bg=self.left_scroll._card.bg_color,
         )
         self.dash_slider.pack(fill="x", padx=12, pady=6)
 
@@ -159,21 +151,20 @@ class VectorWidgetsShowcase(tk.Tk):
             value=65.0,
             width=280,
             height=14,
-            parent_bg=self.left_scroll._card.bg_color,
         )
         self.dash_progress.pack(fill="x", padx=12, pady=6)
 
         # Switches & Checkboxes
-        sw_row = tk.Frame(scroll_inner, background=self.left_scroll._card.bg_color)
+        sw_row = tk.Frame(scroll_inner)
         sw_row.pack(fill="x", padx=12, pady=6)
-        sw_lbl = tb.IconLabel(sw_row, text="Hardware Acceleration", icon="dot", font_size=11, width=180, parent_bg=self.left_scroll._card.bg_color)
+        sw_lbl = tb.IconLabel(sw_row, text="Hardware Acceleration", icon="dot", font_size=11, width=180)
         sw_lbl.pack(side="left")
-        self.sw1 = tb.Switch(sw_row, is_on=True, parent_bg=self.left_scroll._card.bg_color)
+        self.sw1 = tb.Switch(sw_row, is_on=True)
         self.sw1.pack(side="right")
 
-        chk_row = tk.Frame(scroll_inner, background=self.left_scroll._card.bg_color)
+        chk_row = tk.Frame(scroll_inner)
         chk_row.pack(fill="x", padx=12, pady=6)
-        self.chk1 = tb.Checkbox(chk_row, text="Enable Subpixel Vector AA", is_checked=True, parent_bg=self.left_scroll._card.bg_color)
+        self.chk1 = tb.Checkbox(chk_row, text="Enable Subpixel Vector AA", is_checked=True)
         self.chk1.pack(side="left")
 
         # Right Column: Controls & Card
@@ -182,34 +173,30 @@ class VectorWidgetsShowcase(tk.Tk):
             rx=10,
             ry=10,
             elevation=2.0,
-            parent_bg=parent.bg_color,
         )
         self.right_card.grid(row=1, column=1, padx=(6, 12), pady=(0, 12), sticky="nsew")
 
         # Dropdowns and ComboBox
-        card_inner_bg = self.right_card.bg_color
-        combo_lbl = tb.IconLabel(self.right_card, text="Select Region:", icon="chevron_right", font_size=11, parent_bg=card_inner_bg)
+        combo_lbl = tb.IconLabel(self.right_card, text="Select Region:", icon="chevron_right", font_size=11)
         combo_lbl.pack(anchor="w", padx=16, pady=(12, 4))
 
         self.combo = tb.ComboBox(
             self.right_card,
             values=["US-East (N. Virginia)", "US-West (Oregon)", "EU-Central (Frankfurt)", "AP-Southeast (Tokyo)"],
-            parent_bg=card_inner_bg,
         )
         self.combo.pack(fill="x", padx=16, pady=4)
 
-        opt_lbl = tb.IconLabel(self.right_card, text="Deployment Target:", icon="chevron_right", font_size=11, parent_bg=card_inner_bg)
+        opt_lbl = tb.IconLabel(self.right_card, text="Deployment Target:", icon="chevron_right", font_size=11)
         opt_lbl.pack(anchor="w", padx=16, pady=(10, 4))
 
         self.opt_menu = tb.OptionMenu(
             self.right_card,
             values=["Production Cluster", "Staging Environment", "Local Dev Node"],
-            parent_bg=card_inner_bg,
         )
         self.opt_menu.pack(fill="x", padx=16, pady=4)
 
         # Action Buttons
-        btn_row = tk.Frame(self.right_card, background=card_inner_bg)
+        btn_row = tk.Frame(self.right_card)
         btn_row.pack(fill="x", padx=16, pady=(16, 8))
 
         btn_deploy = tb.Button(
@@ -219,7 +206,6 @@ class VectorWidgetsShowcase(tk.Tk):
             ry=8,
             width=130,
             height=34,
-            parent_bg=card_inner_bg,
             command=lambda: print("Deploy clicked!"),
         )
         btn_deploy.pack(side="left", padx=(0, 6))
@@ -232,7 +218,6 @@ class VectorWidgetsShowcase(tk.Tk):
             ry=8,
             width=100,
             height=34,
-            parent_bg=card_inner_bg,
         )
         btn_cancel.pack(side="left")
 
@@ -277,12 +262,11 @@ class VectorWidgetsShowcase(tk.Tk):
             columns=columns,
             data=sample_data,
             on_select=self._on_table_row_selected,
-            parent_bg=parent.bg_color,
         )
         self.table.grid(row=0, column=0, padx=12, pady=10, sticky="nsew")
 
         # Table Control Bar
-        ctrl_bar = tk.Frame(parent, background=parent.bg_color)
+        ctrl_bar = tk.Frame(parent)
         ctrl_bar.grid(row=1, column=0, padx=12, pady=(0, 10), sticky="ew")
 
         self.lbl_selected_info = tb.IconLabel(
@@ -291,7 +275,6 @@ class VectorWidgetsShowcase(tk.Tk):
             icon="dot",
             font_size=11,
             width=240,
-            parent_bg=parent.bg_color,
         )
         self.lbl_selected_info.pack(side="left", padx=4)
 
@@ -303,7 +286,6 @@ class VectorWidgetsShowcase(tk.Tk):
             width=100,
             height=30,
             command=self._on_table_add_row,
-            parent_bg=parent.bg_color,
         )
         btn_add.pack(side="right", padx=4)
 
@@ -316,7 +298,6 @@ class VectorWidgetsShowcase(tk.Tk):
             width=120,
             height=30,
             command=self._on_table_del_row,
-            parent_bg=parent.bg_color,
         )
         btn_del.pack(side="right", padx=4)
 
@@ -352,45 +333,41 @@ class VectorWidgetsShowcase(tk.Tk):
         parent.grid_rowconfigure(0, weight=1)
 
         # Left: Single-line inputs & spinboxes
-        left_form = tb.Card(parent, rx=10, ry=10, elevation=2.0, parent_bg=parent.bg_color)
+        left_form = tb.Card(parent, rx=10, ry=10, elevation=2.0)
         left_form.grid(row=0, column=0, padx=(12, 6), pady=12, sticky="nsew")
 
-        fbg = left_form.bg_color
-        tb.IconLabel(left_form, text="Project Name:", icon="dot", font_size=11, parent_bg=fbg).pack(anchor="w", padx=16, pady=(12, 2))
-        self.proj_name = tb.TextInput(left_form, placeholder_text="Enter repository name...", parent_bg=fbg)
+        tb.IconLabel(left_form, text="Project Name:", icon="dot", font_size=11).pack(anchor="w", padx=16, pady=(12, 2))
+        self.proj_name = tb.TextInput(left_form, placeholder_text="Enter repository name...")
         self.proj_name.pack(fill="x", padx=16, pady=4)
 
-        tb.IconLabel(left_form, text="Cluster Replica Count:", icon="dot", font_size=11, parent_bg=fbg).pack(anchor="w", padx=16, pady=(8, 2))
-        self.spin = tb.SpinBox(left_form, from_=1, to=64, value=3, parent_bg=fbg)
+        tb.IconLabel(left_form, text="Cluster Replica Count:", icon="dot", font_size=11).pack(anchor="w", padx=16, pady=(8, 2))
+        self.spin = tb.SpinBox(left_form, from_=1, to=64, value=3)
         self.spin.pack(fill="x", padx=16, pady=4)
 
-        tb.IconLabel(left_form, text="Deployment Environment:", icon="dot", font_size=11, parent_bg=fbg).pack(anchor="w", padx=16, pady=(8, 2))
+        tb.IconLabel(left_form, text="Deployment Environment:", icon="dot", font_size=11).pack(anchor="w", padx=16, pady=(8, 2))
         self.env_radio = tb.RadioGroup(
             left_form,
             options=["Development", "Staging", "Production"],
             selected="Staging",
-            parent_bg=fbg,
         )
         self.env_radio.pack(fill="x", padx=16, pady=4)
 
         # Right: Multiline TextBox Editor
-        right_form = tb.Card(parent, rx=10, ry=10, elevation=2.0, parent_bg=parent.bg_color)
+        right_form = tb.Card(parent, rx=10, ry=10, elevation=2.0)
         right_form.grid(row=0, column=1, padx=(6, 12), pady=12, sticky="nsew")
 
-        rf_bg = right_form.bg_color
-        tb.IconLabel(right_form, text="Configuration Notes (TextBox):", icon="dot", font_size=11, parent_bg=rf_bg).pack(anchor="w", padx=16, pady=(12, 4))
+        tb.IconLabel(right_form, text="Configuration Notes (TextBox):", icon="dot", font_size=11).pack(anchor="w", padx=16, pady=(12, 4))
 
         self.textbox = tb.TextBox(
             right_form,
             placeholder_text="Enter detailed deployment notes or release changelog here...",
             height=180,
-            parent_bg=rf_bg,
         )
         self.textbox.pack(fill="both", expand=True, padx=16, pady=4)
         self.textbox.insert("1.0", "# Deployment Checklist\n- Verified Blend2D vector anti-aliasing\n- Checked subpixel DPI scaling\n- Dynamic theme listener active\n")
 
         # Buttons
-        tb_actions = tk.Frame(right_form, background=rf_bg)
+        tb_actions = tk.Frame(right_form)
         tb_actions.pack(fill="x", padx=16, pady=(8, 12))
 
         btn_clear = tb.Button(
@@ -402,7 +379,6 @@ class VectorWidgetsShowcase(tk.Tk):
             width=90,
             height=30,
             command=self.textbox.clear,
-            parent_bg=rf_bg,
         )
         btn_clear.pack(side="left", padx=(0, 6))
 
@@ -414,7 +390,6 @@ class VectorWidgetsShowcase(tk.Tk):
             width=140,
             height=30,
             command=lambda: print("Saved notes:\n", self.textbox.get()),
-            parent_bg=rf_bg,
         )
         btn_save.pack(side="right")
 
@@ -422,11 +397,10 @@ class VectorWidgetsShowcase(tk.Tk):
     # TAB 4: ABOUT ENGINE
     # -------------------------------------------------------------
     def _build_about_tab(self, parent: tb.Frame):
-        about_card = tb.Card(parent, rx=12, ry=12, elevation=2.0, parent_bg=parent.bg_color)
+        about_card = tb.Card(parent, rx=12, ry=12, elevation=2.0)
         about_card.pack(fill="both", expand=True, padx=16, pady=16)
 
-        ac_bg = about_card.bg_color
-        tb.IconLabel(about_card, text="Blend2D Pure Vector Architecture", icon="checkmark", font_size=14, parent_bg=ac_bg).pack(anchor="w", padx=20, pady=(16, 6))
+        tb.IconLabel(about_card, text="Blend2D Pure Vector Architecture", icon="checkmark", font_size=14).pack(anchor="w", padx=20, pady=(16, 6))
 
         desc = (
             "tkblend provides hardware-accelerated, crisp vector rasterization directly into Tkinter\n"
@@ -440,15 +414,16 @@ class VectorWidgetsShowcase(tk.Tk):
             "• Full component suite: Tabview, ScrollableFrame, TextBox, Table, ComboBox, OptionMenu, Sliders, and more."
         )
 
-        lbl_desc = tk.Label(
+        pal = tb.get_theme()
+        self.lbl_desc = tk.Label(
             about_card,
             text=desc,
             justify="left",
             font=("sans-serif", 10),
-            background=ac_bg,
-            foreground=tb.get_theme().fg,
+            background=pal.card_bg,
+            foreground=pal.fg,
         )
-        lbl_desc.pack(anchor="w", padx=20, pady=10)
+        self.lbl_desc.pack(anchor="w", padx=20, pady=10)
 
     def _on_theme_selected(self, theme_name: str):
         tb.set_theme(theme_name)
@@ -457,8 +432,13 @@ class VectorWidgetsShowcase(tk.Tk):
         if not self.winfo_exists():
             return
         self.configure(background=palette.bg)
-        self.title_label.render()
-        self.app_icon.render()
+        self.theme_menu.set(palette.name)
+        if hasattr(self, "lbl_desc") and self.lbl_desc.winfo_exists():
+            self.lbl_desc.configure(
+                background=palette.card_bg,
+                foreground=palette.fg,
+            )
+        tb.cascade_bg_to_children(self, palette.bg)
 
 
 def main():

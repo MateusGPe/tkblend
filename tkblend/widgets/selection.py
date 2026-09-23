@@ -7,7 +7,13 @@ import tkinter as tk
 from typing import Optional, Callable, List
 
 from tkblend.surface import ColorLike
-from tkblend.theme import get_theme, resolve_color_failsafe
+from tkblend.theme import (
+    get_theme,
+    Palette,
+    add_theme_listener,
+    remove_theme_listener,
+    resolve_color_failsafe,
+)
 from tkblend.widgets.base import Widget
 from tkblend.widgets.drawing import draw_vector_checkmark
 
@@ -351,13 +357,13 @@ class RadioGroup(tk.Frame):
         self._radios: List[Radio] = []
         self._value: str = selected or ""
         self._on_change = on_change
-
+        self._explicit_parent_bg = parent_bg
         pal = get_theme()
-        pbg = parent_bg or (master.cget("background") if master and hasattr(master, "cget") else pal.card_bg)
+        self._parent_bg = parent_bg or Widget._resolve_default_bg(master, pal)
 
         super().__init__(
             master,
-            background=pbg,
+            background=self._parent_bg,
             borderwidth=0,
             highlightthickness=0,
             **kwargs,
@@ -372,12 +378,29 @@ class RadioGroup(tk.Frame):
                     value=opt,
                     selected=is_sel,
                     group=self,
-                    parent_bg=pbg,
+                    parent_bg=parent_bg,
                 )
                 if orientation == "horizontal":
                     r.pack(side="left", padx=6, pady=2)
                 else:
                     r.pack(side="top", anchor="w", padx=2, pady=2)
+
+        add_theme_listener(self._on_theme_changed)
+        self.bind("<Destroy>", self._on_destroy, add="+")
+
+    def _on_theme_changed(self, palette: Palette) -> None:
+        if not self.winfo_exists():
+            return
+        resolved_bg = self._explicit_parent_bg or Widget._resolve_default_bg(self.master, palette)
+        self._parent_bg = resolved_bg
+        self.configure(background=self._parent_bg)
+        for r in self._radios:
+            r.set_parent_bg(self._parent_bg)
+            r.render()
+
+    def _on_destroy(self, event=None) -> None:
+        if event is None or event.widget == self:
+            remove_theme_listener(self._on_theme_changed)
 
     def register(self, radio: Radio) -> None:
         self._radios.append(radio)

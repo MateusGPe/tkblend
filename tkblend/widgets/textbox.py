@@ -129,6 +129,11 @@ class TextBox(tk.Frame):
         self.bind("<Destroy>", self._on_destroy, add="+")
 
     @property
+    def bg_color(self) -> str:
+        """Return the current interior background color."""
+        return self._card.bg_color
+
+    @property
     def text_widget(self) -> tk.Text:
         """Direct reference to underlying tk.Text."""
         return self._text
@@ -195,6 +200,13 @@ class TextBox(tk.Frame):
         self._parent_bg = resolved_bg
         self.configure(background=self._parent_bg)
 
+        if self._bg_color is None:
+            self._card._bg_color = palette.input_bg
+        if self._border_color is None:
+            self._card._border_color = palette.input_border
+        self._card.set_parent_bg(self._parent_bg)
+        self._card.render()
+
         inner_bg = self._card.bg_color
         txt_fg = self._explicit_text_color or palette.fg
         self._text.configure(
@@ -204,6 +216,7 @@ class TextBox(tk.Frame):
             selectbackground=palette.primary,
             selectforeground=palette.primary_fg,
         )
+        self._scrollbar.set_parent_bg(inner_bg)
 
     def _on_destroy(self, event) -> None:
         if event.widget == self:

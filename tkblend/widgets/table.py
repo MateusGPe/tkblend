@@ -333,6 +333,11 @@ class Table(tk.Frame):
         self.bind("<Destroy>", self._on_destroy, add="+")
         self._update_scroll_geometry()
 
+    @property
+    def bg_color(self) -> str:
+        """Return the current interior background color."""
+        return self._card.bg_color
+
     def set_columns(self, columns: List[Dict[str, Any]]) -> None:
         """Set the table columns definition."""
         self._columns = list(columns)
@@ -505,8 +510,15 @@ class Table(tk.Frame):
         resolved_bg = self._explicit_parent_bg or Widget._resolve_default_bg(self.master, palette)
         self._parent_bg = resolved_bg
         self.configure(background=self._parent_bg)
-        self._card.configure(background=self._parent_bg)
-        self._view._parent_bg = self._card.bg_color
+        if self._bg_color is None:
+            self._card._bg_color = palette.card_bg
+        if self._border_color is None:
+            self._card._border_color = palette.card_border
+        self._card.set_parent_bg(self._parent_bg)
+        self._card.render()
+        inner_bg = self._card.bg_color
+        self._v_scrollbar.set_parent_bg(inner_bg)
+        self._view.set_parent_bg(inner_bg)
         self._view.render()
 
     def _on_destroy(self, event) -> None:

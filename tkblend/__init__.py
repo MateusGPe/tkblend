@@ -159,6 +159,7 @@ from tkblend.widgets import (
     ModernIconLabel,
     VectorImage,
     ModernVectorImage,
+    cascade_bg_to_children,
 )
 
 __version__ = "0.3.0"
@@ -279,6 +280,7 @@ __all__ = [
     "ModernIconLabel",
     "VectorImage",
     "ModernVectorImage",
+    "cascade_bg_to_children",
     # Font Management & Typography
     "load_font_face",
     "load_font",

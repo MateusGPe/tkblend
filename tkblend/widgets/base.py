@@ -366,6 +366,17 @@ def cascade_bg_to_children(container: Any, bg: str, preserve_overrides: bool = T
         if getattr(container, "_bg_label", None) is child:
             continue
 
+        # If child is a container with its own bg_color (Card, Frame, ScrollableFrame, Tabview, Table, TextBox):
+        if hasattr(child, "bg_color") and not callable(getattr(child, "bg_color", None)):
+            if hasattr(child, "set_parent_bg"):
+                try:
+                    child.set_parent_bg(bg)
+                except Exception:
+                    pass
+            inner_bg = str(child.bg_color)
+            cascade_bg_to_children(child, inner_bg, preserve_overrides=preserve_overrides)
+            continue
+
         # If it's a vector Widget or has set_parent_bg:
         if hasattr(child, "set_parent_bg"):
             if preserve_overrides and getattr(child, "_explicit_bg", None) is not None:
@@ -374,15 +385,6 @@ def cascade_bg_to_children(container: Any, bg: str, preserve_overrides: bool = T
                 child.set_parent_bg(bg)
             except Exception:
                 pass
-            continue
-
-        # If child is a Frame/Card with its own _bg_color:
-        if hasattr(child, "_bg_color"):
-            if hasattr(child, "set_parent_bg"):
-                try:
-                    child.set_parent_bg(bg)
-                except Exception:
-                    pass
             continue
 
         # Standard container (e.g. tk.Frame, tk.Canvas): update its background and recurse

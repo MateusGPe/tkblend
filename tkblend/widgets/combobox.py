@@ -458,8 +458,7 @@ class ComboBox(tk.Frame):
             selectbackground=palette.primary,
             selectforeground=palette.primary_fg,
         )
-        self._btn._parent_bg = palette.input_bg
-        self._btn.render()
+        self._btn.set_parent_bg(palette.input_bg)
 
     def _on_destroy(self, event) -> None:
         if event.widget == self:
