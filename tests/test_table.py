@@ -218,3 +218,20 @@ def test_table_clipboard_tsv_generation(root):
     table.set_selection(0)
     # Clipboard call should format selected row without crashing
     table.copy_to_clipboard()
+
+
+def test_table_scrolling_and_sticky_header(root):
+    cols = [
+        {"id": "id", "title": "ID", "width": 60},
+        {"id": "name", "title": "Name", "width": 120},
+    ]
+    data = [{"id": i, "name": f"Item {i}"} for i in range(100)]
+    table = tb.Table(root, columns=cols, data=data, width=300, height=200)
+    root.update_idletasks()
+
+    # Scroll to the bottom end
+    table._on_vscroll("moveto", "1.0")
+    assert table._scroll_y > 0
+    # Rendering should succeed without exception
+    table._view.render()
+

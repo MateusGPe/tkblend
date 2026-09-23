@@ -299,84 +299,7 @@ class _TableViewSurface(Widget):
             hdr_h = self._table._header_height * s
             row_h = self._table._row_height * s
 
-            # 1. Header Background & Bottom Border
-            self._surface.fill_rect(0, 0, w, hdr_h, pal.surface)
-            self._surface.fill_rect(0, hdr_h - 1.0 * s, w, 1.0 * s, pal.surface_border)
-
-            # Draw Header Columns
-            curr_x = -scroll_x
-            font_sz_hdr = max(9.0, 11.0 * s)
-            for i, col in enumerate(cols):
-                cw = col.get("width", 100) * s
-                title = col.get("title", f"Col {i}")
-                align = col.get("align", "left")
-
-                if curr_x + cw > 0 and curr_x < w:
-                    # Hover on column header
-                    if self._table._hovered_col == i and self._table._resizing_col is None:
-                        self._surface.fill_rect(max(0.0, curr_x), 0, cw, hdr_h - 1.0 * s, pal.secondary)
-
-                    # Header text & checkbox
-                    if col.get("type") == "checkbox":
-                        # Draw header checkbox (select all indicator)
-                        cb_size = 14.0 * s
-                        cb_x = curr_x + (cw - cb_size) / 2.0
-                        cb_y = (hdr_h - cb_size) / 2.0
-                        all_checked = (
-                            len(self._table._selected_rows) > 0
-                            and len(self._table._selected_rows) == len(self._table._data)
-                        )
-                        self._surface.stroke_rounded_rect(
-                            cb_x, cb_y, cb_size, cb_size, 3.0 * s, 3.0 * s, pal.surface_border, stroke_width=1.2 * s
-                        )
-                        if all_checked:
-                            self._surface.fill_rounded_rect(
-                                cb_x, cb_y, cb_size, cb_size, 3.0 * s, 3.0 * s, pal.primary
-                            )
-                            draw_vector_checkmark(
-                                self._surface, cb_x + cb_size / 2.0, cb_y + cb_size / 2.0, 0.8 * s, "#ffffff"
-                            )
-                    else:
-                        ty = hdr_h / 2.0 + font_sz_hdr * 0.35
-                        if align == "center":
-                            tx = curr_x + cw / 2.0
-                        elif align == "right":
-                            tx = curr_x + cw - 14.0 * s
-                        else:
-                            tx = curr_x + 10.0 * s
-
-                        display_txt = truncate_text(title, max(10.0, cw - 28.0 * s), font_sz_hdr)
-                        self._surface.draw_text(
-                            display_txt,
-                            tx,
-                            ty,
-                            font_size=font_sz_hdr,
-                            font_family="sans-serif",
-                            color=pal.fg,
-                            align=align,
-                        )
-
-                        # Sort chevron if sorted by this column
-                        if self._table._sort_col == i:
-                            chev_dir = "down" if self._table._sort_desc else "up"
-                            draw_vector_chevron(
-                                self._surface,
-                                curr_x + cw - 12.0 * s,
-                                hdr_h / 2.0,
-                                scale=0.9 * s,
-                                direction=chev_dir,
-                                color=pal.primary,
-                                stroke_width=1.6 * s,
-                            )
-
-                    # Column separator divider
-                    self._surface.fill_rect(
-                        curr_x + cw - 1.0 * s, 4.0 * s, 1.0 * s, hdr_h - 8.0 * s, pal.surface_border
-                    )
-
-                curr_x += cw
-
-            # 2. Render Visible Rows
+            # 1. Render Visible Rows
             font_sz_row = max(9.0, 11.0 * s)
             visible_start_idx = max(0, int(scroll_y // row_h))
             visible_end_idx = min(len(visible_data), int((scroll_y + h - hdr_h) // row_h) + 2)
@@ -558,6 +481,83 @@ class _TableViewSurface(Widget):
                             )
 
                     cell_x += cw
+
+            # 2. Sticky Header Background, Border & Header Columns
+            self._surface.fill_rect(0, 0, w, hdr_h, pal.surface)
+            self._surface.fill_rect(0, hdr_h - 1.0 * s, w, 1.0 * s, pal.surface_border)
+
+            # Draw Header Columns
+            curr_x = -scroll_x
+            font_sz_hdr = max(9.0, 11.0 * s)
+            for i, col in enumerate(cols):
+                cw = col.get("width", 100) * s
+                title = col.get("title", f"Col {i}")
+                align = col.get("align", "left")
+
+                if curr_x + cw > 0 and curr_x < w:
+                    # Hover on column header
+                    if self._table._hovered_col == i and self._table._resizing_col is None:
+                        self._surface.fill_rect(max(0.0, curr_x), 0, cw, hdr_h - 1.0 * s, pal.secondary)
+
+                    # Header text & checkbox
+                    if col.get("type") == "checkbox":
+                        # Draw header checkbox (select all indicator)
+                        cb_size = 14.0 * s
+                        cb_x = curr_x + (cw - cb_size) / 2.0
+                        cb_y = (hdr_h - cb_size) / 2.0
+                        all_checked = (
+                            len(self._table._selected_rows) > 0
+                            and len(self._table._selected_rows) == len(self._table._data)
+                        )
+                        self._surface.stroke_rounded_rect(
+                            cb_x, cb_y, cb_size, cb_size, 3.0 * s, 3.0 * s, pal.surface_border, stroke_width=1.2 * s
+                        )
+                        if all_checked:
+                            self._surface.fill_rounded_rect(
+                                cb_x, cb_y, cb_size, cb_size, 3.0 * s, 3.0 * s, pal.primary
+                            )
+                            draw_vector_checkmark(
+                                self._surface, cb_x + cb_size / 2.0, cb_y + cb_size / 2.0, 0.8 * s, "#ffffff"
+                            )
+                    else:
+                        ty = hdr_h / 2.0 + font_sz_hdr * 0.35
+                        if align == "center":
+                            tx = curr_x + cw / 2.0
+                        elif align == "right":
+                            tx = curr_x + cw - 14.0 * s
+                        else:
+                            tx = curr_x + 10.0 * s
+
+                        display_txt = truncate_text(title, max(10.0, cw - 28.0 * s), font_sz_hdr)
+                        self._surface.draw_text(
+                            display_txt,
+                            tx,
+                            ty,
+                            font_size=font_sz_hdr,
+                            font_family="sans-serif",
+                            color=pal.fg,
+                            align=align,
+                        )
+
+                        # Sort chevron if sorted by this column
+                        if self._table._sort_col == i:
+                            chev_dir = "down" if self._table._sort_desc else "up"
+                            draw_vector_chevron(
+                                self._surface,
+                                curr_x + cw - 12.0 * s,
+                                hdr_h / 2.0,
+                                scale=0.9 * s,
+                                direction=chev_dir,
+                                color=pal.primary,
+                                stroke_width=1.6 * s,
+                            )
+
+                    # Column separator divider
+                    self._surface.fill_rect(
+                        curr_x + cw - 1.0 * s, 4.0 * s, 1.0 * s, hdr_h - 8.0 * s, pal.surface_border
+                    )
+
+                curr_x += cw
 
             self._surface.blit(self._photo)
         except Exception as e:
