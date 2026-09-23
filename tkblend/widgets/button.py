@@ -6,13 +6,14 @@ from __future__ import annotations
 import tkinter as tk
 from typing import Optional, Callable, Dict
 
+from tkblend.theme import get_theme
 from tkblend.widgets.base import Widget, ScalingTracker
 
 
 class Button(Widget):
     """
     Modern Button supporting variants ('primary', 'secondary', 'accent', 'destructive', 'outline'),
-    micro-elevation on hover, pressed drop-depth animation, and antialiased typography.
+    micro-elevation on hover, pressed drop-depth animation, keyboard focus ring, and antialiased typography.
     """
 
     VARIANT_COLORS: Dict[str, Dict[str, str]] = {
@@ -47,6 +48,7 @@ class Button(Widget):
         self._font_size = font_size * scale
         self._elevation = elevation * scale
 
+        kwargs.setdefault("takefocus", True)
         super().__init__(
             master=master,
             width=width,
@@ -55,12 +57,25 @@ class Button(Widget):
             **kwargs,
         )
 
-        self.bind("<ButtonRelease-1>", self._handle_click)
+        self.bind("<space>", self._on_key_activate)
+        self.bind("<Return>", self._on_key_activate)
+
+    def _on_key_activate(self, event) -> None:
+        if not self._is_disabled:
+            self._is_pressed = True
+            self.render()
+
+            def _reset_and_invoke():
+                self._is_pressed = False
+                self.render()
+                if self._command:
+                    self._command()
+
+            self.after(100, _reset_and_invoke)
 
     def _handle_click(self, event) -> None:
         if not self._is_disabled and self._command:
-            if 0 <= event.x <= self._widget_w and 0 <= event.y <= self._widget_h:
-                self._command()
+            self._command()
 
     def set_text(self, text: str) -> None:
         self._text = text
@@ -99,6 +114,20 @@ class Button(Widget):
         self._surface.fill_rounded_rect(pad, pad, btn_w, btn_h, self._rx, self._ry, cur_bg)
         border_col = colors["border"]
         self._surface.stroke_rounded_rect(pad, pad, btn_w, btn_h, self._rx, self._ry, border_col, 1.0 * self._scale)
+
+        if self._has_focus:
+            pal = get_theme()
+            focus_col = pal.input_focus
+            self._surface.stroke_rounded_rect(
+                pad - 1.5 * self._scale,
+                pad - 1.5 * self._scale,
+                btn_w + 3.0 * self._scale,
+                btn_h + 3.0 * self._scale,
+                self._rx + 1.5 * self._scale,
+                self._ry + 1.5 * self._scale,
+                focus_col,
+                1.5 * self._scale,
+            )
 
         text_x = self._widget_w / 2.0
         text_y = self._widget_h / 2.0 + (self._font_size * 0.35)

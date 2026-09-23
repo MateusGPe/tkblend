@@ -8,7 +8,7 @@ from typing import Optional, Callable
 
 from tkblend.theme import get_theme, Palette
 from tkblend.widgets.base import Widget, ScalingTracker
-from tkblend.widgets.drawing import draw_vector_plus
+from tkblend.widgets.drawing import draw_vector_plus, draw_vector_minus
 
 
 class _TextInputBackground(Widget):
@@ -190,7 +190,9 @@ ModernTextInput = TextInput
 
 class SpinBox(Widget):
     """
-    Numeric stepper component with decrement (-) and increment (+) vector buttons.
+    Numeric stepper component with decrement (-) and increment (+) vector buttons,
+    inline text entry, keyboard navigation (Up/Down arrow keys), auto-repeat on hold,
+    and distinct hover/pressed user feedback.
     """
 
     def __init__(
@@ -208,11 +210,40 @@ class SpinBox(Widget):
     ):
         self._min = min_val
         self._max = max_val
-        self._value = max(min_val, min(max_val, int(value)))
         self._step = step
         self._on_change = on_change
+        self._value = max(min_val, min(max_val, int(value)))
+
+        self._hovered_btn: Optional[str] = None
+        self._pressed_btn: Optional[str] = None
+        self._repeat_timer: Optional[str] = None
+
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
-        self.bind("<ButtonRelease-1>", self._handle_click)
+
+        s = self._scale
+        pal = get_theme()
+
+        self._entry = tk.Entry(
+            self,
+            bg=pal.surface,
+            fg=pal.fg,
+            insertbackground=pal.input_focus,
+            borderwidth=0,
+            highlightthickness=0,
+            justify="center",
+            font=("DejaVu Sans", max(9, int(12 * s))),
+        )
+        self._entry.insert(0, str(self._value))
+        self._update_entry_geometry()
+
+        self._entry.bind("<FocusIn>", self._on_entry_focus_in)
+        self._entry.bind("<FocusOut>", self._on_entry_focus_out)
+        self._entry.bind("<Return>", self._on_entry_commit)
+        self._entry.bind("<KP_Enter>", self._on_entry_commit)
+        self._entry.bind("<Up>", self._on_entry_up)
+        self._entry.bind("<Down>", self._on_entry_down)
+
+        self.bind("<Motion>", self._on_mouse_motion)
 
     @property
     def value(self) -> int:
@@ -221,56 +252,213 @@ class SpinBox(Widget):
     @value.setter
     def value(self, val: int) -> None:
         self._value = max(self._min, min(self._max, int(val)))
+        self._sync_entry()
         self.render()
 
-    def _handle_click(self, event) -> None:
+    def step_by(self, delta: int) -> None:
+        new_val = max(self._min, min(self._max, self._value + delta))
+        if new_val != self._value:
+            self._value = new_val
+            self._sync_entry()
+            self.render()
+            if self._on_change:
+                self._on_change(self._value)
+        else:
+            self.render()
+
+    def _sync_entry(self) -> None:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            cur = self._entry.get()
+            val_str = str(self._value)
+            if cur != val_str:
+                self._entry.delete(0, "end")
+                self._entry.insert(0, val_str)
+
+    def _update_entry_geometry(self) -> None:
         s = self._scale
+        pad = 2.0 * s
         btn_w = 34.0 * s
-        if event.x <= btn_w:
-            self.value -= self._step
-            if self._on_change:
-                self._on_change(self._value)
-        elif event.x >= self._widget_w - btn_w:
-            self.value += self._step
-            if self._on_change:
-                self._on_change(self._value)
+        center_w = max(10, int(self._widget_w - (pad * 2.0 + btn_w * 2.0 + 8.0 * s)))
+        center_h = max(10, int(22.0 * s))
+        entry_x = int(pad + btn_w + 4.0 * s)
+        entry_y = int((self._widget_h - center_h) / 2.0)
+        self._entry.place(x=entry_x, y=entry_y, width=center_w, height=center_h)
+
+    def _on_configure(self, event) -> None:
+        super()._on_configure(event)
+        if hasattr(self, "_entry"):
+            self._update_entry_geometry()
+
+    def _on_destroy(self, event) -> None:
+        self._cancel_repeat()
+        super()._on_destroy(event)
+
+    def _on_theme_changed(self, palette: Palette) -> None:
+        super()._on_theme_changed(palette)
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            self._entry.configure(
+                bg=palette.surface,
+                fg=palette.fg,
+                insertbackground=palette.input_focus,
+            )
+
+    def _on_entry_focus_in(self, event) -> None:
+        self._has_focus = True
+        self.render()
+
+    def _on_entry_focus_out(self, event) -> None:
+        self._has_focus = False
+        self._on_entry_commit()
+
+    def _on_entry_commit(self, event=None) -> None:
+        text = self._entry.get().strip()
+        try:
+            val = int(text)
+        except ValueError:
+            try:
+                val = int(float(text))
+            except ValueError:
+                val = self._value
+        old_val = self._value
+        self._value = max(self._min, min(self._max, val))
+        self._sync_entry()
+        self.render()
+        if self._value != old_val and self._on_change:
+            self._on_change(self._value)
+
+    def _on_entry_up(self, event) -> str:
+        self.step_by(self._step)
+        return "break"
+
+    def _on_entry_down(self, event) -> str:
+        self.step_by(-self._step)
+        return "break"
+
+    def _button_at(self, x: float) -> Optional[str]:
+        s = self._scale
+        pad = 2.0 * s
+        btn_w = 34.0 * s
+        if x <= pad + btn_w:
+            return "minus"
+        elif x >= self._widget_w - pad - btn_w:
+            return "plus"
+        return None
+
+    def _on_mouse_motion(self, event) -> None:
+        btn = self._button_at(event.x)
+        if btn != self._hovered_btn:
+            self._hovered_btn = btn
+            self.render()
+
+    def _handle_press(self, event) -> None:
+        btn = self._button_at(event.x)
+        if btn == "minus":
+            if self._value > self._min:
+                self._pressed_btn = "minus"
+                self.step_by(-self._step)
+                self._start_repeat(-self._step)
+            else:
+                self._pressed_btn = None
+        elif btn == "plus":
+            if self._value < self._max:
+                self._pressed_btn = "plus"
+                self.step_by(self._step)
+                self._start_repeat(self._step)
+            else:
+                self._pressed_btn = None
+        else:
+            self._pressed_btn = None
+            if hasattr(self, "_entry") and self._entry.winfo_exists():
+                self._entry.focus_set()
+
+    def _start_repeat(self, delta: int) -> None:
+        self._cancel_repeat()
+        self._repeat_timer = self.after(400, lambda: self._step_repeat(delta))
+
+    def _step_repeat(self, delta: int) -> None:
+        if self._pressed_btn is not None:
+            if (delta < 0 and self._value > self._min) or (delta > 0 and self._value < self._max):
+                self.step_by(delta)
+                self._repeat_timer = self.after(70, lambda: self._step_repeat(delta))
+            else:
+                self._cancel_repeat()
+
+    def _cancel_repeat(self) -> None:
+        if self._repeat_timer is not None:
+            try:
+                self.after_cancel(self._repeat_timer)
+            except Exception:
+                pass
+            self._repeat_timer = None
+
+    def _handle_release(self, event) -> None:
+        self._cancel_repeat()
+        self._pressed_btn = None
+
+    def _handle_leave(self, event) -> None:
+        self._cancel_repeat()
+        self._hovered_btn = None
+        self._pressed_btn = None
 
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
         s = self._scale
         pad = 2.0 * s
-        w = self._widget_w - pad * 2.0
-        h = self._widget_h - pad * 2.0
+        w = max(1.0, self._widget_w - pad * 2.0)
+        h = max(1.0, self._widget_h - pad * 2.0)
         r = 8.0 * s
 
         pal = get_theme()
         self._surface.fill_rounded_rect(pad, pad, w, h, r, r, pal.surface)
-        self._surface.stroke_rounded_rect(pad, pad, w, h, r, r, pal.card_border, 1.0 * s)
 
-        btn_w = 32.0 * s
+        border_col = pal.input_focus if self._has_focus else pal.card_border
+        border_w = 1.5 * s if self._has_focus else 1.0 * s
+        self._surface.stroke_rounded_rect(pad, pad, w, h, r, r, border_col, border_w)
+
+        btn_w = 34.0 * s
+        cy = self._widget_h / 2.0
+
         # Minus button
-        self._surface.fill_rounded_rect(pad, pad, btn_w, h, r, r, pal.secondary)
-        self._surface.draw_line(pad + 10.0 * s, self._widget_h / 2.0, pad + btn_w - 10.0 * s, self._widget_h / 2.0, pal.fg, 1.8 * s)
+        minus_disabled = (self._value <= self._min)
+        if minus_disabled:
+            minus_bg = pal.surface
+            minus_fg = pal.text_muted
+        elif self._pressed_btn == "minus":
+            minus_bg = pal.primary
+            minus_fg = pal.primary_fg
+        elif self._hovered_btn == "minus":
+            minus_bg = pal.secondary_hover
+            minus_fg = pal.fg
+        else:
+            minus_bg = pal.secondary
+            minus_fg = pal.fg
+
+        self._surface.fill_rounded_rect(pad, pad, btn_w, h, r, r, minus_bg)
+        draw_vector_minus(self._surface, pad + btn_w / 2.0, cy, 5.0 * s, minus_fg, 1.8 * s)
 
         # Plus button
         plus_x = self._widget_w - pad - btn_w
-        self._surface.fill_rounded_rect(plus_x, pad, btn_w, h, r, r, pal.secondary)
-        cy = self._widget_h / 2.0
-        cx = plus_x + btn_w / 2.0
-        arm = 5.0 * s
-        draw_vector_plus(self._surface, cx, cy, arm, pal.fg, 1.8 * s)
+        plus_disabled = (self._value >= self._max)
+        if plus_disabled:
+            plus_bg = pal.surface
+            plus_fg = pal.text_muted
+        elif self._pressed_btn == "plus":
+            plus_bg = pal.primary
+            plus_fg = pal.primary_fg
+        elif self._hovered_btn == "plus":
+            plus_bg = pal.secondary_hover
+            plus_fg = pal.fg
+        else:
+            plus_bg = pal.secondary
+            plus_fg = pal.fg
 
-        # Middle text
-        font_sz = 14.0 * s
-        self._surface.draw_text(
-            str(self._value),
-            self._widget_w / 2.0,
-            cy + (font_sz * 0.35),
-            font_size=font_sz,
-            font_family="sans-serif",
-            color=pal.fg,
-            align="center",
-        )
+        self._surface.fill_rounded_rect(plus_x, pad, btn_w, h, r, r, plus_bg)
+        draw_vector_plus(self._surface, plus_x + btn_w / 2.0, cy, 5.0 * s, plus_fg, 1.8 * s)
+
+        # Subtle divider lines
+        self._surface.draw_line(pad + btn_w, pad, pad + btn_w, pad + h, pal.card_border, 1.0 * s)
+        self._surface.draw_line(plus_x, pad, plus_x, pad + h, pal.card_border, 1.0 * s)
+
         self._surface.blit(self._photo)
 
 

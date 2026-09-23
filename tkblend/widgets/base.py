@@ -117,6 +117,7 @@ class Widget(tk.Label):
         self._is_hovered = False
         self._is_pressed = False
         self._is_disabled = False
+        self._has_focus = False
 
         super().__init__(
             master,
@@ -134,6 +135,8 @@ class Widget(tk.Label):
         self.bind("<Leave>", self._on_leave)
         self.bind("<ButtonPress-1>", self._on_press)
         self.bind("<ButtonRelease-1>", self._on_release)
+        self.bind("<FocusIn>", self._on_focus_in)
+        self.bind("<FocusOut>", self._on_focus_out)
         self.bind("<Destroy>", self._on_destroy)
 
         # Register for theme notifications
@@ -176,23 +179,53 @@ class Widget(tk.Label):
     def _on_enter(self, event) -> None:
         if not self._is_disabled:
             self._is_hovered = True
+            self._handle_enter(event)
             self.render()
 
     def _on_leave(self, event) -> None:
         if not self._is_disabled:
             self._is_hovered = False
             self._is_pressed = False
+            self._handle_leave(event)
             self.render()
 
     def _on_press(self, event) -> None:
         if not self._is_disabled:
             self._is_pressed = True
+            self._handle_press(event)
             self.render()
 
     def _on_release(self, event) -> None:
         if not self._is_disabled:
             self._is_pressed = False
+            in_bounds = (0 <= event.x <= self._widget_w and 0 <= event.y <= self._widget_h)
+            if in_bounds:
+                self._handle_click(event)
+            self._handle_release(event)
             self.render()
+
+    def _on_focus_in(self, event) -> None:
+        self._has_focus = True
+        self.render()
+
+    def _on_focus_out(self, event) -> None:
+        self._has_focus = False
+        self.render()
+
+    def _handle_enter(self, event) -> None:
+        pass
+
+    def _handle_leave(self, event) -> None:
+        pass
+
+    def _handle_press(self, event) -> None:
+        pass
+
+    def _handle_release(self, event) -> None:
+        pass
+
+    def _handle_click(self, event) -> None:
+        pass
 
     def render(self) -> None:
         """Override in subclasses to draw custom vector UI."""

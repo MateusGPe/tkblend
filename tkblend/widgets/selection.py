@@ -37,7 +37,6 @@ class Switch(Widget):
         self._off_color = off_color or pal.track_bg
         self._knob_color = knob_color or pal.thumb_color
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
-        self.bind("<ButtonRelease-1>", self._handle_toggle)
 
     @property
     def is_on(self) -> bool:
@@ -54,8 +53,8 @@ class Switch(Widget):
         if self._on_toggle:
             self._on_toggle(self._is_on)
 
-    def _handle_toggle(self, event) -> None:
-        if not self._is_disabled and 0 <= event.x <= self._widget_w and 0 <= event.y <= self._widget_h:
+    def _handle_click(self, event) -> None:
+        if not self._is_disabled:
             self.toggle()
 
     def render(self) -> None:
@@ -114,7 +113,6 @@ class Checkbox(Widget):
         pal = get_theme()
         self._active_color = active_color or pal.primary
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
-        self.bind("<ButtonRelease-1>", self._handle_click)
 
     @property
     def checked(self) -> bool:
@@ -132,7 +130,7 @@ class Checkbox(Widget):
             self._on_change(self._checked)
 
     def _handle_click(self, event) -> None:
-        if not self._is_disabled and 0 <= event.x <= self._widget_w and 0 <= event.y <= self._widget_h:
+        if not self._is_disabled:
             self.toggle()
 
     def render(self) -> None:
@@ -196,7 +194,6 @@ class Radio(Widget):
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
         if group:
             group.register(self)
-        self.bind("<ButtonRelease-1>", self._handle_click)
 
     @property
     def selected(self) -> bool:
@@ -208,7 +205,7 @@ class Radio(Widget):
         self.render()
 
     def _handle_click(self, event) -> None:
-        if not self._is_disabled and 0 <= event.x <= self._widget_w and 0 <= event.y <= self._widget_h:
+        if not self._is_disabled:
             if self._group:
                 self._group.select(self._value)
             else:
@@ -304,8 +301,6 @@ class SegmentedControl(Widget):
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
 
         self.bind("<Motion>", self._on_mouse_move)
-        self.bind("<Leave>", self._on_mouse_leave_seg)
-        self.bind("<ButtonRelease-1>", self._on_click_seg)
 
     @property
     def selected_index(self) -> int:
@@ -333,11 +328,10 @@ class SegmentedControl(Widget):
             self._hovered_index = idx
             self.render()
 
-    def _on_mouse_leave_seg(self, event) -> None:
+    def _handle_leave(self, event) -> None:
         self._hovered_index = None
-        self.render()
 
-    def _on_click_seg(self, event) -> None:
+    def _handle_click(self, event) -> None:
         idx = self._index_at(event.x)
         if idx is not None and idx != self._selected:
             self._selected = idx
