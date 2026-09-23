@@ -19,7 +19,6 @@ from tkblend import (
     Path,
     BlendCanvas,
     resolve_theme_color,
-    get_theme_colors,
 )
 
 

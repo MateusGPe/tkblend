@@ -209,17 +209,6 @@ endif()
 set(TKBLEND_SOURCES
     src/tkblend.cpp
     src/blit/blit_common.cpp
-    src/theme/theme_engine.cpp
-    src/theme/element_button.cpp
-    src/theme/element_entry.cpp
-    src/theme/element_arrows.cpp
-    src/theme/element_tab.cpp
-    src/theme/element_checkradio.cpp
-    src/theme/element_progressbar.cpp
-    src/theme/element_scrollbar.cpp
-    src/theme/element_scale.cpp
-    src/theme/element_separator.cpp
-    src/theme/element_treeitem.cpp
     ${PLATFORM_SOURCES}
 )
 
@@ -232,12 +221,10 @@ nanobind_add_module(
 target_include_directories(_tkblend PRIVATE
     src
     src/blit
-    src/theme
     ${blend2d_SOURCE_DIR}
     ${blend2d_SOURCE_DIR}/blend2d
     ${TK_INCLUDE_PATH}
     ${TK_INCLUDE_PATH}/tk-private/generic
-    ${TK_INCLUDE_PATH}/tk-private/generic/ttk
     ${TK_INCLUDE_PATH}/tk-private/unix
     ${TCL_INCLUDE_PATH}
 )

@@ -7,7 +7,6 @@
 #include <X11/Xutil.h>
 #include <cstring>
 #include <string>
-#include "../theme/theme_engine.h"
 
 namespace tkblend {
 

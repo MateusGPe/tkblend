@@ -1,5 +1,4 @@
 #include "blit_backend.h"
-#include "../theme/theme_engine.h"
 #include <string>
 
 namespace tkblend {
@@ -64,24 +63,7 @@ BlitClipResult ComputeBlitClip(
 }
 
 uint32_t ResolveAncestorBackground(Tk_Window tkwin, uint32_t fallback_argb) {
-    if (!tkwin) return fallback_argb;
-
-    const auto& cfg = ThemeEngine::instance().config();
-    Tk_Window curr = tkwin;
-    while (curr) {
-        const char* className = Tk_Class(curr);
-        if (className) {
-            std::string cls(className);
-            if (cls == "TLabelframe" || cls == "Labelframe" ||
-                cls.find("Card") != std::string::npos ||
-                cls.find("Notebook") != std::string::npos ||
-                cls.find("Panedwindow") != std::string::npos) {
-                return cfg.card_bg;
-            }
-        }
-        curr = Tk_Parent(curr);
-    }
-    return cfg.bg_color;
+    return fallback_argb;
 }
 
 } // namespace tkblend

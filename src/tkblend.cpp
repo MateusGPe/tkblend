@@ -1,5 +1,4 @@
 #include "tkblend.hpp"
-#include "theme/theme_engine.h"
 
 #include <optional>
 #include <nanobind/nanobind.h>
@@ -1339,69 +1338,4 @@ NB_MODULE(_tkblend, m) {
             }
             return nb::steal(mem);
         });
-
-    // Theme Engine bindings
-    nb::class_<tkblend::ThemeConfig>(m, "ThemeConfig")
-        .def(nb::init<>())
-        .def_rw("dark_mode", &tkblend::ThemeConfig::dark_mode)
-        .def_rw("bg_color", &tkblend::ThemeConfig::bg_color)
-        .def_rw("fg_color", &tkblend::ThemeConfig::fg_color)
-        .def_rw("card_bg", &tkblend::ThemeConfig::card_bg)
-        .def_rw("card_border", &tkblend::ThemeConfig::card_border)
-        .def_rw("primary_color", &tkblend::ThemeConfig::primary_color)
-        .def_rw("primary_hover", &tkblend::ThemeConfig::primary_hover)
-        .def_rw("primary_active", &tkblend::ThemeConfig::primary_active)
-        .def_rw("primary_fg", &tkblend::ThemeConfig::primary_fg)
-        .def_rw("secondary_color", &tkblend::ThemeConfig::secondary_color)
-        .def_rw("secondary_hover", &tkblend::ThemeConfig::secondary_hover)
-        .def_rw("secondary_fg", &tkblend::ThemeConfig::secondary_fg)
-        .def_rw("destructive_color", &tkblend::ThemeConfig::destructive_color)
-        .def_rw("destructive_hover", &tkblend::ThemeConfig::destructive_hover)
-        .def_rw("destructive_active", &tkblend::ThemeConfig::destructive_active)
-        .def_rw("destructive_fg", &tkblend::ThemeConfig::destructive_fg)
-        .def_rw("success_color", &tkblend::ThemeConfig::success_color)
-        .def_rw("warning_color", &tkblend::ThemeConfig::warning_color)
-        .def_rw("input_bg", &tkblend::ThemeConfig::input_bg)
-        .def_rw("input_border", &tkblend::ThemeConfig::input_border)
-        .def_rw("input_focus_border", &tkblend::ThemeConfig::input_focus_border)
-        .def_rw("focus_ring_color", &tkblend::ThemeConfig::focus_ring_color)
-        .def_rw("disabled_bg", &tkblend::ThemeConfig::disabled_bg)
-        .def_rw("disabled_fg", &tkblend::ThemeConfig::disabled_fg)
-        .def_rw("track_bg", &tkblend::ThemeConfig::track_bg)
-        .def_rw("thumb_color", &tkblend::ThemeConfig::thumb_color)
-        .def_rw("thumb_hover", &tkblend::ThemeConfig::thumb_hover)
-        .def_rw("thumb_active", &tkblend::ThemeConfig::thumb_active)
-        .def_rw("button_radius", &tkblend::ThemeConfig::button_radius)
-        .def_rw("entry_radius", &tkblend::ThemeConfig::entry_radius)
-        .def_rw("check_radius", &tkblend::ThemeConfig::check_radius)
-        .def_rw("pbar_radius", &tkblend::ThemeConfig::pbar_radius)
-        .def_rw("scrollbar_radius", &tkblend::ThemeConfig::scrollbar_radius)
-        .def_rw("scale_radius", &tkblend::ThemeConfig::scale_radius)
-        .def_rw("scale_thumb_radius", &tkblend::ThemeConfig::scale_thumb_radius)
-        .def_rw("focus_ring_width", &tkblend::ThemeConfig::focus_ring_width)
-        .def_rw("enable_shadows", &tkblend::ThemeConfig::enable_shadows)
-        .def_rw("shadow_blur", &tkblend::ThemeConfig::shadow_blur)
-        .def_rw("shadow_spread", &tkblend::ThemeConfig::shadow_spread)
-        .def_rw("shadow_offset_y", &tkblend::ThemeConfig::shadow_offset_y)
-        .def_rw("shadow_color", &tkblend::ThemeConfig::shadow_color)
-        .def_static("create_dark", &tkblend::ThemeConfig::create_dark)
-        .def_static("create_light", &tkblend::ThemeConfig::create_light);
-
-    m.def("register_ttk_theme", [](uintptr_t interp_addr, const std::string& theme_name) -> bool {
-        if (!interp_addr) return false;
-        Tcl_Interp* interp = reinterpret_cast<Tcl_Interp*>(interp_addr);
-        return tkblend::ThemeEngine::instance().init_ttk_theme(interp, theme_name.c_str());
-    }, nb::arg("interp_addr"), nb::arg("theme_name") = "tkblend");
-
-    m.def("set_theme_dark_mode", [](bool dark) {
-        tkblend::ThemeEngine::instance().set_dark_mode(dark);
-    }, nb::arg("dark"));
-
-    m.def("set_theme_config", [](const tkblend::ThemeConfig& cfg) {
-        tkblend::ThemeEngine::instance().set_config(cfg);
-    }, nb::arg("config"));
-
-    m.def("get_theme_config", []() -> tkblend::ThemeConfig {
-        return tkblend::ThemeEngine::instance().config();
-    });
 }

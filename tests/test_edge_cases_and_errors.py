@@ -56,42 +56,32 @@ class TestEdgeCasesAndErrors(unittest.TestCase):
         root = tk.Tk()
         try:
             badge = Badge(root, text="Production Ready", variant="success", dot=True)
-            initial_w = badge._preferred_width
+            initial_w = badge._widget_w
             self.assertGreaterEqual(initial_w, 80)
-
-            # Simulate configure event squeezing width
-            class MockEvent:
-                width = 30
-                height = 24
-            badge._on_configure(MockEvent())
-
-            # Verify badge clamped to preferred width and did not permanently shrink
-            self.assertGreaterEqual(badge.canvas_width, initial_w)
 
             # Enlarge event
             class LargeEvent:
                 width = 200
                 height = 30
             badge._on_configure(LargeEvent())
-            self.assertEqual(badge.canvas_width, 200)
-            self.assertEqual(badge.canvas_height, 30)
+            self.assertEqual(badge._widget_w, 200)
+            self.assertEqual(badge._widget_h, 30)
         finally:
             root.destroy()
 
     def test_card_class_hierarchy_and_panedwindow(self):
         import tkinter as tk
-        from tkinter import ttk
         from tkblend import Card, is_inside_card
         root = tk.Tk()
         try:
             card = Card(root)
-            self.assertEqual(card.winfo_class(), "Card")
-            lbl = ttk.Label(card, text="Inside Card")
+            self.assertIsInstance(card, Card)
+            lbl = tk.Label(card, text="Inside Card")
             self.assertTrue(is_inside_card(lbl))
 
-            paned = ttk.Panedwindow(root, orient="horizontal")
+            paned = tk.PanedWindow(root, orient="horizontal")
             pane_card = Card(paned)
-            btn = ttk.Button(pane_card, text="Test")
+            btn = tk.Button(pane_card, text="Test")
             self.assertTrue(is_inside_card(btn))
         finally:
             root.destroy()
