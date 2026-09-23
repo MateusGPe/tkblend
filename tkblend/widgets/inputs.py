@@ -225,12 +225,12 @@ class SpinBox(Widget):
 
         self._entry = tk.Entry(
             self,
-            bg=pal.surface,
+            bg=pal.input_bg,
             fg=pal.fg,
             insertbackground=pal.input_focus,
             borderwidth=0,
             highlightthickness=0,
-            justify="center",
+            justify="left",
             font=("DejaVu Sans", max(9, int(12 * s))),
         )
         self._entry.insert(0, str(self._value))
@@ -274,15 +274,28 @@ class SpinBox(Widget):
                 self._entry.delete(0, "end")
                 self._entry.insert(0, val_str)
 
+    def _button_geometry(self) -> Tuple[float, float, float, float, float, float]:
+        """Return (minus_x, plus_x, btn_y, btn_w, btn_h, btn_r)."""
+        s = self._scale
+        btn_w = 26.0 * s
+        btn_h = min(26.0 * s, max(10.0, self._widget_h - 10.0 * s))
+        btn_gap = 4.0 * s
+        right_margin = 6.0 * s
+
+        plus_x = self._widget_w - right_margin - btn_w
+        minus_x = plus_x - btn_gap - btn_w
+        btn_y = (self._widget_h - btn_h) / 2.0
+        btn_r = 5.0 * s
+        return minus_x, plus_x, btn_y, btn_w, btn_h, btn_r
+
     def _update_entry_geometry(self) -> None:
         s = self._scale
-        pad = 2.0 * s
-        btn_w = 34.0 * s
-        center_w = max(10, int(self._widget_w - (pad * 2.0 + btn_w * 2.0 + 8.0 * s)))
-        center_h = max(10, int(22.0 * s))
-        entry_x = int(pad + btn_w + 4.0 * s)
-        entry_y = int((self._widget_h - center_h) / 2.0)
-        self._entry.place(x=entry_x, y=entry_y, width=center_w, height=center_h)
+        minus_x, _, _, _, _, _ = self._button_geometry()
+        entry_x = int(12.0 * s)
+        entry_w = max(10, int(minus_x - entry_x - 6.0 * s))
+        entry_h = max(10, int(22.0 * s))
+        entry_y = int((self._widget_h - entry_h) / 2.0)
+        self._entry.place(x=entry_x, y=entry_y, width=entry_w, height=entry_h)
 
     def _on_configure(self, event) -> None:
         super()._on_configure(event)
@@ -297,7 +310,7 @@ class SpinBox(Widget):
         super()._on_theme_changed(palette)
         if hasattr(self, "_entry") and self._entry.winfo_exists():
             self._entry.configure(
-                bg=palette.surface,
+                bg=palette.input_bg,
                 fg=palette.fg,
                 insertbackground=palette.input_focus,
             )
@@ -334,24 +347,24 @@ class SpinBox(Widget):
         self.step_by(-self._step)
         return "break"
 
-    def _button_at(self, x: float) -> Optional[str]:
-        s = self._scale
-        pad = 2.0 * s
-        btn_w = 34.0 * s
-        if x <= pad + btn_w:
-            return "minus"
-        elif x >= self._widget_w - pad - btn_w:
-            return "plus"
+    def _button_at(self, x: float, y: Optional[float] = None) -> Optional[str]:
+        minus_x, plus_x, btn_y, btn_w, btn_h, _ = self._button_geometry()
+        check_y = self._widget_h / 2.0 if y is None else y
+        if btn_y <= check_y <= btn_y + btn_h:
+            if minus_x <= x <= minus_x + btn_w:
+                return "minus"
+            elif plus_x <= x <= plus_x + btn_w:
+                return "plus"
         return None
 
     def _on_mouse_motion(self, event) -> None:
-        btn = self._button_at(event.x)
+        btn = self._button_at(event.x, event.y)
         if btn != self._hovered_btn:
             self._hovered_btn = btn
             self.render()
 
     def _handle_press(self, event) -> None:
-        btn = self._button_at(event.x)
+        btn = self._button_at(event.x, event.y)
         if btn == "minus":
             if self._value > self._min:
                 self._pressed_btn = "minus"
@@ -409,19 +422,19 @@ class SpinBox(Widget):
         r = 8.0 * s
 
         pal = get_theme()
-        self._surface.fill_rounded_rect(pad, pad, w, h, r, r, pal.surface)
+        self._surface.fill_rounded_rect(pad, pad, w, h, r, r, pal.input_bg)
 
-        border_col = pal.input_focus if self._has_focus else pal.card_border
+        border_col = pal.input_focus if self._has_focus else pal.input_border
         border_w = 1.5 * s if self._has_focus else 1.0 * s
         self._surface.stroke_rounded_rect(pad, pad, w, h, r, r, border_col, border_w)
 
-        btn_w = 34.0 * s
-        cy = self._widget_h / 2.0
+        minus_x, plus_x, btn_y, btn_w, btn_h, btn_r = self._button_geometry()
+        cy = btn_y + btn_h / 2.0
 
         # Minus button
         minus_disabled = (self._value <= self._min)
         if minus_disabled:
-            minus_bg = pal.surface
+            minus_bg = pal.input_bg
             minus_fg = pal.text_muted
         elif self._pressed_btn == "minus":
             minus_bg = pal.primary
@@ -433,14 +446,13 @@ class SpinBox(Widget):
             minus_bg = pal.secondary
             minus_fg = pal.fg
 
-        self._surface.fill_rounded_rect(pad, pad, btn_w, h, r, r, minus_bg)
-        draw_vector_minus(self._surface, pad + btn_w / 2.0, cy, 5.0 * s, minus_fg, 1.8 * s)
+        self._surface.fill_rounded_rect(minus_x, btn_y, btn_w, btn_h, btn_r, btn_r, minus_bg)
+        draw_vector_minus(self._surface, minus_x + btn_w / 2.0, cy, 4.0 * s, minus_fg, 1.6 * s)
 
         # Plus button
-        plus_x = self._widget_w - pad - btn_w
         plus_disabled = (self._value >= self._max)
         if plus_disabled:
-            plus_bg = pal.surface
+            plus_bg = pal.input_bg
             plus_fg = pal.text_muted
         elif self._pressed_btn == "plus":
             plus_bg = pal.primary
@@ -452,12 +464,8 @@ class SpinBox(Widget):
             plus_bg = pal.secondary
             plus_fg = pal.fg
 
-        self._surface.fill_rounded_rect(plus_x, pad, btn_w, h, r, r, plus_bg)
-        draw_vector_plus(self._surface, plus_x + btn_w / 2.0, cy, 5.0 * s, plus_fg, 1.8 * s)
-
-        # Subtle divider lines
-        self._surface.draw_line(pad + btn_w, pad, pad + btn_w, pad + h, pal.card_border, 1.0 * s)
-        self._surface.draw_line(plus_x, pad, plus_x, pad + h, pal.card_border, 1.0 * s)
+        self._surface.fill_rounded_rect(plus_x, btn_y, btn_w, btn_h, btn_r, btn_r, plus_bg)
+        draw_vector_plus(self._surface, plus_x + btn_w / 2.0, cy, 4.0 * s, plus_fg, 1.6 * s)
 
         self._surface.blit(self._photo)
 

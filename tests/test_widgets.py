@@ -82,6 +82,40 @@ def test_button(root):
     btn.set_text("Updated")
     assert btn._text == "Updated"
 
+    class MockEvent:
+        def __init__(self, x=10, y=10):
+            self.x = x
+            self.y = y
+
+    # Test press and release without leaving: state transitions cleanly
+    btn._on_enter(MockEvent(10, 10))
+    assert btn._is_hovered is True
+    btn._on_press(MockEvent(10, 10))
+    assert btn._is_pressed is True
+    btn._on_release(MockEvent(10, 10))
+    # Crucial fix verification: _is_pressed must be False after release even though mouse has not left
+    assert btn._is_pressed is False
+    assert btn._is_hovered is True
+    assert clicked == [1]
+
+    # Test keyboard activation
+    btn._on_key_activate(None)
+    assert btn._is_pressed is True
+    # Run Tk scheduled after-callback to reset press and invoke command
+    root.update_idletasks()
+    root.after(150, lambda: None)
+    import time
+    time.sleep(0.12)
+    root.update()
+    assert btn._is_pressed is False
+    assert len(clicked) == 2
+
+    # Test focus handling
+    btn._on_focus_in(None)
+    assert btn._has_focus is True
+    btn._on_focus_out(None)
+    assert btn._has_focus is False
+
     # Alias check
     m_btn = ModernButton(root, text="Modern", variant="accent")
     m_btn.render()
@@ -327,11 +361,74 @@ def test_vector_scrollbar(root):
 
 
 def test_spinbox(root):
-    sb = SpinBox(root, min_val=0, max_val=10, value=5, step=1)
+    changes = []
+    sb = SpinBox(root, min_val=0, max_val=10, value=5, step=1, on_change=lambda v: changes.append(v))
     sb.render()
     assert sb.value == 5
-    sb.value += 1
+    assert sb._entry.get() == "5"
+
+    class MockEvent:
+        def __init__(self, x=10, y=10):
+            self.x = x
+            self.y = y
+
+    minus_x, plus_x, btn_y, btn_w, btn_h, _ = sb._button_geometry()
+    cy = btn_y + btn_h / 2.0
+
+    # Test stepping via buttons
+    # Minus button click
+    sb._handle_press(MockEvent(x=minus_x + btn_w / 2.0, y=cy))
+    assert sb.value == 4
+    assert sb._pressed_btn == "minus"
+    sb._handle_release(MockEvent(x=minus_x + btn_w / 2.0, y=cy))
+    assert sb._pressed_btn is None
+
+    # Plus button click
+    sb._handle_press(MockEvent(x=plus_x + btn_w / 2.0, y=cy))
+    assert sb.value == 5
+    sb._handle_release(MockEvent(x=plus_x + btn_w / 2.0, y=cy))
+
+    # Test keyboard navigation Up/Down
+    sb._on_entry_up(None)
     assert sb.value == 6
+    assert sb._entry.get() == "6"
+    sb._on_entry_down(None)
+    assert sb.value == 5
+    assert sb._entry.get() == "5"
+
+    # Test text entry direct typing and commit
+    sb._entry.delete(0, "end")
+    sb._entry.insert(0, "9")
+    sb._on_entry_commit(None)
+    assert sb.value == 9
+
+    # Test clamping on entry commit
+    sb._entry.delete(0, "end")
+    sb._entry.insert(0, "999")
+    sb._on_entry_commit(None)
+    assert sb.value == 10
+    assert sb._entry.get() == "10"
+
+    sb._entry.delete(0, "end")
+    sb._entry.insert(0, "-50")
+    sb._on_entry_commit(None)
+    assert sb.value == 0
+    assert sb._entry.get() == "0"
+
+    # Test button hover detection
+    sb._on_mouse_motion(MockEvent(x=minus_x + btn_w / 2.0, y=cy))
+    assert sb._hovered_btn == "minus"
+    sb._on_mouse_motion(MockEvent(x=plus_x + btn_w / 2.0, y=cy))
+    assert sb._hovered_btn == "plus"
+    sb._handle_leave(MockEvent(x=-1, y=-1))
+    assert sb._hovered_btn is None
+
+    # Test auto-repeat trigger and cancellation
+    sb._start_repeat(1)
+    assert sb._repeat_timer is not None
+    sb._cancel_repeat()
+    assert sb._repeat_timer is None
+
     sb.destroy()
 
 
