@@ -232,16 +232,70 @@ class VectorWidgetsShowcase(tk.Tk):
     # -------------------------------------------------------------
     def _build_table_tab(self, parent: tb.Frame):
         parent.grid_columnconfigure(0, weight=1)
-        parent.grid_rowconfigure(0, weight=1)
-        parent.grid_rowconfigure(1, weight=0)
+        parent.grid_rowconfigure(0, weight=0)
+        parent.grid_rowconfigure(1, weight=1)
+        parent.grid_rowconfigure(2, weight=0)
+
+        # Top Action & Filter Toolbar
+        top_bar = tk.Frame(parent)
+        top_bar.grid(row=0, column=0, padx=12, pady=(10, 4), sticky="ew")
+
+        lbl_filter = tb.IconLabel(top_bar, text="Filter:", icon="search" if hasattr(tb, "VectorIcon") else "dot", font_size=11)
+        lbl_filter.pack(side="left", padx=(0, 6))
+
+        self.txt_filter = tb.TextInput(
+            top_bar,
+            placeholder_text="Search hostname, region, status...",
+            width=260,
+            height=30,
+        )
+        self.txt_filter.pack(side="left", padx=(0, 10))
+        self.txt_filter.bind("<KeyRelease>", lambda e: self._on_table_filter_changed(self.txt_filter.get()))
+
+        btn_autofit = tb.Button(
+            top_bar,
+            text="Auto-Fit Columns",
+            variant="secondary",
+            rx=6,
+            ry=6,
+            width=120,
+            height=30,
+            command=lambda: self.table.auto_fit_all_columns(),
+        )
+        btn_autofit.pack(side="left", padx=4)
+
+        btn_copy = tb.Button(
+            top_bar,
+            text="Copy Selected",
+            variant="secondary",
+            rx=6,
+            ry=6,
+            width=110,
+            height=30,
+            command=lambda: self.table.copy_to_clipboard(),
+        )
+        btn_copy.pack(side="left", padx=4)
 
         columns = [
             {"id": "id", "title": "ID", "width": 55, "align": "center"},
-            {"id": "name", "title": "Host Name", "width": 140, "align": "left"},
-            {"id": "region", "title": "Region", "width": 110, "align": "left"},
-            {"id": "cpu", "title": "CPU %", "width": 75, "align": "right"},
+            {"id": "name", "title": "Host Name (Double-click to edit)", "width": 210, "align": "left", "editable": True},
+            {"id": "region", "title": "Region", "width": 110, "align": "left", "editable": True},
+            {"id": "cpu", "title": "CPU %", "width": 120, "type": "progress", "align": "left"},
             {"id": "mem", "title": "Memory", "width": 85, "align": "right"},
-            {"id": "status", "title": "Status", "width": 90, "align": "center"},
+            {
+                "id": "status",
+                "title": "Status",
+                "width": 100,
+                "align": "center",
+                "type": "badge",
+                "badge_colors": {
+                    "Healthy": "#10b981",
+                    "Warning": "#f59e0b",
+                    "Critical": "#ef4444",
+                    "Idle": "#64748b",
+                },
+                "badge_fg": "#ffffff",
+            },
         ]
 
         sample_data = [
@@ -255,26 +309,32 @@ class VectorWidgetsShowcase(tk.Tk):
             {"id": "08", "name": "analytics-ingest", "region": "EU-Central", "cpu": "64.1%", "mem": "18.4 GB", "status": "Healthy"},
             {"id": "09", "name": "backup-sync-daemon", "region": "US-East", "cpu": "08.3%", "mem": "1.4 GB", "status": "Idle"},
             {"id": "10", "name": "billing-webhook-svc", "region": "US-East", "cpu": "15.9%", "mem": "3.0 GB", "status": "Healthy"},
+            {"id": "11", "name": "ml-inference-gpu-01", "region": "US-East", "cpu": "88.0%", "mem": "64.0 GB", "status": "Warning"},
+            {"id": "12", "name": "ml-inference-gpu-02", "region": "US-East", "cpu": "96.5%", "mem": "64.0 GB", "status": "Critical"},
+            {"id": "13", "name": "elastic-search-hot-1", "region": "EU-Central", "cpu": "41.2%", "mem": "32.0 GB", "status": "Healthy"},
+            {"id": "14", "name": "elastic-search-hot-2", "region": "EU-Central", "cpu": "43.9%", "mem": "32.0 GB", "status": "Healthy"},
+            {"id": "15", "name": "notification-dispatcher", "region": "AP-Tokyo", "cpu": "05.1%", "mem": "1.0 GB", "status": "Idle"},
         ]
 
         self.table = tb.Table(
             parent,
             columns=columns,
             data=sample_data,
+            select_mode="extended",
             on_select=self._on_table_row_selected,
         )
-        self.table.grid(row=0, column=0, padx=12, pady=10, sticky="nsew")
+        self.table.grid(row=1, column=0, padx=12, pady=6, sticky="nsew")
 
-        # Table Control Bar
+        # Table Bottom Control Bar
         ctrl_bar = tk.Frame(parent)
-        ctrl_bar.grid(row=1, column=0, padx=12, pady=(0, 10), sticky="ew")
+        ctrl_bar.grid(row=2, column=0, padx=12, pady=(0, 10), sticky="ew")
 
         self.lbl_selected_info = tb.IconLabel(
             ctrl_bar,
             text="Selected Host: None",
             icon="dot",
             font_size=11,
-            width=240,
+            width=280,
         )
         self.lbl_selected_info.pack(side="left", padx=4)
 
@@ -301,10 +361,20 @@ class VectorWidgetsShowcase(tk.Tk):
         )
         btn_del.pack(side="right", padx=4)
 
-    def _on_table_row_selected(self, idx: int, row: dict):
-        host = row.get("name", "Unknown")
-        status = row.get("status", "Unknown")
-        self.lbl_selected_info.set_text(f"Selected: {host} ({status})")
+    def _on_table_filter_changed(self, text: str):
+        self.table.filter_by(text)
+
+    def _on_table_row_selected(self, indices: Any, rows: Any = None):
+        selected_rows = self.table.get_selected_rows()
+        if not selected_rows:
+            self.lbl_selected_info.set_text("Selected Host: None")
+        elif len(selected_rows) == 1:
+            row = selected_rows[0]
+            host = row.get("name", "Unknown") if isinstance(row, dict) else str(row)
+            status = row.get("status", "Unknown") if isinstance(row, dict) else ""
+            self.lbl_selected_info.set_text(f"Selected: {host} ({status})")
+        else:
+            self.lbl_selected_info.set_text(f"Selected: {len(selected_rows)} nodes")
 
     def _on_table_add_row(self):
         new_id = f"{len(self.table._data) + 1:02d}"

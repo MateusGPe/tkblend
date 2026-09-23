@@ -67,49 +67,79 @@ class VectorScrollbar(Widget):
 
         total_span = max(0.05, min(1.0, self._last - self._first))
         min_thumb = 18.0 * s
-        thumb_h = max(min_thumb, h * total_span)
-        available_travel = max(0.0, h - thumb_h)
 
-        max_first = max(0.001, 1.0 - total_span)
-        norm_first = max(0.0, min(1.0, self._first / max_first)) if max_first > 0 else 0.0
-        thumb_y = pad + norm_first * available_travel
-
-        return pad, thumb_y, w, thumb_h
+        if self._orientation == "horizontal":
+            thumb_w = max(min_thumb, w * total_span)
+            available_travel = max(0.0, w - thumb_w)
+            max_first = max(0.001, 1.0 - total_span)
+            norm_first = max(0.0, min(1.0, self._first / max_first)) if max_first > 0 else 0.0
+            thumb_x = pad + norm_first * available_travel
+            return thumb_x, pad, thumb_w, h
+        else:
+            thumb_h = max(min_thumb, h * total_span)
+            available_travel = max(0.0, h - thumb_h)
+            max_first = max(0.001, 1.0 - total_span)
+            norm_first = max(0.0, min(1.0, self._first / max_first)) if max_first > 0 else 0.0
+            thumb_y = pad + norm_first * available_travel
+            return pad, thumb_y, w, thumb_h
 
     def _on_press(self, event) -> None:
         if self._is_disabled:
             return
-        pad, ty, tw, th = self._get_thumb_geometry()
-        py = float(event.y)
+        tx, ty, tw, th = self._get_thumb_geometry()
 
-        if ty <= py <= ty + th:
-            self._is_dragging = True
-            self._drag_start_pos = py
-            self._drag_start_first = self._first
-            self.render()
-        else:
-            if py < ty:
-                if self._command:
-                    self._command("scroll", -1, "pages")
+        if self._orientation == "horizontal":
+            px = float(getattr(event, "x", 0.0))
+            if tx <= px <= tx + tw:
+                self._is_dragging = True
+                self._drag_start_pos = px
+                self._drag_start_first = self._first
+                self.render()
             else:
-                if self._command:
-                    self._command("scroll", 1, "pages")
+                if px < tx:
+                    if self._command:
+                        self._command("scroll", -1, "pages")
+                else:
+                    if self._command:
+                        self._command("scroll", 1, "pages")
+        else:
+            py = float(getattr(event, "y", 0.0))
+            if ty <= py <= ty + th:
+                self._is_dragging = True
+                self._drag_start_pos = py
+                self._drag_start_first = self._first
+                self.render()
+            else:
+                if py < ty:
+                    if self._command:
+                        self._command("scroll", -1, "pages")
+                else:
+                    if self._command:
+                        self._command("scroll", 1, "pages")
 
     def _on_drag(self, event) -> None:
         if not self._is_dragging or self._is_disabled:
             return
         s = self._scale
         pad = 1.0 * s
-        h = max(1.0, float(self._widget_h) - pad * 2.0)
         total_span = max(0.05, min(1.0, self._last - self._first))
         min_thumb = 18.0 * s
-        thumb_h = max(min_thumb, h * total_span)
-        available_travel = max(1.0, h - thumb_h)
-
-        delta_px = float(event.y) - self._drag_start_pos
         max_first = max(0.001, 1.0 - total_span)
-        delta_fraction = (delta_px / available_travel) * max_first
-        new_first = max(0.0, min(max_first, self._drag_start_first + delta_fraction))
+
+        if self._orientation == "horizontal":
+            w = max(1.0, float(self._widget_w) - pad * 2.0)
+            thumb_w = max(min_thumb, w * total_span)
+            available_travel = max(1.0, w - thumb_w)
+            delta_px = float(getattr(event, "x", 0.0)) - self._drag_start_pos
+            delta_fraction = (delta_px / available_travel) * max_first
+            new_first = max(0.0, min(max_first, self._drag_start_first + delta_fraction))
+        else:
+            h = max(1.0, float(self._widget_h) - pad * 2.0)
+            thumb_h = max(min_thumb, h * total_span)
+            available_travel = max(1.0, h - thumb_h)
+            delta_px = float(getattr(event, "y", 0.0)) - self._drag_start_pos
+            delta_fraction = (delta_px / available_travel) * max_first
+            new_first = max(0.0, min(max_first, self._drag_start_first + delta_fraction))
 
         if self._command:
             self._command("moveto", new_first)
@@ -128,7 +158,7 @@ class VectorScrollbar(Widget):
             pad = 1.0 * s
             w = max(1.0, float(self._widget_w) - pad * 2.0)
             h = max(1.0, float(self._widget_h) - pad * 2.0)
-            r = min(w / 2.0, 4.0 * s)
+            r = min(min(w, h) / 2.0, 4.0 * s)
 
             pal = get_theme()
             # Draw track with distinct contrast
@@ -136,8 +166,8 @@ class VectorScrollbar(Widget):
             self._surface.fill_rounded_rect(pad, pad, w, h, r, r, track_col)
 
             # Draw thumb with high contrast
-            _, ty, tw, th = self._get_thumb_geometry()
-            thumb_r = min(tw / 2.0, 4.0 * s)
+            tx, ty, tw, th = self._get_thumb_geometry()
+            thumb_r = min(min(tw, th) / 2.0, 4.0 * s)
 
             if self._is_dragging:
                 thumb_col = pal.primary
@@ -146,10 +176,11 @@ class VectorScrollbar(Widget):
             else:
                 thumb_col = "#6c7086" if pal.dark_mode else "#94a3b8"
 
-            self._surface.fill_rounded_rect(pad, ty, tw, th, thumb_r, thumb_r, thumb_col)
+            self._surface.fill_rounded_rect(tx, ty, tw, th, thumb_r, thumb_r, thumb_col)
             self._surface.blit(self._photo)
         except Exception as e:
             logger.debug("Render failed in VectorScrollbar: %s", e, exc_info=True)
+
 
 
 ModernScrollbar = VectorScrollbar
