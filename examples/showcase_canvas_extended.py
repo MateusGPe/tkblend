@@ -48,6 +48,7 @@ from tkblend import (
     ColorLike,
     parse_color,
 )
+from tkblend.widgets import TextInput, Accordion, Dropdown, ModernDropdown, DropdownItem, VectorScrollbar, ModernScrollbar
 
 
 # ============================================================================
@@ -1240,241 +1241,14 @@ class ModernSegmentedControl(ModernWidget):
 # Widget 10: ModernTextInput (Focus Ring, Rounded Border, Clear Button)
 # ============================================================================
 
-class ModernTextInput(tk.Frame):
-    """
-    Modern vector text entry with rounded border, glowing focus ring,
-    placeholder text, and clear button icon (✕).
-    """
-
-    def __init__(
-        self,
-        master: Optional[tk.Misc] = None,
-        placeholder: str = "Enter text...",
-        width: int = 240,
-        height: int = 38,
-        parent_bg: str = "#1e1e2e",
-        **kwargs,
-    ):
-        self._scale = ScalingTracker.get_scaling_factor(master)
-        s = self._scale
-        super().__init__(
-            master,
-            width=max(1, int(width * s)),
-            height=max(1, int(height * s)),
-            bg=parent_bg,
-            **kwargs,
-        )
-        self.pack_propagate(False)
-
-        self._placeholder = placeholder
-        self._parent_bg = parent_bg
-        self._has_focus = False
-
-        # Vector Background Label
-        self._bg_widget = ModernWidget(self, width=width, height=height, bg=parent_bg)
-        self._bg_widget.place(x=0, y=0, relwidth=1.0, relheight=1.0)
-
-        # Internal borderless Entry
-        entry_pad_x = int(14 * s)
-        entry_pad_r = int(32 * s)
-        self._entry = tk.Entry(
-            self,
-            bg="#181825",
-            fg="#cdd6f4",
-            insertbackground="#89b4fa",
-            borderwidth=0,
-            highlightthickness=0,
-            font=("DejaVu Sans", int(12 * s)),
-        )
-        self._entry.place(x=entry_pad_x, y=int(7 * s), relwidth=1.0, width=-(entry_pad_x + entry_pad_r), height=int(24 * s))
-
-        self._entry.bind("<FocusIn>", self._on_focus_in)
-        self._entry.bind("<FocusOut>", self._on_focus_out)
-        self._entry.bind("<KeyRelease>", self._on_key_release)
-
-        # Background click focuses entry
-        self._bg_widget.bind("<Button-1>", self._on_bg_click)
-
-        self._update_bg()
-
-    def _on_focus_in(self, event) -> None:
-        self._has_focus = True
-        self._update_bg()
-
-    def _on_focus_out(self, event) -> None:
-        self._has_focus = False
-        self._update_bg()
-
-    def _on_key_release(self, event) -> None:
-        self._update_bg()
-
-    def _on_bg_click(self, event) -> None:
-        # Check if clear button area clicked
-        s = self._scale
-        clear_cx = self._bg_widget._widget_w - 20.0 * s
-        if abs(event.x - clear_cx) <= 12.0 * s and self._entry.get():
-            self._entry.delete(0, "end")
-            self._update_bg()
-            return
-        self._entry.focus_set()
-
-    def get(self) -> str:
-        return self._entry.get()
-
-    def set(self, text: str) -> None:
-        self._entry.delete(0, "end")
-        self._entry.insert(0, text)
-        self._update_bg()
-
-    def _update_bg(self) -> None:
-        surf = self._bg_widget.surface
-        surf.clear(self._parent_bg)
-        s = self._scale
-        pad = 2.0 * s
-        w = self._bg_widget._widget_w - pad * 2.0
-        h = self._bg_widget._widget_h - pad * 2.0
-        r = 8.0 * s
-
-        border_col = "#89b4fa" if self._has_focus else "#313244"
-        surf.fill_rounded_rect(pad, pad, w, h, r, r, "#181825")
-        surf.stroke_rounded_rect(pad, pad, w, h, r, r, border_col, 1.5 * s if self._has_focus else 1.0 * s)
-
-        # Clear button icon (✕) if text present
-        if self._entry.get():
-            cx = self._bg_widget._widget_w - 20.0 * s
-            cy = self._bg_widget._widget_h / 2.0
-            surf.fill_circle(cx, cy, 7.0 * s, "#313244")
-            cr = 3.0 * s
-            surf.draw_line(cx - cr, cy - cr, cx + cr, cy + cr, "#cdd6f4", 1.2 * s)
-            surf.draw_line(cx + cr, cy - cr, cx - cr, cy + cr, "#cdd6f4", 1.2 * s)
-
-        surf.blit(self._bg_widget.photo)
+ModernTextInput = TextInput
 
 
 # ============================================================================
 # Widget 11: ModernDropdown (Vector Combobox / Select with Popup)
 # ============================================================================
+# ModernDropdown & DropdownItem are imported directly from tkblend.widgets
 
-class ModernDropdown(ModernWidget):
-    """
-    Vector dropdown select with current value, down chevron icon,
-    and elevated popup option picker.
-    """
-
-    def __init__(
-        self,
-        master: Optional[tk.Misc] = None,
-        options: Optional[List[str]] = None,
-        selected: Optional[str] = None,
-        on_select: Optional[Callable[[str], None]] = None,
-        width: int = 180,
-        height: int = 36,
-        parent_bg: str = "#1e1e2e",
-        **kwargs,
-    ):
-        self._dropdown_items = list(options) if options else ["Option A", "Option B"]
-        self._selected = selected if selected in self._dropdown_items else self._dropdown_items[0]
-        self._on_select = on_select
-        self._is_open = False
-        self._popup_win: Optional[tk.Toplevel] = None
-        super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
-        self.bind("<ButtonRelease-1>", self._toggle_popup)
-
-    @property
-    def value(self) -> str:
-        return self._selected
-
-    def _toggle_popup(self, event) -> None:
-        if self._is_open:
-            self._close_popup()
-        else:
-            self._open_popup()
-
-    def _open_popup(self) -> None:
-        self._is_open = True
-        self.render()
-
-        x = self.winfo_rootx()
-        y = self.winfo_rooty() + self._widget_h + int(4 * self._scale)
-
-        self._popup_win = tk.Toplevel(self)
-        self._popup_win.wm_overrideredirect(True)
-        self._popup_win.geometry(f"{self._widget_w}x{len(self._dropdown_items) * int(32 * self._scale)}+{x}+{y}")
-        self._popup_win.configure(bg="#181825")
-
-        for opt in self._dropdown_items:
-            btn = ModernButton(
-                self._popup_win,
-                text=opt,
-                command=lambda o=opt: self._select_option(o),
-                variant="secondary" if opt != self._selected else "primary",
-                width=int(self._logical_w),
-                height=30,
-                rx=4,
-                ry=4,
-                elevation=2.0,
-                parent_bg="#181825",
-            )
-            btn.pack(fill="x", pady=1)
-
-        self._popup_win.bind("<FocusOut>", lambda e: self._close_popup())
-        self._popup_win.focus_set()
-
-    def _close_popup(self) -> None:
-        self._is_open = False
-        if self._popup_win:
-            try:
-                self._popup_win.destroy()
-            except Exception:
-                pass
-            self._popup_win = None
-        self.render()
-
-    def _select_option(self, opt: str) -> None:
-        self._selected = opt
-        self._close_popup()
-        if self._on_select:
-            self._on_select(opt)
-
-    def render(self) -> None:
-        self._surface.clear(self._parent_bg)
-        s = self._scale
-        pad = 2.0 * s
-        w = self._widget_w - pad * 2.0
-        h = self._widget_h - pad * 2.0
-        r = 8.0 * s
-
-        border = "#89b4fa" if self._is_hovered or self._is_open else "#313244"
-        self._surface.fill_rounded_rect(pad, pad, w, h, r, r, "#181825")
-        self._surface.stroke_rounded_rect(pad, pad, w, h, r, r, border, 1.2 * s)
-
-        # Selected text
-        font_sz = 13.0 * s
-        self._surface.draw_text(
-            self._selected,
-            pad + 12.0 * s,
-            self._widget_h / 2.0 + (font_sz * 0.35),
-            font_size=font_sz,
-            font_family="sans-serif",
-            color="#cdd6f4",
-            align="left",
-        )
-
-        # Down chevron icon (Path)
-        chev_x = self._widget_w - pad - 16.0 * s
-        chev_y = self._widget_h / 2.0
-        p = Path()
-        if self._is_open:
-            p.move_to(chev_x - 5.0 * s, chev_y + 2.0 * s)
-            p.line_to(chev_x, chev_y - 3.0 * s)
-            p.line_to(chev_x + 5.0 * s, chev_y + 2.0 * s)
-        else:
-            p.move_to(chev_x - 5.0 * s, chev_y - 2.0 * s)
-            p.line_to(chev_x, chev_y + 3.0 * s)
-            p.line_to(chev_x + 5.0 * s, chev_y - 2.0 * s)
-        self._surface.stroke_path(p, "#89b4fa", stroke_width=1.8 * s)
-
-        self._surface.blit(self._photo)
 
 
 # ============================================================================
@@ -1714,91 +1488,7 @@ class ModernAvatar(ModernWidget):
 # Widget 15: ModernAccordion (Collapsible Card with Vector Chevron)
 # ============================================================================
 
-class ModernAccordion(tk.Frame):
-    """
-    Expandable / collapsible card container with animated rotating chevron arrow.
-    """
-
-    def __init__(
-        self,
-        master: Optional[tk.Misc] = None,
-        title: str = "Collapsible Section",
-        width: int = 280,
-        parent_bg: str = "#1e1e2e",
-        **kwargs,
-    ):
-        self._scale = ScalingTracker.get_scaling_factor(master)
-        s = self._scale
-        super().__init__(
-            master,
-            width=max(1, int(width * s)),
-            bg=parent_bg,
-            **kwargs,
-        )
-        self._is_open = False
-        self._title = title
-        self._parent_bg = parent_bg
-
-        # Header Bar Widget
-        self._header = ModernWidget(self, width=width, height=38, bg=parent_bg)
-        self._header.pack(fill="x")
-        self._header.bind("<ButtonRelease-1>", self._toggle)
-
-        # Content frame
-        self._content = tk.Frame(self, bg="#181825", padx=int(12 * s), pady=int(10 * s))
-
-        self._render_header()
-
-    @property
-    def content_frame(self) -> tk.Frame:
-        return self._content
-
-    def _toggle(self, event) -> None:
-        self._is_open = not self._is_open
-        if self._is_open:
-            self._content.pack(fill="both", expand=True, padx=int(4 * self._scale), pady=(0, int(4 * self._scale)))
-        else:
-            self._content.pack_forget()
-        self._render_header()
-
-    def _render_header(self) -> None:
-        surf = self._header.surface
-        surf.clear(self._parent_bg)
-        s = self._scale
-        pad = 2.0 * s
-        w = self._header._widget_w - pad * 2.0
-        h = self._header._widget_h - pad * 2.0
-        r = 8.0 * s
-
-        surf.fill_rounded_rect(pad, pad, w, h, r, r, "#181825")
-        surf.stroke_rounded_rect(pad, pad, w, h, r, r, "#313244", 1.0 * s)
-
-        # Rotating Chevron
-        chev_x = pad + 16.0 * s
-        chev_y = self._header._widget_h / 2.0
-        p = Path()
-        if self._is_open:
-            p.move_to(chev_x - 4.0 * s, chev_y - 2.0 * s)
-            p.line_to(chev_x, chev_y + 3.0 * s)
-            p.line_to(chev_x + 4.0 * s, chev_y - 2.0 * s)
-        else:
-            p.move_to(chev_x - 2.0 * s, chev_y - 4.0 * s)
-            p.line_to(chev_x + 3.0 * s, chev_y)
-            p.line_to(chev_x - 2.0 * s, chev_y + 4.0 * s)
-        surf.stroke_path(p, "#89b4fa", stroke_width=1.8 * s)
-
-        # Header Title
-        font_sz = 13.0 * s
-        surf.draw_text(
-            self._title,
-            chev_x + 14.0 * s,
-            self._header._widget_h / 2.0 + (font_sz * 0.35),
-            font_size=font_sz,
-            font_family="sans-serif",
-            color="#cdd6f4",
-            align="left",
-        )
-        surf.blit(self._header.photo)
+ModernAccordion = Accordion
 
 
 # ============================================================================
@@ -1958,15 +1648,26 @@ class ExtendedCanvasShowcaseApp:
         self.txt_input.pack(fill="x", pady=int(4 * s))
         self.txt_input.set("tkblend vector canvas")
 
-        tk.Label(inp_box, text="Dropdown Selector:", font=("DejaVu Sans", int(11 * s), "bold"), fg="#cdd6f4", bg="#181825").pack(anchor="w", pady=(int(16 * s), int(6 * s)))
-        ModernDropdown(
+        tk.Label(inp_box, text="Dropdown Selector (Scrollable & Vector):", font=("DejaVu Sans", int(11 * s), "bold"), fg="#cdd6f4", bg="#181825").pack(anchor="w", pady=(int(16 * s), int(6 * s)))
+        self.dropdown = ModernDropdown(
             inp_box,
-            options=["High Quality (60 FPS)", "Balanced (30 FPS)", "Power Saver"],
+            options=[
+                "High Quality (60 FPS)",
+                "Balanced (30 FPS)",
+                "Power Saver (15 FPS)",
+                "Ultra Vector HD",
+                "Cinematic 120 FPS",
+                "Eco Mode (Minimal GPU)",
+                "Low Latency Gaming",
+                "Custom Dynamic Scaling",
+            ],
             selected="High Quality (60 FPS)",
+            max_visible_items=5,
             width=280,
             height=36,
             parent_bg="#181825",
-        ).pack(fill="x", pady=int(4 * s))
+        )
+        self.dropdown.pack(fill="x", pady=int(4 * s))
 
         tk.Label(inp_box, text="Numeric Stepper:", font=("DejaVu Sans", int(11 * s), "bold"), fg="#cdd6f4", bg="#181825").pack(anchor="w", pady=(int(16 * s), int(6 * s)))
         self.spinbox = ModernSpinBox(inp_box, min_val=0, max_val=100, value=int(self._shared_progress), on_change=self._on_stepper_change, width=280, height=36, parent_bg="#181825")
@@ -2058,10 +1759,10 @@ class ExtendedCanvasShowcaseApp:
         a_box = tk.Frame(col2, bg="#181825")
         a_box.pack(fill="both", expand=True, padx=int(16 * s), pady=(int(52 * s), int(16 * s)))
 
-        acc1 = ModernAccordion(a_box, title="Zero-Copy Pipeline Architecture", width=460, parent_bg="#181825")
-        acc1.pack(fill="x", pady=int(6 * s))
+        self.acc1 = ModernAccordion(a_box, title="Zero-Copy Pipeline Architecture", width=460, parent_bg="#181825")
+        self.acc1.pack(fill="x", pady=int(6 * s))
         tk.Label(
-            acc1.content_frame,
+            self.acc1.content_frame,
             text="Blend2D renders directly to an internal PRGB32 buffer,\nwhich is blitted directly into Tkinter's PhotoImage via\nTk_PhotoPutBlock with 0 Python heap allocations.",
             fg="#a6adc8",
             bg="#181825",
@@ -2069,10 +1770,10 @@ class ExtendedCanvasShowcaseApp:
             font=("DejaVu Sans", int(10 * s)),
         ).pack(anchor="w")
 
-        acc2 = ModernAccordion(a_box, title="Antialiasing & Vector Paths", width=460, parent_bg="#181825")
-        acc2.pack(fill="x", pady=int(6 * s))
+        self.acc2 = ModernAccordion(a_box, title="Antialiasing & Vector Paths", width=460, parent_bg="#181825")
+        self.acc2.pack(fill="x", pady=int(6 * s))
         tk.Label(
-            acc2.content_frame,
+            self.acc2.content_frame,
             text="Subpixel font rasterization and analytic antialiased\ngeometric primitives eliminate jagged edges on any display DPI.",
             fg="#a6adc8",
             bg="#181825",
@@ -2080,10 +1781,10 @@ class ExtendedCanvasShowcaseApp:
             font=("DejaVu Sans", int(10 * s)),
         ).pack(anchor="w")
 
-        acc3 = ModernAccordion(a_box, title="Pure Surface Independence", width=460, parent_bg="#181825")
-        acc3.pack(fill="x", pady=int(6 * s))
+        self.acc3 = ModernAccordion(a_box, title="Pure Surface Independence", width=460, parent_bg="#181825")
+        self.acc3.pack(fill="x", pady=int(6 * s))
         tk.Label(
-            acc3.content_frame,
+            self.acc3.content_frame,
             text="Every widget in this showcase is built strictly from\nscratch using Blend2D's Surface and BlendCanvas, completely\nfree of any TTK or theme dependencies.",
             fg="#a6adc8",
             bg="#181825",

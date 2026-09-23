@@ -35,8 +35,11 @@ from tkblend.widgets import (
     ModernSegmentedControl,
     TextInput,
     ModernTextInput,
+    VectorScrollbar,
+    Scrollbar,
     Dropdown,
     ModernDropdown,
+    DropdownItem,
     SpinBox,
     ModernSpinBox,
     Badge,
@@ -173,19 +176,154 @@ def test_segmented_control(root):
 
 
 def test_text_input(root):
-    inp = TextInput(root, placeholder="Type here...")
+    inp = TextInput(root, placeholder="Type here...", width=240, height=38)
+    inp.pack()
+    root.update_idletasks()
+
+    # Placeholder active initially: get() returns empty string, entry has placeholder
+    assert inp.get() == ""
+    assert inp._placeholder_active is True
+    assert inp._entry.get() == "Type here..."
+
+    # Ensure background widget rendered on idle
+    assert inp._bg_widget.winfo_exists()
+
+    # Focus in clears placeholder
+    inp._on_focus_in(None)
+    assert inp._placeholder_active is False
+    assert inp.get() == ""
+
+    # Setting text
     inp.set("Hello tkblend")
     assert inp.get() == "Hello tkblend"
+    assert inp._placeholder_active is False
+
+    # Clear button click
+    s = inp._scale
+    class DummyEvent:
+        x = int(inp._bg_widget._widget_w - 20.0 * s)
+        y = int(inp._bg_widget._widget_h / 2.0)
+    inp._on_bg_click(DummyEvent())
+    assert inp.get() == ""
+
+    # Focus out with empty text restores placeholder
+    inp._on_focus_out(None)
+    assert inp._placeholder_active is True
+    assert inp.get() == ""
+    assert inp._entry.get() == "Type here..."
+
     inp.destroy()
 
 
 def test_dropdown(root):
-    dd = Dropdown(root, options=["First", "Second", "Third"], selected="First")
+    selected_log = []
+
+    def on_sel(val):
+        selected_log.append(val)
+
+    # Basic initialization and callbacks
+    dd = Dropdown(root, options=["First", "Second", "Third"], selected="First", on_select=on_sel)
     dd.render()
     assert dd.value == "First"
+    assert dd.options == ["First", "Second", "Third"]
+
+    # Select option programmatically
     dd._select_option("Second")
     assert dd.value == "Second"
+    assert selected_log == ["Second"]
+
+    # Set value property
+    dd.value = "Third"
+    assert dd.value == "Third"
+
+    # Set options method
+    dd.set_options(["Alpha", "Beta", "Gamma"], selected="Beta")
+    assert dd.options == ["Alpha", "Beta", "Gamma"]
+    assert dd.value == "Beta"
+
+    # Keyboard navigation tests
+    dd._on_key_down(None)
+    assert dd.value == "Gamma"
+    dd._on_key_up(None)
+    assert dd.value == "Beta"
+    dd._on_key_home(None)
+    assert dd.value == "Alpha"
+    dd._on_key_end(None)
+    assert dd.value == "Gamma"
+
+    # Open popup
+    dd._open_popup()
+    assert dd._is_open is True
+    assert dd._popup_win is not None
+    assert len(dd._item_widgets) == 3
+
+    # Click an item in open popup
+    dd._on_item_clicked("Beta")
+    assert dd.value == "Beta"
+    assert dd._is_open is False
+    assert dd._popup_win is None
+
+    # Test long options list (scrollable container with VectorScrollbar)
+    long_opts = [f"Item {i}" for i in range(15)]
+    dd.set_options(long_opts, selected="Item 0")
+    dd._open_popup()
+    assert dd._is_open is True
+    assert dd._scroll_canvas is not None
+    assert dd._scrollbar is not None
+    assert len(dd._item_widgets) == 15
+
+    # Test keyboard navigation when open
+    dd._on_key_down(None)
+    assert dd.value == "Item 1"
+
+    # Close popup via Escape or toggle
+    dd._on_key_enter(None)
+    assert dd._is_open is False
+
+    # Standalone DropdownItem test
+    item = DropdownItem(root, text="Standalone", is_selected=True, on_select=on_sel)
+    item.render()
+    assert item.text == "Standalone"
+    assert item.is_selected is True
+    item.set_selected(False)
+    assert item.is_selected is False
+    item._handle_click(None)
+    assert selected_log[-1] == "Standalone"
+    item.destroy()
+
     dd.destroy()
+
+
+def test_vector_scrollbar(root):
+    scroll_cmds = []
+
+    def on_scroll(*args):
+        scroll_cmds.append(args)
+
+    vs = VectorScrollbar(root, command=on_scroll, width=10, height=150)
+    vs.render()
+    assert vs._first == 0.0
+    assert vs._last == 1.0
+
+    # Protocol set(first, last)
+    vs.set(0.2, 0.6)
+    assert vs._first == 0.2
+    assert vs._last == 0.6
+
+    # Test track click paging
+    class MockEvent:
+        def __init__(self, y):
+            self.y = y
+
+    # Click below thumb -> page down
+    vs._on_press(MockEvent(y=140))
+    assert scroll_cmds[-1] == ("scroll", 1, "pages")
+
+    # Click above thumb -> page up
+    vs._on_press(MockEvent(y=10))
+    assert scroll_cmds[-1] == ("scroll", -1, "pages")
+
+    vs.destroy()
 
 
 def test_spinbox(root):
@@ -215,8 +353,27 @@ def test_avatar(root):
 
 def test_accordion(root):
     acc = Accordion(root, title="Advanced Settings", width=250)
+    acc.pack()
+    root.update_idletasks()
+
     assert acc._is_open is False
     assert isinstance(acc.content_frame, tk.Frame)
+    assert acc._header.winfo_exists()
+
+    # Toggle open
+    acc._toggle(None)
+    assert acc._is_open is True
+
+    # Toggle closed
+    acc._toggle(None)
+    assert acc._is_open is False
+
+    # Hover rendering
+    acc._header._is_hovered = True
+    acc._header.render()
+    acc._header._is_hovered = False
+    acc._header.render()
+
     acc.destroy()
 
 
