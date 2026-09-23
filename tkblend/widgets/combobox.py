@@ -69,6 +69,8 @@ class OptionMenu(Widget):
         self._elevation = elevation
         self._is_open = False
         self._popup: Optional[tk.Toplevel] = None
+        self._root_bind_id: Optional[str] = None
+        self._root_cfg_bind_id: Optional[str] = None
 
         if width is None:
             max_len = max((len(str(v)) for v in self._values), default=10)
@@ -118,26 +120,35 @@ class OptionMenu(Widget):
             self._open_popup()
 
     def _open_popup(self) -> None:
+        if not self._values:
+            return
         self._is_open = True
         self.render()
 
         root = self.winfo_toplevel()
         popup = tk.Toplevel(self)
+        popup.withdraw()
         popup.overrideredirect(True)
+        try:
+            popup.transient(root)
+        except Exception:
+            pass
         try:
             popup.attributes("-topmost", True)
         except Exception:
             pass
         self._popup = popup
 
-        # Position below widget
         self.update_idletasks()
         rx = self.winfo_rootx()
-        ry = self.winfo_rooty() + self.winfo_height() + 4
-        pw = max(self.winfo_width(), int(140 * self._scale))
+        ry = self.winfo_rooty()
+        rw = self.winfo_width()
+        rh = self.winfo_height()
+        s = self._scale
+        pw = max(rw, int(140 * s))
 
         pal = get_theme()
-        popup.configure(background=pal.card_bg)
+        popup.configure(background=pal.card_border)
 
         # Popup frame container
         frame = tk.Frame(popup, background=pal.card_bg, highlightthickness=1, highlightbackground=pal.card_border)
@@ -149,7 +160,7 @@ class OptionMenu(Widget):
                 text=val,
                 is_selected=(val == self._selected),
                 on_select=lambda v=val: self._on_item_selected(v),
-                width=int(pw / self._scale),
+                width=int(pw / s),
                 height=30,
                 parent_bg=pal.card_bg,
             )
@@ -157,20 +168,64 @@ class OptionMenu(Widget):
 
         popup.update_idletasks()
         ph = popup.winfo_reqheight()
-        popup.geometry(f"{pw}x{ph}+{rx}+{ry}")
+
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        space_below = screen_h - (ry + rh + 4)
+
+        if space_below < ph and ry > ph:
+            pop_y = max(0, ry - ph - 4)
+        else:
+            pop_y = ry + rh + 4
+
+        if pop_y + ph > screen_h:
+            pop_y = max(0, screen_h - ph - 4)
+
+        pop_x = max(0, rx)
+        if pop_x + pw > screen_w:
+            pop_x = max(0, screen_w - pw - 4)
+
+        popup.geometry(f"{pw}x{ph}+{pop_x}+{pop_y}")
+        popup.deiconify()
+        popup.lift()
 
         # Auto-close hooks
         def on_global_click(e):
             if popup.winfo_exists():
-                px, py = popup.winfo_rootx(), popup.winfo_rooty()
-                if not (px <= e.x_root <= px + popup.winfo_width() and py <= e.y_root <= py + popup.winfo_height()):
-                    self._close_popup()
+                try:
+                    px, py = popup.winfo_rootx(), popup.winfo_rooty()
+                    pw_val, ph_val = popup.winfo_width(), popup.winfo_height()
+                    if px <= e.x_root <= px + pw_val and py <= e.y_root <= py + ph_val:
+                        return
+                    sx, sy = self.winfo_rootx(), self.winfo_rooty()
+                    sw, sh = self.winfo_width(), self.winfo_height()
+                    if sx <= e.x_root <= sx + sw and sy <= e.y_root <= sy + sh:
+                        return
+                except Exception:
+                    pass
+                self._close_popup()
 
-        root.bind("<ButtonPress-1>", on_global_click, add="+")
-        popup.bind("<FocusOut>", lambda e: self._close_popup(), add="+")
+        def on_root_configure(e):
+            if self._is_open and e.widget == root:
+                self._close_popup()
+
+        self._root_bind_id = root.bind("<ButtonPress-1>", on_global_click, add="+")
+        self._root_cfg_bind_id = root.bind("<Configure>", on_root_configure, add="+")
 
     def _close_popup(self) -> None:
         self._is_open = False
+        if self._root_bind_id:
+            try:
+                self.winfo_toplevel().unbind("<ButtonPress-1>", self._root_bind_id)
+            except Exception:
+                pass
+            self._root_bind_id = None
+        if self._root_cfg_bind_id:
+            try:
+                self.winfo_toplevel().unbind("<Configure>", self._root_cfg_bind_id)
+            except Exception:
+                pass
+            self._root_cfg_bind_id = None
         if self._popup and self._popup.winfo_exists():
             self._popup.destroy()
             self._popup = None
@@ -270,6 +325,8 @@ class ComboBox(tk.Frame):
         self._state = state
         self._is_open = False
         self._popup: Optional[tk.Toplevel] = None
+        self._root_bind_id: Optional[str] = None
+        self._root_cfg_bind_id: Optional[str] = None
 
         super().__init__(
             master,
@@ -366,7 +423,12 @@ class ComboBox(tk.Frame):
 
         root = self.winfo_toplevel()
         popup = tk.Toplevel(self)
+        popup.withdraw()
         popup.overrideredirect(True)
+        try:
+            popup.transient(root)
+        except Exception:
+            pass
         try:
             popup.attributes("-topmost", True)
         except Exception:
@@ -375,10 +437,15 @@ class ComboBox(tk.Frame):
 
         self.update_idletasks()
         rx = self.winfo_rootx()
-        ry = self.winfo_rooty() + self.winfo_height() + 2
-        pw = max(self.winfo_width(), int(140 * self._scale))
+        ry = self.winfo_rooty()
+        rw = self.winfo_width()
+        rh = self.winfo_height()
+        s = self._scale
+        pw = max(rw, int(140 * s))
 
         pal = get_theme()
+        popup.configure(background=pal.card_border)
+
         frame = tk.Frame(popup, background=pal.card_bg, highlightthickness=1, highlightbackground=pal.card_border)
         frame.pack(fill="both", expand=True)
 
@@ -388,7 +455,7 @@ class ComboBox(tk.Frame):
                 text=val,
                 is_selected=(val == self.get()),
                 on_select=lambda v=val: self._on_item_selected(v),
-                width=int(pw / self._scale),
+                width=int(pw / s),
                 height=28,
                 parent_bg=pal.card_bg,
             )
@@ -396,18 +463,63 @@ class ComboBox(tk.Frame):
 
         popup.update_idletasks()
         ph = popup.winfo_reqheight()
-        popup.geometry(f"{pw}x{ph}+{rx}+{ry}")
+
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        space_below = screen_h - (ry + rh + 2)
+
+        if space_below < ph and ry > ph:
+            pop_y = max(0, ry - ph - 2)
+        else:
+            pop_y = ry + rh + 2
+
+        if pop_y + ph > screen_h:
+            pop_y = max(0, screen_h - ph - 4)
+
+        pop_x = max(0, rx)
+        if pop_x + pw > screen_w:
+            pop_x = max(0, screen_w - pw - 4)
+
+        popup.geometry(f"{pw}x{ph}+{pop_x}+{pop_y}")
+        popup.deiconify()
+        popup.lift()
 
         def on_global_click(e):
             if popup.winfo_exists():
-                px, py = popup.winfo_rootx(), popup.winfo_rooty()
-                if not (px <= e.x_root <= px + popup.winfo_width() and py <= e.y_root <= py + popup.winfo_height()):
-                    self._close_popup()
+                try:
+                    px, py = popup.winfo_rootx(), popup.winfo_rooty()
+                    pw_val, ph_val = popup.winfo_width(), popup.winfo_height()
+                    if px <= e.x_root <= px + pw_val and py <= e.y_root <= py + ph_val:
+                        return
+                    sx, sy = self.winfo_rootx(), self.winfo_rooty()
+                    sw, sh = self.winfo_width(), self.winfo_height()
+                    if sx <= e.x_root <= sx + sw and sy <= e.y_root <= sy + sh:
+                        return
+                except Exception:
+                    pass
+                self._close_popup()
 
-        root.bind("<ButtonPress-1>", on_global_click, add="+")
+        def on_root_configure(e):
+            if self._is_open and e.widget == root:
+                self._close_popup()
+
+        self._root_bind_id = root.bind("<ButtonPress-1>", on_global_click, add="+")
+        self._root_cfg_bind_id = root.bind("<Configure>", on_root_configure, add="+")
 
     def _close_popup(self) -> None:
         self._is_open = False
+        if self._root_bind_id:
+            try:
+                self.winfo_toplevel().unbind("<ButtonPress-1>", self._root_bind_id)
+            except Exception:
+                pass
+            self._root_bind_id = None
+        if self._root_cfg_bind_id:
+            try:
+                self.winfo_toplevel().unbind("<Configure>", self._root_cfg_bind_id)
+            except Exception:
+                pass
+            self._root_cfg_bind_id = None
         if self._popup and self._popup.winfo_exists():
             self._popup.destroy()
             self._popup = None

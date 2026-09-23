@@ -378,7 +378,7 @@ class RadioGroup(tk.Frame):
                     value=opt,
                     selected=is_sel,
                     group=self,
-                    parent_bg=parent_bg,
+                    parent_bg=parent_bg or self._parent_bg,
                 )
                 if orientation == "horizontal":
                     r.pack(side="left", padx=6, pady=2)
@@ -395,8 +395,9 @@ class RadioGroup(tk.Frame):
         self._parent_bg = resolved_bg
         self.configure(background=self._parent_bg)
         for r in self._radios:
-            r.set_parent_bg(self._parent_bg)
-            r.render()
+            if getattr(r, "master", None) == self:
+                r.set_parent_bg(self._parent_bg)
+                r.render()
 
     def _on_destroy(self, event=None) -> None:
         if event is None or event.widget == self:

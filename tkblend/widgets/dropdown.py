@@ -319,12 +319,12 @@ class Dropdown(Widget):
         popup_bg = pal.card_bg
 
         self._popup_win = tk.Toplevel(self)
+        self._popup_win.withdraw()
         self._popup_win.wm_overrideredirect(True)
         try:
             self._popup_win.transient(toplevel)
         except Exception:
             pass
-        self._popup_win.geometry(f"{pop_w}x{pop_h}+{pop_x}+{pop_y}")
         self._popup_win.configure(bg=border_col)
 
         # Border container frame for crisp 1.5px border
@@ -427,6 +427,11 @@ class Dropdown(Widget):
                 )
                 it.pack(fill="x", pady=1, padx=int(3 * s))
                 self._item_widgets.append(it)
+
+        self._popup_win.update_idletasks()
+        self._popup_win.geometry(f"{pop_w}x{pop_h}+{pop_x}+{pop_y}")
+        self._popup_win.deiconify()
+        self._popup_win.lift()
 
         # Global event listeners for rock-solid dismissal
         self._root_bind_id = toplevel.bind("<ButtonPress-1>", self._on_root_click, add="+")

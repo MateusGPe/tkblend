@@ -207,6 +207,56 @@ def test_radio_and_group(root):
 
     r1.destroy()
     r2.destroy()
+    group.destroy()
+
+
+def test_radio_background_inheritance(root):
+    set_theme("dark")
+    dark_pal = get_theme()
+
+    card = Card(root, width=300, height=200)
+    card.pack()
+    root.update_idletasks()
+
+    # 1. Logical group controller mode (Radio widgets inside Card, group is headless)
+    logical_group = RadioGroup()
+    r1 = Radio(card, text="Radio 1", value="r1", group=logical_group)
+    r2 = Radio(card, text="Radio 2", value="r2", group=logical_group)
+    r1.render()
+    r2.render()
+
+    assert r1._parent_bg == dark_pal.card_bg
+    assert r2._parent_bg == dark_pal.card_bg
+
+    # Switch theme: child radios must resolve to card_bg, NOT root bg
+    set_theme("light")
+    light_pal = get_theme()
+    assert r1._parent_bg == light_pal.card_bg
+    assert r2._parent_bg == light_pal.card_bg
+
+    r1.destroy()
+    r2.destroy()
+    logical_group.destroy()
+
+    # 2. Container mode (RadioGroup is packed inside Card with options)
+    set_theme("dark")
+    dark_pal = get_theme()
+    container_group = RadioGroup(card, options=["Alpha", "Beta"], selected="Alpha")
+    container_group.pack()
+    root.update_idletasks()
+
+    assert container_group._parent_bg == dark_pal.card_bg
+    for child_radio in container_group._radios:
+        assert child_radio._parent_bg == dark_pal.card_bg
+
+    set_theme("light")
+    light_pal = get_theme()
+    assert container_group._parent_bg == light_pal.card_bg
+    for child_radio in container_group._radios:
+        assert child_radio._parent_bg == light_pal.card_bg
+
+    container_group.destroy()
+    card.destroy()
 
 
 def test_segmented_control(root):

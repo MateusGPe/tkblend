@@ -115,3 +115,35 @@ def test_vector_icons_and_labels(root):
     lbl = tb.IconLabel(root, text="Status", icon="dot")
     lbl.set_text("Updated Status")
     assert lbl._text == "Updated Status"
+
+
+def test_option_menu_and_combobox_popup_lifecycle(root):
+    root.deiconify()
+    root.geometry("400x400+100+100")
+    root.update_idletasks()
+
+    opt = tb.OptionMenu(root, values=["Option 1", "Option 2"])
+    opt.pack()
+    cb = tb.ComboBox(root, values=["Choice A", "Choice B"])
+    cb.pack()
+    root.update_idletasks()
+
+    # Open OptionMenu popup
+    opt._open_popup()
+    assert opt._is_open is True
+    assert opt._popup is not None
+    assert opt._popup.winfo_exists()
+    assert opt._popup.winfo_viewable()
+    opt._close_popup()
+    assert opt._is_open is False
+    assert opt._popup is None
+
+    # Open ComboBox popup
+    cb._open_popup()
+    assert cb._is_open is True
+    assert cb._popup is not None
+    assert cb._popup.winfo_exists()
+    assert cb._popup.winfo_viewable()
+    cb._close_popup()
+    assert cb._is_open is False
+    assert cb._popup is None
