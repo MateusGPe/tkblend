@@ -7,8 +7,16 @@ import tkinter as tk
 from typing import Optional, Callable, Tuple
 
 from tkblend.surface import ColorLike
-from tkblend.theme import get_theme
+from tkblend.theme import get_theme, Palette, resolve_color_failsafe
 from tkblend.widgets.base import Widget, ScalingTracker
+
+
+def _resolve_color(color: Optional[ColorLike], fallback: str, pal: Palette) -> ColorLike:
+    if color is None:
+        return fallback
+    if isinstance(color, str):
+        return resolve_color_failsafe(color, fallback=fallback, palette=pal)
+    return color
 
 
 class Slider(Widget):
@@ -36,16 +44,57 @@ class Slider(Widget):
         self._max = max_val
         self._value = max(min_val, min(max_val, float(value)))
         self._on_change = on_change
-        pal = get_theme()
-        self._track_color = track_color or pal.track_bg
-        self._active_track_color = active_track_color or pal.primary
-        self._knob_color = knob_color or "#f5e0dc"
+        self._explicit_track_color = track_color
+        self._explicit_active_track_color = active_track_color
+        self._explicit_knob_color = knob_color
         scale = ScalingTracker.get_scaling_factor(master)
         self._knob_r = knob_radius * scale
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
 
         self.bind("<B1-Motion>", self._on_drag)
         self.bind("<Button-1>", self._on_drag)
+
+    @property
+    def track_color(self) -> ColorLike:
+        pal = get_theme()
+        return _resolve_color(self._explicit_track_color, pal.track_bg, pal)
+
+    @track_color.setter
+    def track_color(self, val: Optional[ColorLike]) -> None:
+        self._explicit_track_color = val
+        self.render()
+
+    @property
+    def _track_color(self) -> ColorLike:
+        return self.track_color
+
+    @property
+    def active_track_color(self) -> ColorLike:
+        pal = get_theme()
+        return _resolve_color(self._explicit_active_track_color, pal.primary, pal)
+
+    @active_track_color.setter
+    def active_track_color(self, val: Optional[ColorLike]) -> None:
+        self._explicit_active_track_color = val
+        self.render()
+
+    @property
+    def _active_track_color(self) -> ColorLike:
+        return self.active_track_color
+
+    @property
+    def knob_color(self) -> ColorLike:
+        pal = get_theme()
+        return _resolve_color(self._explicit_knob_color, pal.thumb_color, pal)
+
+    @knob_color.setter
+    def knob_color(self, val: Optional[ColorLike]) -> None:
+        self._explicit_knob_color = val
+        self.render()
+
+    @property
+    def _knob_color(self) -> ColorLike:
+        return self.knob_color
 
     @property
     def value(self) -> float:
@@ -76,15 +125,22 @@ class Slider(Widget):
         track_y = (self._widget_h - track_h) / 2.0
         usable_w = self._widget_w - pad * 2.0
 
+        pal = get_theme()
+        track_col = _resolve_color(self._explicit_track_color, pal.track_bg, pal)
+        active_col = _resolve_color(self._explicit_active_track_color, pal.primary, pal)
+        knob_col = _resolve_color(self._explicit_knob_color, pal.thumb_color, pal)
+        shadow_col = pal.shadow_color
+        border_col = "#ffffff88" if pal.dark_mode else "#00000018"
+
         self._surface.fill_rounded_rect(
-            pad, track_y, usable_w, track_h, track_h / 2.0, track_h / 2.0, self._track_color
+            pad, track_y, usable_w, track_h, track_h / 2.0, track_h / 2.0, track_col
         )
 
         rel = (self._value - self._min) / (self._max - self._min) if self._max > self._min else 0.0
         knob_cx = pad + rel * usable_w
         if rel > 0.0:
             self._surface.fill_rounded_rect(
-                pad, track_y, rel * usable_w, track_h, track_h / 2.0, track_h / 2.0, self._active_track_color
+                pad, track_y, rel * usable_w, track_h, track_h / 2.0, track_h / 2.0, active_col
             )
 
         self._surface.draw_shadow(
@@ -96,11 +152,11 @@ class Slider(Widget):
             self._knob_r,
             blur_radius=6.0 * self._scale,
             offset_y=2.0 * self._scale,
-            shadow_color="#00000066",
+            shadow_color=shadow_col,
         )
 
-        self._surface.fill_circle(knob_cx, self._widget_h / 2.0, self._knob_r, self._knob_color)
-        self._surface.stroke_circle(knob_cx, self._widget_h / 2.0, self._knob_r, "#ffffff88", stroke_width=1.5)
+        self._surface.fill_circle(knob_cx, self._widget_h / 2.0, self._knob_r, knob_col)
+        self._surface.stroke_circle(knob_cx, self._widget_h / 2.0, self._knob_r, border_col, stroke_width=1.5)
         self._surface.blit(self._photo)
 
 
@@ -133,10 +189,9 @@ class RangeSlider(Widget):
         self._low = max(min_val, min(max_val, float(low_val)))
         self._high = max(self._low, min(max_val, float(high_val)))
         self._on_change = on_change
-        pal = get_theme()
-        self._track_color = track_color or pal.track_bg
-        self._active_color = active_color or pal.success
-        self._knob_color = knob_color or "#f5e0dc"
+        self._explicit_track_color = track_color
+        self._explicit_active_color = active_color
+        self._explicit_knob_color = knob_color
         scale = ScalingTracker.get_scaling_factor(master)
         self._knob_r = 8.5 * scale
         self._dragging_thumb: Optional[str] = None
@@ -146,6 +201,48 @@ class RangeSlider(Widget):
         self.bind("<Button-1>", self._on_press_event)
         self.bind("<B1-Motion>", self._on_drag_event)
         self.bind("<ButtonRelease-1>", self._on_release_event)
+
+    @property
+    def track_color(self) -> ColorLike:
+        pal = get_theme()
+        return _resolve_color(self._explicit_track_color, pal.track_bg, pal)
+
+    @track_color.setter
+    def track_color(self, val: Optional[ColorLike]) -> None:
+        self._explicit_track_color = val
+        self.render()
+
+    @property
+    def _track_color(self) -> ColorLike:
+        return self.track_color
+
+    @property
+    def active_color(self) -> ColorLike:
+        pal = get_theme()
+        return _resolve_color(self._explicit_active_color, pal.success, pal)
+
+    @active_color.setter
+    def active_color(self, val: Optional[ColorLike]) -> None:
+        self._explicit_active_color = val
+        self.render()
+
+    @property
+    def _active_color(self) -> ColorLike:
+        return self.active_color
+
+    @property
+    def knob_color(self) -> ColorLike:
+        pal = get_theme()
+        return _resolve_color(self._explicit_knob_color, pal.thumb_color, pal)
+
+    @knob_color.setter
+    def knob_color(self, val: Optional[ColorLike]) -> None:
+        self._explicit_knob_color = val
+        self.render()
+
+    @property
+    def _knob_color(self) -> ColorLike:
+        return self.knob_color
 
     @property
     def range(self) -> Tuple[float, float]:
@@ -194,8 +291,15 @@ class RangeSlider(Widget):
         track_y = (self._widget_h - track_h) / 2.0
         usable_w = self._widget_w - pad * 2.0
 
+        pal = get_theme()
+        track_col = _resolve_color(self._explicit_track_color, pal.track_bg, pal)
+        active_col = _resolve_color(self._explicit_active_color, pal.success, pal)
+        knob_col = _resolve_color(self._explicit_knob_color, pal.thumb_color, pal)
+        shadow_col = pal.shadow_color
+        border_col = "#ffffff88" if pal.dark_mode else "#00000018"
+
         self._surface.fill_rounded_rect(
-            pad, track_y, usable_w, track_h, track_h / 2.0, track_h / 2.0, self._track_color
+            pad, track_y, usable_w, track_h, track_h / 2.0, track_h / 2.0, track_col
         )
 
         low_x = self._val_to_x(self._low, pad, usable_w)
@@ -203,7 +307,7 @@ class RangeSlider(Widget):
 
         if high_x > low_x:
             self._surface.fill_rounded_rect(
-                low_x, track_y, high_x - low_x, track_h, track_h / 2.0, track_h / 2.0, self._active_color
+                low_x, track_y, high_x - low_x, track_h, track_h / 2.0, track_h / 2.0, active_col
             )
 
         for cx in (low_x, high_x):
@@ -216,10 +320,10 @@ class RangeSlider(Widget):
                 self._knob_r,
                 blur_radius=5.0 * self._scale,
                 offset_y=1.5 * self._scale,
-                shadow_color="#00000066",
+                shadow_color=shadow_col,
             )
-            self._surface.fill_circle(cx, self._widget_h / 2.0, self._knob_r, self._knob_color)
-            self._surface.stroke_circle(cx, self._widget_h / 2.0, self._knob_r, "#ffffff88", stroke_width=1.2)
+            self._surface.fill_circle(cx, self._widget_h / 2.0, self._knob_r, knob_col)
+            self._surface.stroke_circle(cx, self._widget_h / 2.0, self._knob_r, border_col, stroke_width=1.2)
 
         self._surface.blit(self._photo)
 

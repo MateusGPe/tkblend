@@ -46,7 +46,8 @@ class TextInput(tk.Frame):
         self._scale = ScalingTracker.get_scaling_factor(master)
         s = self._scale
         pal = get_theme()
-        self._parent_bg = parent_bg or pal.bg
+        self._explicit_parent_bg = parent_bg
+        self._parent_bg = parent_bg or Widget._resolve_default_bg(master, pal)
         super().__init__(
             master,
             width=max(1, int(width * s)),
@@ -88,16 +89,37 @@ class TextInput(tk.Frame):
 
         self._render_bg()
 
+    def set_parent_bg(self, bg: str, force: bool = False) -> None:
+        """Update parent background and re-render."""
+        from tkblend.theme import resolve_color_failsafe
+        self._parent_bg = resolve_color_failsafe(bg, master=self, fallback=self._parent_bg)
+        if force:
+            self._explicit_parent_bg = None
+        try:
+            self.configure(bg=self._parent_bg)
+        except Exception:
+            pass
+        if hasattr(self, "_bg_widget"):
+            self._bg_widget.set_parent_bg(self._parent_bg, force=force)
+        self._render_bg()
+
     def _update_theme_colors(self) -> None:
         if not self.winfo_exists():
             return
         pal = get_theme()
+        if self._explicit_parent_bg is None:
+            self._parent_bg = Widget._resolve_default_bg(getattr(self, "master", None), pal)
+            try:
+                self.configure(bg=self._parent_bg)
+            except Exception:
+                pass
         fg_col = pal.text_muted if self._placeholder_active else pal.fg
         self._entry.configure(
             bg=pal.input_bg,
             fg=fg_col,
             insertbackground=pal.input_focus,
         )
+        self._render_bg()
 
     def _on_focus_in(self, event) -> None:
         self._has_focus = True

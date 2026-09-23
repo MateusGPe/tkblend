@@ -32,6 +32,9 @@ class Switch(Widget):
     ):
         self._is_on = is_on
         self._on_toggle = on_toggle
+        self._explicit_on_color = on_color
+        self._explicit_off_color = off_color
+        self._explicit_knob_color = knob_color
         pal = get_theme()
         self._on_color = on_color or pal.success
         self._off_color = off_color or pal.track_bg
@@ -64,7 +67,11 @@ class Switch(Widget):
         h = self._widget_h - pad * 2.0
         r = h / 2.0
 
-        bg = self._on_color if self._is_on else self._off_color
+        pal = get_theme()
+        on_col = self._explicit_on_color or pal.success
+        off_col = self._explicit_off_color or pal.track_bg
+        knob_col = self._explicit_knob_color or pal.thumb_color
+        bg = on_col if self._is_on else off_col
         self._surface.fill_rounded_rect(pad, pad, w, h, r, r, bg)
 
         knob_r = r - 3.0 * self._scale
@@ -295,6 +302,7 @@ class SegmentedControl(Widget):
         self._values = list(values) if values else ["Option 1", "Option 2"]
         self._selected = max(0, min(len(self._values) - 1, selected_index))
         self._on_change = on_change
+        self._explicit_active_color = active_color
         pal = get_theme()
         self._active_color = active_color or pal.primary
         self._hovered_index: Optional[int] = None
@@ -333,7 +341,7 @@ class SegmentedControl(Widget):
 
     def _handle_click(self, event) -> None:
         idx = self._index_at(event.x)
-        if idx is not None and idx != self._selected:
+        if idx is not None and idx != self._selected and idx < len(self._values):
             self._selected = idx
             self.render()
             if self._on_change:
@@ -348,6 +356,7 @@ class SegmentedControl(Widget):
         r = h / 2.0
 
         pal = get_theme()
+        active_col = self._explicit_active_color or pal.primary
         # Recessed capsule track
         self._surface.fill_rounded_rect(pad, pad, w, h, r, r, pal.surface)
         self._surface.stroke_rounded_rect(pad, pad, w, h, r, r, pal.surface_border, 1.0 * s)
@@ -364,7 +373,7 @@ class SegmentedControl(Widget):
             ax + 1.0, pad + 1.0, seg_w - 2.0, h - 2.0,
             r, r, blur_radius=4.0 * s, offset_y=1.0 * s, shadow_color="#00000044"
         )
-        self._surface.fill_rounded_rect(ax + 1.0, pad + 1.0, seg_w - 2.0, h - 2.0, r, r, self._active_color)
+        self._surface.fill_rounded_rect(ax + 1.0, pad + 1.0, seg_w - 2.0, h - 2.0, r, r, active_col)
 
         font_sz = 12.0 * s
         for i, val in enumerate(self._values):

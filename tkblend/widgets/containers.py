@@ -7,8 +7,14 @@ import tkinter as tk
 from typing import Optional
 
 from tkblend.surface import Surface, ColorLike, Path
-from tkblend.theme import get_theme, Palette
-from tkblend.widgets.base import Widget, ScalingTracker
+from tkblend.theme import (
+    get_theme,
+    Palette,
+    add_theme_listener,
+    remove_theme_listener,
+    resolve_color_failsafe,
+)
+from tkblend.widgets.base import Widget, ScalingTracker, cascade_bg_to_children
 from tkblend.widgets.drawing import draw_vector_chevron
 
 
@@ -36,7 +42,8 @@ class Frame(tk.Frame):
     ):
         self._scale = ScalingTracker.get_scaling_factor(master)
         pal = get_theme()
-        self._parent_bg = parent_bg or pal.bg
+        self._explicit_parent_bg = parent_bg
+        self._parent_bg = parent_bg or Widget._resolve_default_bg(master, pal)
         super().__init__(
             master,
             width=max(1, int(width * self._scale)),
@@ -53,6 +60,9 @@ class Frame(tk.Frame):
         self._widget_h = max(1, int(height * self._scale))
         self._rx = rx * self._scale
         self._ry = ry * self._scale
+        self._explicit_bg_color = bg_color
+        self._explicit_border_color = border_color
+        self._explicit_shadow_color = shadow_color
         self._bg_color = bg_color or pal.card_bg
         self._border_color = border_color or pal.card_border
         self._border_width = max(1.0, border_width * self._scale)
@@ -74,9 +84,50 @@ class Frame(tk.Frame):
         self._bg_label.lower()
 
         self.bind("<Configure>", self._on_configure)
+        self.bind("<Destroy>", self._on_destroy)
+        add_theme_listener(self._on_theme_changed)
         self.after_idle(self.render)
 
+    def _on_destroy(self, event) -> None:
+        remove_theme_listener(self._on_theme_changed)
+
+    def set_parent_bg(self, bg: str, force: bool = False) -> None:
+        """Update parent background and re-render container."""
+        self._parent_bg = resolve_color_failsafe(bg, master=self, fallback=self._parent_bg)
+        if force:
+            self._explicit_parent_bg = None
+        try:
+            self.configure(background=self._parent_bg)
+            if hasattr(self, "_bg_label") and self._bg_label.winfo_exists():
+                self._bg_label.configure(background=self._parent_bg)
+        except Exception:
+            pass
+        self.render()
+
+    def _on_theme_changed(self, palette: Palette) -> None:
+        if not self.winfo_exists():
+            return
+        if self._explicit_parent_bg is None:
+            self._parent_bg = Widget._resolve_default_bg(getattr(self, "master", None), palette)
+        if self._explicit_bg_color is None:
+            self._bg_color = palette.card_bg
+        if self._explicit_border_color is None:
+            self._border_color = palette.card_border
+        if self._explicit_shadow_color is None:
+            self._shadow_color = palette.shadow_color
+
+        try:
+            self.configure(background=self._parent_bg)
+            if hasattr(self, "_bg_label") and self._bg_label.winfo_exists():
+                self._bg_label.configure(background=self._parent_bg)
+        except Exception:
+            pass
+        self.render()
+        cascade_bg_to_children(self, str(self._bg_color))
+
     def _on_configure(self, event) -> None:
+        if event.width <= 1 or event.height <= 1:
+            return
         new_w = max(1, event.width)
         new_h = max(1, event.height)
         if new_w != self._widget_w or new_h != self._widget_h:
@@ -86,9 +137,13 @@ class Frame(tk.Frame):
             self._surface.resize(self._widget_w, self._widget_h)
             self.render()
 
-    def set_background(self, bg_color: ColorLike) -> None:
-        self._bg_color = bg_color
+    def set_background(self, bg_color: ColorLike, force: bool = False) -> None:
+        resolved = resolve_color_failsafe(bg_color, master=self, fallback=str(self._bg_color))
+        self._bg_color = resolved
+        if force:
+            self._explicit_bg_color = None
         self.render()
+        cascade_bg_to_children(self, str(self._bg_color))
 
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
@@ -148,15 +203,25 @@ class Card(Frame):
             height=height,
             rx=rx,
             ry=ry,
-            bg_color=bg_color or pal.surface,
-            border_color=border_color or pal.card_border,
+            bg_color=bg_color,
+            border_color=border_color,
             border_width=border_width,
             elevation=elevation,
-            shadow_color=shadow_color or pal.shadow_color,
-            parent_bg=parent_bg or pal.bg,
+            shadow_color=shadow_color,
+            parent_bg=parent_bg,
             **kwargs,
         )
         self._title = title
+
+    @property
+    def content(self) -> Card:
+        """Alias returning self for direct packing into Card."""
+        return self
+
+    def create_content_frame(self, **kwargs) -> tk.Frame:
+        """Helper to create an inner tk.Frame styled with the card's surface background."""
+        bg = kwargs.pop("bg", kwargs.pop("background", self._bg_color))
+        return tk.Frame(self, bg=bg, **kwargs)
 
     def render(self) -> None:
         super().render()
@@ -192,13 +257,21 @@ class _AccordionHeader(Widget):
 
     def __init__(self, accordion: "Accordion", master: tk.Misc, width: int, height: int, bg: Optional[str] = None):
         self._accordion = accordion
-        super().__init__(master=master, width=width, height=height, bg=bg, cursor="hand2")
+        super().__init__(
+            master=master,
+            width=width,
+            height=height,
+            bg=bg,
+            cursor="hand2",
+            resizable_height=False,
+        )
 
     def _on_theme_changed(self, palette: Palette) -> None:
         super()._on_theme_changed(palette)
         if hasattr(self, "_accordion") and self._accordion.winfo_exists():
             try:
                 self._accordion._content.configure(bg=palette.surface)
+                cascade_bg_to_children(self._accordion._content, palette.surface)
             except Exception:
                 pass
 
@@ -223,7 +296,8 @@ class Accordion(tk.Frame):
         self._scale = ScalingTracker.get_scaling_factor(master)
         s = self._scale
         pal = get_theme()
-        self._parent_bg = parent_bg or pal.bg
+        self._explicit_parent_bg = parent_bg
+        self._parent_bg = parent_bg or Widget._resolve_default_bg(master, pal)
         super().__init__(
             master,
             width=max(1, int(width * s)),
@@ -238,6 +312,38 @@ class Accordion(tk.Frame):
         self._header.bind("<ButtonRelease-1>", self._toggle)
 
         self._content = tk.Frame(self, bg=pal.surface, padx=int(12 * s), pady=int(10 * s))
+        self.bind("<Destroy>", self._on_destroy)
+        add_theme_listener(self._on_theme_changed)
+        self._render_header()
+
+    def _on_destroy(self, event) -> None:
+        remove_theme_listener(self._on_theme_changed)
+
+    def set_parent_bg(self, bg: str, force: bool = False) -> None:
+        """Update parent background and re-render."""
+        self._parent_bg = resolve_color_failsafe(bg, master=self, fallback=self._parent_bg)
+        if force:
+            self._explicit_parent_bg = None
+        try:
+            self.configure(bg=self._parent_bg)
+        except Exception:
+            pass
+        if hasattr(self, "_header"):
+            self._header.set_parent_bg(self._parent_bg, force=force)
+        self._render_header()
+
+    def _on_theme_changed(self, palette: Palette) -> None:
+        if not self.winfo_exists():
+            return
+        if self._explicit_parent_bg is None:
+            self._parent_bg = Widget._resolve_default_bg(getattr(self, "master", None), palette)
+        try:
+            self.configure(bg=self._parent_bg)
+            if hasattr(self, "_content") and self._content.winfo_exists():
+                self._content.configure(bg=palette.surface)
+                cascade_bg_to_children(self._content, palette.surface)
+        except Exception:
+            pass
         self._render_header()
 
     @property

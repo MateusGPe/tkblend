@@ -49,7 +49,7 @@ from tkblend.widgets import (
     Accordion,
     ModernAccordion,
 )
-from tkblend.theme import set_theme
+from tkblend.theme import set_theme, DARK_PALETTE, LIGHT_PALETTE
 
 
 @pytest.fixture
@@ -479,16 +479,269 @@ def test_frame_and_card(root):
     frame.render()
     card = Card(root, title="Analytics Card", width=240, height=160)
     card.render()
+    assert card.content is card
+    cf = card.create_content_frame()
+    assert cf.master is card
+    cf.destroy()
     frame.destroy()
+    card.destroy()
+
+
+def test_widget_hierarchy_bg_resolution(root):
+    set_theme("dark")
+    card = Card(root, title="Test Card")
+    # Button directly inside card
+    btn = Button(card, text="Direct")
+    assert btn._parent_bg == card._bg_color
+
+    # Button inside a child tk.Frame inside card
+    subframe = tk.Frame(card)
+    btn_nested = Button(subframe, text="Nested")
+    assert btn_nested._parent_bg == card._bg_color
+
+    # Switch theme to light and verify both adapt
+    set_theme("light")
+    root.update_idletasks()
+    assert btn._parent_bg == "#ffffff"
+    assert btn_nested._parent_bg == "#ffffff"
+
+    # Switch back to dark
+    set_theme("dark")
+    root.update_idletasks()
+    assert btn._parent_bg == "#252538"
+    assert btn_nested._parent_bg == "#252538"
+
+    btn.destroy()
+    btn_nested.destroy()
+    subframe.destroy()
     card.destroy()
 
 
 def test_theme_switch_redraw(root):
     btn = Button(root, text="Themed")
     btn.render()
-    # Trigger theme switch - verifies listeners don't crash
+    card = Card(root, title="Card")
+    frame = Frame(root)
+    sw = Switch(root)
+    seg = SegmentedControl(root, values=["A", "B"])
+
+    # Switch to light
     set_theme("light")
-    btn.render()
+    root.update_idletasks()
+    assert btn._get_variant_colors("primary")["bg"] == "#2563eb"
+    assert card._bg_color == "#ffffff"
+    assert frame._bg_color == "#ffffff"
+
+    # Switch back to dark
     set_theme("dark")
-    btn.render()
+    root.update_idletasks()
+    assert btn._get_variant_colors("primary")["bg"] == "#89b4fa"
+    assert card._bg_color == "#252538"
+    assert frame._bg_color == "#252538"
+
     btn.destroy()
+    card.destroy()
+    frame.destroy()
+    sw.destroy()
+    seg.destroy()
+
+
+def test_deep_mixed_hierarchy_bg_resolution(root):
+    import tkinter.ttk as ttk
+    set_theme("dark")
+
+    # Card (tkblend) -> tk.Frame (standard Tk) -> ttk.Frame (ttk container) -> tkblend widgets
+    card = Card(root, title="Compound Card")
+    tk_frame = tk.Frame(card)
+    ttk_frame = ttk.Frame(tk_frame)
+
+    btn = Button(ttk_frame, text="Deep Button")
+    inp = TextInput(ttk_frame, placeholder="Deep Input")
+    slider = Slider(ttk_frame, value=50)
+
+    root.update_idletasks()
+    # All deep children should resolve to the enclosing Card's background
+    assert btn._parent_bg == card._bg_color
+    assert inp._parent_bg == card._bg_color
+    assert slider._parent_bg == card._bg_color
+
+    # Switch theme to light and verify all deep descendants update
+    set_theme("light")
+    root.update_idletasks()
+    assert btn._parent_bg == "#ffffff"
+    assert inp._parent_bg == "#ffffff"
+    assert slider._parent_bg == "#ffffff"
+
+    # Switch back to dark
+    set_theme("dark")
+    root.update_idletasks()
+    assert btn._parent_bg == "#252538"
+    assert inp._parent_bg == "#252538"
+    assert slider._parent_bg == "#252538"
+
+    btn.destroy()
+    inp.destroy()
+    slider.destroy()
+    ttk_frame.destroy()
+    tk_frame.destroy()
+    card.destroy()
+
+
+def test_accordion_geometry_under_theme_switch_and_fill_x(root):
+    set_theme("dark")
+    card = Card(root, title="Card Container", width=400, height=300)
+    card.pack()
+    acc = Accordion(card, title="Test Accordion", width=350)
+    acc.pack(fill="x")
+    root.update()
+
+    scale = acc._scale
+    expected_h = max(1, int(38 * scale))
+    assert acc._header._widget_h == expected_h
+
+    # Trigger theme switch to light: container background updates must not collapse header height
+    set_theme("light")
+    root.update_idletasks()
+    assert acc._header._widget_h == expected_h
+    assert acc._header.winfo_reqheight() == expected_h
+
+    # Trigger theme switch back to dark
+    set_theme("dark")
+    root.update_idletasks()
+    assert acc._header._widget_h == expected_h
+    assert acc._header.winfo_reqheight() == expected_h
+
+    card.destroy()
+
+
+def test_widget_transient_configure_guard(root):
+    btn = Button(root, text="Guard Test", width=120, height=40)
+    btn.pack()
+    root.update()
+
+    init_w = btn._widget_w
+    init_h = btn._widget_h
+
+    # Simulate transient unmapped/intermediate geometry events with <= 1 dimensions
+    class DummyEvent:
+        width = 1
+        height = 1
+
+    btn._on_configure(DummyEvent())
+    assert btn._widget_w == init_w
+    assert btn._widget_h == init_h
+
+    btn.destroy()
+
+
+def test_progress_bar_and_circular_gauge_dynamic_theme_switching(root):
+    set_theme("dark")
+    root.update_idletasks()
+
+    pb_default = ProgressBar(root, value=30.0)
+    pb_custom = ProgressBar(root, value=30.0, track_color="#112233", fill_color_start="#445566")
+    cp_default = CircularProgress(root, value=50.0)
+    cp_semantic = CircularProgress(root, value=50.0, fill_color="accent")
+    cp_custom = CircularProgress(root, value=50.0, track_color="#aabbcc")
+
+    root.update_idletasks()
+
+    # Initial dark theme verification
+    assert pb_default.track_color == DARK_PALETTE.track_bg
+    assert pb_default._fill_start == DARK_PALETTE.primary
+    assert pb_custom.track_color == "#112233"
+    assert pb_custom._fill_start == "#445566"
+    assert cp_default.track_color == DARK_PALETTE.track_bg
+    assert cp_default.fill_color == DARK_PALETTE.primary
+    assert cp_semantic.fill_color == DARK_PALETTE.accent
+    assert cp_custom.track_color == "#aabbcc"
+
+    # Switch to light theme
+    set_theme("light")
+    root.update_idletasks()
+
+    assert pb_default.track_color == LIGHT_PALETTE.track_bg
+    assert pb_default._fill_start == LIGHT_PALETTE.primary
+    assert pb_custom.track_color == "#112233"
+    assert pb_custom._fill_start == "#445566"
+    assert cp_default.track_color == LIGHT_PALETTE.track_bg
+    assert cp_default.fill_color == LIGHT_PALETTE.primary
+    assert cp_semantic.fill_color == LIGHT_PALETTE.accent
+    assert cp_custom.track_color == "#aabbcc"
+
+    # Switch back to dark theme
+    set_theme("dark")
+    root.update_idletasks()
+
+    assert pb_default.track_color == DARK_PALETTE.track_bg
+    assert cp_default.track_color == DARK_PALETTE.track_bg
+    assert cp_semantic.fill_color == DARK_PALETTE.accent
+
+    pb_default.destroy()
+    pb_custom.destroy()
+    cp_default.destroy()
+    cp_semantic.destroy()
+    cp_custom.destroy()
+
+
+def test_slider_and_range_slider_dynamic_theme_switching(root):
+    set_theme("dark")
+    root.update_idletasks()
+
+    slider_default = Slider(root, value=40.0)
+    slider_semantic = Slider(root, value=40.0, active_track_color="accent")
+    slider_custom = Slider(root, value=40.0, track_color="#334455", knob_color="#667788")
+
+    rs_default = RangeSlider(root, low_val=20.0, high_val=80.0)
+    rs_semantic = RangeSlider(root, low_val=20.0, high_val=80.0, active_color="warning")
+    rs_custom = RangeSlider(root, low_val=20.0, high_val=80.0, knob_color="#fedcba")
+
+    root.update_idletasks()
+
+    # Initial dark theme verification
+    assert slider_default.track_color == DARK_PALETTE.track_bg
+    assert slider_default.active_track_color == DARK_PALETTE.primary
+    assert slider_default.knob_color == DARK_PALETTE.thumb_color
+    assert slider_semantic.active_track_color == DARK_PALETTE.accent
+    assert slider_custom.track_color == "#334455"
+    assert slider_custom.knob_color == "#667788"
+
+    assert rs_default.track_color == DARK_PALETTE.track_bg
+    assert rs_default.active_color == DARK_PALETTE.success
+    assert rs_default.knob_color == DARK_PALETTE.thumb_color
+    assert rs_semantic.active_color == DARK_PALETTE.warning
+    assert rs_custom.knob_color == "#fedcba"
+
+    # Switch to light theme
+    set_theme("light")
+    root.update_idletasks()
+
+    assert slider_default.track_color == LIGHT_PALETTE.track_bg
+    assert slider_default.active_track_color == LIGHT_PALETTE.primary
+    assert slider_default.knob_color == LIGHT_PALETTE.thumb_color
+    assert slider_semantic.active_track_color == LIGHT_PALETTE.accent
+    assert slider_custom.track_color == "#334455"
+    assert slider_custom.knob_color == "#667788"
+
+    assert rs_default.track_color == LIGHT_PALETTE.track_bg
+    assert rs_default.active_color == LIGHT_PALETTE.success
+    assert rs_default.knob_color == LIGHT_PALETTE.thumb_color
+    assert rs_semantic.active_color == LIGHT_PALETTE.warning
+    assert rs_custom.knob_color == "#fedcba"
+
+    # Switch back to dark theme
+    set_theme("dark")
+    root.update_idletasks()
+
+    assert slider_default.track_color == DARK_PALETTE.track_bg
+    assert rs_default.track_color == DARK_PALETTE.track_bg
+
+    slider_default.destroy()
+    slider_semantic.destroy()
+    slider_custom.destroy()
+    rs_default.destroy()
+    rs_semantic.destroy()
+    rs_custom.destroy()
+
+
+

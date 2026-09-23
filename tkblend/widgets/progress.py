@@ -8,8 +8,16 @@ import tkinter as tk
 from typing import Optional
 
 from tkblend.surface import LinearGradient, Path, ColorLike
-from tkblend.theme import get_theme
+from tkblend.theme import get_theme, Palette, resolve_color_failsafe
 from tkblend.widgets.base import Widget
+
+
+def _resolve_color(color: Optional[ColorLike], fallback: str, pal: Palette) -> ColorLike:
+    if color is None:
+        return fallback
+    if isinstance(color, str):
+        return resolve_color_failsafe(color, fallback=fallback, palette=pal)
+    return color
 
 
 class ProgressBar(Widget):
@@ -30,11 +38,34 @@ class ProgressBar(Widget):
         **kwargs,
     ):
         self._value = max(0.0, min(100.0, float(value)))
-        pal = get_theme()
-        self._track_color = track_color or pal.track_bg
-        self._fill_start = fill_color_start or pal.primary
-        self._fill_end = fill_color_end or pal.accent
+        self._explicit_track_color = track_color
+        self._explicit_fill_start = fill_color_start
+        self._explicit_fill_end = fill_color_end
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
+
+    @property
+    def track_color(self) -> ColorLike:
+        pal = get_theme()
+        return _resolve_color(self._explicit_track_color, pal.track_bg, pal)
+
+    @track_color.setter
+    def track_color(self, val: Optional[ColorLike]) -> None:
+        self._explicit_track_color = val
+        self.render()
+
+    @property
+    def _track_color(self) -> ColorLike:
+        return self.track_color
+
+    @property
+    def _fill_start(self) -> ColorLike:
+        pal = get_theme()
+        return _resolve_color(self._explicit_fill_start, pal.primary, pal)
+
+    @property
+    def _fill_end(self) -> ColorLike:
+        pal = get_theme()
+        return _resolve_color(self._explicit_fill_end, pal.accent, pal)
 
     @property
     def value(self) -> float:
@@ -55,13 +86,18 @@ class ProgressBar(Widget):
         h = self._widget_h - pad * 2.0
         r = h / 2.0
 
-        self._surface.fill_rounded_rect(pad, pad, w, h, r, r, self._track_color)
+        pal = get_theme()
+        track_col = _resolve_color(self._explicit_track_color, pal.track_bg, pal)
+        fill_start = _resolve_color(self._explicit_fill_start, pal.primary, pal)
+        fill_end = _resolve_color(self._explicit_fill_end, pal.accent, pal)
+
+        self._surface.fill_rounded_rect(pad, pad, w, h, r, r, track_col)
 
         if self._value > 0.5:
             fill_w = max(r * 2.0, (self._value / 100.0) * w)
             grad = LinearGradient(pad, pad, pad + fill_w, pad)
-            grad.add_stop(0.0, self._fill_start)
-            grad.add_stop(1.0, self._fill_end)
+            grad.add_stop(0.0, fill_start)
+            grad.add_stop(1.0, fill_end)
             self._surface.fill_rounded_rect(pad, pad, fill_w, h, r, r, grad)
 
         self._surface.blit(self._photo)
@@ -89,11 +125,38 @@ class CircularProgress(Widget):
     ):
         self._value = max(0.0, min(100.0, float(value)))
         self._stroke_w = stroke_width
-        pal = get_theme()
-        self._track_color = track_color or pal.track_bg
-        self._fill_color = fill_color or pal.primary
+        self._explicit_track_color = track_color
+        self._explicit_fill_color = fill_color
         self._unit = unit
         super().__init__(master=master, width=size, height=size, bg=parent_bg, **kwargs)
+
+    @property
+    def track_color(self) -> ColorLike:
+        pal = get_theme()
+        return _resolve_color(self._explicit_track_color, pal.track_bg, pal)
+
+    @track_color.setter
+    def track_color(self, val: Optional[ColorLike]) -> None:
+        self._explicit_track_color = val
+        self.render()
+
+    @property
+    def _track_color(self) -> ColorLike:
+        return self.track_color
+
+    @property
+    def fill_color(self) -> ColorLike:
+        pal = get_theme()
+        return _resolve_color(self._explicit_fill_color, pal.primary, pal)
+
+    @fill_color.setter
+    def fill_color(self, val: Optional[ColorLike]) -> None:
+        self._explicit_fill_color = val
+        self.render()
+
+    @property
+    def _fill_color(self) -> ColorLike:
+        return self.fill_color
 
     @property
     def value(self) -> float:
@@ -118,19 +181,22 @@ class CircularProgress(Widget):
         if r <= 0:
             return
 
+        pal = get_theme()
+        track_col = _resolve_color(self._explicit_track_color, pal.track_bg, pal)
+        fill_col = _resolve_color(self._explicit_fill_color, pal.primary, pal)
+
         # Background circular track
-        self._surface.stroke_circle(cx, cy, r, self._track_color, stroke_width=sw)
+        self._surface.stroke_circle(cx, cy, r, track_col, stroke_width=sw)
 
         # Progress Arc using Path arc_to
         if self._value > 0.0:
             sweep = (self._value / 100.0) * (2.0 * math.pi)
             p = Path()
             p.arc_to(cx, cy, r, r, -math.pi / 2.0, sweep)
-            self._surface.stroke_path(p, self._fill_color, stroke_width=sw)
+            self._surface.stroke_path(p, fill_col, stroke_width=sw)
 
         # Center Value Readout
         font_sz = 16.0 * s
-        pal = get_theme()
         self._surface.draw_text(
             f"{int(self._value)}{self._unit}",
             cx,

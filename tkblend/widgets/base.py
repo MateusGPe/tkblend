@@ -9,7 +9,14 @@ from math import floor, ceil
 from typing import Optional, Union, List, Tuple, Any
 
 from tkblend.surface import Surface
-from tkblend.theme import get_theme, Palette, add_theme_listener, remove_theme_listener
+from tkblend.theme import (
+    get_theme,
+    Palette,
+    add_theme_listener,
+    remove_theme_listener,
+    resolve_ancestor_bg,
+    resolve_color_failsafe,
+)
 
 
 def _round_half_away(value: float) -> int:
@@ -94,12 +101,18 @@ class Widget(tk.Label):
     and dynamic theme notifications.
     """
 
+    @classmethod
+    def _resolve_default_bg(cls, master: Optional[tk.Misc], palette: Palette) -> str:
+        """Resolve background color from ancestor hierarchy (Card/Frame inner bg, Tk container bg, or palette.bg)."""
+        return resolve_ancestor_bg(master, palette)
+
     def __init__(
         self,
         master: Optional[tk.Misc] = None,
         width: int = 120,
         height: int = 40,
         bg: Optional[str] = None,
+        parent_bg: Optional[str] = None,
         **kwargs,
     ):
         self._logical_w = max(1, width)
@@ -108,8 +121,9 @@ class Widget(tk.Label):
 
         self._widget_w = max(1, int(self._logical_w * self._scale))
         self._widget_h = max(1, int(self._logical_h * self._scale))
-        self._explicit_bg = bg
-        self._parent_bg = bg or get_theme().bg
+        eff_bg = parent_bg if parent_bg is not None else bg
+        self._explicit_bg = eff_bg
+        self._parent_bg = eff_bg if eff_bg is not None else self._resolve_default_bg(master, get_theme())
 
         self._photo = tk.PhotoImage(master=master, width=self._widget_w, height=self._widget_h)
         self._surface = Surface(self._widget_w, self._widget_h)
@@ -118,6 +132,9 @@ class Widget(tk.Label):
         self._is_pressed = False
         self._is_disabled = False
         self._has_focus = False
+
+        self.resizable_width: bool = kwargs.pop("resizable_width", True)
+        self.resizable_height: bool = kwargs.pop("resizable_height", True)
 
         super().__init__(
             master,
@@ -155,11 +172,23 @@ class Widget(tk.Label):
     def _on_destroy(self, event) -> None:
         remove_theme_listener(self._on_theme_changed)
 
+    def set_parent_bg(self, bg: str, force: bool = False) -> None:
+        """Explicitly update the parent background and re-render."""
+        resolved = resolve_color_failsafe(bg, master=self, fallback=self._parent_bg)
+        self._parent_bg = resolved
+        if force:
+            self._explicit_bg = None
+        try:
+            self.configure(background=self._parent_bg)
+        except Exception:
+            pass
+        self.render()
+
     def _on_theme_changed(self, palette: Palette) -> None:
         if not self.winfo_exists():
             return
         if self._explicit_bg is None:
-            self._parent_bg = palette.bg
+            self._parent_bg = self._resolve_default_bg(getattr(self, "master", None), palette)
             try:
                 self.configure(background=self._parent_bg)
             except Exception:
@@ -167,8 +196,16 @@ class Widget(tk.Label):
         self.render()
 
     def _on_configure(self, event) -> None:
-        new_w = max(1, event.width)
-        new_h = max(1, event.height)
+        # Ignore unmapped / transient <= 1px geometry events during container layout recalculations
+        if event.width <= 1 or event.height <= 1:
+            return
+
+        new_w = max(1, event.width) if self.resizable_width else self._widget_w
+        new_h = (
+            max(1, event.height)
+            if self.resizable_height
+            else max(1, int(self._logical_h * self._scale))
+        )
         if new_w != self._widget_w or new_h != self._widget_h:
             self._widget_w = new_w
             self._widget_h = new_h
@@ -234,3 +271,52 @@ class Widget(tk.Label):
 
 
 ModernWidget = Widget
+
+
+def cascade_bg_to_children(container: Any, bg: str, preserve_overrides: bool = True) -> None:
+    """Recursively propagate background color down through child widgets."""
+    if not hasattr(container, "winfo_children"):
+        return
+    try:
+        children = container.winfo_children()
+    except Exception:
+        return
+
+    for child in children:
+        try:
+            if not child.winfo_exists():
+                continue
+        except Exception:
+            continue
+
+        # Skip the internal backing surface label of Card / Frame
+        if getattr(container, "_bg_label", None) is child:
+            continue
+
+        # If it's a vector Widget or has set_parent_bg:
+        if hasattr(child, "set_parent_bg"):
+            if preserve_overrides and getattr(child, "_explicit_bg", None) is not None:
+                continue
+            try:
+                child.set_parent_bg(bg)
+            except Exception:
+                pass
+            continue
+
+        # If child is a Frame/Card with its own _bg_color:
+        if hasattr(child, "_bg_color"):
+            if hasattr(child, "set_parent_bg"):
+                try:
+                    child.set_parent_bg(bg)
+                except Exception:
+                    pass
+            continue
+
+        # Standard container (e.g. tk.Frame, tk.Canvas): update its background and recurse
+        if hasattr(child, "configure"):
+            try:
+                child.configure(background=bg)
+            except Exception:
+                pass
+        cascade_bg_to_children(child, bg, preserve_overrides=preserve_overrides)
+

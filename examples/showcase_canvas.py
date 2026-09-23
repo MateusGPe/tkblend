@@ -22,6 +22,8 @@ from tkblend import (
     ColorLike,
     parse_color,
 )
+from tkblend.theme import get_theme, set_theme, Palette
+from tkblend.widgets import ModernSegmentedControl
 
 
 # ============================================================================
@@ -162,6 +164,15 @@ class ModernWidget(tk.Label):
     def photo(self) -> tk.PhotoImage:
         return self._photo
 
+    def set_parent_bg(self, bg: str) -> None:
+        self._bg_window = bg
+        self._parent_bg = bg
+        try:
+            self.configure(background=bg)
+        except Exception:
+            pass
+        self.render()
+
     def _on_configure(self, event) -> None:
         new_w = max(1, event.width)
         new_h = max(1, event.height)
@@ -277,6 +288,18 @@ class ModernFrame(tk.Frame):
         self._bg_color = bg_color
         self.render()
 
+    def set_theme_colors(self, bg_color: ColorLike, border_color: ColorLike, parent_bg: str) -> None:
+        self._bg_color = bg_color
+        self._border_color = border_color
+        self._parent_bg = parent_bg
+        try:
+            self.configure(background=parent_bg)
+            if hasattr(self, "_bg_label"):
+                self._bg_label.configure(background=parent_bg)
+        except Exception:
+            pass
+        self.render()
+
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
 
@@ -346,13 +369,14 @@ class ModernCard(ModernFrame):
         super().render()
         if self._title:
             pad = max(4.0 * self._scale, self._elevation * 0.8)
+            pal = get_theme()
             self._surface.draw_text(
                 self._title,
                 x=pad + 16.0 * self._scale,
                 y=pad + 28.0 * self._scale,
                 font_size=15.0 * self._scale,
                 font_family="sans-serif",
-                color="#cdd6f4",
+                color=pal.fg,
             )
             self._surface.blit(self._photo)
 
@@ -416,6 +440,13 @@ class ModernButton(ModernWidget):
     def set_text(self, text: str) -> None:
         self._text = text
         self.render()
+
+    def set_theme_colors(self, bg_color: ColorLike, hover_color: ColorLike, press_color: ColorLike, text_color: ColorLike, parent_bg: str) -> None:
+        self._bg_color = bg_color
+        self._hover_color = hover_color
+        self._press_color = press_color
+        self._text_color = text_color
+        self.set_parent_bg(parent_bg)
 
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
@@ -736,7 +767,8 @@ class ShowcaseApp:
 
         self.root.geometry(f"{w}x{h}")
         self.root.minsize(min_w, min_h)
-        self.root.configure(bg="#11111b")
+        pal = get_theme()
+        self.root.configure(bg=pal.bg)
 
         self._start_time = time.perf_counter()
         self._fps_frames = 0
@@ -747,11 +779,11 @@ class ShowcaseApp:
         sidebar_w = int(300 * self._scale)
         pad = int(12 * self._scale)
 
-        self.sidebar = tk.Frame(root, bg="#181825", width=sidebar_w)
+        self.sidebar = tk.Frame(root, bg=pal.surface, width=sidebar_w)
         self.sidebar.pack(side="left", fill="y", padx=pad, pady=pad)
         self.sidebar.pack_propagate(False)
 
-        self.content = tk.Frame(root, bg="#11111b")
+        self.content = tk.Frame(root, bg=pal.bg)
         self.content.pack(side="right", fill="both", expand=True, padx=pad, pady=pad)
 
         self._setup_sidebar()
@@ -759,181 +791,243 @@ class ShowcaseApp:
 
     def _setup_sidebar(self):
         s = self._scale
+        pal = get_theme()
+        card_bg = pal.surface if pal.dark_mode else pal.card_bg
+
         # Header Card
-        header_card = ModernCard(
+        self.header_card = ModernCard(
             self.sidebar,
             title="",
             width=276,
             height=90,
             rx=16,
             ry=16,
-            bg_color="#1e1e2e",
-            border_color="#313244",
+            bg_color=card_bg,
+            border_color=pal.card_border,
             border_width=1.0,
             elevation=10.0,
-            parent_bg="#181825",
+            parent_bg=pal.surface,
         )
-        header_card.pack(fill="x", pady=(0, int(16 * s)))
+        self.header_card.pack(fill="x", pady=(0, int(10 * s)))
 
         # Title Label within card
-        lbl_title = tk.Label(
-            header_card,
+        self.lbl_title = tk.Label(
+            self.header_card,
             text="tkblend Engine",
             font=("DejaVu Sans", int(16 * s), "bold"),
-            fg="#cdd6f4",
-            bg="#1e1e2e",
+            fg=pal.fg,
+            bg=card_bg,
         )
-        lbl_title.pack(anchor="w", padx=int(16 * s), pady=(int(16 * s), int(2 * s)))
+        self.lbl_title.pack(anchor="w", padx=int(16 * s), pady=(int(16 * s), int(2 * s)))
 
-        lbl_sub = tk.Label(
-            header_card,
+        self.lbl_sub = tk.Label(
+            self.header_card,
             text="Blend2D + Tk_PhotoPutBlock",
             font=("DejaVu Sans", int(10 * s)),
-            fg="#a6adc8",
-            bg="#1e1e2e",
+            fg=pal.text_muted,
+            bg=card_bg,
         )
-        lbl_sub.pack(anchor="w", padx=int(16 * s))
+        self.lbl_sub.pack(anchor="w", padx=int(16 * s))
+
+        # Theme Switcher Segmented Control
+        self.theme_switcher = ModernSegmentedControl(
+            self.sidebar,
+            values=["🌙 Dark", "☀️ Light"],
+            selected_index=0 if pal.dark_mode else 1,
+            on_change=self._on_theme_switch,
+            width=276,
+            height=34,
+            parent_bg=pal.surface,
+        )
+        self.theme_switcher.pack(fill="x", pady=(0, int(12 * s)))
 
         # Controls Section
-        ctrl_card = ModernCard(
+        self.ctrl_card = ModernCard(
             self.sidebar,
             title="",
             width=276,
             height=540,
             rx=16,
             ry=16,
-            bg_color="#1e1e2e",
-            border_color="#313244",
+            bg_color=card_bg,
+            border_color=pal.card_border,
             border_width=1.0,
             elevation=10.0,
-            parent_bg="#181825",
+            parent_bg=pal.surface,
         )
-        ctrl_card.pack(fill="both", expand=True)
+        self.ctrl_card.pack(fill="both", expand=True)
 
         # Action Buttons
-        lbl_actions = tk.Label(
-            ctrl_card,
+        self.lbl_actions = tk.Label(
+            self.ctrl_card,
             text="Interactive Widgets",
             font=("DejaVu Sans", int(12 * s), "bold"),
-            fg="#cdd6f4",
-            bg="#1e1e2e",
+            fg=pal.fg,
+            bg=card_bg,
         )
-        lbl_actions.pack(anchor="w", padx=int(16 * s), pady=(int(16 * s), int(12 * s)))
+        self.lbl_actions.pack(anchor="w", padx=int(16 * s), pady=(int(16 * s), int(12 * s)))
 
         self.btn_primary = ModernButton(
-            ctrl_card,
+            self.ctrl_card,
             text="Primary Action",
             command=self._on_btn_click,
             width=244,
             height=42,
             rx=12,
             ry=12,
-            bg_color="#89b4fa",
-            hover_color="#b4befe",
-            press_color="#74c7ec",
-            text_color="#11111b",
+            bg_color=pal.primary,
+            hover_color=pal.primary_hover,
+            press_color=pal.primary_active,
+            text_color=pal.primary_fg,
             font_size=13.0,
             elevation=6.0,
-            parent_bg="#1e1e2e",
+            parent_bg=card_bg,
         )
         self.btn_primary.pack(fill="x", padx=int(16 * s), pady=int(6 * s))
 
         self.btn_secondary = ModernButton(
-            ctrl_card,
+            self.ctrl_card,
             text="Accent Action",
             command=self._on_accent_click,
             width=244,
             height=42,
             rx=12,
             ry=12,
-            bg_color="#a6e3a1",
-            hover_color="#94e2d5",
-            press_color="#89dceb",
-            text_color="#11111b",
+            bg_color=pal.accent,
+            hover_color=pal.primary_hover,
+            press_color=pal.accent,
+            text_color="#ffffff" if not pal.dark_mode else "#11111b",
             font_size=13.0,
             elevation=6.0,
-            parent_bg="#1e1e2e",
+            parent_bg=card_bg,
         )
         self.btn_secondary.pack(fill="x", padx=int(16 * s), pady=int(6 * s))
 
         # Progress Section
-        lbl_progress = tk.Label(
-            ctrl_card,
+        self.lbl_progress = tk.Label(
+            self.ctrl_card,
             text="Vector Progress",
             font=("DejaVu Sans", int(11 * s), "bold"),
-            fg="#cdd6f4",
-            bg="#1e1e2e",
+            fg=pal.fg,
+            bg=card_bg,
         )
-        lbl_progress.pack(anchor="w", padx=int(16 * s), pady=(int(16 * s), int(6 * s)))
+        self.lbl_progress.pack(anchor="w", padx=int(16 * s), pady=(int(16 * s), int(6 * s)))
 
         self.progress_bar = ModernProgressBar(
-            ctrl_card,
+            self.ctrl_card,
             width=244,
             height=14,
             value=65.0,
             fill_color_start="#f38ba8",
             fill_color_end="#fab387",
-            parent_bg="#1e1e2e",
+            parent_bg=card_bg,
         )
         self.progress_bar.pack(fill="x", padx=int(16 * s), pady=int(4 * s))
 
         # Slider Section
-        lbl_slider = tk.Label(
-            ctrl_card,
+        self.lbl_slider = tk.Label(
+            self.ctrl_card,
             text="Elevation & Radius Slider",
             font=("DejaVu Sans", int(11 * s), "bold"),
-            fg="#cdd6f4",
-            bg="#1e1e2e",
+            fg=pal.fg,
+            bg=card_bg,
         )
-        lbl_slider.pack(anchor="w", padx=int(16 * s), pady=(int(16 * s), int(6 * s)))
+        self.lbl_slider.pack(anchor="w", padx=int(16 * s), pady=(int(16 * s), int(6 * s)))
 
         self.slider = ModernSlider(
-            ctrl_card,
+            self.ctrl_card,
             width=244,
             height=28,
             min_val=5.0,
             max_val=40.0,
             value=20.0,
             on_change=self._on_slider_change,
-            active_track_color="#cba6f7",
-            knob_color="#f5e0dc",
-            parent_bg="#1e1e2e",
+            active_track_color=pal.accent,
+            knob_color="#f5e0dc" if pal.dark_mode else "#ffffff",
+            parent_bg=card_bg,
         )
         self.slider.pack(fill="x", padx=int(16 * s), pady=int(4 * s))
 
         # Toggle Switch Section
-        switch_frame = tk.Frame(ctrl_card, bg="#1e1e2e")
-        switch_frame.pack(fill="x", padx=int(16 * s), pady=(int(20 * s), int(8 * s)))
+        self.switch_frame = tk.Frame(self.ctrl_card, bg=card_bg)
+        self.switch_frame.pack(fill="x", padx=int(16 * s), pady=(int(20 * s), int(8 * s)))
 
-        lbl_switch = tk.Label(
-            switch_frame,
+        self.lbl_switch = tk.Label(
+            self.switch_frame,
             text="Animated Wave Mode",
             font=("DejaVu Sans", int(11 * s)),
-            fg="#cdd6f4",
-            bg="#1e1e2e",
+            fg=pal.fg,
+            bg=card_bg,
         )
-        lbl_switch.pack(side="left")
+        self.lbl_switch.pack(side="left")
 
         self.switch = ModernSwitch(
-            switch_frame,
+            self.switch_frame,
             width=54,
             height=28,
             is_on=True,
             on_toggle=self._on_switch_toggle,
-            on_color="#a6e3a1",
-            off_color="#45475a",
-            parent_bg="#1e1e2e",
+            on_color=pal.success,
+            off_color=pal.track_bg,
+            parent_bg=card_bg,
         )
         self.switch.pack(side="right")
 
+    def _on_theme_switch(self, idx: int, name: str):
+        theme_name = "dark" if idx == 0 else "light"
+        set_theme(theme_name)
+        pal = get_theme()
+        self._apply_theme(pal)
+
+    def _apply_theme(self, pal: Palette):
+        self.root.configure(bg=pal.bg)
+        self.sidebar.configure(bg=pal.surface)
+        self.content.configure(bg=pal.bg)
+        self.canvas.configure(bg=pal.bg)
+
+        self.theme_switcher.set_parent_bg(pal.surface)
+
+        card_bg = pal.surface if pal.dark_mode else pal.card_bg
+        border_col = pal.card_border
+
+        self.header_card.set_theme_colors(card_bg, border_col, pal.surface)
+        self.lbl_title.configure(bg=card_bg, fg=pal.fg)
+        self.lbl_sub.configure(bg=card_bg, fg=pal.text_muted)
+
+        self.ctrl_card.set_theme_colors(card_bg, border_col, pal.surface)
+        self.lbl_actions.configure(bg=card_bg, fg=pal.fg)
+        self.lbl_progress.configure(bg=card_bg, fg=pal.fg)
+        self.lbl_slider.configure(bg=card_bg, fg=pal.fg)
+        self.switch_frame.configure(bg=card_bg)
+        self.lbl_switch.configure(bg=card_bg, fg=pal.fg)
+
+        self.btn_primary.set_theme_colors(
+            bg_color=pal.primary,
+            hover_color=pal.primary_hover,
+            press_color=pal.primary_active,
+            text_color=pal.primary_fg,
+            parent_bg=card_bg,
+        )
+        self.btn_secondary.set_theme_colors(
+            bg_color=pal.accent,
+            hover_color=pal.primary_hover,
+            press_color=pal.accent,
+            text_color="#ffffff" if not pal.dark_mode else "#11111b",
+            parent_bg=card_bg,
+        )
+        self.progress_bar.set_parent_bg(card_bg)
+        self.slider.set_parent_bg(card_bg)
+        self.switch.set_parent_bg(card_bg)
+
     def _setup_content(self):
         s = self._scale
+        pal = get_theme()
         # BlendCanvas for live real-time interactive vector drawing
         self.canvas = BlendCanvas(
             self.content,
             width=int(760 * s),
             height=int(680 * s),
-            bg="#11111b",
+            bg=pal.bg,
             on_draw=self._draw_scene,
         )
         self.canvas.pack(fill="both", expand=True)
@@ -967,19 +1061,30 @@ class ShowcaseApp:
             self._fps_frames = 0
             self._fps_last_time = now
 
+        pal = get_theme()
         # 1. Background Soft Radial Glow
-        surf.clear("#11111b")
+        surf.clear(pal.bg)
         glow_cx = w * 0.5 + math.cos(t * 0.8) * 150.0 * s
         glow_cy = h * 0.4 + math.sin(t * 0.6) * 100.0 * s
         glow_grad = RadialGradient(glow_cx, glow_cy, 0, glow_cx, glow_cy, max(w, h) * 0.7)
-        glow_grad.add_stop(0.0, "#1e1e2e")
-        glow_grad.add_stop(0.6, "#181825")
-        glow_grad.add_stop(1.0, "#11111b")
+        if pal.dark_mode:
+            glow_grad.add_stop(0.0, "#1e1e2e")
+            glow_grad.add_stop(0.6, "#181825")
+            glow_grad.add_stop(1.0, "#11111b")
+        else:
+            glow_grad.add_stop(0.0, "#ffffff")
+            glow_grad.add_stop(0.6, "#f1f5f9")
+            glow_grad.add_stop(1.0, "#e2e8f0")
         surf.fill_rect(0, 0, w, h, glow_grad)
 
         # 2. Dynamic Fluid Waves
         if self._wave_active:
-            for layer, col in enumerate(["#89b4fa33", "#cba6f744", "#f38ba855"]):
+            wave_cols = (
+                ["#89b4fa33", "#cba6f744", "#f38ba855"]
+                if pal.dark_mode
+                else ["#2563eb28", "#7c3aed38", "#dc262638"]
+            )
+            for layer, col in enumerate(wave_cols):
                 p = Path()
                 p.move_to(0, h)
                 p.line_to(0, h * 0.65)
@@ -1000,22 +1105,30 @@ class ShowcaseApp:
 
         # Gradient Card 1
         card1_grad = LinearGradient(card1_x, card1_y, card1_x + card_w, card1_y + card_h)
-        card1_grad.add_stop(0.0, "#313244dd")
-        card1_grad.add_stop(1.0, "#1e1e2edd")
+        if pal.dark_mode:
+            card1_grad.add_stop(0.0, "#313244dd")
+            card1_grad.add_stop(1.0, "#1e1e2edd")
+            c1_border = "#89b4fa66"
+            c1_shadow = "#00000088"
+        else:
+            card1_grad.add_stop(0.0, "#ffffffdd")
+            card1_grad.add_stop(1.0, "#f1f5f9dd")
+            c1_border = "#2563eb55"
+            c1_shadow = "#00000022"
 
         surf.draw_shadow(
             card1_x, card1_y, card_w, card_h,
             self._anim_radius, self._anim_radius,
             blur_radius=self._anim_radius * 1.2,
-            shadow_color="#00000088",
+            shadow_color=c1_shadow,
             offset_y=8.0 * s
         )
         surf.fill_rounded_rect(card1_x, card1_y, card_w, card_h, self._anim_radius, self._anim_radius, card1_grad)
-        surf.stroke_rounded_rect(card1_x, card1_y, card_w, card_h, self._anim_radius, self._anim_radius, "#89b4fa66", 1.5 * s)
+        surf.stroke_rounded_rect(card1_x, card1_y, card_w, card_h, self._anim_radius, self._anim_radius, c1_border, 1.5 * s)
 
-        surf.draw_text("Vector Card Alpha", card1_x + 20 * s, card1_y + 36 * s, font_size=15 * s, color="#cdd6f4")
-        surf.draw_text("Anti-aliased subpixel text", card1_x + 20 * s, card1_y + 64 * s, font_size=12 * s, color="#a6adc8")
-        surf.fill_circle(card1_x + 180 * s, card1_y + 105 * s, 14 * s, "#a6e3a1")
+        surf.draw_text("Vector Card Alpha", card1_x + 20 * s, card1_y + 36 * s, font_size=15 * s, color=pal.fg)
+        surf.draw_text("Anti-aliased subpixel text", card1_x + 20 * s, card1_y + 64 * s, font_size=12 * s, color=pal.text_muted)
+        surf.fill_circle(card1_x + 180 * s, card1_y + 105 * s, 14 * s, pal.success)
 
         # Card 2 (Radial Gradient Accent)
         card2_x = 300.0 * s
@@ -1023,16 +1136,16 @@ class ShowcaseApp:
         surf.draw_card(
             card2_x, card2_y, card_w, card_h,
             rx=self._anim_radius, ry=self._anim_radius,
-            bg_color="#181825ee",
-            border_color="#cba6f788",
+            bg_color="#181825ee" if pal.dark_mode else "#ffffffee",
+            border_color="#cba6f788" if pal.dark_mode else "#7c3aed66",
             border_width=1.5 * s,
             shadow_blur=self._anim_radius * 1.2,
-            shadow_color="#00000088",
+            shadow_color="#00000088" if pal.dark_mode else "#00000022",
             shadow_offset_y=8.0 * s
         )
-        surf.draw_text("Zero-Copy Blit", card2_x + 20 * s, card2_y + 36 * s, font_size=15 * s, color="#cdd6f4")
-        surf.draw_text("Direct Tk_PhotoPutBlock", card2_x + 20 * s, card2_y + 64 * s, font_size=12 * s, color="#a6adc8")
-        surf.fill_rounded_rect(card2_x + 20 * s, card2_y + 90 * s, 120 * s, 10 * s, 5 * s, 5 * s, "#cba6f7")
+        surf.draw_text("Zero-Copy Blit", card2_x + 20 * s, card2_y + 36 * s, font_size=15 * s, color=pal.fg)
+        surf.draw_text("Direct Tk_PhotoPutBlock", card2_x + 20 * s, card2_y + 64 * s, font_size=12 * s, color=pal.text_muted)
+        surf.fill_rounded_rect(card2_x + 20 * s, card2_y + 90 * s, 120 * s, 10 * s, 5 * s, 5 * s, pal.accent)
 
         # 4. HUD / Status Overlay
         hud_w, hud_h = 160.0 * s, 48.0 * s
@@ -1042,18 +1155,18 @@ class ShowcaseApp:
         surf.draw_card(
             hud_x, hud_y, hud_w, hud_h,
             rx=12 * s, ry=12 * s,
-            bg_color="#181825cc",
-            border_color="#ffffff22",
+            bg_color="#181825cc" if pal.dark_mode else "#ffffffdd",
+            border_color="#ffffff22" if pal.dark_mode else "#00000015",
             border_width=1.0,
             shadow_blur=8.0 * s,
-            shadow_color="#00000044"
+            shadow_color="#00000044" if pal.dark_mode else "#00000018"
         )
         surf.draw_text(
             f"{self._fps:.1f} FPS",
             hud_x + hud_w / 2.0,
             hud_y + hud_h / 2.0 + 5.0 * s,
             font_size=16 * s,
-            color="#a6e3a1",
+            color=pal.success,
             align="center",
         )
 

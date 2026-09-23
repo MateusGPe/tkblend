@@ -6,7 +6,7 @@ from __future__ import annotations
 import tkinter as tk
 from typing import Optional, Callable, Dict
 
-from tkblend.theme import get_theme
+from tkblend.theme import get_theme, adjust_brightness
 from tkblend.widgets.base import Widget, ScalingTracker
 
 
@@ -16,13 +16,51 @@ class Button(Widget):
     micro-elevation on hover, pressed drop-depth animation, keyboard focus ring, and antialiased typography.
     """
 
-    VARIANT_COLORS: Dict[str, Dict[str, str]] = {
-        "primary": {"bg": "#89b4fa", "hover": "#b4befe", "press": "#74c7ec", "fg": "#11111b", "border": "#ffffff22"},
-        "secondary": {"bg": "#313244", "hover": "#45475a", "press": "#585b70", "fg": "#cdd6f4", "border": "#585b70"},
-        "accent": {"bg": "#cba6f7", "hover": "#f5c2e7", "press": "#b4befe", "fg": "#11111b", "border": "#ffffff22"},
-        "destructive": {"bg": "#f38ba8", "hover": "#eba0ac", "press": "#e78284", "fg": "#11111b", "border": "#ffffff22"},
-        "outline": {"bg": "#18182500", "hover": "#31324466", "press": "#45475a88", "fg": "#89b4fa", "border": "#89b4fa"},
-    }
+    @classmethod
+    def _get_variant_colors(cls, variant: str) -> Dict[str, str]:
+        pal = get_theme()
+        if variant == "secondary":
+            return {
+                "bg": pal.secondary,
+                "hover": pal.secondary_hover,
+                "press": pal.secondary_active,
+                "fg": pal.secondary_fg,
+                "border": pal.card_border,
+            }
+        elif variant == "accent":
+            return {
+                "bg": pal.accent,
+                "hover": adjust_brightness(pal.accent, 1.15),
+                "press": adjust_brightness(pal.accent, 0.9),
+                "fg": "#ffffff" if not pal.dark_mode else "#11111b",
+                "border": "#ffffff22" if pal.dark_mode else "#00000015",
+            }
+        elif variant == "destructive":
+            return {
+                "bg": pal.destructive,
+                "hover": adjust_brightness(pal.destructive, 1.15),
+                "press": adjust_brightness(pal.destructive, 0.9),
+                "fg": "#ffffff",
+                "border": "#ffffff22" if pal.dark_mode else "#00000015",
+            }
+        elif variant == "outline":
+            return {
+                "bg": "#00000000",
+                "hover": pal.secondary if not pal.dark_mode else "#31324466",
+                "press": pal.secondary_active if not pal.dark_mode else "#45475a88",
+                "fg": pal.primary,
+                "border": pal.primary,
+            }
+        else:  # primary
+            return {
+                "bg": pal.primary,
+                "hover": pal.primary_hover,
+                "press": pal.primary_active,
+                "fg": pal.primary_fg,
+                "border": "#ffffff22" if pal.dark_mode else "#00000015",
+            }
+
+    VARIANT_COLORS = property(lambda self: {v: Button._get_variant_colors(v) for v in ("primary", "secondary", "accent", "destructive", "outline")})
 
     def __init__(
         self,
@@ -41,7 +79,7 @@ class Button(Widget):
     ):
         self._text = text
         self._command = command
-        self._variant = variant if variant in self.VARIANT_COLORS else "primary"
+        self._variant = variant
         scale = ScalingTracker.get_scaling_factor(master)
         self._rx = rx * scale
         self._ry = ry * scale
@@ -83,7 +121,7 @@ class Button(Widget):
 
     def render(self) -> None:
         self._surface.clear(self._parent_bg)
-        colors = self.VARIANT_COLORS.get(self._variant, self.VARIANT_COLORS["primary"])
+        colors = self._get_variant_colors(self._variant)
 
         cur_bg = colors["bg"]
         cur_elev = self._elevation
