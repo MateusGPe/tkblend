@@ -1,6 +1,7 @@
 #include "animation.hpp"
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
 
 namespace tkblend {
 
@@ -33,6 +34,13 @@ double bounce_out(double n) {
 } // anonymous namespace
 
 double ease(int easing_type, double t) {
+    constexpr int kMaxEasingType = static_cast<int>(EasingType::BounceInOut);
+    if (easing_type < 0 || easing_type > kMaxEasingType) {
+        throw std::invalid_argument(
+            "easing_type " + std::to_string(easing_type) +
+            " is out of valid EasingType range [0, " +
+            std::to_string(kMaxEasingType) + "]");
+    }
     double x = std::clamp(t, 0.0, 1.0);
     EasingType et = static_cast<EasingType>(easing_type);
 

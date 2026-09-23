@@ -95,6 +95,12 @@ void Surface::reset_clip() {
 }
 
 void Surface::set_comp_op(int comp_op) {
+    if (comp_op < 0 || comp_op >= static_cast<int>(BL_COMP_OP_MAX_VALUE)) {
+        throw std::invalid_argument(
+            "comp_op value " + std::to_string(comp_op) +
+            " is out of valid BLCompOp range [0, " +
+            std::to_string(static_cast<int>(BL_COMP_OP_MAX_VALUE) - 1) + "]");
+    }
     std::lock_guard<std::mutex> lock(mutex_);
     ctx_.set_comp_op(static_cast<BLCompOp>(comp_op));
 }

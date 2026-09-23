@@ -9,7 +9,7 @@
 #include <sstream>
 #include <optional>
 #include <stdexcept>
-#include <cstring>
+
 
 namespace nb = nanobind;
 
@@ -606,22 +606,43 @@ void bind_surface(nb::module_& m) {
         
         .def("get_buffer", [](nb::handle self) -> nb::object {
             Surface& s = nb::cast<Surface&>(self);
-            Py_buffer view;
-            std::memset(&view, 0, sizeof(Py_buffer));
-            view.buf = s.data_ptr();
-            view.obj = self.ptr();
-            view.len = static_cast<Py_ssize_t>(s.size_in_bytes());
-            view.itemsize = 1;
-            view.readonly = 0;
-            view.format = const_cast<char*>("B");
-            view.ndim = 1;
-            Py_ssize_t shape[1] = { view.len };
+
+            // Allocate shape on the heap — PyMemoryView_FromBuffer stores shape by pointer,
+            // NOT by value, so a stack array would be a dangling pointer after this lambda
+            // returns. A PyCapsule keeps the allocation alive until the memoryview is GC'd.
+            auto* heap_shape = new Py_ssize_t[1]{ static_cast<Py_ssize_t>(s.size_in_bytes()) };
+
+            PyObject* capsule = PyCapsule_New(
+                heap_shape, nullptr,
+                [](PyObject* cap) noexcept {
+                    delete[] static_cast<Py_ssize_t*>(PyCapsule_GetPointer(cap, nullptr));
+                }
+            );
+            if (!capsule) {
+                delete[] heap_shape;
+                throw std::runtime_error("Failed to create PyCapsule for get_buffer shape");
+            }
+
+            // strides only need to survive the PyMemoryView_FromBuffer call: for a
+            // 1-D contiguous buffer the memoryview copies the stride value internally.
             Py_ssize_t strides[1] = { 1 };
-            view.shape = shape;
-            view.strides = strides;
+
+            Py_buffer view{};
+            view.buf        = s.data_ptr();
+            view.obj        = capsule;   // capsule keeps heap_shape alive as long as the view lives
+            view.len        = heap_shape[0];
+            view.itemsize   = 1;
+            view.readonly   = 0;
+            view.format     = const_cast<char*>("B");
+            view.ndim       = 1;
+            view.shape      = heap_shape;
+            view.strides    = strides;
             view.suboffsets = nullptr;
 
             PyObject* mem = PyMemoryView_FromBuffer(&view);
+            // memoryview now owns the only strong reference to the capsule (via view.obj).
+            // Decrement the extra ref we hold so the capsule's lifetime is tied to the view.
+            Py_DECREF(capsule);
             if (!mem) {
                 throw std::runtime_error("Failed to create memoryview from surface buffer");
             }

@@ -52,7 +52,12 @@ def main():
         import build
     except ImportError:
         print("==> Installing 'build' package...")
-        run_command([sys.executable, "-m", "pip", "install", "build"])
+        uv_bin = shutil.which("uv")
+        if uv_bin:
+            run_command([uv_bin, "pip", "install", "--python", sys.executable, "build"])
+        else:
+            run_command([sys.executable, "-m", "pip", "install", "build"])
+
 
     if args.clean and DIST_DIR.exists():
         print(f"==> Cleaning {DIST_DIR}...")

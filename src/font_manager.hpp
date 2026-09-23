@@ -22,12 +22,17 @@ public:
     std::string get_active_font() const;
     bool set_active_font(const std::string& family_or_path);
 
-    BLFontFace* get_font_face(const std::string& family, int weight = 400, bool italic = false);
+    // Returns a BLFont by value; the lock is held for the entire resolution + construction.
+    // Callers must NOT call this while already holding mutex_.
     BLFont create_font(const std::string& family, float size, int weight = 400, bool italic = false);
 
 private:
     FontManager();
     std::string resolve_system_font_path(const std::string& family, int weight = 400, bool italic = false);
+
+    // Must be called with mutex_ already held. Returns a raw pointer into font_faces_ that
+    // is valid only while the lock is held — never store or use this pointer after releasing.
+    BLFontFace* _get_font_face_locked(const std::string& family, int weight = 400, bool italic = false);
 
     std::unordered_map<std::string, BLFontFace> font_faces_;
     std::unordered_map<std::string, std::string> font_paths_;

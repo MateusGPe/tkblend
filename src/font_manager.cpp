@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <stdexcept>
 
 namespace fs = std::filesystem;
 
@@ -37,7 +38,11 @@ std::string FontManager::resolve_system_font_path(const std::string& family, int
             if (fs::exists(it->second)) {
                 return it->second;
             }
-        } catch (...) {}
+        } catch (const std::exception& e) {
+            throw std::runtime_error(
+                std::string("FontManager::resolve_system_font_path: filesystem error checking cached path '")
+                + it->second + "': " + e.what());
+        }
     }
 
     // 2. Query native platform resolver (DirectWrite/GDI on Win, CoreText on macOS, Fontconfig on Linux)
@@ -52,7 +57,11 @@ std::string FontManager::resolve_system_font_path(const std::string& family, int
                 font_paths_[cache_key] = native_path;
                 return native_path;
             }
-        } catch (...) {}
+        } catch (const std::exception& e) {
+            throw std::runtime_error(
+                std::string("FontManager::resolve_system_font_path: filesystem error checking native path '")
+                + native_path + "': " + e.what());
+        }
     }
 
     return "";
@@ -63,8 +72,10 @@ bool FontManager::load_font_face(const std::string& name, const std::string& fil
         if (!fs::exists(filepath)) {
             return false;
         }
-    } catch (...) {
-        return false;
+    } catch (const std::exception& e) {
+        throw std::runtime_error(
+            std::string("FontManager::load_font_face: filesystem error checking path '")
+            + filepath + "': " + e.what());
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
@@ -126,21 +137,29 @@ int FontManager::register_font_directory(const std::string& dir_path) {
     int count = 0;
     try {
         if (!fs::exists(dir_path)) return 0;
-        for (const auto& entry : fs::recursive_directory_iterator(dir_path, fs::directory_options::skip_permission_denied)) {
+        for (const auto& entry : fs::recursive_directory_iterator(
+                 dir_path, fs::directory_options::skip_permission_denied)) {
             if (entry.is_regular_file()) {
                 std::string ext = entry.path().extension().string();
                 std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
                 if (ext == ".ttf" || ext == ".otf" || ext == ".ttc") {
                     std::string stem = entry.path().stem().string();
                     std::string p = entry.path().string();
-                    if (load_font_face(stem, p)) {
-                        count++;
+                    // A single bad font file must not abort the entire directory scan.
+                    try {
+                        if (load_font_face(stem, p)) {
+                            count++;
+                        }
+                    } catch (const std::exception& /*e*/) {
+                        // Skip unreadable / corrupt font files silently.
                     }
                 }
             }
         }
-    } catch (...) {
-        // Ignore directory scanning exceptions
+    } catch (const std::exception& e) {
+        throw std::runtime_error(
+            std::string("FontManager::register_font_directory: error scanning '")
+            + dir_path + "': " + e.what());
     }
     return count;
 }
@@ -158,16 +177,24 @@ bool FontManager::set_active_font(const std::string& family_or_path) {
     std::string lower = family_or_path;
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
 
+    // If it looks like a file path, try loading it first (outside the main lock).
+    bool looks_like_path = false;
     try {
-        if (fs::exists(family_or_path) && fs::is_regular_file(family_or_path)) {
-            std::string stem = fs::path(family_or_path).stem().string();
-            if (load_font_face(stem, family_or_path)) {
-                std::lock_guard<std::mutex> lock(mutex_);
-                default_font_family_ = stem;
-                return true;
-            }
+        looks_like_path = fs::exists(family_or_path) && fs::is_regular_file(family_or_path);
+    } catch (const std::exception& e) {
+        throw std::runtime_error(
+            std::string("FontManager::set_active_font: filesystem error checking path '")
+            + family_or_path + "': " + e.what());
+    }
+
+    if (looks_like_path) {
+        std::string stem = fs::path(family_or_path).stem().string();
+        if (load_font_face(stem, family_or_path)) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            default_font_family_ = stem;
+            return true;
         }
-    } catch (...) {}
+    }
 
     // Check if already loaded
     {
@@ -188,8 +215,9 @@ bool FontManager::set_active_font(const std::string& family_or_path) {
     return false;
 }
 
-BLFontFace* FontManager::get_font_face(const std::string& family, int weight, bool italic) {
-    std::lock_guard<std::mutex> lock(mutex_);
+// Private — MUST be called with mutex_ already held.
+// Returns a pointer into font_faces_; valid only while the lock is held.
+BLFontFace* FontManager::_get_font_face_locked(const std::string& family, int weight, bool italic) {
     std::string lower_family = family;
     std::transform(lower_family.begin(), lower_family.end(), lower_family.begin(), ::tolower);
 
@@ -208,7 +236,8 @@ BLFontFace* FontManager::get_font_face(const std::string& family, int weight, bo
         return &it->second;
     }
 
-    // 2. Lazily resolve path
+    // 2. Lazily resolve path (resolve_system_font_path reads font_paths_ but does not
+    //    lock — caller already holds mutex_).
     std::string path = resolve_system_font_path(lower_family, weight, italic);
     if (!path.empty()) {
         BLFontFace face;
@@ -279,7 +308,10 @@ BLFontFace* FontManager::get_font_face(const std::string& family, int weight, bo
 }
 
 BLFont FontManager::create_font(const std::string& family, float size, int weight, bool italic) {
-    BLFontFace* face = get_font_face(family, weight, italic);
+    // Hold the lock for the entire resolution + font construction so the raw BLFontFace*
+    // returned by _get_font_face_locked() never escapes the critical section.
+    std::lock_guard<std::mutex> lock(mutex_);
+    BLFontFace* face = _get_font_face_locked(family, weight, italic);
     BLFont font;
     if (face && face->is_valid()) {
         font.create_from_face(*face, size);

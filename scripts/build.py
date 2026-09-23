@@ -6,6 +6,7 @@ Compiles the C++ extension module for local development and testing.
 
 import os
 import sys
+import shutil
 import subprocess
 import argparse
 from pathlib import Path
@@ -19,6 +20,38 @@ def run_command(cmd, cwd=ROOT_DIR):
         print(f"Error: Command failed with exit code {result.returncode}", file=sys.stderr)
         sys.exit(result.returncode)
 
+def get_install_command(python_bin, editable=True, no_build_isolation=False, verbose=False):
+    uv_bin = shutil.which("uv")
+    has_pip = False
+    try:
+        import pip  # noqa: F401
+        has_pip = True
+    except ImportError:
+        pass
+
+    if uv_bin:
+        cmd = [uv_bin, "pip", "install", "--python", python_bin]
+        if editable:
+            cmd.extend(["-e", "."])
+        else:
+            cmd.append(".")
+        if no_build_isolation:
+            cmd.append("--no-build-isolation")
+        if verbose:
+            cmd.append("-v")
+        return cmd
+    else:
+        cmd = [python_bin, "-m", "pip", "install"]
+        if editable:
+            cmd.extend(["-e", "."])
+        else:
+            cmd.append(".")
+        if no_build_isolation:
+            cmd.append("--no-build-isolation")
+        if verbose:
+            cmd.append("-v")
+        return cmd
+
 def main():
     parser = argparse.ArgumentParser(description="Build tkblend C++ extension")
     parser.add_argument(
@@ -26,6 +59,11 @@ def main():
         action="store_true",
         default=True,
         help="Install in editable mode for local development (default: True)"
+    )
+    parser.add_argument(
+        "--no-build-isolation",
+        action="store_true",
+        help="Disable build isolation (requires build dependencies installed in venv)"
     )
     parser.add_argument(
         "--clean",
@@ -41,15 +79,17 @@ def main():
 
     if args.clean:
         print("==> Cleaning previous build artifacts...")
-        import shutil
         for path in [ROOT_DIR / "build", ROOT_DIR / "_skbuild"]:
             if path.exists():
                 shutil.rmtree(path)
                 print(f"    Removed {path}")
 
-    cmd = [sys.executable, "-m", "pip", "install", "-e", "."]
-    if args.verbose:
-        cmd.append("-v")
+    cmd = get_install_command(
+        python_bin=sys.executable,
+        editable=args.editable,
+        no_build_isolation=args.no_build_isolation,
+        verbose=args.verbose
+    )
 
     run_command(cmd)
     print("\n[SUCCESS] tkblend built and installed successfully!")
