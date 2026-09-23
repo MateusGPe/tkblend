@@ -3,6 +3,7 @@ Modern container widgets: Frame, Card, and Accordion with Blend2D vector styling
 """
 
 from __future__ import annotations
+import logging
 import tkinter as tk
 from typing import Optional
 
@@ -16,6 +17,8 @@ from tkblend.theme import (
 )
 from tkblend.widgets.base import Widget, ScalingTracker, cascade_bg_to_children
 from tkblend.widgets.drawing import draw_vector_chevron
+
+logger = logging.getLogger(__name__)
 
 
 class Frame(tk.Frame):
@@ -162,8 +165,8 @@ class Frame(tk.Frame):
             self.configure(background=self._parent_bg)
             if hasattr(self, "_bg_label") and self._bg_label.winfo_exists():
                 self._bg_label.configure(background=self._parent_bg)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed configuring Frame background to '%s': %s", self._parent_bg, e)
         self.render()
 
     def _on_theme_changed(self, palette: Palette) -> None:
@@ -184,8 +187,8 @@ class Frame(tk.Frame):
                 self._bg_label.configure(background=self._parent_bg)
             if hasattr(self, "_body_frame") and self._body_frame.winfo_exists():
                 self._body_frame.configure(background=self._bg_color)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed updating Frame colors during theme change: %s", e)
         self.render()
         cascade_bg_to_children(self, str(self._bg_color))
 
@@ -200,8 +203,8 @@ class Frame(tk.Frame):
             try:
                 self._photo.configure(width=self._widget_w, height=self._widget_h)
                 self._surface.resize(self._widget_w, self._widget_h)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed resizing Frame surface (%sx%s): %s", self._widget_w, self._widget_h, e)
             self._update_body_geometry()
             self.render()
 
@@ -213,8 +216,8 @@ class Frame(tk.Frame):
         if hasattr(self, "_body_frame") and self._body_frame.winfo_exists():
             try:
                 self._body_frame.configure(background=self._bg_color)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed configuring Frame _body_frame background: %s", e)
         self.render()
         cascade_bg_to_children(self, str(self._bg_color))
 
@@ -275,8 +278,8 @@ class Frame(tk.Frame):
                 shadow_color=self._shadow_color,
             )
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in Frame: %s", e, exc_info=True)
 
 
 ModernFrame = Frame
@@ -391,8 +394,8 @@ class Card(Frame):
                         stroke_width=1.0,
                     )
                 self._surface.blit(self._photo)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Render failed in Card title overlay: %s", e, exc_info=True)
 
 
 ModernCard = Card
@@ -424,8 +427,8 @@ class _AccordionHeader(Widget):
             try:
                 acc._content.configure(bg=palette.surface)
                 cascade_bg_to_children(acc._content, palette.surface)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed updating Accordion content background in _AccordionHeader: %s", e)
 
     def render(self) -> None:
         acc = self._accordion
@@ -477,8 +480,8 @@ class Accordion(tk.Frame):
         if hasattr(self, "_header") and self._header is not None:
             try:
                 self._header.destroy()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed destroying Accordion header: %s", e)
             self._header = None  # type: ignore
         super().destroy()
 
@@ -489,8 +492,8 @@ class Accordion(tk.Frame):
             self._explicit_parent_bg = None
         try:
             self.configure(bg=self._parent_bg)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed configuring Accordion background to '%s': %s", self._parent_bg, e)
         if hasattr(self, "_header"):
             self._header.set_parent_bg(self._parent_bg, force=force)
         self._render_header()
@@ -505,8 +508,8 @@ class Accordion(tk.Frame):
             if hasattr(self, "_content") and self._content.winfo_exists():
                 self._content.configure(bg=palette.surface)
                 cascade_bg_to_children(self._content, palette.surface)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed updating Accordion background during theme change: %s", e)
         self._render_header()
 
     @property
@@ -568,8 +571,8 @@ class Accordion(tk.Frame):
                 align="left",
             )
             surf.blit(self._header.photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in Accordion header: %s", e, exc_info=True)
 
     def render(self) -> None:
         """Render backing vector accordion header."""

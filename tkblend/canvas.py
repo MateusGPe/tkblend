@@ -3,9 +3,12 @@ BlendCanvas widget - High-performance Blend2D drawing surface for Tkinter & ttkb
 """
 
 from __future__ import annotations
+import logging
 import tkinter as tk
 from typing import Optional, Callable, Union, Any, Tuple
 from contextlib import contextmanager
+
+logger = logging.getLogger(__name__)
 
 from tkblend.surface import Surface, ColorLike, GradientLike, Path
 from tkblend.theme import (
@@ -165,8 +168,8 @@ class BlendCanvas(tk.Label):
             resolved_bg = resolved_bg[:7]
         try:
             self.configure(background=resolved_bg)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed configuring canvas background: %s", e)
         self.redraw()
 
     def _on_destroy_event(self, event=None) -> None:

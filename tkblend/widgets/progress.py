@@ -3,6 +3,7 @@ Progress indicator widgets: ProgressBar (linear capsule) and CircularProgress (r
 """
 
 from __future__ import annotations
+import logging
 import math
 import tkinter as tk
 from typing import Optional
@@ -10,6 +11,8 @@ from typing import Optional
 from tkblend.surface import LinearGradient, Path, ColorLike
 from tkblend.theme import get_theme, Palette, resolve_color_failsafe
 from tkblend.widgets.base import Widget
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_color(color: Optional[ColorLike], fallback: str, pal: Palette) -> ColorLike:
@@ -106,8 +109,8 @@ class ProgressBar(Widget):
                 progress_t=prog,
             )
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in ProgressBar: %s", e, exc_info=True)
 
 
 ModernProgressBar = ProgressBar
@@ -217,8 +220,8 @@ class CircularProgress(Widget):
                 align="center",
             )
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in CircularProgress: %s", e, exc_info=True)
 
 
 ModernCircularProgress = CircularProgress

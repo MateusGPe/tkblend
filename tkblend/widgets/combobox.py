@@ -56,8 +56,8 @@ class OptionMenu(Widget):
                 v = self._variable.get()
                 if v:
                     initial_val = v
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed getting variable value in OptionMenu init: %s", e)
         self._selected = initial_val or (self._values[0] if self._values else "")
         self._command = command
         self._rx = rx
@@ -92,8 +92,8 @@ class OptionMenu(Widget):
         if self._variable is not None:
             try:
                 self._variable.set(self._selected)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed setting variable value in OptionMenu.set: %s", e)
         self.render()
 
     def get(self) -> str:
@@ -131,12 +131,12 @@ class OptionMenu(Widget):
         popup.overrideredirect(True)
         try:
             popup.transient(root)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed setting transient root for OptionMenu popup: %s", e)
         try:
             popup.attributes("-topmost", True)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed setting topmost attribute for OptionMenu popup: %s", e)
         self._popup = popup
 
         self.update_idletasks()
@@ -201,8 +201,8 @@ class OptionMenu(Widget):
                     sw, sh = self.winfo_width(), self.winfo_height()
                     if sx <= e.x_root <= sx + sw and sy <= e.y_root <= sy + sh:
                         return
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed checking coordinates in OptionMenu on_global_click: %s", e)
                 self._close_popup()
 
         def on_root_configure(e):
@@ -217,14 +217,14 @@ class OptionMenu(Widget):
         if self._root_bind_id:
             try:
                 self.winfo_toplevel().unbind("<ButtonPress-1>", self._root_bind_id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed unbinding global click in OptionMenu: %s", e)
             self._root_bind_id = None
         if self._root_cfg_bind_id:
             try:
                 self.winfo_toplevel().unbind("<Configure>", self._root_cfg_bind_id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed unbinding root configure in OptionMenu: %s", e)
             self._root_cfg_bind_id = None
         if self._popup and self._popup.winfo_exists():
             self._popup.destroy()
@@ -427,12 +427,12 @@ class ComboBox(tk.Frame):
         popup.overrideredirect(True)
         try:
             popup.transient(root)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed setting transient root for ComboBox popup: %s", e)
         try:
             popup.attributes("-topmost", True)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed setting topmost attribute for ComboBox popup: %s", e)
         self._popup = popup
 
         self.update_idletasks()
@@ -495,8 +495,8 @@ class ComboBox(tk.Frame):
                     sw, sh = self.winfo_width(), self.winfo_height()
                     if sx <= e.x_root <= sx + sw and sy <= e.y_root <= sy + sh:
                         return
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed checking coordinates in ComboBox on_global_click: %s", e)
                 self._close_popup()
 
         def on_root_configure(e):
@@ -511,14 +511,14 @@ class ComboBox(tk.Frame):
         if self._root_bind_id:
             try:
                 self.winfo_toplevel().unbind("<ButtonPress-1>", self._root_bind_id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed unbinding global click in ComboBox: %s", e)
             self._root_bind_id = None
         if self._root_cfg_bind_id:
             try:
                 self.winfo_toplevel().unbind("<Configure>", self._root_cfg_bind_id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed unbinding root configure in ComboBox: %s", e)
             self._root_cfg_bind_id = None
         if self._popup and self._popup.winfo_exists():
             self._popup.destroy()

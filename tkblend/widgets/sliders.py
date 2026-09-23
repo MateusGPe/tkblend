@@ -3,12 +3,15 @@ Interactive slider widgets: Slider (single thumb) and RangeSlider (dual thumb in
 """
 
 from __future__ import annotations
+import logging
 import tkinter as tk
 from typing import Optional, Callable, Tuple
 
 from tkblend.surface import ColorLike
 from tkblend.theme import get_theme, Palette, resolve_color_failsafe
 from tkblend.widgets.base import Widget, ScalingTracker
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_color(color: Optional[ColorLike], fallback: str, pal: Palette) -> ColorLike:
@@ -156,8 +159,8 @@ class Slider(Widget):
                 focus_ring_width=focus_width,
             )
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in Slider: %s", e, exc_info=True)
 
 
 ModernSlider = Slider
@@ -332,8 +335,8 @@ class RangeSlider(Widget):
                 self._surface.stroke_circle(cx, self._widget_h / 2.0, self._knob_r, border_col, stroke_width=1.2)
 
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in RangeSlider: %s", e, exc_info=True)
 
 
 ModernRangeSlider = RangeSlider

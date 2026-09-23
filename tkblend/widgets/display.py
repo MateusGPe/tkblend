@@ -3,12 +3,15 @@ Display widgets: Badge (status pill) and Avatar (circular profile).
 """
 
 from __future__ import annotations
+import logging
 import tkinter as tk
 from typing import Optional, Dict
 
 from tkblend.surface import LinearGradient, ColorLike
 from tkblend.theme import get_theme
 from tkblend.widgets.base import Widget
+
+logger = logging.getLogger(__name__)
 
 
 class Badge(Widget):
@@ -112,8 +115,8 @@ class Badge(Widget):
                 align="center",
             )
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in Badge: %s", e, exc_info=True)
 
 
 ModernBadge = Badge
@@ -191,8 +194,8 @@ class Avatar(Widget):
                 self._surface.fill_circle(dot_cx, dot_cy, dot_r, dot_color)
 
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in Avatar: %s", e, exc_info=True)
 
 
 ModernAvatar = Avatar

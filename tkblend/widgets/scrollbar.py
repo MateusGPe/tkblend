@@ -3,11 +3,14 @@ VectorScrollbar widget implemented with pure Blend2D vector surface.
 """
 
 from __future__ import annotations
+import logging
 import tkinter as tk
 from typing import Optional, Callable, Union, Tuple
 
 from tkblend.theme import get_theme
 from tkblend.widgets.base import Widget
+
+logger = logging.getLogger(__name__)
 
 
 class VectorScrollbar(Widget):
@@ -53,8 +56,8 @@ class VectorScrollbar(Widget):
             self._first = max(0.0, min(1.0, float(first)))
             self._last = max(0.0, min(1.0, float(last)))
             self.render()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed parsing/setting scrollbar fraction (%r, %r): %s", first, last, e)
 
     def _get_thumb_geometry(self) -> Tuple[float, float, float, float]:
         s = self._scale
@@ -145,8 +148,8 @@ class VectorScrollbar(Widget):
 
             self._surface.fill_rounded_rect(pad, ty, tw, th, thumb_r, thumb_r, thumb_col)
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in VectorScrollbar: %s", e, exc_info=True)
 
 
 ModernScrollbar = VectorScrollbar

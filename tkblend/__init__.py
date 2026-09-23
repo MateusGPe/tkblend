@@ -3,6 +3,11 @@ tkblend - High-performance Blend2D pure vector graphics and modern vector widget
 Zero TTK theme dependencies.
 """
 
+import logging
+
+# Set default logging handler to avoid "No handler found" warnings
+logging.getLogger("tkblend").addHandler(logging.NullHandler())
+
 from tkblend._tkblend import (  # type: ignore
     Color,
     Gradient,

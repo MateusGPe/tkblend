@@ -3,6 +3,7 @@ Selection and toggle controls: Switch, Checkbox, Radio, RadioGroup, and Segmente
 """
 
 from __future__ import annotations
+import logging
 import tkinter as tk
 from typing import Optional, Callable, List
 
@@ -16,6 +17,8 @@ from tkblend.theme import (
 )
 from tkblend.widgets.base import Widget
 from tkblend.widgets.drawing import draw_vector_checkmark
+
+logger = logging.getLogger(__name__)
 
 
 class Switch(Widget):
@@ -42,8 +45,8 @@ class Switch(Widget):
         if self._variable is not None:
             try:
                 is_on = bool(self._variable.get())
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed getting variable in Switch init: %s", e)
         self._is_on = is_on
         self._on_toggle = on_toggle or command
         self._explicit_on_color = on_color
@@ -58,8 +61,8 @@ class Switch(Widget):
         if self._variable is not None:
             try:
                 self._trace_id = self._variable.trace_add("write", self._on_var_changed)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed adding trace to variable in Switch: %s", e)
 
     def _on_var_changed(self, *args) -> None:
         if self._variable is not None:
@@ -68,8 +71,8 @@ class Switch(Widget):
                 if new_val != self._is_on:
                     self._is_on = new_val
                     self.render()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed reading variable in Switch._on_var_changed: %s", e)
 
     @property
     def is_on(self) -> bool:
@@ -81,8 +84,8 @@ class Switch(Widget):
         if self._variable is not None:
             try:
                 self._variable.set(self._is_on)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed setting variable in Switch.is_on setter: %s", e)
         self.render()
 
     def toggle(self) -> None:
@@ -90,8 +93,8 @@ class Switch(Widget):
         if self._variable is not None:
             try:
                 self._variable.set(self._is_on)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed setting variable in Switch.toggle: %s", e)
         self.render()
         if self._on_toggle:
             try:
@@ -145,8 +148,8 @@ class Switch(Widget):
                 focus_ring_width=focus_width,
             )
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in Switch: %s", e, exc_info=True)
 
 
 ModernSwitch = Switch
@@ -250,8 +253,8 @@ class Checkbox(Widget):
                 align="left",
             )
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in Checkbox: %s", e, exc_info=True)
 
 
 ModernCheckbox = Checkbox
@@ -331,8 +334,8 @@ class Radio(Widget):
                 align="left",
             )
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in Radio: %s", e, exc_info=True)
 
 
 ModernRadio = Radio
@@ -563,8 +566,8 @@ class SegmentedControl(Widget):
                 self._surface.draw_text(val, tx, ty, font_size=font_sz, font_family="sans-serif", color=color, align="center")
 
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in SegmentedControl: %s", e, exc_info=True)
 
 
 SegmentedButton = SegmentedControl

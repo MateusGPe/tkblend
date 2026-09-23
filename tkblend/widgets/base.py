@@ -3,10 +3,13 @@ Base classes and display scaling infrastructure for tkblend vector widgets.
 """
 
 from __future__ import annotations
+import logging
 import sys
 import tkinter as tk
 from math import floor, ceil
 from typing import Optional, Union, List, Tuple, Any
+
+logger = logging.getLogger(__name__)
 
 from tkblend.surface import Surface
 from tkblend.theme import (
@@ -45,12 +48,13 @@ class ScalingTracker:
             try:
                 import ctypes
                 ctypes.windll.shcore.SetProcessDpiAwareness(2)
-            except Exception:
+            except Exception as e1:
+                logger.debug("SetProcessDpiAwareness failed: %s; falling back to SetProcessDPIAware", e1)
                 try:
                     import ctypes
                     ctypes.windll.user32.SetProcessDPIAware()
-                except Exception:
-                    pass
+                except Exception as e2:
+                    logger.debug("SetProcessDPIAware failed: %s", e2)
 
         cls._dpi_awareness_initialized = True
 
@@ -69,7 +73,8 @@ class ScalingTracker:
             if abs(factor - quarter) <= 0.005:
                 factor = quarter
             return max(0.5, factor * cls._user_widget_scaling)
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed querying Tk scaling factor on %r: %s", widget_or_window, e)
             return max(0.5, cls._user_widget_scaling)
 
     @classmethod
@@ -253,8 +258,8 @@ class Widget(tk.Label):
             self._explicit_bg = None
         try:
             self.configure(background=self._parent_bg)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed configuring Widget background to '%s': %s", self._parent_bg, e)
         self.render()
 
     def _on_theme_changed(self, palette: Palette) -> None:
@@ -264,8 +269,8 @@ class Widget(tk.Label):
             self._parent_bg = self._resolve_default_bg(getattr(self, "master", None), palette)
             try:
                 self.configure(background=self._parent_bg)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed updating Widget background during theme change on %r: %s", self, e)
         self.render()
 
     def _on_configure(self, event) -> None:
@@ -352,14 +357,16 @@ def cascade_bg_to_children(container: Any, bg: str, preserve_overrides: bool = T
         return
     try:
         children = container.winfo_children()
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed getting winfo_children in cascade_bg_to_children for %r: %s", container, e)
         return
 
     for child in children:
         try:
             if not child.winfo_exists():
                 continue
-        except Exception:
+        except Exception as e:
+            logger.debug("Error checking winfo_exists in cascade_bg_to_children for %r: %s", child, e)
             continue
 
         # Skip the internal backing surface label of Card / Frame
@@ -371,8 +378,8 @@ def cascade_bg_to_children(container: Any, bg: str, preserve_overrides: bool = T
             if hasattr(child, "set_parent_bg"):
                 try:
                     child.set_parent_bg(bg)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed setting parent_bg on child container %r: %s", child, e)
             inner_bg = str(child.bg_color)
             cascade_bg_to_children(child, inner_bg, preserve_overrides=preserve_overrides)
             continue
@@ -383,15 +390,15 @@ def cascade_bg_to_children(container: Any, bg: str, preserve_overrides: bool = T
                 continue
             try:
                 child.set_parent_bg(bg)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed setting parent_bg on child widget %r: %s", child, e)
             continue
 
         # Standard container (e.g. tk.Frame, tk.Canvas): update its background and recurse
         if hasattr(child, "configure"):
             try:
                 child.configure(background=bg)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed updating standard widget background on %r: %s", child, e)
         cascade_bg_to_children(child, bg, preserve_overrides=preserve_overrides)
 

@@ -3,6 +3,7 @@ Table - Full-featured vector data grid widget powered by Blend2D C++ rendering.
 """
 
 from __future__ import annotations
+import logging
 import sys
 import tkinter as tk
 from typing import Optional, Callable, Dict, List, Any, Union, Tuple
@@ -19,6 +20,8 @@ from tkblend.widgets.base import Widget, ScalingTracker
 from tkblend.widgets.containers import Frame
 from tkblend.widgets.scrollbar import VectorScrollbar
 from tkblend.widgets.drawing import draw_vector_chevron, truncate_text
+
+logger = logging.getLogger(__name__)
 
 
 class _TableViewSurface(Widget):
@@ -225,8 +228,8 @@ class _TableViewSurface(Widget):
                     cell_x += cw
 
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in _TableViewSurface: %s", e, exc_info=True)
 
 
 class Table(tk.Frame):

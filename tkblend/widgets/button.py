@@ -3,11 +3,14 @@ Modern Button widget with support for variants, micro-elevation, and antialiased
 """
 
 from __future__ import annotations
+import logging
 import tkinter as tk
 from typing import Optional, Callable, Dict
 
 from tkblend.theme import get_theme, adjust_brightness
 from tkblend.widgets.base import Widget, ScalingTracker
+
+logger = logging.getLogger(__name__)
 
 
 class Button(Widget):
@@ -182,8 +185,8 @@ class Button(Widget):
                 is_pressed=self._is_pressed,
             )
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in Button: %s", e, exc_info=True)
 
 
 ModernButton = Button

@@ -5,7 +5,10 @@ Typography, FontConfig, and universal font parser for tkblend.
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Union, Tuple, Any
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -56,8 +59,8 @@ class FontConfig:
             try:
                 import tkinter.font as tkfont
                 return tkfont.Font(root, family=fam, size=f_size, weight=weight_str, slant=slant_str)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed creating tkinter.font.Font for root %r: %s", root, e)
 
         style_parts = []
         if is_bold:
@@ -86,8 +89,8 @@ def extract_font_family(family_or_path: str) -> str:
             active = get_active_font()
             if active and active.lower() != "default":
                 raw = active
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed querying get_active_font: %s", e)
 
     if not raw or raw.lower() == "default":
         if sys.platform == "win32":
@@ -171,10 +174,10 @@ def sync_tk_fonts(
                 if fam and fam != "default":
                     kw["family"] = fam
                 nf.configure(**kw)
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as e:
+                logger.debug("Failed updating Tk named font '%s': %s", name, e)
+    except Exception as e:
+        logger.debug("Failed configuring Tk named fonts: %s", e)
 
     # 2. Update TTK root and widget element styles
     try:
@@ -189,8 +192,8 @@ def sync_tk_fonts(
         ttk_style.configure("TNotebook.Tab", font=tk_font_tuple)
         heading_tuple = (fam, max(1, int(round(f_size * 1.25))), "bold")
         ttk_style.configure("Heading", font=heading_tuple)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed configuring TTK styles in sync_tk_fonts: %s", e)
 
     # 3. Recursively update classic Tk widgets
     if root is None:
@@ -204,7 +207,8 @@ def sync_tk_fonts(
         try:
             if not w.winfo_exists():
                 return
-        except Exception:
+        except Exception as e:
+            logger.debug("Error checking winfo_exists during font sync on %r: %s", w, e)
             return
 
         # Handle composite vector widgets with internal text entries (TextInput, SpinBox)
@@ -235,21 +239,22 @@ def sync_tk_fonts(
                         else:
                             w.configure(font=tk_font_tuple)
                             w._tkblend_injected_font = tk_font_tuple
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Failed updating font on widget %r: %s", w, e)
             else:
                 try:
                     w.configure(font=tk_font_tuple)
                     w._tkblend_injected_font = tk_font_tuple
                     if hasattr(w, "_tkblend_custom_font_override"):
                         w._tkblend_custom_font_override = False
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed configuring font on widget %r: %s", w, e)
 
         if recursive and hasattr(w, "winfo_children"):
             try:
                 children = w.winfo_children()
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed getting children during font sync on %r: %s", w, e)
                 children = []
             for child in children:
                 _sync_widget_font(child)
@@ -295,8 +300,8 @@ def parse_font(
         if len(font) >= 2 and font[1] is not None:
             try:
                 size = abs(float(font[1]))
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed parsing font size from tuple index 1 (%r): %s", font[1], e)
         if len(font) >= 3 and font[2]:
             style_spec = str(font[2]).lower()
             if "bold" in style_spec:
@@ -335,8 +340,8 @@ def parse_font(
             size = abs(float(act.get("size", size)))
             is_bold = act.get("weight") == "bold"
             is_italic = act.get("slant") == "italic"
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed querying font.actual() on %r: %s", font, e)
 
     # Apply explicit keyword overrides
     if font_family is not None:

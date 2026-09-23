@@ -5,10 +5,13 @@ Provides semantic colors, built-in Dark and Light themes, and dynamic theme chan
 
 from __future__ import annotations
 import inspect
+import logging
 import threading
 import weakref
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, Callable, Optional, Union, Tuple, List
+
+logger = logging.getLogger(__name__)
 
 
 def _format_alpha(alpha: Optional[Union[float, int]]) -> str:
@@ -43,7 +46,8 @@ def resolve_color_failsafe(
     if not isinstance(color, str):
         try:
             color = str(color)
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed converting color object to string: %s", e, exc_info=True)
             return default_bg
 
     c_clean = color.strip()
@@ -120,8 +124,8 @@ def resolve_color_failsafe(
         try:
             import tkinter as tk
             win = getattr(tk, "_default_root", None)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed checking tk._default_root for color conversion: %s", e)
 
     if win is not None and hasattr(win, "winfo_rgb"):
         try:
@@ -131,8 +135,8 @@ def resolve_color_failsafe(
             if alpha is not None:
                 return f"{hex_str}{_format_alpha(alpha)}"
             return hex_str
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("winfo_rgb failed for color '%s': %s", c_clean, e)
 
     # Fallback if unresolvable
     return default_bg
@@ -160,7 +164,8 @@ def blend_color_hex(c1: str, c2: str, t: float) -> str:
         if col1.a < 255 or col2.a < 255:
             return f"#{res.r:02x}{res.g:02x}{res.b:02x}{res.a:02x}"
         return f"#{res.r:02x}{res.g:02x}{res.b:02x}"
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed blending colors '%s' and '%s': %s", c1, c2, e)
         return c1 if t < 0.5 else c2
 
 
@@ -176,7 +181,8 @@ def adjust_brightness(hex_code: str, factor: float) -> str:
         if col.a < 255:
             return f"#{res.r:02x}{res.g:02x}{res.b:02x}{res.a:02x}"
         return f"#{res.r:02x}{res.g:02x}{res.b:02x}"
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed adjusting brightness for '%s' by factor %s: %s", hex_code, factor, e)
         return hex_code
 
 
@@ -641,7 +647,8 @@ def _wrap_listener(callback: Callable[[Palette], None]) -> Any:
         if inspect.ismethod(callback):
             return weakref.WeakMethod(callback)
         return weakref.ref(callback)
-    except TypeError:
+    except TypeError as e:
+        logger.debug("Cannot weakly reference callback %r (using strong ref): %s", callback, e)
         return callback
 
 
@@ -750,8 +757,8 @@ class ThemeManager:
             else:
                 try:
                     cb(self._current_palette)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error("Error executing priority theme listener %r: %s", cb, e, exc_info=True)
         # Standard listeners execute next
         for ref in list(self._listeners):
             cb = _unwrap_listener(ref)
@@ -763,8 +770,8 @@ class ThemeManager:
             else:
                 try:
                     cb(self._current_palette)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error("Error executing theme listener %r: %s", cb, e, exc_info=True)
 
 
 # Global singleton and module-level convenience functions
@@ -793,8 +800,8 @@ def detect_system_theme(fallback: str = "dark") -> str:
             return "dark"
         elif is_dark is False:
             return "light"
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("System dark theme detection via darkdetect failed or not available: %s", e)
     return fallback
 
 
@@ -846,7 +853,8 @@ def auto_theme(
         import darkdetect  # type: ignore
         if not hasattr(darkdetect, "listener"):
             return stop_auto_theme
-    except Exception:
+    except Exception as e:
+        logger.debug("darkdetect listener is not available: %s", e)
         return stop_auto_theme
 
     _auto_theme_active = True
@@ -861,7 +869,8 @@ def auto_theme(
                     root.after(0, lambda: _resolve_and_apply(mode) if _auto_theme_active else None)
                 else:
                     stop_auto_theme()
-            except Exception:
+            except Exception as e:
+                logger.debug("Error querying root during auto_theme OS change callback: %s", e)
                 _resolve_and_apply(mode)
         else:
             _resolve_and_apply(mode)
@@ -870,8 +879,8 @@ def auto_theme(
         try:
             import darkdetect  # type: ignore
             darkdetect.listener(_on_os_change)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("darkdetect listener worker encountered exception or terminated: %s", e)
 
     t = threading.Thread(target=_worker, name="tkblend-darkdetect-listener", daemon=True)
     _auto_theme_thread = t
@@ -883,8 +892,8 @@ def auto_theme(
                 stop_auto_theme()
         try:
             root.bind("<Destroy>", _on_root_destroy, add="+")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed binding root <Destroy> event in auto_theme: %s", e)
 
     return stop_auto_theme
 
@@ -928,8 +937,10 @@ def bind_theme_changed(widget: Any, callback: Callable[[], None]) -> None:
                 if not widget.winfo_exists():
                     remove_theme_listener(_wrapper)
                     return
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Error checking widget.winfo_exists in bind_theme_changed: %s", e)
+                remove_theme_listener(_wrapper)
+                return
         callback()
     add_theme_listener(_wrapper)
 
@@ -1020,8 +1031,8 @@ def resolve_ancestor_bg(
                                 elif r_low == prev.surface.lower():
                                     return pal.surface
                             return res
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Ancestor widget %r cget('%s') failed: %s", curr, opt, e)
 
         # Check ttk container style background
         if hasattr(curr, "winfo_class"):
@@ -1032,8 +1043,8 @@ def resolve_ancestor_bg(
                 if hasattr(curr, "cget"):
                     try:
                         style_name = curr.cget("style")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Failed getting ttk style attribute from %r: %s", curr, e)
                 if not style_name:
                     style_name = curr.winfo_class()
                 ttk_bg = style.lookup(style_name, "background")
@@ -1041,8 +1052,8 @@ def resolve_ancestor_bg(
                     res = resolve_color_failsafe(ttk_bg, master=curr, fallback=None)
                     if res:
                         return res
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed checking ttk style background on %r: %s", curr, e)
 
         curr = getattr(curr, "master", None)
 
@@ -1099,8 +1110,8 @@ def apply_theme(
     if hasattr(root, "cget"):
         try:
             initial_root_bg = root.cget("background")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed querying initial root background: %s", e)
     prev_injected = getattr(root, "_tkblend_injected_bg", None)
 
     def _style_ttk(pal: Palette) -> None:
@@ -1115,8 +1126,8 @@ def apply_theme(
             style.configure("TNotebook", background=pal.bg)
             style.configure("TNotebook.Tab", background=pal.card_bg, foreground=pal.fg)
             style.map("TNotebook.Tab", background=[("selected", pal.primary), ("active", pal.card_border)])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed configuring ttk default styles: %s", e)
 
     def _check_preserve(w: Any, pal: Palette) -> bool:
         """Return True if background should be updated, False if preserved."""
@@ -1146,8 +1157,8 @@ def apply_theme(
             else:
                 w._tkblend_custom_override = True
                 return False
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Error checking preserve override on %r: %s", w, e)
         return True
 
     def _apply_hierarchy(target: Any, pal: Palette, container_bg: Optional[str] = None) -> None:
@@ -1156,7 +1167,8 @@ def apply_theme(
         try:
             if not target.winfo_exists():
                 return
-        except Exception:
+        except Exception as e:
+            logger.debug("Error checking winfo_exists during hierarchy theming on %r: %s", target, e)
             return
 
         master = getattr(target, "master", None)
@@ -1165,8 +1177,8 @@ def apply_theme(
             target_bg = getattr(master, "_parent_bg", container_bg or pal.bg)
             try:
                 target.configure(background=target_bg)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed configuring Card/Frame _bg_label background: %s", e)
             return
 
         is_tkblend = hasattr(target, "_on_theme_changed")
@@ -1179,8 +1191,8 @@ def apply_theme(
                     target.set_parent_bg(container_bg or pal.bg, force=not preserve_overrides)
                 try:
                     target._on_theme_changed(pal)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Exception in target._on_theme_changed for container %r: %s", target, e, exc_info=True)
                 next_container_bg = str(target._bg_color)
             elif hasattr(target, "_header") and hasattr(target, "_content"):
                 # Accordion container
@@ -1188,8 +1200,8 @@ def apply_theme(
                     target.set_parent_bg(container_bg or pal.bg, force=not preserve_overrides)
                 try:
                     target._on_theme_changed(pal)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Exception in target._on_theme_changed for accordion %r: %s", target, e, exc_info=True)
                 next_container_bg = pal.surface
             else:
                 # Vector leaf widget
@@ -1197,14 +1209,14 @@ def apply_theme(
                     target.set_parent_bg(container_bg or pal.bg, force=not preserve_overrides)
                 try:
                     target._on_theme_changed(pal)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Exception in target._on_theme_changed for widget %r: %s", target, e, exc_info=True)
         elif isinstance(target, (tk.Tk, tk.Toplevel)):
             try:
                 target.configure(background=pal.bg)
                 target._tkblend_injected_bg = pal.bg
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed configuring Tk/Toplevel background on %r: %s", target, e)
             next_container_bg = pal.bg
         elif isinstance(target, (tk.Frame, tk.LabelFrame)):
             target_bg = container_bg or pal.bg
@@ -1215,14 +1227,14 @@ def apply_theme(
                     target_bg = pal.surface
                 elif (prev is not None and curr_bg == prev.card_bg.lower()) or curr_bg == pal.card_bg.lower():
                     target_bg = pal.card_bg
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed querying Tk Frame cget background on %r: %s", target, e)
             if _check_preserve(target, pal):
                 try:
                     target.configure(background=target_bg)
                     target._tkblend_injected_bg = target_bg
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed configuring Tk Frame background on %r: %s", target, e)
             next_container_bg = target_bg
         elif isinstance(target, tk.Label):
             target_bg = container_bg or pal.bg
@@ -1232,16 +1244,16 @@ def apply_theme(
                     fg_col = pal.fg if "bold" in font_str else pal.text_muted
                     target.configure(background=target_bg, foreground=fg_col)
                     target._tkblend_injected_bg = target_bg
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed configuring Tk Label background/foreground on %r: %s", target, e)
         elif isinstance(target, tk.Canvas):
             target_bg = container_bg or pal.bg
             if _check_preserve(target, pal):
                 try:
                     target.configure(background=target_bg)
                     target._tkblend_injected_bg = target_bg
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed configuring Tk Canvas background on %r: %s", target, e)
             next_container_bg = target_bg
         elif isinstance(target, tk.Text):
             target_bg = pal.surface if is_inside_card(target) else pal.input_bg
@@ -1255,8 +1267,8 @@ def apply_theme(
                         selectforeground=pal.primary_fg,
                     )
                     target._tkblend_injected_bg = target_bg
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed configuring Tk Text styling on %r: %s", target, e)
             next_container_bg = target_bg
         elif isinstance(target, tk.Entry):
             target_bg = pal.input_bg
@@ -1270,14 +1282,15 @@ def apply_theme(
                         selectforeground=pal.primary_fg,
                     )
                     target._tkblend_injected_bg = target_bg
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed configuring Tk Entry styling on %r: %s", target, e)
             next_container_bg = target_bg
 
         if recursive and hasattr(target, "winfo_children"):
             try:
                 children = target.winfo_children()
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed getting winfo_children on %r: %s", target, e)
                 children = []
             for child in children:
                 child_bg = next_container_bg
@@ -1301,7 +1314,8 @@ def apply_theme(
             if not root.winfo_exists():
                 remove_theme_listener(_theme_listener)
                 return
-        except Exception:
+        except Exception as e:
+            logger.debug("Error verifying root existence in _theme_listener: %s", e)
             remove_theme_listener(_theme_listener)
             return
         _style_ttk(new_palette)
@@ -1320,8 +1334,8 @@ def apply_theme(
 
     try:
         root.bind("<Destroy>", _on_root_destroy if "_on_root_destroy" in locals() else _on_destroy, add="+")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed binding root <Destroy> in apply_theme: %s", e)
 
     def cleanup() -> None:
         remove_theme_listener(_theme_listener)

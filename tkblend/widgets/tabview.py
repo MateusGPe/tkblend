@@ -3,6 +3,7 @@ Tabview - Multi-tab container widget with pure Blend2D vector styling.
 """
 
 from __future__ import annotations
+import logging
 import tkinter as tk
 from typing import Optional, Callable, Dict, List, Union
 
@@ -16,6 +17,8 @@ from tkblend.theme import (
 )
 from tkblend.widgets.base import Widget, ScalingTracker, cascade_bg_to_children
 from tkblend.widgets.containers import Frame
+
+logger = logging.getLogger(__name__)
 
 
 class _TabHeaderBar(Widget):
@@ -174,8 +177,8 @@ class _TabHeaderBar(Widget):
                     )
 
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in _TabHeaderBar: %s", e, exc_info=True)
 
 
 class Tabview(tk.Frame):

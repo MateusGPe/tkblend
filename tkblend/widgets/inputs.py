@@ -3,6 +3,7 @@ Text entry and numeric stepper widgets: TextInput and SpinBox.
 """
 
 from __future__ import annotations
+import logging
 import tkinter as tk
 from typing import Optional, Callable, Any, Union, Tuple
 
@@ -10,6 +11,8 @@ from tkblend.theme import get_theme, Palette
 from tkblend.font import FontConfig, parse_font
 from tkblend.widgets.base import Widget, ScalingTracker
 from tkblend.widgets.drawing import draw_vector_plus, draw_vector_minus
+
+logger = logging.getLogger(__name__)
 
 
 class _TextInputBackground(Widget):
@@ -264,8 +267,8 @@ class TextInput(tk.Frame):
             self._explicit_parent_bg = None
         try:
             self.configure(bg=self._parent_bg)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed configuring TextInput background: %s", e)
         if hasattr(self, "_bg_widget"):
             self._bg_widget.set_parent_bg(self._parent_bg, force=force)
         self._render_bg()
@@ -278,8 +281,8 @@ class TextInput(tk.Frame):
             self._parent_bg = Widget._resolve_default_bg(getattr(self, "master", None), pal)
             try:
                 super().configure(bg=self._parent_bg)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed updating TextInput super bg in _update_theme_colors: %s", e)
         fg_col = pal.text_muted if self._placeholder_active else pal.fg
         self._entry.configure(
             bg=pal.input_bg,
@@ -377,8 +380,8 @@ class TextInput(tk.Frame):
                 surf.draw_line(cx + cr, cy - cr, cx - cr, cy + cr, pal.fg, 1.2 * s)
 
             surf.blit(self._bg_widget.photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in TextInput _render_bg: %s", e, exc_info=True)
 
     def bind(self, sequence=None, func=None, add=None):
         """Bind event to container frame and internal entry widget."""
@@ -396,8 +399,8 @@ class TextInput(tk.Frame):
         if hasattr(self, "_bg_widget") and self._bg_widget is not None:
             try:
                 self._bg_widget.destroy()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Error destroying _bg_widget in TextInput.destroy: %s", e)
             self._bg_widget = None  # type: ignore
         super().destroy()
 
@@ -683,8 +686,8 @@ class SpinBox(Widget):
         if self._repeat_timer is not None:
             try:
                 self.after_cancel(self._repeat_timer)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed cancelling repeat timer in SpinBox: %s", e)
             self._repeat_timer = None
 
     def _handle_release(self, event) -> None:
@@ -754,8 +757,8 @@ class SpinBox(Widget):
             draw_vector_plus(self._surface, plus_x + btn_w / 2.0, cy, 4.0 * s, plus_fg, 1.6 * s)
 
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in SpinBox: %s", e, exc_info=True)
 
 
 ModernSpinBox = SpinBox

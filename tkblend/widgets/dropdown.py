@@ -3,6 +3,7 @@ Dropdown and DropdownItem widgets providing a modern popup select menu.
 """
 
 from __future__ import annotations
+import logging
 import sys
 import tkinter as tk
 from typing import Optional, Callable, List
@@ -11,6 +12,8 @@ from tkblend.theme import get_theme, blend_color_hex
 from tkblend.widgets.base import Widget
 from tkblend.widgets.scrollbar import VectorScrollbar
 from tkblend.widgets.drawing import draw_vector_checkmark, draw_vector_chevron, truncate_text
+
+logger = logging.getLogger(__name__)
 
 
 class DropdownItem(Widget):
@@ -111,8 +114,8 @@ class DropdownItem(Widget):
                 draw_vector_checkmark(self._surface, chk_x, chk_y, s, chk_color, stroke_width=2.2 * s)
 
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in DropdownItem: %s", e, exc_info=True)
 
 
 class Dropdown(Widget):
@@ -205,8 +208,8 @@ class Dropdown(Widget):
         self._is_pressed = False
         try:
             self.focus_set()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed setting focus on Dropdown: %s", e)
         self._toggle_popup(event)
 
     def _on_focus_in(self, event) -> None:
@@ -323,8 +326,8 @@ class Dropdown(Widget):
         self._popup_win.wm_overrideredirect(True)
         try:
             self._popup_win.transient(toplevel)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed setting transient on Dropdown popup window: %s", e)
         self._popup_win.configure(bg=border_col)
 
         # Border container frame for crisp 1.5px border
@@ -453,8 +456,8 @@ class Dropdown(Widget):
             pop_h = self._popup_win.winfo_height()
             if pop_x <= px <= pop_x + pop_w and pop_y <= py <= pop_h + pop_y:
                 return
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed querying popup bounds in _on_root_click: %s", e)
 
         # Check if click is on the trigger widget itself
         try:
@@ -464,8 +467,8 @@ class Dropdown(Widget):
             trig_h = self.winfo_height()
             if trig_x <= px <= trig_x + trig_w and trig_y <= py <= trig_h + trig_y:
                 return
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed querying trigger widget bounds in _on_root_click: %s", e)
 
         # Otherwise clicked outside: close cleanly
         self._close_popup()
@@ -482,8 +485,8 @@ class Dropdown(Widget):
             try:
                 if top.focus_displayof() is None:
                     self._close_popup()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Error checking focus_displayof in _on_root_focus_out: %s", e)
 
     def _close_popup(self) -> None:
         if not self._is_open and not self._popup_win:
@@ -504,14 +507,14 @@ class Dropdown(Widget):
             if self._root_focus_bind_id:
                 top.unbind("<FocusOut>", self._root_focus_bind_id)
                 self._root_focus_bind_id = None
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed unbinding events in Dropdown._close_popup: %s", e)
 
         if self._popup_win:
             try:
                 self._popup_win.destroy()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed destroying popup window in Dropdown._close_popup: %s", e)
             self._popup_win = None
         self._item_widgets = []
         self._scroll_canvas = None
@@ -532,8 +535,8 @@ class Dropdown(Widget):
         if notify and self._on_select:
             try:
                 self._on_select(opt)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error("Error executing Dropdown on_select callback %r: %s", self._on_select, e, exc_info=True)
 
     def _update_item_states(self) -> None:
         for it in self._item_widgets:
@@ -618,8 +621,8 @@ class Dropdown(Widget):
             draw_vector_chevron(self._surface, chev_x, chev_y, s, "up" if self._is_open else "down", chev_color, stroke_width=2.0 * s)
 
             self._surface.blit(self._photo)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Render failed in Dropdown: %s", e, exc_info=True)
 
 
 ModernDropdown = Dropdown
