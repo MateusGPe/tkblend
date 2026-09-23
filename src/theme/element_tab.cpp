@@ -135,9 +135,9 @@ static void NotebookClientGeometry(void * /*clientData*/,
   }
 }
 
-static void NotebookClientDraw(void * /*clientData*/,
-                               void * /*elementRecord*/, Tk_Window tkwin,
-                               Drawable d, Ttk_Box b, Ttk_State /*state*/) {
+static void NotebookClientDraw(void * /*clientData*/, void * /*elementRecord*/,
+                               Tk_Window tkwin, Drawable d, Ttk_Box b,
+                               Ttk_State /*state*/) {
   const auto &cfg = ThemeEngine::instance().config();
 
   RenderElement(tkwin, d, b, [&](BLContext &ctx, int w, int h) {
@@ -162,7 +162,6 @@ static void NotebookClientDraw(void * /*clientData*/,
 Ttk_ElementSpec NotebookClientElementSpec = {
     TTK_LAYOUT_SPEC_VERSION, sizeof(NotebookClientElement),
     NotebookClientOptions, NotebookClientGeometry, NotebookClientDraw};
-
 
 // ============================================================================
 // Labelframe Card Border Element
@@ -236,8 +235,7 @@ static Ttk_ElementOptionSpec FrameBorderOptions[] = {
      offsetof(FrameBorderElement, backgroundObj), ""},
     {nullptr, TK_OPTION_BOOLEAN, 0, nullptr}};
 
-static void FrameBorderGeometry(void * /*clientData*/,
-                                void * /*elementRecord*/,
+static void FrameBorderGeometry(void * /*clientData*/, void * /*elementRecord*/,
                                 Tk_Window /*tkwin*/, int *widthPtr,
                                 int *heightPtr, Ttk_Padding *paddingPtr) {
   if (widthPtr)
@@ -252,9 +250,9 @@ static void FrameBorderGeometry(void * /*clientData*/,
   }
 }
 
-static void FrameBorderDraw(void * /*clientData*/,
-                            void *elementRecord, Tk_Window tkwin,
-                            Drawable d, Ttk_Box b, Ttk_State /*state*/
+static void FrameBorderDraw(void * /*clientData*/, void *elementRecord,
+                            Tk_Window tkwin, Drawable d, Ttk_Box b,
+                            Ttk_State /*state*/
 ) {
   auto *el = static_cast<FrameBorderElement *>(elementRecord);
   uint32_t fill_color = 0;
@@ -265,13 +263,16 @@ static void FrameBorderDraw(void * /*clientData*/,
     }
   }
 
-  RenderElement(tkwin, d, b, [&](BLContext &/*ctx*/, int /*w*/, int /*h*/) {
-    // Base container fill is automatically performed by RenderElement
-  }, fill_color);
+  RenderElement(
+      tkwin, d, b,
+      [&](BLContext & /*ctx*/, int /*w*/, int /*h*/) {
+        // Base container fill is automatically performed by RenderElement
+      },
+      fill_color);
 }
 
 Ttk_ElementSpec FrameBorderElementSpec = {
-    TTK_LAYOUT_SPEC_VERSION, sizeof(FrameBorderElement),
-    FrameBorderOptions, FrameBorderGeometry, FrameBorderDraw};
+    TTK_LAYOUT_SPEC_VERSION, sizeof(FrameBorderElement), FrameBorderOptions,
+    FrameBorderGeometry, FrameBorderDraw};
 
 } // namespace tkblend

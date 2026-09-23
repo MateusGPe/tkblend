@@ -105,4 +105,40 @@ Ttk_ElementSpec EntryFieldElementSpec = {
     EntryFieldElementDraw
 };
 
+// ============================================================================
+// Treeview Field Element (Flat surface without border stroke or entry corner radius)
+// ============================================================================
+static void TreeviewFieldElementGeometry(
+    void* /*clientData*/, void* /*elementRecord*/, Tk_Window /*tkwin*/,
+    int* widthPtr, int* heightPtr, Ttk_Padding* paddingPtr
+) {
+    if (widthPtr)  *widthPtr  = 0;
+    if (heightPtr) *heightPtr = 0;
+    if (paddingPtr) {
+        paddingPtr->left   = 0;
+        paddingPtr->top    = 0;
+        paddingPtr->right  = 0;
+        paddingPtr->bottom = 0;
+    }
+}
+
+static void TreeviewFieldElementDraw(
+    void* /*clientData*/, void* /*elementRecord*/,
+    Tk_Window tkwin, Drawable d, Ttk_Box b, Ttk_State /*state*/
+) {
+    const auto& cfg = ThemeEngine::instance().config();
+    RenderElement(tkwin, d, b, [&](BLContext& ctx, int w, int h) {
+        if (w <= 0 || h <= 0) return;
+        ctx.fill_all(to_bl_rgba(cfg.input_bg));
+    }, cfg.input_bg);
+}
+
+Ttk_ElementSpec TreeviewFieldElementSpec = {
+    TTK_LAYOUT_SPEC_VERSION,
+    sizeof(EntryFieldElement),
+    EntryFieldElementOptions,
+    TreeviewFieldElementGeometry,
+    TreeviewFieldElementDraw
+};
+
 } // namespace tkblend

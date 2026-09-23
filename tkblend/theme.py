@@ -274,12 +274,6 @@ def _apply_card_style(widget: tk.Misc, pal: Dict[str, str]) -> None:
                 except tk.TclError:
                     pass
             return
-        elif w_class == "Treeview":
-            try:
-                widget.configure(background=pal["card_bg"], fieldbackground=pal["card_bg"])
-            except tk.TclError:
-                pass
-            return
         elif w_class == "TPanedwindow":
             try:
                 widget.configure(background=pal["card_bg"])

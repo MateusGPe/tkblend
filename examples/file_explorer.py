@@ -26,6 +26,7 @@ from tkinter import ttk, messagebox
 # PIL for image thumbnail generation
 try:
     from PIL import Image, ImageTk
+
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -184,7 +185,9 @@ class FileExplorerApp:
         self.sort_descending = False
 
         # Apply native Blend2D TTK theme
-        tkblend.apply_theme(self.root, dark_mode=self.is_dark, enable_shadows=True, **_THEME_OPTS)
+        tkblend.apply_theme(
+            self.root, dark_mode=self.is_dark, enable_shadows=True, **_THEME_OPTS
+        )
 
         # Initial directory is current workspace or user home
         initial_dir = Path(os.getcwd()).resolve()
@@ -247,7 +250,9 @@ class FileExplorerApp:
         path_box = ttk.Frame(toolbar)
         path_box.pack(side="left", fill="x", expand=True, padx=(0, 12))
 
-        ttk.Label(path_box, text="📍", font=("Helvetica", 11)).pack(side="left", padx=(0, 4))
+        ttk.Label(path_box, text="📍", font=("Helvetica", 11)).pack(
+            side="left", padx=(0, 4)
+        )
         self.path_entry = tkblend.ThemedEntry(path_box)
         self.path_entry.pack(side="left", fill="x", expand=True)
         self.path_entry.bind("<Return>", self._on_path_entered)
@@ -257,7 +262,9 @@ class FileExplorerApp:
         actions_box.pack(side="right")
 
         # Live Search Field
-        self.search_entry = tkblend.SearchEntry(actions_box, placeholder="Search files...", width=20)
+        self.search_entry = tkblend.SearchEntry(
+            actions_box, placeholder="Search files...", width=20
+        )
         self.search_entry.pack(side="left", padx=(0, 10))
         self.search_entry.bind("<KeyRelease>", self._on_search_changed)
 
@@ -354,7 +361,9 @@ class FileExplorerApp:
         tree_container.pack(fill="both", expand=True)
 
         self.side_tree = ttk.Treeview(tree_container, show="tree", selectmode="browse")
-        self.side_scroll = ttk.Scrollbar(tree_container, orient="vertical", command=self.side_tree.yview)
+        self.side_scroll = ttk.Scrollbar(
+            tree_container, orient="vertical", command=self.side_tree.yview
+        )
         self.side_tree.configure(yscrollcommand=self.side_scroll.set)
 
         self.side_scroll.pack(side="right", fill="y")
@@ -376,6 +385,7 @@ class FileExplorerApp:
 
         if platform.system() == "Windows":
             import string
+
             for drive in string.ascii_uppercase:
                 p = Path(f"{drive}:\\")
                 if p.exists():
@@ -385,7 +395,9 @@ class FileExplorerApp:
             roots.append(("Home (~)", Path.home()))
 
         for name, path in roots:
-            node_id = self.side_tree.insert("", "end", text=f"📁 {name}", values=(str(path),))
+            node_id = self.side_tree.insert(
+                "", "end", text=f"📁 {name}", values=(str(path),)
+            )
             # Insert dummy node for lazy-loading subdirectories
             self.side_tree.insert(node_id, "end", text="Loading...")
 
@@ -403,13 +415,23 @@ class FileExplorerApp:
         children = self.side_tree.get_children(sel)
 
         # If only dummy node exists, replace with real subdirectories
-        if len(children) == 1 and self.side_tree.item(children[0], "text") == "Loading...":
+        if (
+            len(children) == 1
+            and self.side_tree.item(children[0], "text") == "Loading..."
+        ):
             self.side_tree.delete(children[0])
             try:
-                subdirs = [p for p in dir_path.iterdir() if p.is_dir() and (self.show_hidden_var.get() or not p.name.startswith("."))]
+                subdirs = [
+                    p
+                    for p in dir_path.iterdir()
+                    if p.is_dir()
+                    and (self.show_hidden_var.get() or not p.name.startswith("."))
+                ]
                 subdirs.sort(key=lambda p: p.name.lower())
                 for sub in subdirs:
-                    sub_node = self.side_tree.insert(sel, "end", text=f"📁 {sub.name}", values=(str(sub),))
+                    sub_node = self.side_tree.insert(
+                        sel, "end", text=f"📁 {sub.name}", values=(str(sub),)
+                    )
                     # Check if sub has children to add dummy placeholder
                     try:
                         has_children = any(c.is_dir() for c in sub.iterdir())
@@ -438,26 +460,49 @@ class FileExplorerApp:
         self.center_container = ttk.Frame(parent)
         self.center_container.pack(fill="both", expand=True)
 
-        # 1. Details Table Frame
-        self.details_frame = ttk.Frame(self.center_container)
+        # 1. Details Table Frame (Card container with unified rounded border)
+        self.details_frame = tkblend.Card(self.center_container, padding=2)
 
         columns = ("name", "size", "type", "modified", "permissions")
-        self.table = ttk.Treeview(self.details_frame, columns=columns, show="headings", selectmode="browse")
-        self.table_scroll_y = ttk.Scrollbar(self.details_frame, orient="vertical", command=self.table.yview)
-        self.table_scroll_x = ttk.Scrollbar(self.details_frame, orient="horizontal", command=self.table.xview)
-        self.table.configure(yscrollcommand=self.table_scroll_y.set, xscrollcommand=self.table_scroll_x.set)
+        self.table = ttk.Treeview(
+            self.details_frame, columns=columns, show="headings", selectmode="browse"
+        )
+        self.table_scroll_y = ttk.Scrollbar(
+            self.details_frame, orient="vertical", command=self.table.yview
+        )
+        self.table_scroll_x = ttk.Scrollbar(
+            self.details_frame, orient="horizontal", command=self.table.xview
+        )
+        self.table.configure(
+            yscrollcommand=self.table_scroll_y.set,
+            xscrollcommand=self.table_scroll_x.set,
+        )
 
-        self.table.heading("name", text="Name", command=lambda: self._sort_table_by("name"))
-        self.table.heading("size", text="Size", command=lambda: self._sort_table_by("size"))
-        self.table.heading("type", text="Type", command=lambda: self._sort_table_by("type"))
-        self.table.heading("modified", text="Date Modified", command=lambda: self._sort_table_by("modified"))
-        self.table.heading("permissions", text="Permissions", command=lambda: self._sort_table_by("permissions"))
+        self.table.heading(
+            "name", text="Name", command=lambda: self._sort_table_by("name")
+        )
+        self.table.heading(
+            "size", text="Size", command=lambda: self._sort_table_by("size")
+        )
+        self.table.heading(
+            "type", text="Type", command=lambda: self._sort_table_by("type")
+        )
+        self.table.heading(
+            "modified",
+            text="Date Modified",
+            command=lambda: self._sort_table_by("modified"),
+        )
+        self.table.heading(
+            "permissions",
+            text="Permissions",
+            command=lambda: self._sort_table_by("permissions"),
+        )
 
-        self.table.column("name", width=260, minwidth=140)
-        self.table.column("size", width=90, minwidth=70, anchor="e")
-        self.table.column("type", width=120, minwidth=80)
-        self.table.column("modified", width=150, minwidth=110)
-        self.table.column("permissions", width=100, minwidth=80)
+        self.table.column("name", width=220, minwidth=130, stretch=True)
+        self.table.column("size", width=80, minwidth=65, stretch=False, anchor="e")
+        self.table.column("type", width=110, minwidth=80, stretch=False)
+        self.table.column("modified", width=150, minwidth=110, stretch=False)
+        self.table.column("permissions", width=95, minwidth=70, stretch=False)
 
         self.table_scroll_y.pack(side="right", fill="y")
         self.table_scroll_x.pack(side="bottom", fill="x")
@@ -504,14 +549,19 @@ class FileExplorerApp:
 
         self.p_title_var = tk.StringVar(value="Select an item")
         self.lbl_preview_title = ttk.Label(
-            self.p_header, textvariable=self.p_title_var, font=("Helvetica", 12, "bold"), wraplength=220
+            self.p_header,
+            textvariable=self.p_title_var,
+            font=("Helvetica", 12, "bold"),
+            wraplength=220,
         )
         self.lbl_preview_title.pack(anchor="w")
 
         self.p_badge_box = ttk.Frame(self.p_header)
         self.p_badge_box.pack(anchor="w", pady=(4, 0))
 
-        self.preview_badge = tkblend.Badge(self.p_badge_box, text="File Explorer", variant="primary", dot=True)
+        self.preview_badge = tkblend.Badge(
+            self.p_badge_box, text="File Explorer", variant="primary", dot=True
+        )
         self.preview_badge.pack(side="left")
 
         # Metadata Details Card
@@ -528,8 +578,12 @@ class FileExplorerApp:
         for idx, (label, var) in enumerate(self.meta_vars.items()):
             row = ttk.Frame(meta_card)
             row.pack(fill="x", pady=2)
-            ttk.Label(row, text=f"{label}:", width=12, font=("Helvetica", 9, "bold")).pack(side="left")
-            ttk.Label(row, textvariable=var, font=("Helvetica", 9), wraplength=180).pack(side="left", fill="x", expand=True)
+            ttk.Label(
+                row, text=f"{label}:", width=12, font=("Helvetica", 9, "bold")
+            ).pack(side="left")
+            ttk.Label(
+                row, textvariable=var, font=("Helvetica", 9), wraplength=180
+            ).pack(side="left", fill="x", expand=True)
 
         # Content Preview Section
         prev_section = ttk.Labelframe(parent, text=" Content Preview ", padding=6)
@@ -546,7 +600,9 @@ class FileExplorerApp:
         )
 
         # 2. Image / Visual Canvas
-        self.image_preview_lbl = ttk.Label(self.prev_container, text="No preview available", anchor="center")
+        self.image_preview_lbl = ttk.Label(
+            self.prev_container, text="No preview available", anchor="center"
+        )
 
         # Show empty placeholder initially
         self.image_preview_lbl.pack(fill="both", expand=True)
@@ -560,7 +616,10 @@ class FileExplorerApp:
 
         self.status_var = tk.StringVar(value="Ready")
         ttk.Label(
-            status_frame, textvariable=self.status_var, padding=(16, 6), font=("Helvetica", 9)
+            status_frame,
+            textvariable=self.status_var,
+            padding=(16, 6),
+            font=("Helvetica", 9),
         ).pack(side="left", fill="x", expand=True)
 
         self.sizegrip = ttk.Sizegrip(status_frame)
@@ -571,14 +630,26 @@ class FileExplorerApp:
     # -------------------------------------------------------------------------
     def _build_context_menu(self):
         self.context_menu = tk.Menu(self.root, tearoff=0)
-        self.context_menu.add_command(label="Open / Enter", command=self._on_action_open)
+        self.context_menu.add_command(
+            label="Open / Enter", command=self._on_action_open
+        )
         self.context_menu.add_separator()
-        self.context_menu.add_command(label="Copy Full Path", command=self._on_action_copy_path)
-        self.context_menu.add_command(label="Copy Relative Path", command=self._on_action_copy_relative_path)
-        self.context_menu.add_command(label="Copy File Name", command=self._on_action_copy_name)
+        self.context_menu.add_command(
+            label="Copy Full Path", command=self._on_action_copy_path
+        )
+        self.context_menu.add_command(
+            label="Copy Relative Path", command=self._on_action_copy_relative_path
+        )
+        self.context_menu.add_command(
+            label="Copy File Name", command=self._on_action_copy_name
+        )
         self.context_menu.add_separator()
-        self.context_menu.add_command(label="Reveal in OS File Manager", command=self._on_action_reveal_os)
-        self.context_menu.add_command(label="Open in Terminal", command=self._on_action_open_terminal)
+        self.context_menu.add_command(
+            label="Reveal in OS File Manager", command=self._on_action_reveal_os
+        )
+        self.context_menu.add_command(
+            label="Open in Terminal", command=self._on_action_open_terminal
+        )
         self.context_menu.add_separator()
         self.context_menu.add_command(label="Refresh", command=self.refresh)
 
@@ -602,7 +673,9 @@ class FileExplorerApp:
         try:
             target_path = target_path.resolve()
             if not target_path.exists() or not target_path.is_dir():
-                messagebox.showerror("Cannot Open", f"Directory does not exist:\n{target_path}")
+                messagebox.showerror(
+                    "Cannot Open", f"Directory does not exist:\n{target_path}"
+                )
                 return
 
             if record_history and self.current_dir != target_path:
@@ -614,14 +687,18 @@ class FileExplorerApp:
 
             # Update Back/Forward button states
             self.btn_back.configure(state="normal" if self.history_back else "disabled")
-            self.btn_forward.configure(state="normal" if self.history_forward else "disabled")
+            self.btn_forward.configure(
+                state="normal" if self.history_forward else "disabled"
+            )
 
             # Scan directory items
             self._scan_current_directory()
             self._refresh_content_views()
 
         except PermissionError:
-            messagebox.showerror("Permission Denied", f"Access denied to folder:\n{target_path}")
+            messagebox.showerror(
+                "Permission Denied", f"Access denied to folder:\n{target_path}"
+            )
         except Exception as err:
             messagebox.showerror("Navigation Error", str(err))
 
@@ -695,9 +772,14 @@ class FileExplorerApp:
         except Exception:
             free_str = "Unknown"
 
-        status_msg = f"{filtered_count} items (total: {total_count}) • Free space: {free_str}"
+        status_msg = (
+            f"{filtered_count} items (total: {total_count}) • Free space: {free_str}"
+        )
         if self.selected_item:
-            status_msg = f"Selected: {self.selected_item['name']} ({self.selected_item['size_str']}) • " + status_msg
+            status_msg = (
+                f"Selected: {self.selected_item['name']} ({self.selected_item['size_str']}) • "
+                + status_msg
+            )
         self.status_var.set(status_msg)
 
     # -------------------------------------------------------------------------
@@ -734,13 +816,20 @@ class FileExplorerApp:
             lbl_name = ttk.Label(card, text=short_name, font=("Helvetica", 10, "bold"))
             lbl_name.pack()
 
-            lbl_sub = ttk.Label(card, text=it["size_str"] if not it["is_dir"] else "Folder", font=("Helvetica", 8))
+            lbl_sub = ttk.Label(
+                card,
+                text=it["size_str"] if not it["is_dir"] else "Folder",
+                font=("Helvetica", 8),
+            )
             lbl_sub.pack(pady=(2, 4))
 
             # Bindings for selection and navigation
             for w in (card, lbl_icon, lbl_name, lbl_sub):
                 w.bind("<Button-1>", lambda e, item=it: self._select_item(item))
-                w.bind("<Double-Button-1>", lambda e, item=it: self._on_item_double_click(item))
+                w.bind(
+                    "<Double-Button-1>",
+                    lambda e, item=it: self._on_item_double_click(item),
+                )
                 w.bind("<Button-3>", self._on_show_context_menu)
 
         for c in range(columns_count):
@@ -786,12 +875,22 @@ class FileExplorerApp:
                     font=("Helvetica", 10),
                 )
             except Exception:
-                self.image_preview_lbl.configure(image="", text="📁 Folder\n\nAccess restricted.")
+                self.image_preview_lbl.configure(
+                    image="", text="📁 Folder\n\nAccess restricted."
+                )
             return
 
         # 2. Image Preview (using PIL)
         ext = it["extension"]
-        if HAS_PIL and ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico"):
+        if HAS_PIL and ext in (
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".gif",
+            ".webp",
+            ".bmp",
+            ".ico",
+        ):
             try:
                 img = Image.open(target_path)
                 img.thumbnail((260, 240), Image.Resampling.LANCZOS)
@@ -814,9 +913,31 @@ class FileExplorerApp:
 
         # 3. Text / Code Preview
         is_text_candidate = ext in (
-            ".py", ".pyi", ".txt", ".md", ".json", ".toml", ".yaml", ".yml",
-            ".c", ".cpp", ".h", ".hpp", ".rs", ".go", ".js", ".ts", ".html",
-            ".css", ".sh", ".bash", ".xml", ".ini", ".env", ".rst", ".cmake",
+            ".py",
+            ".pyi",
+            ".txt",
+            ".md",
+            ".json",
+            ".toml",
+            ".yaml",
+            ".yml",
+            ".c",
+            ".cpp",
+            ".h",
+            ".hpp",
+            ".rs",
+            ".go",
+            ".js",
+            ".ts",
+            ".html",
+            ".css",
+            ".sh",
+            ".bash",
+            ".xml",
+            ".ini",
+            ".env",
+            ".rst",
+            ".cmake",
         )
         if is_text_candidate or it["size"] < 256 * 1024:
             try:
@@ -914,9 +1035,13 @@ class FileExplorerApp:
     def toggle_theme(self):
         """Toggle between Dark Mode and Light Mode with native Blend2D TTK theme."""
         self.is_dark = not self.is_dark
-        tkblend.apply_theme(self.root, dark_mode=self.is_dark, enable_shadows=True, **_THEME_OPTS)
+        tkblend.apply_theme(
+            self.root, dark_mode=self.is_dark, enable_shadows=True, **_THEME_OPTS
+        )
         self.btn_theme.configure(text="☀️ Light" if self.is_dark else "🌙 Dark")
-        self.status_var.set(f"Theme switched to {'Dark' if self.is_dark else 'Light'} mode.")
+        self.status_var.set(
+            f"Theme switched to {'Dark' if self.is_dark else 'Light'} mode."
+        )
 
     # -------------------------------------------------------------------------
     # Context Menu Actions
@@ -965,7 +1090,11 @@ class FileExplorerApp:
             self.status_var.set(f"Reveal failed: {err}")
 
     def _on_action_open_terminal(self):
-        target_dir = self.selected_item["path"] if (self.selected_item and self.selected_item["is_dir"]) else self.current_dir
+        target_dir = (
+            self.selected_item["path"]
+            if (self.selected_item and self.selected_item["is_dir"])
+            else self.current_dir
+        )
         try:
             if platform.system() == "Windows":
                 subprocess.Popen(["cmd.exe", "/K", f"cd /d {target_dir}"], shell=True)
@@ -973,11 +1102,20 @@ class FileExplorerApp:
                 subprocess.run(["open", "-a", "Terminal", str(target_dir)], check=False)
             else:
                 # Try common Linux terminal emulators
-                terminals = ["x-terminal-emulator", "gnome-terminal", "alacritty", "kitty", "konsole", "xterm"]
+                terminals = [
+                    "x-terminal-emulator",
+                    "gnome-terminal",
+                    "alacritty",
+                    "kitty",
+                    "konsole",
+                    "xterm",
+                ]
                 for term in terminals:
                     if shutil.which(term):
                         subprocess.Popen([term], cwd=str(target_dir))
-                        self.status_var.set(f"Launched terminal {term} in {target_dir.name}")
+                        self.status_var.set(
+                            f"Launched terminal {term} in {target_dir.name}"
+                        )
                         return
                 self.status_var.set("No recognized terminal emulator found.")
         except Exception as err:

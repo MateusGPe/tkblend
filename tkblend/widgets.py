@@ -363,9 +363,10 @@ class Badge(BlendCanvas):
             )
 
 
-class SegmentedControl(ttk.Frame):
+class SegmentedControl(BlendCanvas):
     """
-    Modern segmented tab / pill switcher with active indicator and Tkinter variable data binding.
+    Modern Blend2D-powered segmented tab / pill switcher with antialiased vector capsule track,
+    elevated active pill, hover feedback, smooth 60fps sliding transition, and Tkinter variable data binding.
     """
     def __init__(
         self,
@@ -373,12 +374,24 @@ class SegmentedControl(ttk.Frame):
         values: Optional[List[str]] = None,
         variable: Optional[tk.StringVar] = None,
         command: Optional[Callable[[str], None]] = None,
+        font_size: float = 11.5,
+        font_family: str = "sans-serif",
+        height: int = 30,
         **kwargs,
     ):
-        super().__init__(master, style="Card.TFrame", padding=3, **kwargs)
-        self.values = values or []
+        self.values = list(values) if values else []
         self.command = command
-        self._buttons: List[Tuple[str, ttk.Button]] = []
+        self._font_size = font_size
+        self._font_family = font_family
+        self._preferred_height = max(24, int(height))
+        self._hovered_index: Optional[int] = None
+        self._anim_timer = None
+
+        # Calculate preferred width based on segment labels
+        num_segs = max(1, len(self.values))
+        max_label_len = max((len(v) for v in self.values), default=6)
+        seg_w = max(64, int(max_label_len * 9 + 28))
+        self._preferred_width = seg_w * num_segs + 8
 
         if variable is None:
             initial = self.values[0] if self.values else ""
@@ -386,47 +399,200 @@ class SegmentedControl(ttk.Frame):
         else:
             self.variable = variable
 
+        # Track variable index
+        cur_idx = self._index_of(self.variable.get())
+        self._current_anim_pos = float(cur_idx)
+        self._target_anim_pos = float(cur_idx)
+
+        super().__init__(
+            master=master,
+            width=self._preferred_width,
+            height=self._preferred_height,
+            **kwargs,
+        )
+
         self._trace_id = self.variable.trace_add("write", self._on_var_changed)
 
-        for val in self.values:
-            btn = ttk.Button(
-                self,
-                text=val,
-                command=lambda v=val: self.set(v),
-            )
-            btn.pack(side="left", fill="both", expand=True, padx=2, pady=1)
-            self._buttons.append((val, btn))
+        self.bind("<Motion>", self._on_mouse_motion, add="+")
+        self.bind("<Leave>", self._on_mouse_leave, add="+")
+        self.bind("<Button-1>", self._on_mouse_click, add="+")
+        self.bind("<Destroy>", self._on_destroy_ctrl, add="+")
 
-        self._update_button_styles()
-        bind_theme_changed(self, self._update_button_styles)
+        self.after_idle(self._redraw)
 
-    def destroy(self):
+    def _index_of(self, val: str) -> int:
+        if val in self.values:
+            return self.values.index(val)
+        return 0
+
+    def _segment_index_at(self, x: float) -> Optional[int]:
+        if not self.values:
+            return None
+        w = max(self._preferred_width, self._canvas_width, self.winfo_width())
+        track_w = float(w - 6.0)
+        seg_w = track_w / len(self.values)
+        offset_x = x - 3.0
+        if offset_x < 0 or offset_x >= track_w:
+            return None
+        idx = int(offset_x // seg_w)
+        return max(0, min(len(self.values) - 1, idx))
+
+    def _on_mouse_motion(self, event):
+        idx = self._segment_index_at(event.x)
+        if idx != self._hovered_index:
+            self._hovered_index = idx
+            self.configure(cursor="hand2" if idx is not None else "")
+            self._redraw()
+
+    def _on_mouse_leave(self, _event=None):
+        if self._hovered_index is not None:
+            self._hovered_index = None
+            self.configure(cursor="")
+            self._redraw()
+
+    def _on_mouse_click(self, event):
+        idx = self._segment_index_at(event.x)
+        if idx is not None and 0 <= idx < len(self.values):
+            val = self.values[idx]
+            self.set(val)
+
+    def _on_destroy_ctrl(self, event=None):
+        if event is not None and getattr(event, "widget", None) != self:
+            return
+        if self._anim_timer is not None:
+            try:
+                self.after_cancel(self._anim_timer)
+            except Exception:
+                pass
+            self._anim_timer = None
         if hasattr(self, "variable") and hasattr(self, "_trace_id"):
             try:
                 self.variable.trace_remove("write", self._trace_id)
             except Exception:
                 pass
+
+    def destroy(self):
+        self._on_destroy_ctrl()
         super().destroy()
 
     def _on_var_changed(self, *args):
-        self._update_button_styles()
+        target = float(self._index_of(self.variable.get()))
+        if abs(target - self._current_anim_pos) > 0.01:
+            self._target_anim_pos = target
+            self._start_animation()
+        else:
+            self._redraw()
         if self.command:
-            self.command(self.variable.get())
+            try:
+                self.command(self.variable.get())
+            except Exception:
+                pass
+
+    def _start_animation(self):
+        if self._anim_timer is not None:
+            try:
+                self.after_cancel(self._anim_timer)
+            except Exception:
+                pass
+            self._anim_timer = None
+        self._step_animation()
+
+    def _step_animation(self):
+        if not self.winfo_exists():
+            return
+        diff = self._target_anim_pos - self._current_anim_pos
+        if abs(diff) < 0.05:
+            self._current_anim_pos = self._target_anim_pos
+            self._anim_timer = None
+            self._redraw()
+            return
+
+        self._current_anim_pos += diff * 0.45
+        self._redraw()
+        self._anim_timer = self.after(16, self._step_animation)
 
     def get(self) -> str:
         return self.variable.get()
 
     def set(self, value: str):
-        self.variable.set(value)
+        if value != self.variable.get():
+            self.variable.set(value)
+        else:
+            # Re-trigger command if explicitly set
+            if self.command:
+                try:
+                    self.command(value)
+                except Exception:
+                    pass
 
-    def _update_button_styles(self):
-        if not self.winfo_exists():
+    def _redraw(self):
+        if not self.winfo_exists() or self.surface is None:
             return
-        cur = self.variable.get()
-        for val, btn in self._buttons:
-            if not btn.winfo_exists():
-                continue
-            if val == cur:
-                btn.configure(style="Primary.TButton")
-            else:
-                btn.configure(style="Ghost.TButton")
+        w = max(self._preferred_width, self._canvas_width, self.winfo_width())
+        h = max(self._preferred_height, self._canvas_height, self.winfo_height())
+
+        pal = get_theme_palette()
+        is_inside = is_inside_card(self)
+        bg_color = pal["card_bg"] if is_inside else pal["bg"]
+        try:
+            self.configure(background=bg_color)
+        except Exception:
+            pass
+
+        with self.render() as ctx:
+            ctx.clear(bg_color)
+
+            num_segs = max(1, len(self.values))
+            tx = 2.0
+            ty = 2.0
+            tw = float(w - 4.0)
+            th = float(h - 4.0)
+            tr = 7.0
+
+            # Recessed capsule track
+            track_bg = blend_color_hex(pal["secondary"], bg_color, 0.40)
+            ctx.fill_rounded_rect(tx, ty, tw, th, tr, tr, track_bg)
+            ctx.stroke_rounded_rect(tx, ty, tw, th, tr, tr, pal["card_border"], stroke_width=1.0)
+
+            pad = 2.5
+            inner_w = tw - (pad * 2.0)
+            inner_h = th - (pad * 2.0)
+            seg_w = inner_w / num_segs
+            seg_r = max(4.0, tr - 2.0)
+            cur_idx = self._index_of(self.variable.get())
+
+            # Hover highlight on inactive segment
+            if self._hovered_index is not None and self._hovered_index != cur_idx and 0 <= self._hovered_index < num_segs:
+                hx = tx + pad + float(self._hovered_index) * seg_w
+                ctx.fill_rounded_rect(hx, ty + pad, seg_w, inner_h, seg_r, seg_r, pal["secondary_hover"])
+
+            # Elevated active pill
+            pill_x = tx + pad + self._current_anim_pos * seg_w
+            pill_y = ty + pad
+            # Soft shadow
+            ctx.fill_rounded_rect(pill_x, pill_y + 1.0, seg_w, inner_h, seg_r, seg_r, "rgba(0, 0, 0, 0.12)")
+            # Active pill fill
+            ctx.fill_rounded_rect(pill_x, pill_y, seg_w, inner_h, seg_r, seg_r, pal["primary"])
+
+            # Antialiased text labels
+            for i, val in enumerate(self.values):
+                cx = tx + pad + (float(i) + 0.5) * seg_w
+                cy = ty + pad + (inner_h / 2.0) + (self._font_size * 0.35)
+                # Check if this item is currently active or transitioning
+                dist_to_active = abs(float(i) - self._current_anim_pos)
+                if dist_to_active < 0.4:
+                    text_col = pal["primary_fg"]
+                elif i == self._hovered_index:
+                    text_col = pal["fg"]
+                else:
+                    text_col = blend_color_hex(pal["fg"], pal["card_border"], 0.25)
+
+                ctx.draw_text(
+                    val,
+                    cx,
+                    cy,
+                    font_size=self._font_size,
+                    font_family=self._font_family,
+                    color=text_col,
+                    align="center",
+                )
