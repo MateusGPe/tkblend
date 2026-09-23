@@ -244,15 +244,32 @@ class Surface:
         text: str,
         x: float,
         y: float,
-        font_size: float = 14.0,
-        font_family: str = "sans-serif",
+        font_size: Optional[float] = None,
+        font_family: Optional[str] = None,
         color: ColorLike = "#ffffff",
         align: str = "left",  # "left", "center", "right"
+        font: Union[FontConfig, Tuple[Any, ...], str, None] = None,
+        bold: Optional[bool] = None,
+        italic: Optional[bool] = None,
+        weight: Optional[Union[int, str]] = None,
     ) -> None:
         """
         Draw antialiased subpixel text using Blend2D's native font engine.
+        Supports weight, bold, italic, font tuples, and string descriptions.
         Align can be 'left' (0), 'center' (1), or 'right' (2).
         """
+        from tkblend.font import parse_font
+        cfg = parse_font(
+            font=font,
+            font_size=font_size,
+            font_family=font_family,
+            bold=bold,
+            italic=italic,
+            weight=weight,
+            default_family="default",
+            default_size=14.0,
+        )
+
         align_code = 0
         if align == "center":
             align_code = 1
@@ -263,10 +280,13 @@ class Surface:
             text,
             float(x),
             float(y),
-            float(font_size),
-            font_family,
+            float(cfg.size),
+            cfg.family,
             parse_color(color),
             align_code,
+            cfg.weight,
+            cfg.italic,
+            cfg.bold,
         )
 
     # Shadows & Cards

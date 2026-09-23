@@ -11,6 +11,10 @@ from tkblend._tkblend import (  # type: ignore
     register_font,
     find_system_font,
     get_loaded_fonts,
+    get_internal_fonts,
+    get_system_fonts,
+    get_active_font,
+    set_active_font,
     register_font_directory,
     set_emoji_font,
     get_emoji_font,
@@ -47,6 +51,7 @@ from tkblend.surface import (
 )
 
 from tkblend.canvas import BlendCanvas
+from tkblend.font import FontConfig, parse_font, extract_font_family, sync_tk_fonts
 
 from tkblend.theme import (
     Palette,
@@ -200,15 +205,23 @@ __all__ = [
     "ModernAvatar",
     "Accordion",
     "ModernAccordion",
-    # Font Management
+    # Font Management & Typography
     "load_font_face",
     "load_font",
     "register_font",
     "find_system_font",
     "get_loaded_fonts",
+    "get_internal_fonts",
+    "get_system_fonts",
+    "get_active_font",
+    "set_active_font",
     "register_font_directory",
     "set_emoji_font",
     "get_emoji_font",
+    "FontConfig",
+    "parse_font",
+    "extract_font_family",
+    "sync_tk_fonts",
     # Composition Operators & Extend Modes
     "COMP_OP_SRC_OVER",
     "COMP_OP_SRC_COPY",

@@ -240,13 +240,29 @@ class BlendCanvas(tk.Label):
         text: str,
         x: float,
         y: float,
-        font_size: float = 14.0,
-        font_family: str = "sans-serif",
+        font_size: Optional[float] = None,
+        font_family: Optional[str] = None,
         color: ColorLike = "#ffffff",
         align: str = "left",
+        font: Any = None,
+        bold: Optional[bool] = None,
+        italic: Optional[bool] = None,
+        weight: Optional[Union[int, str]] = None,
         blit: bool = False,
     ) -> BlendCanvas:
-        self._surface.draw_text(text, x, y, font_size, font_family, color, align)
+        self._surface.draw_text(
+            text=text,
+            x=x,
+            y=y,
+            font_size=font_size,
+            font_family=font_family,
+            color=color,
+            align=align,
+            font=font,
+            bold=bold,
+            italic=italic,
+            weight=weight,
+        )
         if blit:
             self._surface.blit(self._photo)
         return self

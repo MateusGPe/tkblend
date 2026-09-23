@@ -4,9 +4,10 @@ Text entry and numeric stepper widgets: TextInput and SpinBox.
 
 from __future__ import annotations
 import tkinter as tk
-from typing import Optional, Callable
+from typing import Optional, Callable, Any, Union, Tuple
 
 from tkblend.theme import get_theme, Palette
+from tkblend.font import FontConfig, parse_font
 from tkblend.widgets.base import Widget, ScalingTracker
 from tkblend.widgets.drawing import draw_vector_plus, draw_vector_minus
 
@@ -48,6 +49,30 @@ class TextInput(tk.Frame):
         pal = get_theme()
         self._explicit_parent_bg = parent_bg
         self._parent_bg = parent_bg or Widget._resolve_default_bg(master, pal)
+
+        # Typography configuration
+        font_spec = kwargs.pop("font", None)
+        font_size = kwargs.pop("font_size", None)
+        font_family = kwargs.pop("font_family", None)
+        bold = kwargs.pop("bold", None)
+        italic = kwargs.pop("italic", None)
+        weight = kwargs.pop("weight", None)
+
+        self._custom_font_override = any(
+            x is not None for x in (font_spec, font_size, font_family, bold, italic, weight)
+        )
+        from tkblend.font import parse_font
+        self._font_config = parse_font(
+            font=font_spec,
+            font_size=font_size,
+            font_family=font_family,
+            bold=bold,
+            italic=italic,
+            weight=weight,
+            default_family="default",
+            default_size=12.0,
+        )
+
         super().__init__(
             master,
             width=max(1, int(width * s)),
@@ -66,6 +91,7 @@ class TextInput(tk.Frame):
 
         entry_pad_x = int(14 * s)
         entry_pad_r = int(32 * s)
+        entry_font = self._get_effective_tk_font()
         self._entry = tk.Entry(
             self,
             bg=pal.input_bg,
@@ -73,8 +99,12 @@ class TextInput(tk.Frame):
             insertbackground=pal.input_focus,
             borderwidth=0,
             highlightthickness=0,
-            font=("DejaVu Sans", int(12 * s)),
+            font=entry_font,
         )
+        self._entry._tkblend_injected_font = entry_font
+        if self._custom_font_override:
+            self._entry._tkblend_custom_font_override = True
+
         self._entry.place(x=entry_pad_x, y=int(7 * s), relwidth=1.0, width=-(entry_pad_x + entry_pad_r), height=int(24 * s))
 
         if self._placeholder:
@@ -88,6 +118,105 @@ class TextInput(tk.Frame):
         self._bg_widget.bind("<Button-1>", self._on_bg_click)
 
         self._render_bg()
+
+    def _get_effective_tk_font(self) -> Union[Tuple[Any, ...], Any]:
+        eff_fc = self._font_config.copy_with(size=self._font_config.size * self._scale)
+        return eff_fc.to_tk_font()
+
+    def _update_entry_font(self) -> None:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            entry_font = self._get_effective_tk_font()
+            self._entry.configure(font=entry_font)
+            self._entry._tkblend_injected_font = entry_font
+            if self._custom_font_override:
+                self._entry._tkblend_custom_font_override = True
+
+    @property
+    def font(self) -> Any:
+        return self._font_config
+
+    @font.setter
+    def font(self, val: Any) -> None:
+        from tkblend.font import parse_font
+        self._custom_font_override = True
+        self._font_config = parse_font(
+            font=val,
+            default_family=self._font_config.family,
+            default_size=self._font_config.size,
+        )
+        self._update_entry_font()
+
+    @property
+    def font_size(self) -> float:
+        return self._font_config.size
+
+    @font_size.setter
+    def font_size(self, size: float) -> None:
+        self._custom_font_override = True
+        self._font_config = self._font_config.copy_with(size=size)
+        self._update_entry_font()
+
+    @property
+    def font_family(self) -> str:
+        return self._font_config.family
+
+    @font_family.setter
+    def font_family(self, family: str) -> None:
+        self._custom_font_override = True
+        self._font_config = self._font_config.copy_with(family=family)
+        self._update_entry_font()
+
+    @property
+    def font_config(self) -> FontConfig:
+        return self._font_config
+
+    @font_config.setter
+    def font_config(self, fc: FontConfig) -> None:
+        self.font = fc
+
+    def configure(self, cnf=None, **kwargs):
+        if cnf:
+            kwargs.update(cnf)
+        font_spec = kwargs.pop("font", None)
+        font_size = kwargs.pop("font_size", None)
+        font_family = kwargs.pop("font_family", None)
+        placeholder = kwargs.pop("placeholder", None)
+        bg = kwargs.pop("bg", kwargs.pop("background", None))
+
+        if font_spec is not None or font_size is not None or font_family is not None:
+            from tkblend.font import parse_font
+            self._custom_font_override = True
+            if font_spec is not None:
+                self._font_config = parse_font(
+                    font=font_spec,
+                    font_size=font_size,
+                    font_family=font_family,
+                    default_family=self._font_config.family,
+                    default_size=self._font_config.size,
+                )
+            else:
+                self._font_config = parse_font(
+                    font=self._font_config,
+                    font_size=font_size,
+                    font_family=font_family,
+                    default_family=self._font_config.family,
+                    default_size=self._font_config.size,
+                )
+            self._update_entry_font()
+
+        if placeholder is not None:
+            self._placeholder = placeholder
+            if not self.get() and not self._has_focus:
+                self.set("")
+
+        if bg is not None:
+            self.set_parent_bg(bg)
+
+        if kwargs:
+            return super().configure(**kwargs)
+        return None
+
+    config = configure
 
     def set_parent_bg(self, bg: str, force: bool = False) -> None:
         """Update parent background and re-render."""
@@ -110,7 +239,7 @@ class TextInput(tk.Frame):
         if self._explicit_parent_bg is None:
             self._parent_bg = Widget._resolve_default_bg(getattr(self, "master", None), pal)
             try:
-                self.configure(bg=self._parent_bg)
+                super().configure(bg=self._parent_bg)
             except Exception:
                 pass
         fg_col = pal.text_muted if self._placeholder_active else pal.fg
@@ -119,6 +248,8 @@ class TextInput(tk.Frame):
             fg=fg_col,
             insertbackground=pal.input_focus,
         )
+        if not self._custom_font_override:
+            self._update_entry_font()
         self._render_bg()
 
     def _on_focus_in(self, event) -> None:
@@ -245,6 +376,7 @@ class SpinBox(Widget):
         s = self._scale
         pal = get_theme()
 
+        entry_font = self._get_effective_tk_font()
         self._entry = tk.Entry(
             self,
             bg=pal.input_bg,
@@ -253,8 +385,11 @@ class SpinBox(Widget):
             borderwidth=0,
             highlightthickness=0,
             justify="left",
-            font=("DejaVu Sans", max(9, int(12 * s))),
+            font=entry_font,
         )
+        self._entry._tkblend_injected_font = entry_font
+        if getattr(self, "_custom_font_override", False):
+            self._entry._tkblend_custom_font_override = True
         self._entry.insert(0, str(self._value))
         self._update_entry_geometry()
 
@@ -266,6 +401,56 @@ class SpinBox(Widget):
         self._entry.bind("<Down>", self._on_entry_down)
 
         self.bind("<Motion>", self._on_mouse_motion)
+
+    def _get_effective_tk_font(self) -> Union[Tuple[Any, ...], Any]:
+        eff_fc = self._font_config.copy_with(size=self._font_config.size * self._scale)
+        return eff_fc.to_tk_font()
+
+    def _update_entry_font(self) -> None:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            entry_font = self._get_effective_tk_font()
+            self._entry.configure(font=entry_font)
+            self._entry._tkblend_injected_font = entry_font
+            if getattr(self, "_custom_font_override", False):
+                self._entry._tkblend_custom_font_override = True
+
+    @property
+    def font(self) -> Any:
+        return self._font_config
+
+    @font.setter
+    def font(self, val: Any) -> None:
+        super(SpinBox, type(self)).font.__set__(self, val)
+        self._custom_font_override = True
+        self._update_entry_font()
+
+    @property
+    def font_size(self) -> float:
+        return self._font_config.size
+
+    @font_size.setter
+    def font_size(self, size: float) -> None:
+        super(SpinBox, type(self)).font_size.__set__(self, size)
+        self._custom_font_override = True
+        self._update_entry_font()
+
+    @property
+    def font_family(self) -> str:
+        return self._font_config.family
+
+    @font_family.setter
+    def font_family(self, family: str) -> None:
+        super(SpinBox, type(self)).font_family.__set__(self, family)
+        self._custom_font_override = True
+        self._update_entry_font()
+
+    @property
+    def font_config(self) -> FontConfig:
+        return self._font_config
+
+    @font_config.setter
+    def font_config(self, fc: FontConfig) -> None:
+        self.font = fc
 
     @property
     def value(self) -> int:
@@ -336,6 +521,8 @@ class SpinBox(Widget):
                 fg=palette.fg,
                 insertbackground=palette.input_focus,
             )
+            if not getattr(self, "_custom_font_override", False):
+                self._update_entry_font()
 
     def _on_entry_focus_in(self, event) -> None:
         self._has_focus = True

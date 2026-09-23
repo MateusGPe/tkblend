@@ -136,6 +136,30 @@ class Widget(tk.Label):
         self.resizable_width: bool = kwargs.pop("resizable_width", True)
         self.resizable_height: bool = kwargs.pop("resizable_height", True)
 
+        # Typography configuration caching
+        font_spec = kwargs.pop("font", None)
+        font_size = kwargs.pop("font_size", None)
+        font_family = kwargs.pop("font_family", None)
+        bold = kwargs.pop("bold", None)
+        italic = kwargs.pop("italic", None)
+        weight = kwargs.pop("weight", None)
+
+        self._custom_font_override: bool = any(
+            x is not None for x in (font_spec, font_size, font_family, bold, italic, weight)
+        )
+
+        from tkblend.font import parse_font
+        self._font_config = parse_font(
+            font=font_spec,
+            font_size=font_size,
+            font_family=font_family,
+            bold=bold,
+            italic=italic,
+            weight=weight,
+            default_family="default",
+            default_size=12.0,
+        )
+
         super().__init__(
             master,
             image=self._photo,
@@ -168,6 +192,49 @@ class Widget(tk.Label):
     @property
     def photo(self) -> tk.PhotoImage:
         return self._photo
+
+    @property
+    def font(self) -> Any:
+        return self._font_config
+
+    @font.setter
+    def font(self, val: Any) -> None:
+        from tkblend.font import parse_font
+        self._custom_font_override = True
+        self._font_config = parse_font(
+            font=val,
+            default_family=self._font_config.family,
+            default_size=self._font_config.size,
+        )
+        self.render()
+
+    @property
+    def font_size(self) -> float:
+        return self._font_config.size
+
+    @font_size.setter
+    def font_size(self, size: float) -> None:
+        self._custom_font_override = True
+        self._font_config = self._font_config.copy_with(size=size)
+        self.render()
+
+    @property
+    def font_family(self) -> str:
+        return self._font_config.family
+
+    @font_family.setter
+    def font_family(self, family: str) -> None:
+        self._custom_font_override = True
+        self._font_config = self._font_config.copy_with(family=family)
+        self.render()
+
+    @property
+    def font_config(self) -> Any:
+        return self._font_config
+
+    @font_config.setter
+    def font_config(self, fc: Any) -> None:
+        self.font = fc
 
     def _on_destroy(self, event) -> None:
         remove_theme_listener(self._on_theme_changed)

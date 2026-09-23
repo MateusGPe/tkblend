@@ -72,7 +72,7 @@ class Button(Widget):
         height: int = 38,
         rx: float = 10.0,
         ry: float = 10.0,
-        font_size: float = 13.0,
+        font_size: Optional[float] = None,
         elevation: float = 5.0,
         parent_bg: Optional[str] = None,
         **kwargs,
@@ -83,7 +83,8 @@ class Button(Widget):
         scale = ScalingTracker.get_scaling_factor(master)
         self._rx = rx * scale
         self._ry = ry * scale
-        self._font_size = font_size * scale
+        eff_size = font_size if font_size is not None else 13.0
+        self._font_size = eff_size * scale
         self._elevation = elevation * scale
 
         kwargs.setdefault("takefocus", True)
@@ -92,6 +93,7 @@ class Button(Widget):
             width=width,
             height=height,
             bg=parent_bg,
+            font_size=font_size,
             **kwargs,
         )
 
@@ -170,8 +172,9 @@ class Button(Widget):
                 1.5 * self._scale,
             )
 
+        f_size = self._font_config.size * self._scale
         text_x = self._widget_w / 2.0
-        text_y = self._widget_h / 2.0 + (self._font_size * 0.35)
+        text_y = self._widget_h / 2.0 + (f_size * 0.35)
         if self._is_pressed:
             text_y += 1.0
 
@@ -179,8 +182,7 @@ class Button(Widget):
             self._text,
             x=text_x,
             y=text_y,
-            font_size=self._font_size,
-            font_family="sans-serif",
+            font=self._font_config.copy_with(size=f_size),
             color=colors["fg"],
             align="center",
         )

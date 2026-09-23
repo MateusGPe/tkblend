@@ -538,6 +538,8 @@ def apply_theme(
     preserve_overrides: bool = True,
     recursive: bool = True,
     dark_mode: Optional[bool] = None,
+    font: Optional[Any] = None,
+    sync_fonts: bool = True,
     **kwargs: Any,
 ) -> Callable[[], None]:
     """
@@ -551,15 +553,18 @@ def apply_theme(
         root: The Tk root, Toplevel, or container widget to theme.
         palette: Optional specific Palette or theme name. If None, uses active theme.
         preserve_overrides: If True (default), widgets with custom explicit backgrounds
-                            are preserved during theme changes. If False, overrides all.
+                            or fonts are preserved during theme changes. If False, overrides all.
         recursive: If True (default), traverses all child widgets recursively.
         dark_mode: Optional boolean shorthand to switch dark mode.
+        font: Optional font configuration, family name, tuple, or FontConfig.
+        sync_fonts: If True (default), synchronizes standard Tk and TTK fonts with tkblend typography.
         **kwargs: Extra options accepted for backward compatibility.
 
     Returns:
         A cleanup function to unregister the theme listener.
     """
     import tkinter as tk
+    from .font import sync_tk_fonts
 
     if dark_mode is not None:
         set_dark_mode(dark_mode)
@@ -732,6 +737,8 @@ def apply_theme(
     # Initial apply
     current_pal = get_theme()
     _style_ttk(current_pal)
+    if sync_fonts:
+        sync_tk_fonts(root, font=font, recursive=recursive, preserve_overrides=preserve_overrides)
     _apply_hierarchy(root, current_pal)
 
     # Auto-synchronization priority listener
@@ -747,6 +754,8 @@ def apply_theme(
             remove_theme_listener(_theme_listener)
             return
         _style_ttk(new_palette)
+        if sync_fonts:
+            sync_tk_fonts(root, font=font, recursive=recursive, preserve_overrides=preserve_overrides)
         _apply_hierarchy(root, new_palette)
 
     add_theme_listener(_theme_listener, priority=True)

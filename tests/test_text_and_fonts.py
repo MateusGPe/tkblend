@@ -140,17 +140,113 @@ class TestTextAndFonts(unittest.TestCase):
         s.draw_text("🚀 Fast", 10, 120, font_size=15.0, align="left")
         s.flush()
 
-    def test_emoji_font_discovery_and_custom_setter(self):
-        current_font = tkblend.get_emoji_font()
-        self.assertIsInstance(current_font, str)
+    def test_active_font_getter_and_setter(self):
+        # Default active font should be resolvable string
+        orig_active = tkblend.get_active_font()
+        self.assertIsInstance(orig_active, str)
 
-        # Test setting a custom emoji font (re-applying current font)
-        if current_font:
-            tkblend.set_emoji_font(current_font)
-            self.assertEqual(tkblend.get_emoji_font(), current_font)
+        # Set active font to a valid family
+        success = tkblend.set_active_font("monospace")
+        self.assertTrue(success)
+        self.assertEqual(tkblend.get_active_font(), "monospace")
+
+        # Non-existent font family shouldn't crash
+        bad_set = tkblend.set_active_font("nonexistent_random_font_xyz")
+        self.assertFalse(bad_set)
+
+        # Restore
+        tkblend.set_active_font(orig_active)
+
+    def test_internal_and_system_fonts_listing(self):
+        # Internal loaded fonts list
+        internal = tkblend.get_internal_fonts()
+        self.assertIsInstance(internal, list)
+        loaded = tkblend.get_loaded_fonts()
+        self.assertEqual(internal, loaded)
+
+        # System fonts list
+        sys_fonts = tkblend.get_system_fonts()
+        self.assertIsInstance(sys_fonts, list)
+        self.assertGreater(len(sys_fonts), 0, "Should discover installed system fonts")
+
+        # System fonts refresh
+        sys_fonts_refreshed = tkblend.get_system_fonts(refresh=True)
+        self.assertEqual(len(sys_fonts), len(sys_fonts_refreshed))
+
+    def test_parse_font_formats(self):
+        # 1. Tuples
+        f1 = tkblend.parse_font(("Helvetica", 16, "bold italic"))
+        self.assertEqual(f1.family, "Helvetica")
+        self.assertEqual(f1.size, 16.0)
+        self.assertTrue(f1.bold)
+        self.assertTrue(f1.italic)
+        self.assertEqual(f1.weight, 700)
+
+        # 2. String specs
+        f2 = tkblend.parse_font("Segoe UI 14 bold")
+        self.assertEqual(f2.family, "Segoe UI")
+        self.assertEqual(f2.size, 14.0)
+        self.assertTrue(f2.bold)
+        self.assertFalse(f2.italic)
+        self.assertEqual(f2.weight, 700)
+
+        # 3. Discrete kwargs
+        f3 = tkblend.parse_font(font_family="Roboto", font_size=18, weight=300, italic=True)
+        self.assertEqual(f3.family, "Roboto")
+        self.assertEqual(f3.size, 18.0)
+        self.assertEqual(f3.weight, 300)
+        self.assertTrue(f3.italic)
+        self.assertFalse(f3.bold)
+
+        # 4. FontConfig copy_with
+        f4 = f3.copy_with(bold=True, size=20)
+        self.assertTrue(f4.bold)
+        self.assertEqual(f4.size, 20.0)
+        self.assertEqual(f4.family, "Roboto")
+
+    def test_draw_text_with_weights_bold_italic(self):
+        s = Surface(300, 200)
+        s.clear("#1e1e2e")
+
+        # Bold & Italic text
+        s.draw_text("Bold Text", 10, 40, font_size=16, font_family="sans-serif", bold=True)
+        s.draw_text("Italic Text", 10, 80, font_size=16, font_family="sans-serif", italic=True)
+        s.draw_text("Bold Italic", 10, 120, font_size=16, font_family="sans-serif", bold=True, italic=True)
+        s.draw_text("Light Text", 10, 160, font_size=16, font_family="sans-serif", weight=300)
+
+        # Tuple font
+        s.draw_text("Tuple Font", 150, 40, font=("DejaVu Sans", 14, "bold"))
+        s.flush()
+
+    def test_widget_font_property_and_caching(self):
+        import tkinter as tk
+        from tkblend.widgets import Button
+
+        root = tk.Tk()
+        root.withdraw()
+        try:
+            btn = Button(root, text="Click Me", font=("Helvetica", 14, "bold"))
+            self.assertEqual(btn.font.family, "Helvetica")
+            self.assertEqual(btn.font.size, 14.0)
+            self.assertTrue(btn.font.bold)
+
+            # Update font property dynamically
+            btn.font = ("Arial", 16, "italic")
+            self.assertEqual(btn.font.family, "Arial")
+            self.assertEqual(btn.font.size, 16.0)
+            self.assertTrue(btn.font.italic)
+
+            # Test font_size and font_family setters
+            btn.font_size = 18
+            self.assertEqual(btn.font_size, 18.0)
+            btn.font_family = "sans-serif"
+            self.assertEqual(btn.font_family, "sans-serif")
+        finally:
+            root.destroy()
 
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
