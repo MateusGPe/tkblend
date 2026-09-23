@@ -82,6 +82,10 @@ from tkblend.theme import (
     resolve_ancestor_bg,
     apply_theme,
     inject_theme,
+    detect_system_theme,
+    is_system_dark,
+    auto_theme,
+    stop_auto_theme,
     blend_color_hex,
     adjust_brightness,
     is_inside_card,
@@ -183,6 +187,10 @@ __all__ = [
     "resolve_ancestor_bg",
     "apply_theme",
     "inject_theme",
+    "detect_system_theme",
+    "is_system_dark",
+    "auto_theme",
+    "stop_auto_theme",
     "is_inside_card",
     "is_ttkbootstrap_installed",
     # DPI & Scaling
@@ -269,4 +277,12 @@ __all__ = [
     "EXTEND_PAD",
     "EXTEND_REPEAT",
     "EXTEND_REFLECT",
+    "ctk",
 ]
+
+
+def __getattr__(name: str):
+    if name == "ctk":
+        from tkblend import ctk
+        return ctk
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

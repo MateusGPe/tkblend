@@ -5,6 +5,7 @@ Provides semantic colors, built-in Dark and Light themes, and dynamic theme chan
 
 from __future__ import annotations
 import inspect
+import threading
 import weakref
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, Callable, Optional, Union, Tuple, List
@@ -685,14 +686,17 @@ class ThemeManager:
             self._current_palette = theme_or_palette
         elif isinstance(theme_or_palette, str):
             key = theme_or_palette.lower()
-            if key in self._palettes:
+            if key in ("system", "auto"):
+                mode = detect_system_theme(fallback="dark")
+                self._current_palette = DARK_PALETTE if mode == "dark" else LIGHT_PALETTE
+            elif key in self._palettes:
                 self._current_palette = self._palettes[key]
             elif key in ("true", "1", "dark"):
                 self._current_palette = DARK_PALETTE
             elif key in ("false", "0", "light"):
                 self._current_palette = LIGHT_PALETTE
             else:
-                raise ValueError(f"Unknown theme '{theme_or_palette}'. Available: {list(self._palettes.keys())}")
+                raise ValueError(f"Unknown theme '{theme_or_palette}'. Available: {list(self._palettes.keys()) + ['system', 'auto']}")
         self._previous_palette = old_pal
         self.notify_listeners()
 
@@ -765,6 +769,132 @@ class ThemeManager:
 
 # Global singleton and module-level convenience functions
 _theme_manager = ThemeManager()
+_auto_theme_thread: Optional[threading.Thread] = None
+_auto_theme_active: bool = False
+
+
+def detect_system_theme(fallback: str = "dark") -> str:
+    """
+    Detect the host OS dark/light mode preference using darkdetect if available.
+    Returns 'dark' or 'light'. If detection is unsupported or fails, returns fallback.
+    """
+    try:
+        import darkdetect  # type: ignore
+        theme_name = darkdetect.theme()
+        if theme_name:
+            theme_str = str(theme_name).strip().lower()
+            if "dark" in theme_str:
+                return "dark"
+            elif "light" in theme_str:
+                return "light"
+
+        is_dark = darkdetect.isDark()
+        if is_dark is True:
+            return "dark"
+        elif is_dark is False:
+            return "light"
+    except Exception:
+        pass
+    return fallback
+
+
+def is_system_dark(fallback: bool = True) -> bool:
+    """Return True if the host OS is currently in dark mode."""
+    detected = detect_system_theme(fallback="dark" if fallback else "light")
+    return detected == "dark"
+
+
+def auto_theme(
+    root: Optional[Any] = None,
+    dark: Union[str, Palette] = "dark",
+    light: Union[str, Palette] = "light",
+    listen: bool = True,
+) -> Callable[[], None]:
+    """
+    Automatically detect and apply the system theme (Dark or Light).
+    Optionally listens for dynamic OS theme changes in the background.
+
+    Args:
+        root: Optional Tk root or widget. If provided, theme changes triggered
+              by the OS listener are safely dispatched via root.after(0, ...),
+              and the listener is automatically stopped when root is destroyed.
+        dark: Palette name or Palette object to use for dark mode (defaults to 'dark').
+        light: Palette name or Palette object to use for light mode (defaults to 'light').
+        listen: If True and darkdetect is available, spawns a background thread to
+                listen for live OS theme changes.
+
+    Returns:
+        cleanup: Callable that stops the OS theme listener when invoked.
+    """
+    global _auto_theme_thread, _auto_theme_active
+
+    def _resolve_and_apply(mode: str) -> None:
+        target = dark if mode.lower() == "dark" else light
+        set_theme(target)
+
+    # Initial detection & apply
+    detected = detect_system_theme(fallback="dark")
+    _resolve_and_apply(detected)
+
+    if not listen:
+        return stop_auto_theme
+
+    # Stop any previous listener
+    stop_auto_theme()
+
+    try:
+        import darkdetect  # type: ignore
+        if not hasattr(darkdetect, "listener"):
+            return stop_auto_theme
+    except Exception:
+        return stop_auto_theme
+
+    _auto_theme_active = True
+
+    def _on_os_change(os_theme: str) -> None:
+        if not _auto_theme_active:
+            return
+        mode = "dark" if (os_theme and "dark" in str(os_theme).lower()) else "light"
+        if root is not None and hasattr(root, "after") and hasattr(root, "winfo_exists"):
+            try:
+                if root.winfo_exists():
+                    root.after(0, lambda: _resolve_and_apply(mode) if _auto_theme_active else None)
+                else:
+                    stop_auto_theme()
+            except Exception:
+                _resolve_and_apply(mode)
+        else:
+            _resolve_and_apply(mode)
+
+    def _worker() -> None:
+        try:
+            import darkdetect  # type: ignore
+            darkdetect.listener(_on_os_change)
+        except Exception:
+            pass
+
+    t = threading.Thread(target=_worker, name="tkblend-darkdetect-listener", daemon=True)
+    _auto_theme_thread = t
+    t.start()
+
+    if root is not None and hasattr(root, "bind"):
+        def _on_root_destroy(event: Any) -> None:
+            if getattr(event, "widget", None) == root:
+                stop_auto_theme()
+        try:
+            root.bind("<Destroy>", _on_root_destroy, add="+")
+        except Exception:
+            pass
+
+    return stop_auto_theme
+
+
+def stop_auto_theme() -> None:
+    """Stop any active OS system theme change listener."""
+    global _auto_theme_active, _auto_theme_thread
+    _auto_theme_active = False
+    _auto_theme_thread = None
+
 
 def get_theme() -> Palette:
     """Return the active Palette."""
@@ -775,7 +905,7 @@ def get_palette() -> Palette:
     return _theme_manager.current
 
 def set_theme(theme_or_palette: Union[str, Palette]) -> None:
-    """Switch active theme ('dark', 'light', or custom Palette)."""
+    """Switch active theme ('dark', 'light', 'system', 'auto', or custom Palette)."""
     _theme_manager.set_theme(theme_or_palette)
 
 def set_dark_mode(dark: bool) -> None:
@@ -927,6 +1057,7 @@ def apply_theme(
     dark_mode: Optional[bool] = None,
     font: Optional[Any] = None,
     sync_fonts: bool = True,
+    auto_detect: bool = False,
     **kwargs: Any,
 ) -> Callable[[], None]:
     """
@@ -945,6 +1076,7 @@ def apply_theme(
         dark_mode: Optional boolean shorthand to switch dark mode.
         font: Optional font configuration, family name, tuple, or FontConfig.
         sync_fonts: If True (default), synchronizes standard Tk and TTK fonts with tkblend typography.
+        auto_detect: If True, automatically detects OS theme and starts continuous OS change listening.
         **kwargs: Extra options accepted for backward compatibility.
 
     Returns:
@@ -953,7 +1085,9 @@ def apply_theme(
     import tkinter as tk
     from .font import sync_tk_fonts
 
-    if dark_mode is not None:
+    if auto_detect:
+        auto_theme(root=root, listen=True)
+    elif dark_mode is not None:
         set_dark_mode(dark_mode)
     elif palette is not None:
         if isinstance(palette, str):
@@ -1181,14 +1315,18 @@ def apply_theme(
     def _on_destroy(event) -> None:
         if getattr(event, "widget", None) == root:
             remove_theme_listener(_theme_listener)
+            if auto_detect:
+                stop_auto_theme()
 
     try:
-        root.bind("<Destroy>", _on_destroy, add="+")
+        root.bind("<Destroy>", _on_root_destroy if "_on_root_destroy" in locals() else _on_destroy, add="+")
     except Exception:
         pass
 
     def cleanup() -> None:
         remove_theme_listener(_theme_listener)
+        if auto_detect:
+            stop_auto_theme()
 
     return cleanup
 
