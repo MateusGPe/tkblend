@@ -40,6 +40,7 @@ class ScrollableFrame(tk.Frame):
         scrollbar_width: int = 8,
         orientation: str = "vertical",  # "vertical", "horizontal", or "both"
         parent_bg: Optional[str] = None,
+        clip_children: bool = True,
         **kwargs,
     ):
         self._scale = ScalingTracker.get_scaling_factor(master)
@@ -54,6 +55,7 @@ class ScrollableFrame(tk.Frame):
         self._elevation = elevation
         self._scrollbar_width = scrollbar_width
         self._orientation = orientation
+        self._clip_children = clip_children
 
         super().__init__(
             master,
@@ -75,6 +77,7 @@ class ScrollableFrame(tk.Frame):
             border_width=self._border_width,
             elevation=self._elevation,
             parent_bg=self._parent_bg,
+            clip_children=self._clip_children,
         )
         self._card.pack(fill="both", expand=True)
 

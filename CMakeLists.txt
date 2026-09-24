@@ -224,6 +224,9 @@ else()
     find_package(X11 REQUIRED)
     list(APPEND PLATFORM_SOURCES src/blit/blit_x11.cpp src/font/font_resolver_linux.cpp)
     list(APPEND PLATFORM_LIBS ${X11_LIBRARIES})
+    if(X11_Xext_LIB)
+        list(APPEND PLATFORM_LIBS ${X11_Xext_LIB})
+    endif()
 
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
@@ -249,6 +252,7 @@ set(TKBLEND_SOURCES
     src/emoji_engine.cpp
     src/draw_batch.cpp
     src/surface.cpp
+    src/window_shape.cpp
     src/bindings.cpp
     src/blit/blit_common.cpp
     ${PLATFORM_SOURCES}

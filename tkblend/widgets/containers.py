@@ -15,6 +15,11 @@ from tkblend.theme import (
     remove_theme_listener,
     resolve_color_failsafe,
 )
+from tkblend.utils.window_shape import (
+    apply_round_rect_shape,
+    clear_window_shape,
+    is_window_shaping_supported,
+)
 from tkblend.widgets.base import Widget, ScalingTracker, cascade_bg_to_children
 from tkblend.widgets.drawing import draw_vector_chevron
 
@@ -42,6 +47,7 @@ class Frame(tk.Frame):
         shadow_offset_y: float = 4.0,
         padding: Optional[float] = None,
         parent_bg: Optional[str] = None,
+        clip_children: bool = True,
         **kwargs,
     ):
         self._scale = ScalingTracker.get_scaling_factor(master)
@@ -64,6 +70,7 @@ class Frame(tk.Frame):
         self._widget_h = max(1, int(height * self._scale))
         self._rx = rx * self._scale
         self._ry = ry * self._scale
+        self._clip_children = clip_children
         self._explicit_bg_color = bg_color
         self._explicit_border_color = border_color
         self._explicit_shadow_color = shadow_color
@@ -105,6 +112,16 @@ class Frame(tk.Frame):
         super().destroy()
 
     @property
+    def clip_children(self) -> bool:
+        """Whether OS-level rounded corner clipping is enabled on inner content frames."""
+        return self._clip_children
+
+    @clip_children.setter
+    def clip_children(self, val: bool) -> None:
+        self._clip_children = bool(val)
+        self._update_body_geometry()
+
+    @property
     def safe_insets(self) -> tuple[float, float, float, float]:
         """Return (left, top, right, bottom) safe inner margins in logical units."""
         s = self._scale if self._scale > 0 else 1.0
@@ -122,7 +139,17 @@ class Frame(tk.Frame):
 
     @property
     def content_bounds(self) -> tuple[int, int, int, int]:
-        """Return (x, y, width, height) of the safe printable inner rectangle in scaled pixels."""
+        """Return (x, y, width, height) of the printable inner rectangle in scaled pixels."""
+        s = self._scale
+        pad = self._current_pad if self._current_pad > 0 else (self._padding if self._padding is not None else max(8.0 * s, self._elevation * 0.8))
+        if self._clip_children and is_window_shaping_supported():
+            left = int(pad + self._border_width)
+            top = int(pad + self._border_width)
+            right = left
+            bottom = top
+            w = max(1, self._widget_w - left - right)
+            h = max(1, self._widget_h - top - bottom)
+            return (left, top, w, h)
         left, top, right, bottom = self.safe_insets_px
         w = max(1, self._widget_w - left - right)
         h = max(1, self._widget_h - top - bottom)
@@ -137,8 +164,8 @@ class Frame(tk.Frame):
     @property
     def body(self) -> tk.Frame:
         """
-        Inner content frame automatically bounded within safe insets.
-        Lazily created on first access and packed/placed within the card's safe margins.
+        Inner content frame automatically bounded within safe insets or clipped to container shape.
+        Lazily created on first access and packed/placed within the card's inner margins.
         """
         if not hasattr(self, "_body_frame") or not self._body_frame.winfo_exists():
             pal = get_theme()
@@ -155,6 +182,24 @@ class Frame(tk.Frame):
         if hasattr(self, "_body_frame") and self._body_frame.winfo_exists():
             x, y, w, h = self.content_bounds
             self._body_frame.place(x=x, y=y, width=w, height=h)
+            if self._clip_children and is_window_shaping_supported():
+                inner_rx = max(0.0, self._rx - self._border_width)
+                inner_ry = max(0.0, self._ry - self._border_width)
+                self.after_idle(lambda: apply_round_rect_shape(self._body_frame, w, h, inner_rx, inner_ry))
+            else:
+                self.after_idle(lambda: clear_window_shape(self._body_frame))
+
+    def create_content_frame(self, **kwargs) -> tk.Frame:
+        """Helper to create an inner tk.Frame styled with the container's surface background and bounds."""
+        bg = kwargs.pop("bg", kwargs.pop("background", self._bg_color))
+        frame = tk.Frame(self, bg=bg, **kwargs)
+        x, y, w, h = self.content_bounds
+        frame.place(x=x, y=y, width=w, height=h)
+        if self._clip_children and is_window_shaping_supported():
+            inner_rx = max(0.0, self._rx - self._border_width)
+            inner_ry = max(0.0, self._ry - self._border_width)
+            self.after_idle(lambda: apply_round_rect_shape(frame, w, h, inner_rx, inner_ry))
+        return frame
 
     def set_parent_bg(self, bg: str, force: bool = False) -> None:
         """Update parent background and re-render container."""
@@ -340,26 +385,36 @@ class Card(Frame):
         """Return (left, top, right, bottom) safe inner margins in scaled pixels for Card."""
         s = self._scale
         pad = self._current_pad if self._current_pad > 0 else (self._padding if self._padding is not None else max(8.0 * s, self._elevation * 0.8))
-        inset_x = int(pad + max(self._border_width + (self._rx * 0.25), 14.0 * s))
-        bottom_inset = int(pad + self._border_width + (self._ry * 0.25) + 4.0 * s)
+        inset_x = int(pad + max(self._border_width + (self._rx * 0.35), 14.0 * s))
+        bottom_inset = int(pad + max(self._border_width + (self._ry * 0.35) + 4.0 * s, 14.0 * s))
         if self._title:
             top_inset = int(pad + 44.0 * s)
         else:
-            top_inset = int(pad + self._border_width + (self._ry * 0.25) + 4.0 * s)
+            top_inset = int(pad + max(self._border_width + (self._ry * 0.35) + 4.0 * s, 14.0 * s))
         return (inset_x, top_inset, inset_x, bottom_inset)
+
+    @property
+    def content_bounds(self) -> tuple[int, int, int, int]:
+        """Return (x, y, width, height) of the printable inner rectangle in scaled pixels for Card."""
+        s = self._scale
+        pad = self._current_pad if self._current_pad > 0 else (self._padding if self._padding is not None else max(8.0 * s, self._elevation * 0.8))
+        if self._clip_children and is_window_shaping_supported():
+            left = int(pad + self._border_width)
+            right = left
+            bottom = int(pad + self._border_width)
+            top = int(pad + 40.0 * s) if self._title else int(pad + self._border_width)
+            w = max(1, self._widget_w - left - right)
+            h = max(1, self._widget_h - top - bottom)
+            return (left, top, w, h)
+        left, top, right, bottom = self.safe_insets_px
+        w = max(1, self._widget_w - left - right)
+        h = max(1, self._widget_h - top - bottom)
+        return (left, top, w, h)
 
     @property
     def content(self) -> Card:
         """Alias returning self for direct packing into Card."""
         return self
-
-    def create_content_frame(self, **kwargs) -> tk.Frame:
-        """Helper to create an inner tk.Frame styled with the card's surface background and safe bounds."""
-        bg = kwargs.pop("bg", kwargs.pop("background", self._bg_color))
-        frame = tk.Frame(self, bg=bg, **kwargs)
-        x, y, w, h = self.content_bounds
-        frame.place(x=x, y=y, width=w, height=h)
-        return frame
 
     def render(self) -> None:
         super().render()

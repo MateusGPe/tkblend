@@ -650,6 +650,17 @@ void bind_surface(nb::module_& m) {
         });
 }
 
+void bind_window_shape(nb::module_& m) {
+    m.def("is_window_shaping_supported", &is_window_shaping_supported,
+          "Check if hardware/OS window shaping is supported on current platform.");
+    m.def("apply_round_rect_shape", &apply_round_rect_shape,
+          nb::arg("window_id"), nb::arg("width"), nb::arg("height"), nb::arg("rx"), nb::arg("ry"),
+          "Clip native window region to a rounded rectangle.");
+    m.def("clear_window_shape", &clear_window_shape,
+          nb::arg("window_id"),
+          "Reset native window region to default rectangle.");
+}
+
 } // anonymous namespace
 
 } // namespace tkblend
@@ -666,4 +677,6 @@ NB_MODULE(_tkblend, m) {
     tkblend::bind_path(m);
     tkblend::bind_font_manager(m);
     tkblend::bind_surface(m);
+    tkblend::bind_window_shape(m);
 }
+

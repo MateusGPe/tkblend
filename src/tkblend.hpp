@@ -10,3 +10,4 @@
 #include "emoji_engine.hpp"
 #include "draw_batch.hpp"
 #include "surface.hpp"
+#include "window_shape.hpp"

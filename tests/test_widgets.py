@@ -857,8 +857,14 @@ def test_widget_unclipped_shadow_rendering(root):
 
 
 def test_container_safe_insets_and_body(root):
-    # 1. Frame safe insets
-    frame = Frame(root, width=200, height=150, elevation=8.0, rx=16.0, ry=16.0)
+    from tkblend.utils.window_shape import (
+        is_window_shaping_supported,
+        apply_round_rect_shape,
+        clear_window_shape,
+    )
+
+    # 1. Frame safe insets (unclipped / fallback mode)
+    frame = Frame(root, width=200, height=150, elevation=8.0, rx=16.0, ry=16.0, clip_children=False)
     frame.render()
     l, t, r, b = frame.safe_insets
     assert l > 0 and t > 0 and r > 0 and b > 0
@@ -868,11 +874,11 @@ def test_container_safe_insets_and_body(root):
     assert by == frame.safe_insets_px[1]
 
     # 2. Card safe insets without title vs with title
-    card_no_title = Card(root, title="", width=280, height=180)
+    card_no_title = Card(root, title="", width=280, height=180, clip_children=False)
     card_no_title.render()
     _, t_no_title, _, _ = card_no_title.safe_insets
 
-    card_with_title = Card(root, title="Stats Overview", width=280, height=180)
+    card_with_title = Card(root, title="Stats Overview", width=280, height=180, clip_children=False)
     card_with_title.render()
     _, t_with_title, _, _ = card_with_title.safe_insets
     # Title adds header and divider clearance
@@ -883,14 +889,41 @@ def test_container_safe_insets_and_body(root):
     assert isinstance(body, tk.Frame)
     assert body.master is card_with_title
 
-    # 4. Helper create_content_frame
-    custom_frame = card_with_title.create_content_frame()
-    assert isinstance(custom_frame, tk.Frame)
-    assert custom_frame.master is card_with_title
+    # 4. Verify geometric corner clearance in unclipped mode
+    l_px, t_px, r_px, b_px = card_no_title.safe_insets_px
+    assert l_px >= card_no_title._current_pad + 14.0 * card_no_title._scale
+    assert b_px >= card_no_title._current_pad + 14.0 * card_no_title._scale
+    cx, cy, cw, ch = card_no_title.content_bounds
+    assert cx >= l_px
+    assert cy >= t_px
+    assert cx + cw <= card_no_title._widget_w - r_px
+    assert cy + ch <= card_no_title._widget_h - b_px
+
+    # 5. Clipped mode and C++ native window shaping
+    clipped_frame = Frame(root, width=200, height=150, clip_children=True)
+    clipped_frame.render()
+    body_frame = clipped_frame.body
+    root.update()
+    
+    if is_window_shaping_supported():
+        # High-level facade
+        sh_res = apply_round_rect_shape(body_frame, 150, 100, 12.0, 12.0)
+        assert sh_res is True
+        cl_res = clear_window_shape(body_frame)
+        assert cl_res is True
+
+        # Native C++ module tests
+        from tkblend import _tkblend
+        if hasattr(_tkblend, "apply_round_rect_shape"):
+            wid = body_frame.winfo_id()
+            assert _tkblend.is_window_shaping_supported() is True
+            assert _tkblend.apply_round_rect_shape(wid, 150, 100, 12.0, 12.0) is True
+            assert _tkblend.clear_window_shape(wid) is True
 
     frame.destroy()
     card_no_title.destroy()
     card_with_title.destroy()
+    clipped_frame.destroy()
 
 
 def test_text_input_and_spinbox_dynamic_bounds_and_resize(root):
