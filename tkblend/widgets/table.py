@@ -743,6 +743,12 @@ class Table(tk.Frame):
         """Return the current interior background color."""
         return self._card.bg_color
 
+    @property
+    def row_count(self) -> int:
+        """Return the total number of rows in the table."""
+        return len(self._data)
+
+
     def _build_pagination_bar(self) -> None:
         """Construct the pagination control bar."""
         pal = get_theme()
@@ -1596,9 +1602,18 @@ class Table(tk.Frame):
 
         self._view.render()
 
+    def render(self) -> None:
+        """Render the data table view surface and scrollbars."""
+        if hasattr(self, "_view") and self._view is not None:
+            self._view.render()
+        if hasattr(self, "_card") and self._card is not None:
+            self._card.render()
+
     def _on_destroy(self, event) -> None:
         if event.widget == self:
             remove_theme_listener(self._on_theme_changed)
 
 
-ModernTable = Table
+Treeview = Table
+
+

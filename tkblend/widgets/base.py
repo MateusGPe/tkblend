@@ -346,11 +346,6 @@ class Widget(tk.Label):
         """Override in subclasses to draw custom vector UI."""
         self._surface.clear(self._parent_bg)
         self._surface.blit(self._photo)
-
-
-ModernWidget = Widget
-
-
 def cascade_bg_to_children(container: Any, bg: str, preserve_overrides: bool = True) -> None:
     """Recursively propagate background color down through child widgets."""
     if not hasattr(container, "winfo_children"):

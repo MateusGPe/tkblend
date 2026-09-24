@@ -23,7 +23,7 @@ def _resolve_color(color: Optional[ColorLike], fallback: str, pal: Palette) -> C
     return color
 
 
-class ProgressBar(Widget):
+class Progressbar(Widget):
     """
     Antialiased smooth linear progress bar with capsule geometry and gradient fill.
     """
@@ -111,9 +111,6 @@ class ProgressBar(Widget):
             self._surface.blit(self._photo)
         except Exception as e:
             logger.debug("Render failed in ProgressBar: %s", e, exc_info=True)
-
-
-ModernProgressBar = ProgressBar
 
 
 class CircularProgress(Widget):
@@ -224,4 +221,6 @@ class CircularProgress(Widget):
             logger.debug("Render failed in CircularProgress: %s", e, exc_info=True)
 
 
-ModernCircularProgress = CircularProgress
+
+
+ProgressBar = Progressbar

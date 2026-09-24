@@ -203,4 +203,3 @@ class ScrollableFrame(tk.Frame):
             remove_theme_listener(self._on_theme_changed)
 
 
-ModernScrollableFrame = ScrollableFrame

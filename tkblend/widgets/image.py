@@ -235,7 +235,3 @@ class VectorImage(Widget):
             logger.debug("Render failed in VectorImage: %s", e, exc_info=True)
 
 
-ModernVectorIcon = VectorIcon
-ModernIconLabel = IconLabel
-ModernVectorImage = VectorImage
-

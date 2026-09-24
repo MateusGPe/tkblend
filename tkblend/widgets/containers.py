@@ -282,9 +282,6 @@ class Frame(tk.Frame):
             logger.debug("Render failed in Frame: %s", e, exc_info=True)
 
 
-ModernFrame = Frame
-
-
 class Card(Frame):
     """
     Card container with elevation drop shadow, header title support,
@@ -396,9 +393,6 @@ class Card(Frame):
                 self._surface.blit(self._photo)
             except Exception as e:
                 logger.debug("Render failed in Card title overlay: %s", e, exc_info=True)
-
-
-ModernCard = Card
 
 
 class _AccordionHeader(Widget):
@@ -579,4 +573,7 @@ class Accordion(tk.Frame):
         self._render_header()
 
 
-ModernAccordion = Accordion
+
+
+LabelFrame = Card
+Labelframe = Card

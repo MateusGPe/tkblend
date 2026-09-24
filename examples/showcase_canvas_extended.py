@@ -7,23 +7,23 @@ Features:
 - DPI-aware coordinate scaling with ScalingTracker
 - Zero-copy Tk_PhotoPutBlock blitting via Surface.blit()
 - Comprehensive widget catalog:
-    * ModernButton (multiple variants, hover/press elevation depth)
-    * ModernProgressBar (capsule linear gradient)
-    * ModernCircularProgress (vector arc ring / radial gauge with readout)
-    * ModernSlider (smooth draggable track & glowing thumb)
-    * ModernRangeSlider (dual-thumb min/max range selector)
-    * ModernSwitch (iOS / Fluent style toggle pill)
-    * ModernCheckbox (rounded vector box with animated vector checkmark path)
-    * ModernRadio & ModernRadioGroup (concentric animated dot vector radios)
-    * ModernSegmentedControl (capsule track with elevated active pill indicator)
-    * ModernTextInput (rounded focus-ring input with placeholder & clear icon)
-    * ModernDropdown (vector selector with chevron and popup menu)
-    * ModernSpinBox (numeric stepper with vector +/- buttons)
-    * ModernBadge (status pills: primary, success, warning, destructive, outline)
-    * ModernAvatar (circular gradient avatar with status dot)
-    * ModernAccordion (collapsible card with rotating vector chevron)
-    * ModernCard & ModernFrame (elevated containers with soft drop shadow)
-- 4-View Category Navigation via ModernSegmentedControl:
+    * Button (multiple variants, hover/press elevation depth)
+    * Progressbar (capsule linear gradient)
+    * CircularProgress (vector arc ring / radial gauge with readout)
+    * Scale (smooth draggable track & glowing thumb)
+    * RangeSlider (dual-thumb min/max range selector)
+    * Switch (iOS / Fluent style toggle pill)
+    * Checkbutton (rounded vector box with animated vector checkmark path)
+    * Radiobutton & RadioGroup (concentric animated dot vector radios)
+    * SegmentedControl (capsule track with elevated active pill indicator)
+    * Entry (rounded focus-ring input with placeholder & clear icon)
+    * Dropdown (vector selector with chevron and popup menu)
+    * Spinbox (numeric stepper with vector +/- buttons)
+    * Badge (status pills: primary, success, warning, destructive, outline)
+    * Avatar (circular gradient avatar with status dot)
+    * Accordion (collapsible card with rotating vector chevron)
+    * Card & Frame (elevated containers with soft drop shadow)
+- 4-View Category Navigation via SegmentedControl:
     1. Controls & Forms
     2. Sliders & Gauges
     3. Display & Cards
@@ -52,47 +52,47 @@ from tkblend.theme import get_theme, set_theme, Palette, apply_theme
 
 from tkblend.widgets import (
     ScalingTracker,
-    ModernWidget,
     Widget,
-    ModernFrame,
+    Widget,
     Frame,
-    ModernCard,
+    Frame,
     Card,
-    ModernButton,
+    Card,
     Button,
-    ModernProgressBar,
+    Button,
+    Progressbar,
     ProgressBar,
-    ModernCircularProgress,
     CircularProgress,
-    ModernSlider,
+    CircularProgress,
+    Scale,
     Slider,
-    ModernRangeSlider,
     RangeSlider,
-    ModernSwitch,
+    RangeSlider,
+    Switch,
     Switch,
     ToggleSwitch,
-    ModernCheckbox,
+    Checkbutton,
     Checkbox,
-    ModernRadio,
+    Radiobutton,
     Radio,
-    ModernRadioGroup,
     RadioGroup,
-    ModernSegmentedControl,
+    RadioGroup,
     SegmentedControl,
-    ModernTextInput,
+    SegmentedControl,
+    Entry,
     TextInput,
-    ModernSpinBox,
+    Spinbox,
     SpinBox,
-    ModernBadge,
     Badge,
-    ModernAvatar,
+    Badge,
     Avatar,
-    ModernAccordion,
+    Avatar,
     Accordion,
-    ModernDropdown,
+    Accordion,
+    Dropdown,
     Dropdown,
     DropdownItem,
-    ModernScrollbar,
+    Scrollbar,
     VectorScrollbar,
 )
 
@@ -165,7 +165,7 @@ class ExtendedCanvasShowcaseApp:
         self.subtitle_lbl.pack(anchor="w")
 
         # Theme switcher on far right
-        self.theme_switcher = ModernSegmentedControl(
+        self.theme_switcher = SegmentedControl(
             self.top_bar,
             values=["🌙 Dark", "☀️ Light"],
             selected_index=0 if pal.dark_mode else 1,
@@ -177,7 +177,7 @@ class ExtendedCanvasShowcaseApp:
         self.theme_switcher.pack(side="right", padx=(int(8 * s), int(16 * s)))
 
         # Category Navigator Pill Switcher
-        self.nav_tabs = ModernSegmentedControl(
+        self.nav_tabs = SegmentedControl(
             self.top_bar,
             values=["Controls & Forms", "Sliders & Gauges", "Display & Cards", "Live Vector Canvas"],
             selected_index=0,
@@ -229,24 +229,24 @@ class ExtendedCanvasShowcaseApp:
         s = self._scale
         pal = get_theme()
         # 3-Column Card Layout
-        col1 = ModernCard(self.view_controls, title="Buttons & Variants", width=340, height=600)
+        col1 = Card(self.view_controls, title="Buttons & Variants", width=340, height=600)
         col1.pack(side="left", fill="both", expand=True, padx=int(6 * s))
 
-        col2 = ModernCard(self.view_controls, title="Selection & Toggles", width=340, height=600)
+        col2 = Card(self.view_controls, title="Selection & Toggles", width=340, height=600)
         col2.pack(side="left", fill="both", expand=True, padx=int(6 * s))
 
-        col3 = ModernCard(self.view_controls, title="Text & Dropdowns", width=340, height=600)
+        col3 = Card(self.view_controls, title="Text & Dropdowns", width=340, height=600)
         col3.pack(side="left", fill="both", expand=True, padx=int(6 * s))
 
         # Buttons column
         btn_box = tk.Frame(col1, bg=pal.card_bg)
         btn_box.pack(fill="both", expand=True, padx=int(16 * s), pady=(int(52 * s), int(16 * s)))
 
-        ModernButton(btn_box, text="Primary Action", variant="primary", command=self._inc_progress, width=280, height=40).pack(pady=int(6 * s))
-        ModernButton(btn_box, text="Secondary Action", variant="secondary", width=280, height=40).pack(pady=int(6 * s))
-        ModernButton(btn_box, text="Accent Action", variant="accent", command=self._reset_progress, width=280, height=40).pack(pady=int(6 * s))
-        ModernButton(btn_box, text="Destructive Button", variant="destructive", width=280, height=40).pack(pady=int(6 * s))
-        ModernButton(btn_box, text="Outline Button", variant="outline", width=280, height=40).pack(pady=int(6 * s))
+        Button(btn_box, text="Primary Action", variant="primary", command=self._inc_progress, width=280, height=40).pack(pady=int(6 * s))
+        Button(btn_box, text="Secondary Action", variant="secondary", width=280, height=40).pack(pady=int(6 * s))
+        Button(btn_box, text="Accent Action", variant="accent", command=self._reset_progress, width=280, height=40).pack(pady=int(6 * s))
+        Button(btn_box, text="Destructive Button", variant="destructive", width=280, height=40).pack(pady=int(6 * s))
+        Button(btn_box, text="Outline Button", variant="outline", width=280, height=40).pack(pady=int(6 * s))
 
         # Selection column
         sel_box = tk.Frame(col2, bg=pal.card_bg)
@@ -256,30 +256,30 @@ class ExtendedCanvasShowcaseApp:
         switch_row = tk.Frame(sel_box, bg=pal.card_bg)
         switch_row.pack(fill="x", pady=int(4 * s))
         tk.Label(switch_row, text="Dynamic Wave Animation", fg=pal.text_muted, bg=pal.card_bg).pack(side="left")
-        ModernSwitch(switch_row, is_on=True, on_toggle=self._on_wave_toggle).pack(side="right")
+        Switch(switch_row, is_on=True, on_toggle=self._on_wave_toggle).pack(side="right")
 
         tk.Label(sel_box, text="Vector Checkboxes:", font=("DejaVu Sans", int(11 * s), "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(int(14 * s), int(6 * s)))
-        ModernCheckbox(sel_box, text="Hardware Acceleration", checked=True, width=280).pack(pady=int(3 * s))
-        ModernCheckbox(sel_box, text="High-DPI Per-Monitor", checked=True, width=280).pack(pady=int(3 * s))
-        ModernCheckbox(sel_box, text="Enable Bloom Shaders", checked=False, width=280).pack(pady=int(3 * s))
+        Checkbutton(sel_box, text="Hardware Acceleration", checked=True, width=280).pack(pady=int(3 * s))
+        Checkbutton(sel_box, text="High-DPI Per-Monitor", checked=True, width=280).pack(pady=int(3 * s))
+        Checkbutton(sel_box, text="Enable Bloom Shaders", checked=False, width=280).pack(pady=int(3 * s))
 
         tk.Label(sel_box, text="Radio Option Group:", font=("DejaVu Sans", int(11 * s), "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(int(14 * s), int(6 * s)))
-        self.radio_group = ModernRadioGroup()
-        ModernRadio(sel_box, text="Vector Engine 2D", value="blend2d", group=self.radio_group, width=280).pack(pady=int(3 * s))
-        ModernRadio(sel_box, text="Direct Blit Pipeline", value="direct", group=self.radio_group, width=280).pack(pady=int(3 * s))
-        ModernRadio(sel_box, text="Legacy GDI Mode", value="legacy", group=self.radio_group, width=280).pack(pady=int(3 * s))
+        self.radio_group = RadioGroup()
+        Radiobutton(sel_box, text="Vector Engine 2D", value="blend2d", group=self.radio_group, width=280).pack(pady=int(3 * s))
+        Radiobutton(sel_box, text="Direct Blit Pipeline", value="direct", group=self.radio_group, width=280).pack(pady=int(3 * s))
+        Radiobutton(sel_box, text="Legacy GDI Mode", value="legacy", group=self.radio_group, width=280).pack(pady=int(3 * s))
 
         # Inputs column
         inp_box = tk.Frame(col3, bg=pal.card_bg)
         inp_box.pack(fill="both", expand=True, padx=int(16 * s), pady=(int(52 * s), int(16 * s)))
 
         tk.Label(inp_box, text="Vector Text Input:", font=("DejaVu Sans", int(11 * s), "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(0, int(6 * s)))
-        self.txt_input = ModernTextInput(inp_box, placeholder="Type something...", width=280, height=38)
+        self.txt_input = Entry(inp_box, placeholder="Type something...", width=280, height=38)
         self.txt_input.pack(fill="x", pady=int(4 * s))
         self.txt_input.set("tkblend vector canvas")
 
         tk.Label(inp_box, text="Dropdown Selector (Scrollable & Vector):", font=("DejaVu Sans", int(11 * s), "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(int(16 * s), int(6 * s)))
-        self.dropdown = ModernDropdown(
+        self.dropdown = Dropdown(
             inp_box,
             options=[
                 "High Quality (60 FPS)",
@@ -299,7 +299,7 @@ class ExtendedCanvasShowcaseApp:
         self.dropdown.pack(fill="x", pady=int(4 * s))
 
         tk.Label(inp_box, text="Numeric Stepper:", font=("DejaVu Sans", int(11 * s), "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(int(16 * s), int(6 * s)))
-        self.spinbox = ModernSpinBox(inp_box, min_val=0, max_val=100, value=int(self._shared_progress), on_change=self._on_stepper_change, width=280, height=36)
+        self.spinbox = Spinbox(inp_box, min_val=0, max_val=100, value=int(self._shared_progress), on_change=self._on_stepper_change, width=280, height=36)
         self.spinbox.pack(fill="x", pady=int(4 * s))
 
     # ------------------------------------------------------------------------
@@ -308,10 +308,10 @@ class ExtendedCanvasShowcaseApp:
     def _build_view_sliders(self):
         s = self._scale
         pal = get_theme()
-        col1 = ModernCard(self.view_sliders, title="Progress Indicators", width=520, height=600)
+        col1 = Card(self.view_sliders, title="Progress Indicators", width=520, height=600)
         col1.pack(side="left", fill="both", expand=True, padx=int(6 * s))
 
-        col2 = ModernCard(self.view_sliders, title="Continuous & Range Sliders", width=520, height=600)
+        col2 = Card(self.view_sliders, title="Continuous & Range Sliders", width=520, height=600)
         col2.pack(side="right", fill="both", expand=True, padx=int(6 * s))
 
         # Progress side
@@ -319,24 +319,24 @@ class ExtendedCanvasShowcaseApp:
         p_box.pack(fill="both", expand=True, padx=int(20 * s), pady=(int(52 * s), int(16 * s)))
 
         tk.Label(p_box, text="Capsule Linear Progress:", font=("DejaVu Sans", int(11 * s), "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(0, int(6 * s)))
-        self.progress_linear = ModernProgressBar(p_box, width=460, height=18, value=self._shared_progress)
+        self.progress_linear = Progressbar(p_box, width=460, height=18, value=self._shared_progress)
         self.progress_linear.pack(fill="x", pady=int(4 * s))
 
         tk.Label(p_box, text="Accent Secondary Progress:", font=("DejaVu Sans", int(11 * s), "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(int(16 * s), int(6 * s)))
-        self.progress_accent = ModernProgressBar(p_box, width=460, height=14, value=40.0, fill_color_start="#a6e3a1", fill_color_end="#94e2d5")
+        self.progress_accent = Progressbar(p_box, width=460, height=14, value=40.0, fill_color_start="#a6e3a1", fill_color_end="#94e2d5")
         self.progress_accent.pack(fill="x", pady=int(4 * s))
 
         tk.Label(p_box, text="Circular Gauges / Radial Progress:", font=("DejaVu Sans", int(11 * s), "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(int(20 * s), int(10 * s)))
         gauge_row = tk.Frame(p_box, bg=pal.card_bg)
         gauge_row.pack(fill="x", pady=int(6 * s))
 
-        self.gauge_main = ModernCircularProgress(gauge_row, size=110, value=self._shared_progress, stroke_width=8.0)
+        self.gauge_main = CircularProgress(gauge_row, size=110, value=self._shared_progress, stroke_width=8.0)
         self.gauge_main.pack(side="left", padx=int(16 * s))
 
-        self.gauge_secondary = ModernCircularProgress(gauge_row, size=110, value=85.0, stroke_width=8.0, fill_color="accent", unit="°C")
+        self.gauge_secondary = CircularProgress(gauge_row, size=110, value=85.0, stroke_width=8.0, fill_color="accent", unit="°C")
         self.gauge_secondary.pack(side="left", padx=int(16 * s))
 
-        self.gauge_accent = ModernCircularProgress(gauge_row, size=110, value=42.0, stroke_width=8.0, fill_color="success", unit=" FPS")
+        self.gauge_accent = CircularProgress(gauge_row, size=110, value=42.0, stroke_width=8.0, fill_color="success", unit=" FPS")
         self.gauge_accent.pack(side="left", padx=int(16 * s))
 
         # Sliders side
@@ -344,15 +344,15 @@ class ExtendedCanvasShowcaseApp:
         s_box.pack(fill="both", expand=True, padx=int(20 * s), pady=(int(52 * s), int(16 * s)))
 
         tk.Label(s_box, text="Master Shared Slider (Wires to all gauges):", font=("DejaVu Sans", int(11 * s), "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(0, int(6 * s)))
-        self.slider_master = ModernSlider(s_box, width=460, height=30, value=self._shared_progress, on_change=self._on_slider_change)
+        self.slider_master = Scale(s_box, width=460, height=30, value=self._shared_progress, on_change=self._on_slider_change)
         self.slider_master.pack(fill="x", pady=int(4 * s))
 
         tk.Label(s_box, text="Wave Speed & Amplitude Slider:", font=("DejaVu Sans", int(11 * s), "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(int(18 * s), int(6 * s)))
-        self.slider_wave = ModernSlider(s_box, width=460, height=30, min_val=10.0, max_val=60.0, value=self._wave_amplitude, on_change=self._on_wave_amp_change, active_track_color="accent")
+        self.slider_wave = Scale(s_box, width=460, height=30, min_val=10.0, max_val=60.0, value=self._wave_amplitude, on_change=self._on_wave_amp_change, active_track_color="accent")
         self.slider_wave.pack(fill="x", pady=int(4 * s))
 
         tk.Label(s_box, text="Dual-Thumb Min/Max Range Slider:", font=("DejaVu Sans", int(11 * s), "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(int(18 * s), int(6 * s)))
-        self.range_slider = ModernRangeSlider(s_box, width=460, height=30, low_val=25.0, high_val=75.0)
+        self.range_slider = RangeSlider(s_box, width=460, height=30, low_val=25.0, high_val=75.0)
         self.range_slider.pack(fill="x", pady=int(4 * s))
 
     # ------------------------------------------------------------------------
@@ -361,10 +361,10 @@ class ExtendedCanvasShowcaseApp:
     def _build_view_display(self):
         s = self._scale
         pal = get_theme()
-        col1 = ModernCard(self.view_display, title="Badges, Avatars & Tags", width=520, height=600)
+        col1 = Card(self.view_display, title="Badges, Avatars & Tags", width=520, height=600)
         col1.pack(side="left", fill="both", expand=True, padx=int(6 * s))
 
-        col2 = ModernCard(self.view_display, title="Collapsible Accordion Cards", width=520, height=600)
+        col2 = Card(self.view_display, title="Collapsible Accordion Cards", width=520, height=600)
         col2.pack(side="right", fill="both", expand=True, padx=int(6 * s))
 
         # Display items
@@ -374,23 +374,23 @@ class ExtendedCanvasShowcaseApp:
         tk.Label(d_box, text="Vector Badges / Status Pills:", font=("DejaVu Sans", int(11 * s), "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(0, int(6 * s)))
         badge_row1 = tk.Frame(d_box, bg=pal.card_bg)
         badge_row1.pack(fill="x", pady=int(4 * s))
-        ModernBadge(badge_row1, text="Primary", variant="primary", dot=True).pack(side="left", padx=int(4 * s))
-        ModernBadge(badge_row1, text="Success", variant="success", dot=True).pack(side="left", padx=int(4 * s))
-        ModernBadge(badge_row1, text="Warning", variant="warning", dot=True).pack(side="left", padx=int(4 * s))
-        ModernBadge(badge_row1, text="Error", variant="destructive", dot=True).pack(side="left", padx=int(4 * s))
+        Badge(badge_row1, text="Primary", variant="primary", dot=True).pack(side="left", padx=int(4 * s))
+        Badge(badge_row1, text="Success", variant="success", dot=True).pack(side="left", padx=int(4 * s))
+        Badge(badge_row1, text="Warning", variant="warning", dot=True).pack(side="left", padx=int(4 * s))
+        Badge(badge_row1, text="Error", variant="destructive", dot=True).pack(side="left", padx=int(4 * s))
 
         tk.Label(d_box, text="Profile Avatars with Status Badges:", font=("DejaVu Sans", int(11 * s), "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(int(20 * s), int(8 * s)))
         avatar_row = tk.Frame(d_box, bg=pal.card_bg)
         avatar_row.pack(fill="x", pady=int(4 * s))
-        ModernAvatar(avatar_row, initials="AG", status="online", size=48).pack(side="left", padx=int(8 * s))
-        ModernAvatar(avatar_row, initials="BL", status="busy", size=48, bg_gradient_start="#a6e3a1", bg_gradient_end="#94e2d5").pack(side="left", padx=int(8 * s))
-        ModernAvatar(avatar_row, initials="TK", status="offline", size=48, bg_gradient_start="#f38ba8", bg_gradient_end="#fab387").pack(side="left", padx=int(8 * s))
+        Avatar(avatar_row, initials="AG", status="online", size=48).pack(side="left", padx=int(8 * s))
+        Avatar(avatar_row, initials="BL", status="busy", size=48, bg_gradient_start="#a6e3a1", bg_gradient_end="#94e2d5").pack(side="left", padx=int(8 * s))
+        Avatar(avatar_row, initials="TK", status="offline", size=48, bg_gradient_start="#f38ba8", bg_gradient_end="#fab387").pack(side="left", padx=int(8 * s))
 
         # Accordions
         a_box = tk.Frame(col2, bg=pal.card_bg)
         a_box.pack(fill="both", expand=True, padx=int(16 * s), pady=(int(52 * s), int(16 * s)))
 
-        self.acc1 = ModernAccordion(a_box, title="Zero-Copy Pipeline Architecture", width=460)
+        self.acc1 = Accordion(a_box, title="Zero-Copy Pipeline Architecture", width=460)
         self.acc1.pack(fill="x", pady=int(6 * s))
         tk.Label(
             self.acc1.content_frame,
@@ -401,7 +401,7 @@ class ExtendedCanvasShowcaseApp:
             font=("DejaVu Sans", int(10 * s)),
         ).pack(anchor="w")
 
-        self.acc2 = ModernAccordion(a_box, title="Antialiasing & Vector Paths", width=460)
+        self.acc2 = Accordion(a_box, title="Antialiasing & Vector Paths", width=460)
         self.acc2.pack(fill="x", pady=int(6 * s))
         tk.Label(
             self.acc2.content_frame,
@@ -412,7 +412,7 @@ class ExtendedCanvasShowcaseApp:
             font=("DejaVu Sans", int(10 * s)),
         ).pack(anchor="w")
 
-        self.acc3 = ModernAccordion(a_box, title="Pure Surface Independence", width=460)
+        self.acc3 = Accordion(a_box, title="Pure Surface Independence", width=460)
         self.acc3.pack(fill="x", pady=int(6 * s))
         tk.Label(
             self.acc3.content_frame,

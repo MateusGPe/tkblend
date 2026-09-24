@@ -2,6 +2,8 @@
 High-performance pure vector UI widgets powered by Blend2D and Tkinter PhotoImage.
 Zero TTK theme dependencies. Antialiased vector rendering, High-DPI coordinate scaling,
 and dynamic theming support.
+
+Standard Tk/ttk drop-in widget naming with backward-compatible aliases and modern components.
 """
 
 from tkblend.theme import blend_color_hex
@@ -9,7 +11,6 @@ from tkblend.theme import blend_color_hex
 from tkblend.widgets.base import (
     ScalingTracker,
     Widget,
-    ModernWidget,
     _round_half_away,
     cascade_bg_to_children,
 )
@@ -22,166 +23,137 @@ from tkblend.widgets.drawing import (
 )
 from tkblend.widgets.containers import (
     Frame,
-    ModernFrame,
     Card,
-    ModernCard,
+    LabelFrame,
+    Labelframe,
     Accordion,
-    ModernAccordion,
     _AccordionHeader,
 )
 from tkblend.widgets.button import (
     Button,
-    ModernButton,
 )
 from tkblend.widgets.progress import (
+    Progressbar,
     ProgressBar,
-    ModernProgressBar,
     CircularProgress,
-    ModernCircularProgress,
 )
 from tkblend.widgets.sliders import (
+    Scale,
     Slider,
-    ModernSlider,
     RangeSlider,
-    ModernRangeSlider,
 )
 from tkblend.widgets.selection import (
-    Switch,
-    ModernSwitch,
-    ToggleSwitch,
+    Checkbutton,
     Checkbox,
-    ModernCheckbox,
+    Radiobutton,
     Radio,
-    ModernRadio,
     RadioGroup,
-    ModernRadioGroup,
+    Switch,
+    ToggleSwitch,
     SegmentedControl,
-    ModernSegmentedControl,
     SegmentedButton,
-    ModernSegmentedButton,
 )
 from tkblend.widgets.inputs import (
+    Entry,
     TextInput,
-    ModernTextInput,
+    Spinbox,
     SpinBox,
-    ModernSpinBox,
     _TextInputBackground,
 )
 from tkblend.widgets.scrollbar import (
-    VectorScrollbar,
-    ModernScrollbar,
     Scrollbar,
+    VectorScrollbar,
 )
 from tkblend.widgets.dropdown import (
     Dropdown,
-    ModernDropdown,
     DropdownItem,
 )
 from tkblend.widgets.display import (
+    Label,
     Badge,
-    ModernBadge,
     Avatar,
-    ModernAvatar,
 )
 from tkblend.widgets.tabview import (
+    Notebook,
     Tabview,
-    ModernTabview,
 )
 from tkblend.widgets.scrollable import (
     ScrollableFrame,
-    ModernScrollableFrame,
 )
 from tkblend.widgets.textbox import (
+    Text,
     TextBox,
-    ModernTextBox,
 )
 from tkblend.widgets.combobox import (
-    OptionMenu,
-    ModernOptionMenu,
+    Combobox,
     ComboBox,
-    ModernComboBox,
+    OptionMenu,
 )
 from tkblend.widgets.table import (
     Table,
-    ModernTable,
+    Treeview,
 )
 from tkblend.widgets.image import (
     VectorIcon,
-    ModernVectorIcon,
     IconLabel,
-    ModernIconLabel,
     VectorImage,
-    ModernVectorImage,
 )
 
 __all__ = [
+    # Base & Infrastructure
     "ScalingTracker",
     "Widget",
-    "ModernWidget",
-    "Frame",
-    "ModernFrame",
-    "Card",
-    "ModernCard",
-    "Button",
-    "ModernButton",
-    "ProgressBar",
-    "ModernProgressBar",
-    "CircularProgress",
-    "ModernCircularProgress",
-    "Slider",
-    "ModernSlider",
-    "RangeSlider",
-    "ModernRangeSlider",
-    "Switch",
-    "ModernSwitch",
-    "ToggleSwitch",
-    "Checkbox",
-    "ModernCheckbox",
-    "Radio",
-    "ModernRadio",
-    "RadioGroup",
-    "ModernRadioGroup",
-    "SegmentedControl",
-    "ModernSegmentedControl",
-    "SegmentedButton",
-    "ModernSegmentedButton",
-    "TextInput",
-    "ModernTextInput",
-    "VectorScrollbar",
-    "ModernScrollbar",
-    "Scrollbar",
-    "Dropdown",
-    "ModernDropdown",
-    "DropdownItem",
-    "SpinBox",
-    "ModernSpinBox",
-    "Badge",
-    "ModernBadge",
-    "Avatar",
-    "ModernAvatar",
-    "Accordion",
-    "ModernAccordion",
-    "Tabview",
-    "ModernTabview",
-    "ScrollableFrame",
-    "ModernScrollableFrame",
-    "TextBox",
-    "ModernTextBox",
-    "OptionMenu",
-    "ModernOptionMenu",
-    "ComboBox",
-    "ModernComboBox",
-    "Table",
-    "ModernTable",
-    "VectorIcon",
-    "ModernVectorIcon",
-    "IconLabel",
-    "ModernIconLabel",
-    "VectorImage",
-    "ModernVectorImage",
-    "blend_color_hex",
     "cascade_bg_to_children",
-    # Geometry and drawing utilities
+    "blend_color_hex",
+    # Standard Tk/ttk Canonical Widgets
+    "Button",
+    "Entry",
+    "Checkbutton",
+    "Radiobutton",
+    "Combobox",
+    "Progressbar",
+    "Scale",
+    "Spinbox",
+    "Label",
+    "LabelFrame",
+    "Labelframe",
+    "Notebook",
+    "Text",
+    "Scrollbar",
+    "Frame",
+    "Treeview",
+    # Backward-Compatible Legacy Aliases
+    "TextInput",
+    "Checkbox",
+    "Radio",
+    "ComboBox",
+    "ProgressBar",
+    "Slider",
+    "SpinBox",
+    "Tabview",
+    "TextBox",
+    "Table",
+    "VectorScrollbar",
+    # Modern Vector Extended Components
+    "Card",
+    "Switch",
+    "ToggleSwitch",
+    "RadioGroup",
+    "SegmentedControl",
+    "SegmentedButton",
+    "RangeSlider",
+    "CircularProgress",
+    "Dropdown",
+    "DropdownItem",
+    "OptionMenu",
+    "Badge",
+    "Avatar",
+    "Accordion",
+    "ScrollableFrame",
+    "VectorIcon",
+    "IconLabel",
+    "VectorImage",
+    # Drawing Utilities
     "draw_vector_checkmark",
     "draw_vector_chevron",
     "draw_vector_plus",

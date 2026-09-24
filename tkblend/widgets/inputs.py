@@ -45,7 +45,7 @@ class _TextInputBackground(Widget):
             owner._render_bg()
 
 
-class TextInput(tk.Frame):
+class Entry(tk.Frame):
     """
     Modern vector text entry with rounded border, glowing focus ring,
     placeholder text, and clear button icon (✕).
@@ -328,6 +328,34 @@ class TextInput(tk.Frame):
             return ""
         return self._entry.get()
 
+    def insert(self, index: Union[int, str], string: str) -> None:
+        """Insert text at index, handling placeholder if active."""
+        if self._placeholder_active:
+            self._entry.delete(0, "end")
+            pal = get_theme()
+            self._entry.configure(fg=pal.fg)
+            self._placeholder_active = False
+        self._entry.insert(index, string)
+        self._render_bg()
+
+    def delete(self, first: Union[int, str], last: Optional[Union[int, str]] = None) -> None:
+        """Delete characters between first and last indices."""
+        if self._placeholder_active:
+            if not self._has_focus:
+                return
+            self._entry.delete(0, "end")
+            self._placeholder_active = False
+        if last is None:
+            self._entry.delete(first)
+        else:
+            self._entry.delete(first, last)
+        if not self._entry.get() and not self._has_focus and self._placeholder:
+            self._placeholder_active = True
+            pal = get_theme()
+            self._entry.configure(fg=pal.text_muted)
+            self._entry.insert(0, self._placeholder)
+        self._render_bg()
+
     def set(self, text: str) -> None:
         self._entry.delete(0, "end")
         pal = get_theme()
@@ -343,6 +371,7 @@ class TextInput(tk.Frame):
             else:
                 self._placeholder_active = False
                 self._entry.configure(fg=pal.fg)
+
         self._render_bg()
 
     def _render_bg(self) -> None:
@@ -405,10 +434,7 @@ class TextInput(tk.Frame):
         super().destroy()
 
 
-ModernTextInput = TextInput
-
-
-class SpinBox(Widget):
+class Spinbox(Widget):
     """
     Numeric stepper component with decrement (-) and increment (+) vector buttons,
     inline text entry, keyboard navigation (Up/Down arrow keys), auto-repeat on hold,
@@ -761,4 +787,7 @@ class SpinBox(Widget):
             logger.debug("Render failed in SpinBox: %s", e, exc_info=True)
 
 
-ModernSpinBox = SpinBox
+
+
+TextInput = Entry
+SpinBox = Spinbox

@@ -161,7 +161,7 @@ class TestSurface(unittest.TestCase):
         # Active soft drop shadows
         s.draw_shadow(20, 20, 120, 60, 12, 12, blur_radius=10.0, spread=2.0, offset_x=0.0, offset_y=4.0, shadow_color="#00000077")
 
-        # Modern card with border and shadow
+        # Card with border and shadow
         s.draw_card(
             x=20, y=20, w=150, h=80, rx=10, ry=10,
             bg_color="#1e1e2e", border_color="#89b4fa", border_width=1.5,

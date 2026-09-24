@@ -181,7 +181,7 @@ class _TabHeaderBar(Widget):
             logger.debug("Render failed in _TabHeaderBar: %s", e, exc_info=True)
 
 
-class Tabview(tk.Frame):
+class Notebook(tk.Frame):
     """
     Modern Tabview widget: Multi-tab container with a top segmented
     Blend2D vector header bar and dynamic page swapping.
@@ -298,6 +298,11 @@ class Tabview(tk.Frame):
             raise KeyError(f"Tab '{name}' does not exist in Tabview.")
         return self._tabs[name]
 
+    def tabs(self) -> List[str]:
+        """Return list of tab names (ttk.Notebook compatible)."""
+        return list(self._tabs.keys())
+
+
     def set(self, name: str) -> None:
         """Switch active tab to the specified tab name."""
         if name not in self._tabs or name == self._current_tab:
@@ -320,9 +325,17 @@ class Tabview(tk.Frame):
         """Return the container card background color."""
         return self._container_frame.bg_color
 
+    def render(self) -> None:
+        """Render container frame and tab header."""
+        if hasattr(self, "_container_frame") and self._container_frame is not None:
+            self._container_frame.render()
+        if hasattr(self, "_header") and self._header is not None:
+            self._header.render()
+
     def get(self) -> Optional[str]:
         """Return the name of the currently active tab."""
         return self._current_tab
+
 
     def delete(self, name: str) -> None:
         """Remove a tab page from the tabview."""
@@ -372,4 +385,6 @@ class Tabview(tk.Frame):
             remove_theme_listener(self._on_theme_changed)
 
 
-ModernTabview = Tabview
+
+
+Tabview = Notebook

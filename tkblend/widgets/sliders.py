@@ -22,7 +22,7 @@ def _resolve_color(color: Optional[ColorLike], fallback: str, pal: Palette) -> C
     return color
 
 
-class Slider(Widget):
+class Scale(Widget):
     """
     Smooth interactive slider with custom groove track, active fill, and glowing knob.
     """
@@ -34,8 +34,11 @@ class Slider(Widget):
         height: int = 28,
         min_val: float = 0.0,
         max_val: float = 100.0,
+        from_: Optional[float] = None,
+        to: Optional[float] = None,
         value: float = 50.0,
         on_change: Optional[Callable[[float], None]] = None,
+        command: Optional[Callable[[float], None]] = None,
         track_color: Optional[ColorLike] = None,
         active_track_color: Optional[ColorLike] = None,
         knob_color: Optional[ColorLike] = None,
@@ -43,6 +46,15 @@ class Slider(Widget):
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
+        if "from" in kwargs:
+            from_ = kwargs.pop("from")
+        if from_ is not None:
+            min_val = float(from_)
+        if to is not None:
+            max_val = float(to)
+        if command is not None:
+            on_change = command
+
         self._min = min_val
         self._max = max_val
         self._value = max(min_val, min(max_val, float(value)))
@@ -56,6 +68,7 @@ class Slider(Widget):
 
         self.bind("<B1-Motion>", self._on_drag)
         self.bind("<Button-1>", self._on_drag)
+
 
     @property
     def track_color(self) -> ColorLike:
@@ -108,8 +121,17 @@ class Slider(Widget):
         self._value = max(self._min, min(self._max, float(val)))
         self.render()
 
+    def get(self) -> float:
+        """Get current slider value (Tkinter compatible)."""
+        return self._value
+
+    def set(self, val: float) -> None:
+        """Set slider value (Tkinter compatible)."""
+        self.value = val
+
     def set_value(self, val: float) -> None:
         self.value = val
+
 
     def _on_drag(self, event) -> None:
         pad = self._knob_r + 4.0 * self._scale
@@ -161,9 +183,6 @@ class Slider(Widget):
             self._surface.blit(self._photo)
         except Exception as e:
             logger.debug("Render failed in Slider: %s", e, exc_info=True)
-
-
-ModernSlider = Slider
 
 
 class RangeSlider(Widget):
@@ -339,4 +358,6 @@ class RangeSlider(Widget):
             logger.debug("Render failed in RangeSlider: %s", e, exc_info=True)
 
 
-ModernRangeSlider = RangeSlider
+
+
+Slider = Scale

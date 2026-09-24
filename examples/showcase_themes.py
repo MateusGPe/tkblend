@@ -37,25 +37,25 @@ from tkblend import (
 
 from tkblend.widgets import (
     ScalingTracker,
-    ModernWidget,
-    ModernFrame,
-    ModernCard,
-    ModernButton,
-    ModernProgressBar,
-    ModernCircularProgress,
-    ModernSlider,
-    ModernRangeSlider,
-    ModernSwitch,
-    ModernCheckbox,
-    ModernRadio,
-    ModernRadioGroup,
-    ModernSegmentedControl,
-    ModernTextInput,
-    ModernSpinBox,
-    ModernBadge,
-    ModernAvatar,
-    ModernAccordion,
-    ModernDropdown,
+    Widget,
+    Frame,
+    Card,
+    Button,
+    Progressbar,
+    CircularProgress,
+    Scale,
+    RangeSlider,
+    Switch,
+    Checkbutton,
+    Radiobutton,
+    RadioGroup,
+    SegmentedControl,
+    Entry,
+    Spinbox,
+    Badge,
+    Avatar,
+    Accordion,
+    Dropdown,
 )
 
 
@@ -76,7 +76,7 @@ THEME_DISPLAY_NAMES = {
 }
 
 
-class ThemeCardWidget(ModernWidget):
+class ThemeCardWidget(Widget):
     """
     A clickable visual card that represents a theme preset,
     displaying theme name, dark/light pill, and 6 color swatches.
@@ -289,7 +289,7 @@ class CustomThemeShowcaseApp:
         )
         self.title_lbl.pack(side="left")
 
-        self.theme_badge = ModernBadge(
+        self.theme_badge = Badge(
             self.title_box,
             text=f"Preset: {THEME_DISPLAY_NAMES.get(pal.name, pal.name)}",
             variant="primary",
@@ -298,7 +298,7 @@ class CustomThemeShowcaseApp:
         self.theme_badge.pack(side="left", padx=(int(10 * s), 0))
 
         # Right Side Quick Mode Switcher
-        self.mode_switcher = ModernSegmentedControl(
+        self.mode_switcher = SegmentedControl(
             self.top_bar,
             values=["🌙 Dark", "☀️ Light"],
             selected_index=0 if pal.dark_mode else 1,
@@ -310,7 +310,7 @@ class CustomThemeShowcaseApp:
         self.mode_switcher.pack(side="right", padx=(int(8 * s), int(14 * s)))
 
         # View Tabs Navigator
-        self.nav_tabs = ModernSegmentedControl(
+        self.nav_tabs = SegmentedControl(
             self.top_bar,
             values=["🎨 Theme Gallery & Playground", "✨ 60 FPS Live Vector Canvas", "🛠️ Theme Studio & Exporter"],
             selected_index=0,
@@ -377,7 +377,7 @@ class CustomThemeShowcaseApp:
         )
         sb_lbl.pack(side="left")
 
-        count_badge = ModernBadge(
+        count_badge = Badge(
             sb_hdr,
             text=f"{len(THEME_PRESETS)}",
             variant="outline",
@@ -470,7 +470,7 @@ class CustomThemeShowcaseApp:
         self.grid_container.rowconfigure(1, weight=1)
 
         # Card 1: Buttons & Interactive Actions
-        card1 = ModernCard(
+        card1 = Card(
             self.grid_container,
             title="Buttons & Interactive Actions",
             parent_bg=pal.bg,
@@ -482,26 +482,26 @@ class CustomThemeShowcaseApp:
 
         row1_a = tk.Frame(c1_content, bg=pal.card_bg)
         row1_a.pack(fill="x", pady=(0, int(8 * s)))
-        b_elev = ModernButton(row1_a, text="Elevated", variant="elevated", width=90, height=34, parent_bg=pal.card_bg)
+        b_elev = Button(row1_a, text="Elevated", variant="elevated", width=90, height=34, parent_bg=pal.card_bg)
         b_elev.pack(side="left", padx=(0, int(6 * s)))
-        b_filled = ModernButton(row1_a, text="Primary", variant="filled", width=90, height=34, parent_bg=pal.card_bg)
+        b_filled = Button(row1_a, text="Primary", variant="filled", width=90, height=34, parent_bg=pal.card_bg)
         b_filled.pack(side="left", padx=(0, int(6 * s)))
-        b_tonal = ModernButton(row1_a, text="Tonal", variant="tonal", width=90, height=34, parent_bg=pal.card_bg)
+        b_tonal = Button(row1_a, text="Tonal", variant="tonal", width=90, height=34, parent_bg=pal.card_bg)
         b_tonal.pack(side="left", padx=(0, int(6 * s)))
-        b_outline = ModernButton(row1_a, text="Outlined", variant="outlined", width=90, height=34, parent_bg=pal.card_bg)
+        b_outline = Button(row1_a, text="Outlined", variant="outlined", width=90, height=34, parent_bg=pal.card_bg)
         b_outline.pack(side="left")
 
         row1_b = tk.Frame(c1_content, bg=pal.card_bg)
         row1_b.pack(fill="x")
-        b_destruct = ModernButton(row1_b, text="Destructive", variant="destructive", width=105, height=34, parent_bg=pal.card_bg)
+        b_destruct = Button(row1_b, text="Destructive", variant="destructive", width=105, height=34, parent_bg=pal.card_bg)
         b_destruct.pack(side="left", padx=(0, int(6 * s)))
-        b_text = ModernButton(row1_b, text="Text Button", variant="text", width=95, height=34, parent_bg=pal.card_bg)
+        b_text = Button(row1_b, text="Text Button", variant="text", width=95, height=34, parent_bg=pal.card_bg)
         b_text.pack(side="left", padx=(0, int(6 * s)))
-        b_icon = ModernButton(row1_b, text="★ Star", variant="filled", width=85, height=34, parent_bg=pal.card_bg)
+        b_icon = Button(row1_b, text="★ Star", variant="filled", width=85, height=34, parent_bg=pal.card_bg)
         b_icon.pack(side="left")
 
         # Card 2: Form Inputs & Selectors
-        card2 = ModernCard(
+        card2 = Card(
             self.grid_container,
             title="Inputs & Selection Controls",
             parent_bg=pal.bg,
@@ -514,7 +514,7 @@ class CustomThemeShowcaseApp:
         row2_a = tk.Frame(c2_content, bg=pal.card_bg)
         row2_a.pack(fill="x", pady=(0, int(10 * s)))
 
-        txt_in = ModernTextInput(
+        txt_in = Entry(
             row2_a,
             placeholder="Focus ring text input...",
             width=195,
@@ -523,7 +523,7 @@ class CustomThemeShowcaseApp:
         )
         txt_in.pack(side="left", padx=(0, int(8 * s)))
 
-        dropdown = ModernDropdown(
+        dropdown = Dropdown(
             row2_a,
             options=["Vector Surface", "Blend2D Core", "Direct Blit Pipeline"],
             selected="Vector Surface",
@@ -536,21 +536,21 @@ class CustomThemeShowcaseApp:
         row2_b = tk.Frame(c2_content, bg=pal.card_bg)
         row2_b.pack(fill="x")
 
-        sw1 = ModernSwitch(row2_b, is_on=True, width=48, height=26, parent_bg=pal.card_bg)
+        sw1 = Switch(row2_b, is_on=True, width=48, height=26, parent_bg=pal.card_bg)
         sw1.pack(side="left", padx=(0, int(8 * s)))
 
-        cb1 = ModernCheckbox(row2_b, text="Vector Checkbox", checked=True, parent_bg=pal.card_bg)
+        cb1 = Checkbutton(row2_b, text="Vector Checkbox", checked=True, parent_bg=pal.card_bg)
         cb1.pack(side="left", padx=(0, int(10 * s)))
 
-        rg = ModernRadioGroup()
-        r1 = ModernRadio(row2_b, text="Option A", value="A", group=rg, width=85, parent_bg=pal.card_bg)
+        rg = RadioGroup()
+        r1 = Radiobutton(row2_b, text="Option A", value="A", group=rg, width=85, parent_bg=pal.card_bg)
         r1.pack(side="left", padx=(0, int(4 * s)))
-        r2 = ModernRadio(row2_b, text="Option B", value="B", group=rg, width=85, parent_bg=pal.card_bg)
+        r2 = Radiobutton(row2_b, text="Option B", value="B", group=rg, width=85, parent_bg=pal.card_bg)
         r2.pack(side="left")
         rg.select("A")
 
         # Card 3: Sliders, Ranges & Dynamic Gauges
-        card3 = ModernCard(
+        card3 = Card(
             self.grid_container,
             title="Sliders, Progress & Radial Gauges",
             parent_bg=pal.bg,
@@ -563,7 +563,7 @@ class CustomThemeShowcaseApp:
         row3_a = tk.Frame(c3_content, bg=pal.card_bg)
         row3_a.pack(fill="both", expand=True)
 
-        self.gauge_main = ModernCircularProgress(
+        self.gauge_main = CircularProgress(
             row3_a,
             value=self._shared_progress,
             size=80,
@@ -575,7 +575,7 @@ class CustomThemeShowcaseApp:
         sliders_box = tk.Frame(row3_a, bg=pal.card_bg)
         sliders_box.pack(side="left", fill="both", expand=True)
 
-        self.slider_master = ModernSlider(
+        self.slider_master = Scale(
             sliders_box,
             value=self._shared_progress,
             min_val=0.0,
@@ -586,7 +586,7 @@ class CustomThemeShowcaseApp:
         )
         self.slider_master.pack(fill="x", pady=(0, int(4 * s)))
 
-        self.range_slider = ModernRangeSlider(
+        self.range_slider = RangeSlider(
             sliders_box,
             min_val=0.0,
             max_val=100.0,
@@ -597,7 +597,7 @@ class CustomThemeShowcaseApp:
         )
         self.range_slider.pack(fill="x", pady=(0, int(4 * s)))
 
-        self.progress_linear = ModernProgressBar(
+        self.progress_linear = Progressbar(
             sliders_box,
             value=self._shared_progress,
             height=10,
@@ -606,7 +606,7 @@ class CustomThemeShowcaseApp:
         self.progress_linear.pack(fill="x")
 
         # Card 4: Badges, Avatars & Accordion Containers
-        card4 = ModernCard(
+        card4 = Card(
             self.grid_container,
             title="Badges, Avatars & Structure",
             parent_bg=pal.bg,
@@ -620,31 +620,31 @@ class CustomThemeShowcaseApp:
         row4_badges = tk.Frame(c4_content, bg=pal.card_bg)
         row4_badges.pack(fill="x", pady=(0, int(6 * s)))
 
-        b_p = ModernBadge(row4_badges, text="Primary", variant="primary", width=75, height=22, parent_bg=pal.card_bg)
+        b_p = Badge(row4_badges, text="Primary", variant="primary", width=75, height=22, parent_bg=pal.card_bg)
         b_p.pack(side="left", padx=(0, int(6 * s)))
-        b_s = ModernBadge(row4_badges, text="Success", variant="success", width=75, height=22, parent_bg=pal.card_bg)
+        b_s = Badge(row4_badges, text="Success", variant="success", width=75, height=22, parent_bg=pal.card_bg)
         b_s.pack(side="left", padx=(0, int(6 * s)))
-        b_w = ModernBadge(row4_badges, text="Warning", variant="warning", width=75, height=22, parent_bg=pal.card_bg)
+        b_w = Badge(row4_badges, text="Warning", variant="warning", width=75, height=22, parent_bg=pal.card_bg)
         b_w.pack(side="left", padx=(0, int(6 * s)))
-        b_d = ModernBadge(row4_badges, text="Destruct", variant="destructive", width=75, height=22, parent_bg=pal.card_bg)
+        b_d = Badge(row4_badges, text="Destruct", variant="destructive", width=75, height=22, parent_bg=pal.card_bg)
         b_d.pack(side="left")
 
         # Row 4b: Avatars & Status
         row4_avatars = tk.Frame(c4_content, bg=pal.card_bg)
         row4_avatars.pack(fill="x", pady=(0, int(6 * s)))
 
-        av1 = ModernAvatar(row4_avatars, initials="TB", status="online", size=30, parent_bg=pal.card_bg)
+        av1 = Avatar(row4_avatars, initials="TB", status="online", size=30, parent_bg=pal.card_bg)
         av1.pack(side="left", padx=(0, int(6 * s)))
         lbl_av1 = tk.Label(row4_avatars, text="Online", font=("DejaVu Sans", int(8.5 * s), "bold"), fg=pal.success, bg=pal.card_bg)
         lbl_av1.pack(side="left", padx=(0, int(16 * s)))
 
-        av2 = ModernAvatar(row4_avatars, initials="UI", status="busy", size=30, parent_bg=pal.card_bg)
+        av2 = Avatar(row4_avatars, initials="UI", status="busy", size=30, parent_bg=pal.card_bg)
         av2.pack(side="left", padx=(0, int(6 * s)))
         lbl_av2 = tk.Label(row4_avatars, text="Busy", font=("DejaVu Sans", int(8.5 * s), "bold"), fg=pal.warning, bg=pal.card_bg)
         lbl_av2.pack(side="left")
 
         # Accordion
-        accordion = ModernAccordion(
+        accordion = Accordion(
             c4_content,
             title="Surface Vector Architecture",
             parent_bg=pal.card_bg,
@@ -676,20 +676,20 @@ class CustomThemeShowcaseApp:
         self.canvas_tab = tk.Frame(self.content_area, bg=pal.bg)
 
         # Control Strip on top
-        ctrl_strip = ModernFrame(self.canvas_tab, height=52, parent_bg=pal.bg)
+        ctrl_strip = Frame(self.canvas_tab, height=52, parent_bg=pal.bg)
         ctrl_strip.pack(fill="x", pady=(0, int(8 * s)))
 
         speed_lbl = tk.Label(ctrl_strip, text="Wave Speed:", font=("DejaVu Sans", int(9 * s), "bold"), fg=pal.fg, bg=pal.card_bg)
         speed_lbl.pack(side="left", padx=(int(14 * s), int(6 * s)))
-        speed_slider = ModernSlider(ctrl_strip, value=1.0, min_val=0.1, max_val=3.0, on_change=self._on_speed_change, width=120, height=24, parent_bg=pal.card_bg)
+        speed_slider = Scale(ctrl_strip, value=1.0, min_val=0.1, max_val=3.0, on_change=self._on_speed_change, width=120, height=24, parent_bg=pal.card_bg)
         speed_slider.pack(side="left", padx=(0, int(16 * s)))
 
         amp_lbl = tk.Label(ctrl_strip, text="Amplitude:", font=("DejaVu Sans", int(9 * s), "bold"), fg=pal.fg, bg=pal.card_bg)
         amp_lbl.pack(side="left", padx=(0, int(6 * s)))
-        amp_slider = ModernSlider(ctrl_strip, value=40.0, min_val=5.0, max_val=80.0, on_change=self._on_amp_change, width=120, height=24, parent_bg=pal.card_bg)
+        amp_slider = Scale(ctrl_strip, value=40.0, min_val=5.0, max_val=80.0, on_change=self._on_amp_change, width=120, height=24, parent_bg=pal.card_bg)
         amp_slider.pack(side="left", padx=(0, int(16 * s)))
 
-        sw_wave = ModernSwitch(ctrl_strip, is_on=True, on_toggle=self._on_wave_toggle, width=48, height=26, parent_bg=pal.card_bg)
+        sw_wave = Switch(ctrl_strip, is_on=True, on_toggle=self._on_wave_toggle, width=48, height=26, parent_bg=pal.card_bg)
         sw_wave.pack(side="left")
         sw_lbl = tk.Label(ctrl_strip, text="Animate", font=("DejaVu Sans", int(9 * s)), fg=pal.text_muted, bg=pal.card_bg)
         sw_lbl.pack(side="left", padx=(int(4 * s), 0))
@@ -820,7 +820,7 @@ class CustomThemeShowcaseApp:
         self.studio_tab.rowconfigure(0, weight=1)
 
         # Left Column: Palette Token Color Tweakers
-        self.studio_controls_card = ModernCard(
+        self.studio_controls_card = Card(
             self.studio_tab,
             title="Live Palette Token Tweaker",
             parent_bg=pal.bg,
@@ -830,7 +830,7 @@ class CustomThemeShowcaseApp:
         studio_ctrl_content = tk.Frame(self.studio_controls_card, bg=pal.card_bg)
         studio_ctrl_content.pack(fill="both", expand=True, padx=int(14 * s), pady=(int(46 * s), int(10 * s)))
 
-        self.token_inputs: Dict[str, ModernTextInput] = {}
+        self.token_inputs: Dict[str, Entry] = {}
         tokens_list = [
             ("name", "Theme Name", pal.name),
             ("primary", "Primary Accent", pal.primary),
@@ -885,7 +885,7 @@ class CustomThemeShowcaseApp:
             )
             lbl.pack(side="left", padx=(0, int(8 * s)))
 
-            in_widget = ModernTextInput(
+            in_widget = Entry(
                 row_frame,
                 placeholder="#RRGGBB",
                 width=160,
@@ -900,7 +900,7 @@ class CustomThemeShowcaseApp:
         actions_row = tk.Frame(studio_ctrl_content, bg=pal.card_bg)
         actions_row.pack(side="bottom", fill="x", pady=(int(6 * s), 0))
 
-        btn_apply = ModernButton(
+        btn_apply = Button(
             actions_row,
             text="⚡ Apply Custom Theme",
             variant="filled",
@@ -911,7 +911,7 @@ class CustomThemeShowcaseApp:
         )
         btn_apply.pack(side="left", padx=(0, int(8 * s)))
 
-        btn_reset = ModernButton(
+        btn_reset = Button(
             actions_row,
             text="🔄 Reset to Preset",
             variant="tonal",
@@ -923,7 +923,7 @@ class CustomThemeShowcaseApp:
         btn_reset.pack(side="left")
 
         # Right Column: Live Code Exporter
-        self.studio_code_card = ModernCard(
+        self.studio_code_card = Card(
             self.studio_tab,
             title="Generated Palette Code & Export",
             parent_bg=pal.bg,
@@ -952,7 +952,7 @@ class CustomThemeShowcaseApp:
         btn_export_row = tk.Frame(studio_code_content, bg=pal.card_bg)
         btn_export_row.pack(fill="x")
 
-        self.btn_copy_py = ModernButton(
+        self.btn_copy_py = Button(
             btn_export_row,
             text="📋 Copy Python Code",
             variant="filled",
@@ -963,7 +963,7 @@ class CustomThemeShowcaseApp:
         )
         self.btn_copy_py.pack(side="left", padx=(0, int(8 * s)))
 
-        self.btn_copy_json = ModernButton(
+        self.btn_copy_json = Button(
             btn_export_row,
             text="📋 Copy JSON",
             variant="outlined",

@@ -23,7 +23,7 @@ from tkblend import (
     parse_color,
 )
 from tkblend.theme import get_theme, set_theme, Palette
-from tkblend.widgets import ModernSegmentedControl
+from tkblend.widgets import SegmentedControl
 
 
 # ============================================================================
@@ -109,7 +109,7 @@ ScalingTracker.activate_high_dpi_awareness()
 # Self-Contained Modern Blend2D Widgets
 # ============================================================================
 
-class ModernWidget(tk.Label):
+class Widget(tk.Label):
     """
     Base class for interactive vector-drawn Tkinter widgets powered by Blend2D.
     """
@@ -210,7 +210,7 @@ class ModernWidget(tk.Label):
         self._surface.blit(self._photo)
 
 
-class ModernFrame(tk.Frame):
+class Frame(tk.Frame):
     """
     Modern container with dynamic corner radius, customizable border,
     and elevation / soft drop shadow.
@@ -328,7 +328,7 @@ class ModernFrame(tk.Frame):
         self._surface.blit(self._photo)
 
 
-class ModernCard(ModernFrame):
+class Card(Frame):
     """
     High-fidelity Card container with elevation drop shadow and optional title.
     """
@@ -381,7 +381,7 @@ class ModernCard(ModernFrame):
             self._surface.blit(self._photo)
 
 
-class ModernButton(ModernWidget):
+class Button(Widget):
     """
     Modern Button with hover/press elevation animations, gradients,
     soft drop shadows, antialiased typography, and click callback.
@@ -502,7 +502,7 @@ class ModernButton(ModernWidget):
         self._surface.blit(self._photo)
 
 
-class ModernProgressBar(ModernWidget):
+class Progressbar(Widget):
     """
     Antialiased smooth progress bar with gradient fill and rounded capsule geometry.
     """
@@ -565,7 +565,7 @@ class ModernProgressBar(ModernWidget):
         self._surface.blit(self._photo)
 
 
-class ModernSlider(ModernWidget):
+class Scale(Widget):
     """
     Smooth interactive slider with custom track, glowing knob, and value callback.
     """
@@ -664,7 +664,7 @@ class ModernSlider(ModernWidget):
         self._surface.blit(self._photo)
 
 
-class ModernSwitch(ModernWidget):
+class Switch(Widget):
     """
     Modern iOS / Fluent-style toggle switch with smooth pill knob.
     """
@@ -795,7 +795,7 @@ class ShowcaseApp:
         card_bg = pal.surface if pal.dark_mode else pal.card_bg
 
         # Header Card
-        self.header_card = ModernCard(
+        self.header_card = Card(
             self.sidebar,
             title="",
             width=276,
@@ -830,7 +830,7 @@ class ShowcaseApp:
         self.lbl_sub.pack(anchor="w", padx=int(16 * s))
 
         # Theme Switcher Segmented Control
-        self.theme_switcher = ModernSegmentedControl(
+        self.theme_switcher = SegmentedControl(
             self.sidebar,
             values=["🌙 Dark", "☀️ Light"],
             selected_index=0 if pal.dark_mode else 1,
@@ -842,7 +842,7 @@ class ShowcaseApp:
         self.theme_switcher.pack(fill="x", pady=(0, int(12 * s)))
 
         # Controls Section
-        self.ctrl_card = ModernCard(
+        self.ctrl_card = Card(
             self.sidebar,
             title="",
             width=276,
@@ -867,7 +867,7 @@ class ShowcaseApp:
         )
         self.lbl_actions.pack(anchor="w", padx=int(16 * s), pady=(int(16 * s), int(12 * s)))
 
-        self.btn_primary = ModernButton(
+        self.btn_primary = Button(
             self.ctrl_card,
             text="Primary Action",
             command=self._on_btn_click,
@@ -885,7 +885,7 @@ class ShowcaseApp:
         )
         self.btn_primary.pack(fill="x", padx=int(16 * s), pady=int(6 * s))
 
-        self.btn_secondary = ModernButton(
+        self.btn_secondary = Button(
             self.ctrl_card,
             text="Accent Action",
             command=self._on_accent_click,
@@ -913,7 +913,7 @@ class ShowcaseApp:
         )
         self.lbl_progress.pack(anchor="w", padx=int(16 * s), pady=(int(16 * s), int(6 * s)))
 
-        self.progress_bar = ModernProgressBar(
+        self.progress_bar = Progressbar(
             self.ctrl_card,
             width=244,
             height=14,
@@ -934,7 +934,7 @@ class ShowcaseApp:
         )
         self.lbl_slider.pack(anchor="w", padx=int(16 * s), pady=(int(16 * s), int(6 * s)))
 
-        self.slider = ModernSlider(
+        self.slider = Scale(
             self.ctrl_card,
             width=244,
             height=28,
@@ -961,7 +961,7 @@ class ShowcaseApp:
         )
         self.lbl_switch.pack(side="left")
 
-        self.switch = ModernSwitch(
+        self.switch = Switch(
             self.switch_frame,
             width=54,
             height=28,

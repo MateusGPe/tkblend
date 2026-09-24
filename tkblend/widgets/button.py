@@ -187,6 +187,3 @@ class Button(Widget):
             self._surface.blit(self._photo)
         except Exception as e:
             logger.debug("Render failed in Button: %s", e, exc_info=True)
-
-
-ModernButton = Button

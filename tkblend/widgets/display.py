@@ -119,9 +119,6 @@ class Badge(Widget):
             logger.debug("Render failed in Badge: %s", e, exc_info=True)
 
 
-ModernBadge = Badge
-
-
 class Avatar(Widget):
     """
     Circular vector avatar displaying initials with optional status indicator dot.
@@ -198,4 +195,110 @@ class Avatar(Widget):
             logger.debug("Render failed in Avatar: %s", e, exc_info=True)
 
 
-ModernAvatar = Avatar
+
+
+class Label(Widget):
+    """
+    Pure Blend2D antialiased vector Label widget.
+    Supports auto-sizing, text alignment, font styling, dynamic theming, and High-DPI scaling.
+    """
+
+    def __init__(
+        self,
+        master: Optional[tk.Misc] = None,
+        text: str = "",
+        font: Optional[str] = None,
+        font_size: int = 13,
+        fg: Optional[ColorLike] = None,
+        color: Optional[ColorLike] = None,
+        align: str = "left",
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        parent_bg: Optional[str] = None,
+        **kwargs,
+    ):
+        self._text = str(text)
+        self._font_family = font or "sans-serif"
+        self._font_size = font_size
+        self._fg = fg or color
+        self._align = align
+        self._auto_w = (width is None)
+        self._auto_h = (height is None)
+        
+        calc_w = width if width is not None else self._calc_width(self._text, self._font_size)
+        calc_h = height if height is not None else max(24, int(self._font_size * 1.8))
+        
+        super().__init__(master=master, width=calc_w, height=calc_h, bg=parent_bg, **kwargs)
+
+    @staticmethod
+    def _calc_width(text: str, font_size: int) -> int:
+        lines = str(text).splitlines() or [""]
+        max_len = max(len(l) for l in lines)
+        return max(20, int(max_len * font_size * 0.65 + 12))
+
+    @property
+    def text(self) -> str:
+        return self._text
+
+    @text.setter
+    def text(self, val: str) -> None:
+        self.set_text(val)
+
+    def set_text(self, val: str) -> None:
+        self._text = str(val)
+        if self._auto_w or self._auto_h:
+            new_w = self._calc_width(self._text, self._font_size) if self._auto_w else self._logical_w
+            new_h = max(24, int(self._font_size * 1.8)) if self._auto_h else self._logical_h
+            if new_w != self._logical_w or new_h != self._logical_h:
+                self._logical_w = new_w
+                self._logical_h = new_h
+                self._widget_w = max(1, int(new_w * self._scale))
+                self._widget_h = max(1, int(new_h * self._scale))
+                if self._photo and self._surface:
+                    self._photo.configure(width=self._widget_w, height=self._widget_h)
+                    self._surface.resize(self._widget_w, self._widget_h)
+        self.render()
+
+    def set_color(self, col: ColorLike) -> None:
+        self._fg = col
+        self.render()
+
+    def render(self) -> None:
+        if self._widget_w <= 1 or self._widget_h <= 1:
+            return
+        try:
+            self._surface.clear(self._parent_bg)
+            s = self._scale
+            w = float(self._widget_w)
+            h = float(self._widget_h)
+            pal = get_theme()
+            txt_col = self._fg or pal.fg
+            fsz = self._font_size * s
+
+            lines = self._text.splitlines() or [""]
+            line_height = fsz * 1.3
+            total_text_h = len(lines) * line_height
+            start_y = max(fsz * 0.9, (h - total_text_h) / 2.0 + fsz * 0.85)
+
+            if self._align == "center":
+                x = w / 2.0
+            elif self._align == "right":
+                x = w - 6.0 * s
+            else:
+                x = 6.0 * s
+
+            for i, line in enumerate(lines):
+                y = start_y + (i * line_height)
+                self._surface.draw_text(
+                    line,
+                    x,
+                    y,
+                    font_size=fsz,
+                    font_family=self._font_family,
+                    color=txt_col,
+                    align=self._align,
+                )
+
+            self._surface.blit(self._photo)
+        except Exception as e:
+            logger.debug("Render failed in Label: %s", e, exc_info=True)

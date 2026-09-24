@@ -152,11 +152,10 @@ class Switch(Widget):
             logger.debug("Render failed in Switch: %s", e, exc_info=True)
 
 
-ModernSwitch = Switch
 ToggleSwitch = Switch
 
 
-class Checkbox(Widget):
+class Checkbutton(Widget):
     """
     Antialiased vector checkbox with custom checkmark Path and label text.
     """
@@ -190,11 +189,21 @@ class Checkbox(Widget):
         self._checked = bool(val)
         self.render()
 
+    def get(self) -> bool:
+        """Get current checked state (Tkinter compatible)."""
+        return self._checked
+
+    def set(self, val: bool) -> None:
+        """Set checked state and re-render (Tkinter compatible)."""
+        self._checked = bool(val)
+        self.render()
+
     def toggle(self) -> None:
         self._checked = not self._checked
         self.render()
         if self._on_change:
             self._on_change(self._checked)
+
 
     def _handle_click(self, event) -> None:
         if not self._is_disabled:
@@ -257,10 +266,7 @@ class Checkbox(Widget):
             logger.debug("Render failed in Checkbox: %s", e, exc_info=True)
 
 
-ModernCheckbox = Checkbox
-
-
-class Radio(Widget):
+class Radiobutton(Widget):
     """
     Individual circular vector radio button with concentric animated dot indicator.
     """
@@ -296,6 +302,16 @@ class Radio(Widget):
     def selected(self, val: bool) -> None:
         self._selected = bool(val)
         self.render()
+
+    def get(self) -> str:
+        """Get the value associated with this radiobutton."""
+        return self._value
+
+    def set(self, val: bool) -> None:
+        """Set radio selection state."""
+        self._selected = bool(val)
+        self.render()
+
 
     def _handle_click(self, event) -> None:
         if not self._is_disabled:
@@ -336,9 +352,6 @@ class Radio(Widget):
             self._surface.blit(self._photo)
         except Exception as e:
             logger.debug("Render failed in Radio: %s", e, exc_info=True)
-
-
-ModernRadio = Radio
 
 
 class RadioGroup(tk.Frame):
@@ -428,9 +441,6 @@ class RadioGroup(tk.Frame):
     @property
     def value(self) -> str:
         return self._value
-
-
-ModernRadioGroup = RadioGroup
 
 
 class SegmentedControl(Widget):
@@ -571,6 +581,5 @@ class SegmentedControl(Widget):
 
 
 SegmentedButton = SegmentedControl
-ModernSegmentedControl = SegmentedControl
-ModernSegmentedButton = SegmentedControl
-
+Checkbox = Checkbutton
+Radio = Radiobutton

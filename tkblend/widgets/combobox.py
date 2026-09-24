@@ -285,7 +285,7 @@ class OptionMenu(Widget):
             logger.debug("Render failed in OptionMenu: %s", e, exc_info=True)
 
 
-class ComboBox(tk.Frame):
+class Combobox(tk.Frame):
     """
     Modern ComboBox widget: Single-line editable text input paired with
     a Blend2D vector dropdown button and popup list.
@@ -577,6 +577,6 @@ class ComboBox(tk.Frame):
             remove_theme_listener(self._on_theme_changed)
 
 
-ModernOptionMenu = OptionMenu
-ModernComboBox = ComboBox
 
+
+ComboBox = Combobox

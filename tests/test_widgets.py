@@ -7,47 +7,45 @@ import tkinter as tk
 from tkblend.widgets import (
     ScalingTracker,
     Widget,
-    ModernWidget,
     Frame,
-    ModernFrame,
     Card,
-    ModernCard,
+    LabelFrame,
+    Labelframe,
     Button,
-    ModernButton,
-    ProgressBar,
-    ModernProgressBar,
-    CircularProgress,
-    ModernCircularProgress,
-    Slider,
-    ModernSlider,
-    RangeSlider,
-    ModernRangeSlider,
-    Switch,
-    ModernSwitch,
-    ToggleSwitch,
-    Checkbox,
-    ModernCheckbox,
-    Radio,
-    ModernRadio,
-    RadioGroup,
-    ModernRadioGroup,
-    SegmentedControl,
-    ModernSegmentedControl,
+    Entry,
     TextInput,
-    ModernTextInput,
-    VectorScrollbar,
-    Scrollbar,
-    Dropdown,
-    ModernDropdown,
-    DropdownItem,
+    Checkbutton,
+    Checkbox,
+    Radiobutton,
+    Radio,
+    RadioGroup,
+    Combobox,
+    ComboBox,
+    OptionMenu,
+    Progressbar,
+    ProgressBar,
+    CircularProgress,
+    Scale,
+    Slider,
+    RangeSlider,
+    Spinbox,
     SpinBox,
-    ModernSpinBox,
+    Label,
+    Notebook,
+    Tabview,
+    Text,
+    TextBox,
+    Scrollbar,
+    VectorScrollbar,
+    Dropdown,
+    DropdownItem,
     Badge,
-    ModernBadge,
     Avatar,
-    ModernAvatar,
     Accordion,
-    ModernAccordion,
+    SegmentedControl,
+    SegmentedButton,
+    Switch,
+    ToggleSwitch,
 )
 from tkblend.theme import set_theme, get_theme, DARK_PALETTE, LIGHT_PALETTE
 
@@ -115,12 +113,7 @@ def test_button(root):
     assert btn._has_focus is True
     btn._on_focus_out(None)
     assert btn._has_focus is False
-
-    # Alias check
-    m_btn = ModernButton(root, text="Modern", variant="accent")
-    m_btn.render()
     btn.destroy()
-    m_btn.destroy()
 
 
 def test_progress_bar(root):
@@ -1078,3 +1071,71 @@ def test_file_explorer_initialization(root):
 
 
 
+
+
+def test_tk_standard_names_and_aliases(root):
+    # Verify standard Tk class parity and backward-compatible aliases
+    assert TextInput is Entry
+    assert Checkbox is Checkbutton
+    assert Radio is Radiobutton
+    assert ComboBox is Combobox
+    assert ProgressBar is Progressbar
+    assert Slider is Scale
+    assert SpinBox is Spinbox
+    assert Tabview is Notebook
+    assert TextBox is Text
+    assert LabelFrame is Card
+    assert Labelframe is Card
+    assert VectorScrollbar is Scrollbar
+
+    # Verify Label instantiation and rendering
+    lbl = Label(root, text="Pure Vector Label", font_size=14, align="center")
+    lbl.render()
+    assert lbl.text == "Pure Vector Label"
+    lbl.set_text("Updated Label")
+    assert lbl.text == "Updated Label"
+    lbl.destroy()
+
+    # Verify Entry instantiation with standard name
+    ent = Entry(root, placeholder="Type here...")
+    ent.render()
+    ent.insert("0", "Test text")
+    assert ent.get() == "Test text"
+    ent.destroy()
+
+    # Verify Checkbutton instantiation with standard name
+    cb = Checkbutton(root, text="Check Me")
+    cb.render()
+    assert cb.get() is False
+    cb.set(True)
+    assert cb.get() is True
+    cb.destroy()
+
+    # Verify Radiobutton instantiation with standard name
+    rb = Radiobutton(root, text="Option A", value="A")
+    rb.render()
+    rb.destroy()
+
+    # Verify Progressbar instantiation with standard name
+    pb = Progressbar(root, value=40.0)
+    pb.render()
+    assert pb.value == 40.0
+    pb.destroy()
+
+    # Verify Scale instantiation with standard name
+    sc = Scale(root, from_=0, to=100, value=50)
+    sc.render()
+    assert sc.get() == 50
+    sc.destroy()
+
+    # Verify Notebook instantiation with standard name
+    nb = Notebook(root)
+    t1 = nb.add("Tab 1")
+    assert "Tab 1" in nb.tabs()
+    nb.render()
+    nb.destroy()
+
+    # Verify Text instantiation with standard name
+    tx = Text(root, width=200, height=100)
+    tx.render()
+    tx.destroy()

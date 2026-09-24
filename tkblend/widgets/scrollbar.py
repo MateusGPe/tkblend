@@ -13,7 +13,7 @@ from tkblend.widgets.base import Widget
 logger = logging.getLogger(__name__)
 
 
-class VectorScrollbar(Widget):
+class Scrollbar(Widget):
     """
     Pure Blend2D vector scrollbar widget with zero TTK dependencies.
     Renders rounded track, draggable high-contrast thumb capsule, and
@@ -183,5 +183,5 @@ class VectorScrollbar(Widget):
 
 
 
-ModernScrollbar = VectorScrollbar
-Scrollbar = VectorScrollbar
+VectorScrollbar = Scrollbar
+

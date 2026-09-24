@@ -19,7 +19,7 @@ from tkblend.widgets.containers import Frame
 from tkblend.widgets.scrollbar import VectorScrollbar
 
 
-class TextBox(tk.Frame):
+class Text(tk.Frame):
     """
     Modern multiline text editor widget featuring Blend2D rounded vector borders,
     elevation drop shadow, integrated vector scrollbar, placeholder support,
@@ -218,9 +218,17 @@ class TextBox(tk.Frame):
         )
         self._scrollbar.set_parent_bg(inner_bg)
 
+    def render(self) -> None:
+        """Render container card and vector scrollbar."""
+        if hasattr(self, "_card") and self._card is not None:
+            self._card.render()
+        if hasattr(self, "_scrollbar") and self._scrollbar is not None:
+            self._scrollbar.render()
+
     def _on_destroy(self, event) -> None:
         if event.widget == self:
             remove_theme_listener(self._on_theme_changed)
 
 
-ModernTextBox = TextBox
+TextBox = Text
+

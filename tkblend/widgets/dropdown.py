@@ -625,4 +625,3 @@ class Dropdown(Widget):
             logger.debug("Render failed in Dropdown: %s", e, exc_info=True)
 
 
-ModernDropdown = Dropdown

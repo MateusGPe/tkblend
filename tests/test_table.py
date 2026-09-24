@@ -235,3 +235,12 @@ def test_table_scrolling_and_sticky_header(root):
     # Rendering should succeed without exception
     table._view.render()
 
+
+
+def test_treeview_alias(root):
+    assert tb.Treeview is tb.Table
+    tv = tb.Treeview(root, columns=[{"id": "id", "title": "ID"}, {"id": "name", "title": "Name"}], data=[[1, "Alice"], [2, "Bob"]])
+    tv.render()
+    assert tv.row_count == 2
+    tv.destroy()
+
