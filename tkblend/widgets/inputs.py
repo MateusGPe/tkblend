@@ -514,43 +514,8 @@ class Spinbox(Widget):
                 self._entry._tkblend_custom_font_override = True
             self._update_entry_geometry()
 
-    @property
-    def font(self) -> Any:
-        return self._font_config
-
-    @font.setter
-    def font(self, val: Any) -> None:
-        super(SpinBox, type(self)).font.__set__(self, val)
-        self._custom_font_override = True
+    def _on_font_changed(self) -> None:
         self._update_entry_font()
-
-    @property
-    def font_size(self) -> float:
-        return self._font_config.size
-
-    @font_size.setter
-    def font_size(self, size: float) -> None:
-        super(SpinBox, type(self)).font_size.__set__(self, size)
-        self._custom_font_override = True
-        self._update_entry_font()
-
-    @property
-    def font_family(self) -> str:
-        return self._font_config.family
-
-    @font_family.setter
-    def font_family(self, family: str) -> None:
-        super(SpinBox, type(self)).font_family.__set__(self, family)
-        self._custom_font_override = True
-        self._update_entry_font()
-
-    @property
-    def font_config(self) -> FontConfig:
-        return self._font_config
-
-    @font_config.setter
-    def font_config(self, fc: FontConfig) -> None:
-        self.font = fc
 
     @property
     def value(self) -> int:

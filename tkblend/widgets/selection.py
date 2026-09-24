@@ -5,7 +5,7 @@ Selection and toggle controls: Switch, Checkbox, Radio, RadioGroup, and Segmente
 from __future__ import annotations
 import logging
 import tkinter as tk
-from typing import Optional, Callable, List
+from typing import Optional, Callable, List, Any
 
 from tkblend.surface import ColorLike
 from tkblend.theme import (
@@ -15,13 +15,12 @@ from tkblend.theme import (
     remove_theme_listener,
     resolve_color_failsafe,
 )
-from tkblend.widgets.base import Widget
-from tkblend.widgets.drawing import draw_vector_checkmark
+from tkblend.widgets.base import Widget, VariableSyncMixin
 
 logger = logging.getLogger(__name__)
 
 
-class Switch(Widget):
+class Switch(Widget, VariableSyncMixin):
     """
     Modern iOS / Fluent style toggle switch with smooth pill knob.
     """
@@ -41,13 +40,12 @@ class Switch(Widget):
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
-        self._variable = variable
-        if self._variable is not None:
-            try:
-                is_on = bool(self._variable.get())
-            except Exception as e:
-                logger.debug("Failed getting variable in Switch init: %s", e)
-        self._is_on = is_on
+        self._is_on = self._init_variable_sync(
+            variable=variable,
+            initial_value=is_on,
+            on_variable_change=self._on_var_changed,
+            type_caster=bool,
+        )
         self._on_toggle = on_toggle or command
         self._explicit_on_color = on_color
         self._explicit_off_color = off_color
@@ -58,21 +56,10 @@ class Switch(Widget):
         self._knob_color = knob_color or pal.thumb_color
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
 
-        if self._variable is not None:
-            try:
-                self._trace_id = self._variable.trace_add("write", self._on_var_changed)
-            except Exception as e:
-                logger.debug("Failed adding trace to variable in Switch: %s", e)
-
-    def _on_var_changed(self, *args) -> None:
-        if self._variable is not None:
-            try:
-                new_val = bool(self._variable.get())
-                if new_val != self._is_on:
-                    self._is_on = new_val
-                    self.render()
-            except Exception as e:
-                logger.debug("Failed reading variable in Switch._on_var_changed: %s", e)
+    def _on_var_changed(self, new_val: bool) -> None:
+        if new_val != self._is_on:
+            self._is_on = new_val
+            self.render()
 
     @property
     def is_on(self) -> bool:
@@ -81,20 +68,12 @@ class Switch(Widget):
     @is_on.setter
     def is_on(self, val: bool) -> None:
         self._is_on = bool(val)
-        if self._variable is not None:
-            try:
-                self._variable.set(self._is_on)
-            except Exception as e:
-                logger.debug("Failed setting variable in Switch.is_on setter: %s", e)
+        self._set_synced_value(self._is_on)
         self.render()
 
     def toggle(self) -> None:
         self._is_on = not self._is_on
-        if self._variable is not None:
-            try:
-                self._variable.set(self._is_on)
-            except Exception as e:
-                logger.debug("Failed setting variable in Switch.toggle: %s", e)
+        self._set_synced_value(self._is_on)
         self.render()
         if self._on_toggle:
             try:
@@ -105,6 +84,10 @@ class Switch(Widget):
     def _handle_click(self, event) -> None:
         if not self._is_disabled:
             self.toggle()
+
+    def destroy(self) -> None:
+        self._cleanup_variable_sync()
+        super().destroy()
 
     def render(self) -> None:
         if self._widget_w <= 1 or self._widget_h <= 1:
@@ -155,7 +138,7 @@ class Switch(Widget):
 ToggleSwitch = Switch
 
 
-class Checkbutton(Widget):
+class Checkbutton(Widget, VariableSyncMixin):
     """
     Antialiased vector checkbox with custom checkmark Path and label text.
     """
@@ -167,6 +150,8 @@ class Checkbutton(Widget):
         checked: bool = False,
         is_checked: Optional[bool] = None,
         on_change: Optional[Callable[[bool], None]] = None,
+        command: Optional[Callable] = None,
+        variable: Optional[Any] = None,
         width: int = 160,
         height: int = 28,
         active_color: Optional[ColorLike] = None,
@@ -174,11 +159,22 @@ class Checkbutton(Widget):
         **kwargs,
     ):
         self._text = text
-        self._checked = checked if is_checked is None else bool(is_checked)
-        self._on_change = on_change
+        init_val = checked if is_checked is None else bool(is_checked)
+        self._checked = self._init_variable_sync(
+            variable=variable or kwargs.pop("variable", None),
+            initial_value=init_val,
+            on_variable_change=self._on_var_changed,
+            type_caster=bool,
+        )
+        self._on_change = on_change or command
         pal = get_theme()
         self._active_color = active_color or pal.primary
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
+
+    def _on_var_changed(self, new_val: bool) -> None:
+        if new_val != self._checked:
+            self._checked = new_val
+            self.render()
 
     @property
     def checked(self) -> bool:
@@ -187,6 +183,7 @@ class Checkbutton(Widget):
     @checked.setter
     def checked(self, val: bool) -> None:
         self._checked = bool(val)
+        self._set_synced_value(self._checked)
         self.render()
 
     def get(self) -> bool:
@@ -195,19 +192,25 @@ class Checkbutton(Widget):
 
     def set(self, val: bool) -> None:
         """Set checked state and re-render (Tkinter compatible)."""
-        self._checked = bool(val)
-        self.render()
+        self.checked = val
 
     def toggle(self) -> None:
         self._checked = not self._checked
+        self._set_synced_value(self._checked)
         self.render()
         if self._on_change:
-            self._on_change(self._checked)
-
+            try:
+                self._on_change(self._checked)
+            except TypeError:
+                self._on_change()
 
     def _handle_click(self, event) -> None:
         if not self._is_disabled:
             self.toggle()
+
+    def destroy(self) -> None:
+        self._cleanup_variable_sync()
+        super().destroy()
 
     def render(self) -> None:
         if self._widget_w <= 1 or self._widget_h <= 1:
@@ -266,7 +269,7 @@ class Checkbutton(Widget):
             logger.debug("Render failed in Checkbox: %s", e, exc_info=True)
 
 
-class Radiobutton(Widget):
+class Radiobutton(Widget, VariableSyncMixin):
     """
     Individual circular vector radio button with concentric animated dot indicator.
     """
@@ -278,6 +281,7 @@ class Radiobutton(Widget):
         value: str = "",
         selected: bool = False,
         group: Optional["RadioGroup"] = None,
+        variable: Optional[Any] = None,
         width: int = 150,
         height: int = 28,
         active_color: Optional[ColorLike] = None,
@@ -289,10 +293,20 @@ class Radiobutton(Widget):
         self._group = group
         pal = get_theme()
         self._active_color = active_color or pal.accent
-        self._selected = bool(selected)
+        self._selected = self._init_variable_sync(
+            variable=variable or kwargs.pop("variable", None),
+            initial_value=bool(selected),
+            on_variable_change=self._on_var_changed,
+            type_caster=lambda v: (str(v) == str(value)) if str(v) not in ("True", "False") else bool(v),
+        )
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
         if group:
             group.register(self)
+
+    def _on_var_changed(self, new_val: bool) -> None:
+        if new_val != self._selected:
+            self._selected = new_val
+            self.render()
 
     @property
     def selected(self) -> bool:
@@ -301,6 +315,8 @@ class Radiobutton(Widget):
     @selected.setter
     def selected(self, val: bool) -> None:
         self._selected = bool(val)
+        if self._selected and self._variable is not None:
+            self._set_synced_value(self._value)
         self.render()
 
     def get(self) -> str:
@@ -309,17 +325,18 @@ class Radiobutton(Widget):
 
     def set(self, val: bool) -> None:
         """Set radio selection state."""
-        self._selected = bool(val)
-        self.render()
-
+        self.selected = val
 
     def _handle_click(self, event) -> None:
         if not self._is_disabled:
             if self._group:
                 self._group.select(self._value)
             else:
-                self._selected = True
-                self.render()
+                self.selected = True
+
+    def destroy(self) -> None:
+        self._cleanup_variable_sync()
+        super().destroy()
 
     def render(self) -> None:
         if self._widget_w <= 1 or self._widget_h <= 1:

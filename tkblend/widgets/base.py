@@ -11,7 +11,7 @@ from typing import Optional, Union, List, Tuple, Any
 
 logger = logging.getLogger(__name__)
 
-from tkblend.surface import Surface
+from tkblend.surface import Surface, ColorLike
 from tkblend.theme import (
     get_theme,
     Palette,
@@ -20,6 +20,11 @@ from tkblend.theme import (
     resolve_ancestor_bg,
     resolve_color_failsafe,
 )
+from tkblend.utils.window_shape import (
+    apply_round_rect_shape,
+    clear_window_shape,
+    is_window_shaping_supported,
+)
 
 
 def _round_half_away(value: float) -> int:
@@ -27,6 +32,15 @@ def _round_half_away(value: float) -> int:
     if value >= 0:
         return floor(value + 0.5)
     return ceil(value - 0.5)
+
+
+def _resolve_color(color: Optional[ColorLike], fallback: str, pal: Optional[Palette] = None) -> ColorLike:
+    """Helper to resolve an optional color or palette fallback."""
+    if color is None:
+        return fallback
+    if isinstance(color, str):
+        return resolve_color_failsafe(color, fallback=fallback, palette=pal or get_theme())
+    return color
 
 
 class ScalingTracker:
@@ -198,6 +212,15 @@ class Widget(tk.Label):
     def photo(self) -> tk.PhotoImage:
         return self._photo
 
+    def get_effective_tk_font(self) -> Any:
+        """Return the effective Tkinter font tuple/Font object scaled for current display DPI."""
+        eff_fc = self._font_config.copy_with(size=self._font_config.size * self._scale)
+        return eff_fc.to_tk_font()
+
+    def _on_font_changed(self) -> None:
+        """Hook called when font properties change."""
+        pass
+
     @property
     def font(self) -> Any:
         return self._font_config
@@ -211,6 +234,7 @@ class Widget(tk.Label):
             default_family=self._font_config.family,
             default_size=self._font_config.size,
         )
+        self._on_font_changed()
         self.render()
 
     @property
@@ -221,6 +245,7 @@ class Widget(tk.Label):
     def font_size(self, size: float) -> None:
         self._custom_font_override = True
         self._font_config = self._font_config.copy_with(size=size)
+        self._on_font_changed()
         self.render()
 
     @property
@@ -231,6 +256,7 @@ class Widget(tk.Label):
     def font_family(self, family: str) -> None:
         self._custom_font_override = True
         self._font_config = self._font_config.copy_with(family=family)
+        self._on_font_changed()
         self.render()
 
     @property
@@ -346,6 +372,370 @@ class Widget(tk.Label):
         """Override in subclasses to draw custom vector UI."""
         self._surface.clear(self._parent_bg)
         self._surface.blit(self._photo)
+
+
+class VariableSyncMixin:
+    """
+    Mixin providing standard, robust synchronization with Tkinter variables
+    (StringVar, IntVar, DoubleVar, BooleanVar) including tracing, type safety,
+    and automatic cleanup.
+    """
+
+    _variable: Optional[Any] = None
+    _trace_id: Optional[str] = None
+    _on_variable_change_cb: Optional[Any] = None
+    _type_caster: Optional[Any] = None
+
+    def _init_variable_sync(
+        self,
+        variable: Optional[Any] = None,
+        initial_value: Any = None,
+        on_variable_change: Optional[Any] = None,
+        type_caster: Optional[Any] = None,
+    ) -> Any:
+        self._variable = variable
+        self._on_variable_change_cb = on_variable_change
+        self._type_caster = type_caster
+        val = initial_value
+        if self._variable is not None:
+            try:
+                raw = self._variable.get()
+                val = self._type_caster(raw) if self._type_caster else raw
+            except Exception as e:
+                logger.debug("Failed reading initial variable value in %s: %s", self.__class__.__name__, e)
+            try:
+                self._trace_id = self._variable.trace_add("write", self._on_sync_var_changed)
+            except Exception as e:
+                logger.debug("Failed adding trace to variable in %s: %s", self.__class__.__name__, e)
+        return val
+
+    def _on_sync_var_changed(self, *args) -> None:
+        if self._variable is not None and self._on_variable_change_cb is not None:
+            try:
+                raw = self._variable.get()
+                val = self._type_caster(raw) if self._type_caster else raw
+                self._on_variable_change_cb(val)
+            except Exception as e:
+                logger.debug("Failed reading synced variable in %s: %s", self.__class__.__name__, e)
+
+    def _set_synced_value(self, val: Any) -> None:
+        if self._variable is not None:
+            try:
+                self._variable.set(val)
+            except Exception as e:
+                logger.debug("Failed setting synced variable in %s: %s", self.__class__.__name__, e)
+
+    def _cleanup_variable_sync(self) -> None:
+        if self._variable is not None and self._trace_id is not None:
+            try:
+                self._variable.trace_remove("write", self._trace_id)
+            except Exception:
+                pass
+            self._trace_id = None
+
+
+class ContainerBase(tk.Frame):
+    """
+    Base container widget for Blend2D vector surfaces (Frame, Card, etc.).
+    Manages backing vector Surface, PhotoImage, inner body frame, OS-level window shaping,
+    safe margin calculation, and automatic theme & background cascade.
+    """
+
+    def __init__(
+        self,
+        master: Optional[tk.Misc] = None,
+        width: int = 200,
+        height: int = 150,
+        rx: float = 16.0,
+        ry: float = 16.0,
+        bg_color: Optional[ColorLike] = None,
+        border_color: Optional[ColorLike] = None,
+        border_width: float = 1.0,
+        elevation: float = 8.0,
+        shadow_color: Optional[ColorLike] = None,
+        shadow_offset_y: float = 4.0,
+        padding: Optional[float] = None,
+        parent_bg: Optional[str] = None,
+        clip_children: bool = True,
+        **kwargs,
+    ):
+        self._scale = ScalingTracker.get_scaling_factor(master)
+        pal = get_theme()
+        self._explicit_parent_bg = parent_bg
+        self._parent_bg = parent_bg or Widget._resolve_default_bg(master, pal)
+        super().__init__(
+            master,
+            width=max(1, int(width * self._scale)),
+            height=max(1, int(height * self._scale)),
+            background=self._parent_bg,
+            borderwidth=0,
+            highlightthickness=0,
+            **kwargs,
+        )
+        self.pack_propagate(False)
+        self.grid_propagate(False)
+
+        self._widget_w = max(1, int(width * self._scale))
+        self._widget_h = max(1, int(height * self._scale))
+        self._rx = rx * self._scale
+        self._ry = ry * self._scale
+        self._clip_children = clip_children
+        self._explicit_bg_color = bg_color
+        self._explicit_border_color = border_color
+        self._explicit_shadow_color = shadow_color
+        self._bg_color = bg_color or pal.card_bg
+        self._border_color = border_color or pal.card_border
+        self._border_width = max(1.0, border_width * self._scale)
+        self._elevation = elevation * self._scale
+        self._shadow_color = shadow_color or pal.shadow_color
+        self._shadow_offset_y = shadow_offset_y * self._scale
+        self._explicit_padding = padding
+        self._padding = (padding * self._scale) if padding is not None else None
+        self._current_pad = 0.0
+
+        self._photo = tk.PhotoImage(master=self, width=self._widget_w, height=self._widget_h)
+        self._surface = Surface(self._widget_w, self._widget_h)
+
+        self._bg_label = tk.Label(
+            self,
+            image=self._photo,
+            borderwidth=0,
+            highlightthickness=0,
+            background=self._parent_bg,
+        )
+        self._bg_label.place(x=0, y=0, relwidth=1.0, relheight=1.0)
+        self._bg_label.lower()
+
+        self.bind("<Configure>", self._on_configure)
+        self.bind("<Destroy>", self._on_destroy)
+        add_theme_listener(self._on_theme_changed)
+        self.after_idle(self.render)
+
+    def _on_destroy(self, event=None) -> None:
+        remove_theme_listener(self._on_theme_changed)
+        self._surface = None  # type: ignore
+        self._photo = None  # type: ignore
+
+    def destroy(self) -> None:
+        self._on_destroy()
+        super().destroy()
+
+    @property
+    def clip_children(self) -> bool:
+        """Whether OS-level rounded corner clipping is enabled on inner content frames."""
+        return self._clip_children
+
+    @clip_children.setter
+    def clip_children(self, val: bool) -> None:
+        self._clip_children = bool(val)
+        self._update_body_geometry()
+
+    @property
+    def safe_insets(self) -> tuple[float, float, float, float]:
+        """Return (left, top, right, bottom) safe inner margins in logical units."""
+        s = self._scale if self._scale > 0 else 1.0
+        l_px, t_px, r_px, b_px = self.safe_insets_px
+        return (l_px / s, t_px / s, r_px / s, b_px / s)
+
+    @property
+    def safe_insets_px(self) -> tuple[int, int, int, int]:
+        """Return (left, top, right, bottom) safe inner margins in scaled pixels."""
+        s = self._scale
+        pad = self._current_pad if self._current_pad > 0 else (self._padding if self._padding is not None else max(8.0 * s, self._elevation * 0.8))
+        inset_x = int(pad + self._border_width + (self._rx * 0.25))
+        inset_y = int(pad + self._border_width + (self._ry * 0.25))
+        return (inset_x, inset_y, inset_x, inset_y)
+
+    @property
+    def content_bounds(self) -> tuple[int, int, int, int]:
+        """Return (x, y, width, height) of the printable inner rectangle in scaled pixels."""
+        s = self._scale
+        pad = self._current_pad if self._current_pad > 0 else (self._padding if self._padding is not None else max(8.0 * s, self._elevation * 0.8))
+        if self._clip_children and is_window_shaping_supported():
+            left = int(pad + self._border_width)
+            top = int(pad + self._border_width)
+            right = left
+            bottom = top
+            w = max(1, self._widget_w - left - right)
+            h = max(1, self._widget_h - top - bottom)
+            return (left, top, w, h)
+        left, top, right, bottom = self.safe_insets_px
+        w = max(1, self._widget_w - left - right)
+        h = max(1, self._widget_h - top - bottom)
+        return (left, top, w, h)
+
+    @property
+    def bg_color(self) -> str:
+        """Return the current background/fill color of the container."""
+        pal = get_theme()
+        return str(self._bg_color or pal.card_bg)
+
+    @property
+    def body(self) -> tk.Frame:
+        """
+        Inner content frame automatically bounded within safe insets or clipped to container shape.
+        Lazily created on first access and placed within the container's inner margins.
+        """
+        if not hasattr(self, "_body_frame") or not self._body_frame.winfo_exists():
+            pal = get_theme()
+            self._body_frame = tk.Frame(
+                self,
+                background=self._bg_color or pal.card_bg,
+                borderwidth=0,
+                highlightthickness=0,
+            )
+            self._update_body_geometry()
+        return self._body_frame
+
+    def _update_body_geometry(self) -> None:
+        if hasattr(self, "_body_frame") and self._body_frame.winfo_exists():
+            x, y, w, h = self.content_bounds
+            self._body_frame.place(x=x, y=y, width=w, height=h)
+            if self._clip_children and is_window_shaping_supported():
+                inner_rx = max(0.0, self._rx - self._border_width)
+                inner_ry = max(0.0, self._ry - self._border_width)
+                self.after_idle(lambda: apply_round_rect_shape(self._body_frame, w, h, inner_rx, inner_ry))
+            else:
+                self.after_idle(lambda: clear_window_shape(self._body_frame))
+
+    def create_content_frame(self, **kwargs) -> tk.Frame:
+        """Helper to create an inner tk.Frame styled with the container's surface background and bounds."""
+        bg = kwargs.pop("bg", kwargs.pop("background", self._bg_color))
+        frame = tk.Frame(self, bg=bg, **kwargs)
+        x, y, w, h = self.content_bounds
+        frame.place(x=x, y=y, width=w, height=h)
+        if self._clip_children and is_window_shaping_supported():
+            inner_rx = max(0.0, self._rx - self._border_width)
+            inner_ry = max(0.0, self._ry - self._border_width)
+            self.after_idle(lambda: apply_round_rect_shape(frame, w, h, inner_rx, inner_ry))
+        return frame
+
+    def set_parent_bg(self, bg: str, force: bool = False) -> None:
+        """Update parent background and re-render container."""
+        self._parent_bg = resolve_color_failsafe(bg, master=self, fallback=self._parent_bg)
+        if force:
+            self._explicit_parent_bg = None
+        try:
+            self.configure(background=self._parent_bg)
+            if hasattr(self, "_bg_label") and self._bg_label.winfo_exists():
+                self._bg_label.configure(background=self._parent_bg)
+        except Exception as e:
+            logger.debug("Failed configuring container background to '%s': %s", self._parent_bg, e)
+        self.render()
+
+    def _on_theme_changed(self, palette: Palette) -> None:
+        if not self.winfo_exists():
+            return
+        if self._explicit_parent_bg is None:
+            self._parent_bg = Widget._resolve_default_bg(getattr(self, "master", None), palette)
+        if self._explicit_bg_color is None:
+            self._bg_color = palette.card_bg
+        if self._explicit_border_color is None:
+            self._border_color = palette.card_border
+        if self._explicit_shadow_color is None:
+            self._shadow_color = palette.shadow_color
+
+        try:
+            self.configure(background=self._parent_bg)
+            if hasattr(self, "_bg_label") and self._bg_label.winfo_exists():
+                self._bg_label.configure(background=self._parent_bg)
+            if hasattr(self, "_body_frame") and self._body_frame.winfo_exists():
+                self._body_frame.configure(background=self._bg_color)
+        except Exception as e:
+            logger.debug("Failed updating container colors during theme change: %s", e)
+        self.render()
+        cascade_bg_to_children(self, str(self._bg_color))
+
+    def _on_configure(self, event) -> None:
+        if event.width <= 1 or event.height <= 1:
+            return
+        new_w = max(1, event.width)
+        new_h = max(1, event.height)
+        if new_w != self._widget_w or new_h != self._widget_h:
+            self._widget_w = new_w
+            self._widget_h = new_h
+            try:
+                self._photo.configure(width=self._widget_w, height=self._widget_h)
+                self._surface.resize(self._widget_w, self._widget_h)
+            except Exception as e:
+                logger.debug("Failed resizing container surface (%sx%s): %s", self._widget_w, self._widget_h, e)
+            self._update_body_geometry()
+            self.render()
+
+    def set_background(self, bg_color: ColorLike, force: bool = False) -> None:
+        resolved = resolve_color_failsafe(bg_color, master=self, fallback=str(self._bg_color))
+        self._bg_color = resolved
+        if force:
+            self._explicit_bg_color = None
+        if hasattr(self, "_body_frame") and self._body_frame.winfo_exists():
+            try:
+                self._body_frame.configure(background=self._bg_color)
+            except Exception as e:
+                logger.debug("Failed configuring container _body_frame background: %s", e)
+        self.render()
+        cascade_bg_to_children(self, str(self._bg_color))
+
+    @property
+    def padding(self) -> float:
+        if self._explicit_padding is not None:
+            return float(self._explicit_padding)
+        return float(self._current_pad / self._scale) if self._scale > 0 else 0.0
+
+    @padding.setter
+    def padding(self, value: Optional[float]) -> None:
+        self._explicit_padding = value
+        self._padding = (value * self._scale) if value is not None else None
+        self._update_body_geometry()
+        self.render()
+
+    def render(self) -> None:
+        if self._widget_w <= 1 or self._widget_h <= 1:
+            return
+        try:
+            self._surface.clear(self._parent_bg)
+            if self._padding is not None:
+                pad = max(0.0, self._padding)
+            else:
+                pad = max(8.0 * self._scale, self._elevation * 0.8)
+            self._current_pad = pad
+            draw_x = pad
+            draw_y = pad
+            draw_w = max(1.0, self._widget_w - pad * 2.0)
+            draw_h = max(1.0, self._widget_h - pad * 2.0)
+
+            if draw_w <= 1.0 or draw_h <= 1.0:
+                self._surface.blit(self._photo)
+                return
+
+            if self._elevation > 0.0 and pad > 0.0:
+                max_blur = pad * 0.6
+                safe_blur = min(self._elevation * 0.8, max_blur)
+                safe_offset_y = min(self._shadow_offset_y, pad * 0.2, safe_blur * 0.4)
+            else:
+                safe_blur = 0.0
+                safe_offset_y = 0.0
+
+            self._surface.draw_card(
+                x=draw_x,
+                y=draw_y,
+                w=draw_w,
+                h=draw_h,
+                rx=self._rx,
+                ry=self._ry,
+                bg_color=self._bg_color,
+                border_color=self._border_color,
+                border_width=self._border_width,
+                shadow_blur=safe_blur,
+                shadow_spread=0.0,
+                shadow_offset_x=0.0,
+                shadow_offset_y=safe_offset_y,
+                shadow_color=self._shadow_color,
+            )
+            self._surface.blit(self._photo)
+        except Exception as e:
+            logger.debug("Render failed in ContainerBase: %s", e, exc_info=True)
+
+
 def cascade_bg_to_children(container: Any, bg: str, preserve_overrides: bool = True) -> None:
     """Recursively propagate background color down through child widgets."""
     if not hasattr(container, "winfo_children"):

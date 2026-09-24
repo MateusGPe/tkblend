@@ -10,17 +10,9 @@ from typing import Optional
 
 from tkblend.surface import LinearGradient, Path, ColorLike
 from tkblend.theme import get_theme, Palette, resolve_color_failsafe
-from tkblend.widgets.base import Widget
+from tkblend.widgets.base import Widget, _resolve_color
 
 logger = logging.getLogger(__name__)
-
-
-def _resolve_color(color: Optional[ColorLike], fallback: str, pal: Palette) -> ColorLike:
-    if color is None:
-        return fallback
-    if isinstance(color, str):
-        return resolve_color_failsafe(color, fallback=fallback, palette=pal)
-    return color
 
 
 class Progressbar(Widget):

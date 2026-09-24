@@ -16,14 +16,14 @@ from tkblend.theme import (
     remove_theme_listener,
     blend_color_hex,
 )
-from tkblend.widgets.base import Widget, ScalingTracker
+from tkblend.widgets.base import Widget, ScalingTracker, VariableSyncMixin
 from tkblend.widgets.dropdown import Dropdown, DropdownItem
 from tkblend.widgets.drawing import draw_vector_chevron, truncate_text
 
 logger = logging.getLogger(__name__)
 
 
-class OptionMenu(Widget):
+class OptionMenu(Widget, VariableSyncMixin):
     """
     Modern OptionMenu selector widget: A button displaying the active selection
     with a vector dropdown chevron and a floating Blend2D popup menu.
@@ -49,16 +49,13 @@ class OptionMenu(Widget):
         **kwargs,
     ):
         self._values = list(values) if values else ["Option 1", "Option 2"]
-        self._variable = variable
-        initial_val = selected_value
-        if self._variable is not None:
-            try:
-                v = self._variable.get()
-                if v:
-                    initial_val = v
-            except Exception as e:
-                logger.debug("Failed getting variable value in OptionMenu init: %s", e)
-        self._selected = initial_val or (self._values[0] if self._values else "")
+        default_val = selected_value or (self._values[0] if self._values else "")
+        self._selected = self._init_variable_sync(
+            variable=variable,
+            initial_value=default_val,
+            on_variable_change=self._on_var_changed,
+            type_caster=str,
+        )
         self._command = command
         self._rx = rx
         self._ry = ry
@@ -86,19 +83,24 @@ class OptionMenu(Widget):
 
         self.bind("<ButtonRelease-1>", self._on_click)
 
+    def _on_var_changed(self, new_val: str) -> None:
+        if new_val != self._selected:
+            self._selected = new_val
+            self.render()
+
     def set(self, value: str) -> None:
         """Set the active selected value."""
         self._selected = str(value)
-        if self._variable is not None:
-            try:
-                self._variable.set(self._selected)
-            except Exception as e:
-                logger.debug("Failed setting variable value in OptionMenu.set: %s", e)
+        self._set_synced_value(self._selected)
         self.render()
 
     def get(self) -> str:
         """Return the current selected value."""
         return self._selected
+
+    def destroy(self) -> None:
+        self._cleanup_variable_sync()
+        super().destroy()
 
     def configure_values(self, values: List[str]) -> None:
         """Update the available options."""

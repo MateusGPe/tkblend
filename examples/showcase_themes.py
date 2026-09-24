@@ -56,6 +56,7 @@ from tkblend.widgets import (
     Avatar,
     Accordion,
     Dropdown,
+    Scrollbar,
 )
 
 
@@ -247,7 +248,9 @@ class CustomThemeShowcaseApp:
         self._anim_radius = 20.0 * self._scale
         self._wave_active = True
         self._fps_last_time = time.perf_counter()
+        self._fps_frame_count = 0
         self._fps = 60.0
+        self._frame_time_ms = 16.6
         self._running = True
         self._tick_id = None
 
@@ -385,17 +388,29 @@ class CustomThemeShowcaseApp:
         )
         count_badge.pack(side="right")
 
-        # Scrollable Canvas container for Theme Cards
+        # Scrollable container holding Canvas and pure Blend2D VectorScrollbar
+        self.sb_container = tk.Frame(self.sidebar_frame, bg=pal.surface)
+        self.sb_container.pack(fill="both", expand=True, padx=int(6 * s), pady=(0, int(6 * s)))
+
         self.sb_canvas = tk.Canvas(
-            self.sidebar_frame,
+            self.sb_container,
             bg=pal.surface,
             highlightthickness=0,
             bd=0,
         )
+        self.sb_scrollbar = Scrollbar(
+            self.sb_container,
+            command=self.sb_canvas.yview,
+            orientation="vertical",
+            width=8,
+            parent_bg=pal.surface,
+        )
+        self.sb_scrollbar.pack(side="right", fill="y", padx=(int(2 * s), 0))
+        self.sb_canvas.configure(yscrollcommand=self.sb_scrollbar.set)
+        self.sb_canvas.pack(side="left", fill="both", expand=True)
+
         self.sb_scroll_frame = tk.Frame(self.sb_canvas, bg=pal.surface)
         self.sb_canvas_window = self.sb_canvas.create_window((0, 0), window=self.sb_scroll_frame, anchor="nw")
-
-        self.sb_canvas.pack(fill="both", expand=True, padx=int(6 * s), pady=(0, int(6 * s)))
 
         self.sb_scroll_frame.bind(
             "<Configure>",
@@ -405,10 +420,28 @@ class CustomThemeShowcaseApp:
             "<Configure>",
             lambda e: self.sb_canvas.itemconfig(self.sb_canvas_window, width=e.width),
         )
-        self.sb_canvas.bind_all(
-            "<MouseWheel>",
-            lambda e: self.sb_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"),
-        )
+
+        def _on_mousewheel(e):
+            delta = getattr(e, "delta", 0)
+            if sys.platform == "darwin":
+                self.sb_canvas.yview_scroll(int(-1 * delta), "units")
+            else:
+                self.sb_canvas.yview_scroll(int(-1 * (delta / 120)), "units")
+
+        def _on_mousewheel_linux(e):
+            if e.num == 4:
+                self.sb_canvas.yview_scroll(-1, "units")
+            elif e.num == 5:
+                self.sb_canvas.yview_scroll(1, "units")
+
+        def _bind_scroll(w):
+            w.bind("<MouseWheel>", _on_mousewheel, add="+")
+            w.bind("<Button-4>", _on_mousewheel_linux, add="+")
+            w.bind("<Button-5>", _on_mousewheel_linux, add="+")
+
+        _bind_scroll(self.sb_container)
+        _bind_scroll(self.sb_canvas)
+        _bind_scroll(self.sb_scroll_frame)
 
         # Populate Theme Cards
         for key, p in THEME_PRESETS.items():
@@ -422,6 +455,7 @@ class CustomThemeShowcaseApp:
                 parent_bg=pal.surface,
             )
             card.pack(fill="x", pady=int(3 * s))
+            _bind_scroll(card)
             self._theme_card_widgets[key] = card
 
     def _select_theme(self, theme_key: str):
@@ -497,7 +531,7 @@ class CustomThemeShowcaseApp:
         b_destruct.pack(side="left", padx=(0, int(6 * s)))
         b_text = Button(row1_b, text="Text Button", variant="text", width=95, height=34, parent_bg=pal.card_bg)
         b_text.pack(side="left", padx=(0, int(6 * s)))
-        b_icon = Button(row1_b, text="★ Star", variant="filled", width=85, height=34, parent_bg=pal.card_bg)
+        b_icon = Button(row1_b, text="⭐ Star", variant="filled", width=85, height=34, parent_bg=pal.card_bg)
         b_icon.pack(side="left")
 
         # Card 2: Form Inputs & Selectors
@@ -719,11 +753,14 @@ class CustomThemeShowcaseApp:
         pal = get_theme()
         t = time.perf_counter() * self._wave_speed if self._wave_active else 0.0
 
-        # FPS calculation
+        # FPS & frame latency calculation
+        self._fps_frame_count += 1
         now = time.perf_counter()
         dt = now - self._fps_last_time
-        if dt > 0.3:
-            self._fps = 1.0 / max(0.001, dt)
+        if dt >= 0.3:
+            self._fps = self._fps_frame_count / max(0.001, dt)
+            self._frame_time_ms = (dt / max(1, self._fps_frame_count)) * 1000.0
+            self._fps_frame_count = 0
             self._fps_last_time = now
 
         # Background gradient fill
@@ -783,8 +820,8 @@ class CustomThemeShowcaseApp:
         surf.fill_rounded_rect(card1_x + 20 * s, card1_y + 92 * s, 180 * s, 8 * s, 4 * s, 4 * s, pal.primary)
         surf.fill_circle(card1_x + 230 * s, card1_y + 96 * s, 12 * s, pal.accent)
 
-        # FPS HUD Overlay Card
-        hud_w, hud_h = 140.0 * s, 46.0 * s
+        # FPS & Latency HUD Overlay Card
+        hud_w, hud_h = 175.0 * s, 46.0 * s
         hud_x = w - hud_w - 20.0 * s
         hud_y = 20.0 * s
         surf.draw_card(
@@ -798,10 +835,10 @@ class CustomThemeShowcaseApp:
             shadow_offset_y=3.0 * s,
         )
         surf.draw_text(
-            f"{self._fps:.1f} FPS",
+            f"{self._fps:.1f} FPS ({self._frame_time_ms:.1f}ms)",
             hud_x + hud_w / 2.0,
             hud_y + hud_h / 2.0 + 4.0 * s,
-            font_size=14 * s,
+            font_size=12.5 * s,
             color=pal.success,
             align="center",
             weight="bold",

@@ -9,17 +9,9 @@ from typing import Optional, Callable, Tuple
 
 from tkblend.surface import ColorLike
 from tkblend.theme import get_theme, Palette, resolve_color_failsafe
-from tkblend.widgets.base import Widget, ScalingTracker
+from tkblend.widgets.base import Widget, ScalingTracker, _resolve_color
 
 logger = logging.getLogger(__name__)
-
-
-def _resolve_color(color: Optional[ColorLike], fallback: str, pal: Palette) -> ColorLike:
-    if color is None:
-        return fallback
-    if isinstance(color, str):
-        return resolve_color_failsafe(color, fallback=fallback, palette=pal)
-    return color
 
 
 class Scale(Widget):
