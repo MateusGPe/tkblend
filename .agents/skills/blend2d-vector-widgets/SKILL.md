@@ -86,3 +86,20 @@ class CustomGauge(Widget):
         # Zero-copy blit to PhotoImage
         self._surface.blit(self._photo)
 ```
+
+## C++ Native Extension Concurrency & Memory Safety
+
+1. **Surface Buffer Synchronization & GIL Safety**:
+   - `Surface::resize()` runs under `nb::call_guard<nb::gil_scoped_release>()`.
+   - All buffer acquisitions (`SurfaceBufferObject`, `Surface::get_buffer()`) must register via `Surface::acquire_buffer_view()` / `Surface::release_buffer_view()` under `Surface::mutex_`.
+   - `active_buffers_` acts as a guard preventing resize and subsequent use-after-free while active memoryviews exist.
+
+2. **Display List & Direct Drawing Parity**:
+   - Every operation in `DrawBatch` (`DrawOp`) must maintain 1:1 parity with direct `Surface` calls (including all shadow blur, spread, offset-x, offset-y, and color arguments).
+   - Any new high-level drawing primitive added to `Surface` must also be added with identical arguments to `DrawBatch`.
+
+3. **Cross-Platform Native Hygiene**:
+   - Objective-C++ sources (macOS window shaping) must be pinned to `-fobjc-arc` and treat native view handles as borrowed references.
+   - Dynamic asset and font resolution must never use hardcoded user paths; dynamic `$HOME` / `$WINDIR` lookups must be used.
+   - Global native types (e.g. `SurfaceBufferType`) must be initialized via `std::call_once` or module init.
+

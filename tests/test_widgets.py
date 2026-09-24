@@ -1172,3 +1172,65 @@ def test_tk_standard_names_and_aliases(root):
     tx = Text(root, width=200, height=100)
     tx.render()
     tx.destroy()
+
+
+def test_widget_resize_ratchet_recovery_and_space_restoration(root):
+    """Test that widgets shrink gracefully when compressed and fully recover their space when expanded."""
+    from tkblend.widgets import Button, ProgressBar
+
+    root.deiconify()
+    root.geometry("600x200")
+    root.update_idletasks()
+    root.update()
+
+    # Container with multiple packed widgets side-by-side
+    container = tk.Frame(root)
+    container.pack(fill="x", expand=True, padx=10, pady=10)
+
+    b1 = Button(container, text="Btn 1", width=100, height=36)
+    b1.pack(side="left", padx=5)
+    b2 = Button(container, text="Btn 2", width=100, height=36)
+    b2.pack(side="left", padx=5)
+    b3 = Button(container, text="Btn 3", width=100, height=36)
+    b3.pack(side="left", padx=5)
+
+    prog = ProgressBar(container, value=50, width=150, height=20)
+    prog.pack(side="left", fill="x", expand=True, padx=5)
+
+    root.update_idletasks()
+    root.update()
+
+    init_b1_w = b1.winfo_width()
+    init_b2_w = b2.winfo_width()
+    init_b3_w = b3.winfo_width()
+    init_prog_w = prog.winfo_width()
+
+    assert init_b1_w >= 100
+    assert init_b2_w >= 100
+    assert init_b3_w >= 100
+    assert init_prog_w >= 150
+
+    # Shrink window drastically to squeeze widgets
+    root.geometry("200x200")
+    root.update_idletasks()
+    root.update()
+
+    shrunk_b2_w = b2.winfo_width()
+    assert shrunk_b2_w < init_b2_w
+
+    # Expand window back to original size
+    root.geometry("600x200")
+    root.update_idletasks()
+    root.update()
+
+    # Verify that buttons and progress bar fully recovered their space
+    assert b1.winfo_width() == init_b1_w
+    assert b2.winfo_width() == init_b2_w
+    assert b3.winfo_width() == init_b3_w
+    assert prog.winfo_width() == init_prog_w
+
+    root.update_idletasks()
+    container.destroy()
+    root.withdraw()
+
+

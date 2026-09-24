@@ -304,16 +304,30 @@ class Widget(tk.Label):
         if event.width <= 1 or event.height <= 1:
             return
 
-        new_w = max(1, event.width) if self.resizable_width else self._widget_w
+        pref_w = max(1, int(self._logical_w * self._scale))
+        pref_h = max(1, int(self._logical_h * self._scale))
+
+        new_w = max(1, event.width) if self.resizable_width else pref_w
         new_h = (
             max(1, event.height)
             if self.resizable_height
-            else max(1, int(self._logical_h * self._scale))
+            else pref_h
         )
-        if new_w != self._widget_w or new_h != self._widget_h:
+
+        # Retain PhotoImage geometry requisition at >= preferred size so Tk
+        # geometry managers (pack/grid) can recover full allocated space when parent containers expand.
+        photo_w = max(pref_w, new_w)
+        photo_h = max(pref_h, new_h)
+
+        if (
+            new_w != self._widget_w
+            or new_h != self._widget_h
+            or self._photo.cget("width") != photo_w
+            or self._photo.cget("height") != photo_h
+        ):
             self._widget_w = new_w
             self._widget_h = new_h
-            self._photo.configure(width=self._widget_w, height=self._widget_h)
+            self._photo.configure(width=photo_w, height=photo_h)
             self._surface.resize(self._widget_w, self._widget_h)
             self.render()
 
@@ -459,14 +473,16 @@ class ContainerBase(tk.Frame):
         clip_children: bool = True,
         **kwargs,
     ):
+        self._logical_w = max(1, width)
+        self._logical_h = max(1, height)
         self._scale = ScalingTracker.get_scaling_factor(master)
         pal = get_theme()
         self._explicit_parent_bg = parent_bg
         self._parent_bg = parent_bg or Widget._resolve_default_bg(master, pal)
         super().__init__(
             master,
-            width=max(1, int(width * self._scale)),
-            height=max(1, int(height * self._scale)),
+            width=max(1, int(self._logical_w * self._scale)),
+            height=max(1, int(self._logical_h * self._scale)),
             background=self._parent_bg,
             borderwidth=0,
             highlightthickness=0,
@@ -475,8 +491,8 @@ class ContainerBase(tk.Frame):
         self.pack_propagate(False)
         self.grid_propagate(False)
 
-        self._widget_w = max(1, int(width * self._scale))
-        self._widget_h = max(1, int(height * self._scale))
+        self._widget_w = max(1, int(self._logical_w * self._scale))
+        self._widget_h = max(1, int(self._logical_h * self._scale))
         self._rx = rx * self._scale
         self._ry = ry * self._scale
         self._clip_children = clip_children
@@ -649,14 +665,24 @@ class ContainerBase(tk.Frame):
     def _on_configure(self, event) -> None:
         if event.width <= 1 or event.height <= 1:
             return
+        pref_w = max(1, int(self._logical_w * self._scale))
+        pref_h = max(1, int(self._logical_h * self._scale))
         new_w = max(1, event.width)
         new_h = max(1, event.height)
-        if new_w != self._widget_w or new_h != self._widget_h:
+        photo_w = max(pref_w, new_w)
+        photo_h = max(pref_h, new_h)
+        if (
+            new_w != self._widget_w
+            or new_h != self._widget_h
+            or (self._photo is not None and (self._photo.cget("width") != photo_w or self._photo.cget("height") != photo_h))
+        ):
             self._widget_w = new_w
             self._widget_h = new_h
             try:
-                self._photo.configure(width=self._widget_w, height=self._widget_h)
-                self._surface.resize(self._widget_w, self._widget_h)
+                if self._photo is not None:
+                    self._photo.configure(width=photo_w, height=photo_h)
+                if self._surface is not None:
+                    self._surface.resize(self._widget_w, self._widget_h)
             except Exception as e:
                 logger.debug("Failed resizing container surface (%sx%s): %s", self._widget_w, self._widget_h, e)
             self._update_body_geometry()

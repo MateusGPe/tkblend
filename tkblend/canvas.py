@@ -36,8 +36,10 @@ class BlendCanvas(tk.Label):
         auto_theme_redraw: bool = True,
         **kwargs,
     ):
-        self._canvas_width = max(1, int(width))
-        self._canvas_height = max(1, int(height))
+        self._logical_w = max(1, int(width))
+        self._logical_h = max(1, int(height))
+        self._canvas_width = self._logical_w
+        self._canvas_height = self._logical_h
         self._on_draw = on_draw
         self._bootstyle = bootstyle
         self._auto_theme_redraw = auto_theme_redraw
@@ -139,20 +141,23 @@ class BlendCanvas(tk.Label):
         if self._surface is None or self._photo is None:
             return
 
-        min_w = getattr(self, "_preferred_width", None)
-        min_h = getattr(self, "_preferred_height", None)
+        min_w = getattr(self, "_preferred_width", getattr(self, "_logical_w", 1))
+        min_h = getattr(self, "_preferred_height", getattr(self, "_logical_h", 1))
 
-        target_w = event.width
-        target_h = event.height
-        if min_w is not None and target_w < min_w:
-            target_w = min_w
-        if min_h is not None and target_h < min_h:
-            target_h = min_h
+        target_w = max(1, event.width)
+        target_h = max(1, event.height)
+        photo_w = max(min_w, target_w)
+        photo_h = max(min_h, target_h)
 
-        if target_w != self._canvas_width or target_h != self._canvas_height:
+        if (
+            target_w != self._canvas_width
+            or target_h != self._canvas_height
+            or self._photo.cget("width") != photo_w
+            or self._photo.cget("height") != photo_h
+        ):
             self._canvas_width = target_w
             self._canvas_height = target_h
-            self._photo.configure(width=self._canvas_width, height=self._canvas_height)
+            self._photo.configure(width=photo_w, height=photo_h)
             self._surface.resize(self._canvas_width, self._canvas_height)
             self.redraw()
 
