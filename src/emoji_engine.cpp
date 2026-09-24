@@ -38,13 +38,24 @@ std::string EmojiEngine::resolve_system_emoji_font() {
         "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
         "/usr/share/fonts/noto/NotoColorEmoji.ttf",
         "/usr/share/fonts/truetype/noto-color-emoji/NotoColorEmoji.ttf",
-        "/usr/share/fonts/google-noto-color-emoji-fonts/NotoColorEmoji.ttf",
-        "/home/mateusgp/.local/share/fonts/NotoColorEmoji.ttf"
+        "/usr/share/fonts/google-noto-color-emoji-fonts/NotoColorEmoji.ttf"
     };
     for (const char* p : linux_paths) {
         try {
             if (fs::exists(p)) return p;
         } catch (...) {}
+    }
+    const char* home = std::getenv("HOME");
+    if (home) {
+        std::string user_paths[] = {
+            std::string(home) + "/.local/share/fonts/NotoColorEmoji.ttf",
+            std::string(home) + "/.fonts/NotoColorEmoji.ttf"
+        };
+        for (const auto& up : user_paths) {
+            try {
+                if (fs::exists(up)) return up;
+            } catch (...) {}
+        }
     }
     std::string fc_emoji = resolve_native_font_path("emoji");
     if (!fc_emoji.empty()) {
@@ -76,14 +87,20 @@ std::string EmojiEngine::resolve_system_emoji_font() {
 }
 
 bool EmojiEngine::init() {
-    if (initialized_) return (ft_face_ != nullptr);
-    initialized_ = true;
+    std::lock_guard<std::mutex> lock(mutex_);
+    return init_locked();
+}
 
-    FT_Library ft = nullptr;
-    if (FT_Init_FreeType(&ft) != 0) {
-        return false;
+bool EmojiEngine::init_locked() {
+    if (initialized_) return (ft_face_ != nullptr);
+
+    if (!ft_lib_) {
+        FT_Library ft = nullptr;
+        if (FT_Init_FreeType(&ft) != 0) {
+            return false;
+        }
+        ft_lib_ = ft;
     }
-    ft_lib_ = ft;
 
     if (emoji_font_path_.empty()) {
         emoji_font_path_ = resolve_system_emoji_font();
@@ -98,7 +115,7 @@ bool EmojiEngine::init() {
     }
 
     FT_Face face = nullptr;
-    if (FT_New_Face(ft, emoji_font_path_.c_str(), 0, &face) != 0) {
+    if (FT_New_Face(reinterpret_cast<FT_Library>(ft_lib_), emoji_font_path_.c_str(), 0, &face) != 0) {
         return false;
     }
     ft_face_ = face;
@@ -106,6 +123,7 @@ bool EmojiEngine::init() {
     if (face->num_fixed_sizes > 0) {
         FT_Select_Size(face, 0);
     }
+    initialized_ = true;
     return true;
 }
 
@@ -113,7 +131,8 @@ void EmojiEngine::set_emoji_font(const std::string& path) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (path == emoji_font_path_) return;
     emoji_font_path_ = path;
-    cache_.clear();
+    lru_list_.clear();
+    cache_map_.clear();
 
     if (ft_face_) {
         FT_Done_Face(reinterpret_cast<FT_Face>(ft_face_));
@@ -124,7 +143,7 @@ void EmojiEngine::set_emoji_font(const std::string& path) {
         ft_lib_ = nullptr;
     }
     initialized_ = false;
-    init();
+    init_locked();
 }
 
 std::string EmojiEngine::get_emoji_font_path() {
@@ -155,48 +174,60 @@ bool EmojiEngine::get_emoji_glyph(
     GlyphKey key{codepoint, target_sz_int};
 
     std::lock_guard<std::mutex> lock(mutex_);
-    auto it = cache_.find(key);
-    if (it != cache_.end()) {
-        if (!it->second.valid) return false;
-        out_img = it->second.image;
-        out_advance_x = it->second.advance_x;
-        out_bearing_y = it->second.bearing_y;
+    auto it = cache_map_.find(key);
+    if (it != cache_map_.end()) {
+        lru_list_.splice(lru_list_.begin(), lru_list_, it->second);
+        if (!it->second->valid) return false;
+        out_img = it->second->image;
+        out_advance_x = it->second->advance_x;
+        out_bearing_y = it->second->bearing_y;
         return true;
     }
 
-    if (!init()) {
-        cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+    auto insert_cached_glyph = [&](const CachedGlyph& entry) {
+        if (cache_map_.size() >= max_cache_entries_) {
+            auto last = lru_list_.end();
+            --last;
+            cache_map_.erase(last->key);
+            lru_list_.pop_back();
+        }
+        lru_list_.push_front(entry);
+        cache_map_[key] = lru_list_.begin();
+    };
+
+    if (!init_locked()) {
+        insert_cached_glyph(CachedGlyph{key, BLImage(), 0, 0, false});
         return false;
     }
 
     FT_Face face = reinterpret_cast<FT_Face>(ft_face_);
     if (!face) {
-        cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+        insert_cached_glyph(CachedGlyph{key, BLImage(), 0, 0, false});
         return false;
     }
 
     FT_UInt glyph_index = FT_Get_Char_Index(face, codepoint);
     if (glyph_index == 0) {
-        cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+        insert_cached_glyph(CachedGlyph{key, BLImage(), 0, 0, false});
         return false;
     }
 
     if (FT_Load_Glyph(face, glyph_index, FT_LOAD_COLOR) != 0) {
-        cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+        insert_cached_glyph(CachedGlyph{key, BLImage(), 0, 0, false});
         return false;
     }
 
     FT_GlyphSlot slot = face->glyph;
     if (slot->format != FT_GLYPH_FORMAT_BITMAP) {
         if (FT_Render_Glyph(slot, FT_RENDER_MODE_NORMAL) != 0) {
-            cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+            insert_cached_glyph(CachedGlyph{key, BLImage(), 0, 0, false});
             return false;
         }
     }
 
     FT_Bitmap& bmp = slot->bitmap;
     if (bmp.width == 0 || bmp.rows == 0 || !bmp.buffer) {
-        cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+        insert_cached_glyph(CachedGlyph{key, BLImage(), 0, 0, false});
         return false;
     }
 
@@ -220,7 +251,7 @@ bool EmojiEngine::get_emoji_glyph(
             }
         }
     } else {
-        cache_[key] = CachedGlyph{BLImage(), 0, 0, false};
+        insert_cached_glyph(CachedGlyph{key, BLImage(), 0, 0, false});
         return false;
     }
 
@@ -244,8 +275,8 @@ bool EmojiEngine::get_emoji_glyph(
     double adv_x = dest_w * 1.15;
     double bear_y = dest_h * 0.82;
 
-    CachedGlyph entry{scaled_img, adv_x, bear_y, true};
-    cache_[key] = entry;
+    CachedGlyph entry{key, scaled_img, adv_x, bear_y, true};
+    insert_cached_glyph(entry);
 
     out_img = scaled_img;
     out_advance_x = adv_x;

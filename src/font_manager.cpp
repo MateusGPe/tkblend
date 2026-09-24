@@ -196,19 +196,16 @@ bool FontManager::set_active_font(const std::string& family_or_path) {
         }
     }
 
+    std::lock_guard<std::mutex> lock(mutex_);
     // Check if already loaded
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (font_faces_.find(lower) != font_faces_.end()) {
-            default_font_family_ = lower;
-            return true;
-        }
+    if (font_faces_.find(lower) != font_faces_.end()) {
+        default_font_family_ = lower;
+        return true;
     }
 
     // Check if resolvable on system
     std::string resolved = resolve_system_font_path(lower, 400, false);
     if (!resolved.empty()) {
-        std::lock_guard<std::mutex> lock(mutex_);
         default_font_family_ = lower;
         return true;
     }

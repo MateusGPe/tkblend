@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <atomic>
 
 namespace tkblend {
 
@@ -238,9 +239,21 @@ public:
     void flush();
 
     // Raw Pixel buffer access
+    struct BufferViewInfo {
+        uint8_t* data = nullptr;
+        size_t size = 0;
+        size_t stride = 0;
+    };
+
+    BufferViewInfo acquire_buffer_view();
+    void release_buffer_view();
+
     uint8_t* data_ptr();
     size_t stride() const;
     size_t size_in_bytes() const;
+    void inc_active_buffers() { active_buffers_.fetch_add(1, std::memory_order_relaxed); }
+    void dec_active_buffers() { active_buffers_.fetch_sub(1, std::memory_order_relaxed); }
+    int active_buffers() const { return active_buffers_.load(std::memory_order_relaxed); }
 
 private:
     void init_context();
@@ -249,7 +262,8 @@ private:
     int height_ = 1;
     BLImage image_;
     BLContext ctx_;
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
+    std::atomic<int> active_buffers_{0};
 };
 
 } // namespace tkblend

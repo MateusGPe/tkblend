@@ -28,6 +28,9 @@ void Surface::resize(int width, int height) {
     if (w == width_ && h == height_) return;
 
     std::lock_guard<std::mutex> lock(mutex_);
+    if (active_buffers_.load(std::memory_order_relaxed) > 0) {
+        throw std::runtime_error("Cannot resize Surface while active buffer views exist");
+    }
     width_ = w;
     height_ = h;
     init_context();
@@ -85,7 +88,10 @@ void Surface::clip_rect(double x, double y, double w, double h) {
 
 void Surface::clip_rounded_rect(double x, double y, double w, double h, double rx, double ry) {
     std::lock_guard<std::mutex> lock(mutex_);
-    (void)rx; (void)ry;
+    // Blend2D BLContext currently only supports axis-aligned rectangular clipping natively.
+    // We clip to the bounding rectangle of the rounded rect.
+    (void)rx;
+    (void)ry;
     ctx_.clip_to_rect(BLRect(x, y, w, h));
 }
 
@@ -892,10 +898,10 @@ void Surface::execute_batch(const DrawBatch& batch) {
                 draw_text(op.str, op.d[0], op.d[1], static_cast<float>(op.d[2]), "default", op.c1, op.i1, op.i2, op.i3 != 0);
                 break;
             case DrawOpType::DrawShadowRoundedRect:
-                draw_shadow_rounded_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5], op.d[6], op.d[7], 0, 0, op.c1);
+                draw_shadow_rounded_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5], op.d[6], op.d[7], op.d[8], op.d[9], op.c1);
                 break;
             case DrawOpType::DrawCard:
-                draw_card(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5], op.c1, op.c2, op.d[6], op.d[7], 0, 0, 0, Color(0,0,0,0));
+                draw_card(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5], op.c1, op.c2, op.d[6], op.d[7], op.d[8], op.d[9], op.d[10], op.c3);
                 break;
             case DrawOpType::Save:
                 save();
@@ -976,19 +982,39 @@ void Surface::blit_to_photo(
     );
 }
 
+Surface::BufferViewInfo Surface::acquire_buffer_view() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    active_buffers_.fetch_add(1, std::memory_order_relaxed);
+    BLImageData imgData;
+    image_.get_data(&imgData);
+    return {
+        static_cast<uint8_t*>(imgData.pixel_data),
+        static_cast<size_t>(imgData.stride * imgData.size.h),
+        static_cast<size_t>(imgData.stride)
+    };
+}
+
+void Surface::release_buffer_view() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    active_buffers_.fetch_sub(1, std::memory_order_relaxed);
+}
+
 uint8_t* Surface::data_ptr() {
+    std::lock_guard<std::mutex> lock(mutex_);
     BLImageData imgData;
     image_.get_data(&imgData);
     return static_cast<uint8_t*>(imgData.pixel_data);
 }
 
 size_t Surface::stride() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     BLImageData imgData;
     image_.get_data(&imgData);
     return static_cast<size_t>(imgData.stride);
 }
 
 size_t Surface::size_in_bytes() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     BLImageData imgData;
     image_.get_data(&imgData);
     return static_cast<size_t>(imgData.stride * imgData.size.h);

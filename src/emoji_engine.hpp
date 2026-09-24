@@ -3,6 +3,7 @@
 #include <blend2d.h>
 #include <string>
 #include <unordered_map>
+#include <list>
 #include <mutex>
 #include <cstdint>
 
@@ -24,6 +25,7 @@ private:
     EmojiEngine();
     ~EmojiEngine();
 
+    bool init_locked();
     std::string resolve_system_emoji_font();
 
     struct GlyphKey {
@@ -42,16 +44,19 @@ private:
     };
 
     struct CachedGlyph {
+        GlyphKey key;
         BLImage image;
-        double advance_x;
-        double bearing_y;
-        bool valid;
+        double advance_x = 0.0;
+        double bearing_y = 0.0;
+        bool valid = false;
     };
 
     void* ft_lib_{nullptr};
     void* ft_face_{nullptr};
     std::string emoji_font_path_;
-    std::unordered_map<GlyphKey, CachedGlyph, GlyphKeyHash> cache_;
+    std::list<CachedGlyph> lru_list_;
+    std::unordered_map<GlyphKey, std::list<CachedGlyph>::iterator, GlyphKeyHash> cache_map_;
+    const size_t max_cache_entries_{256};
     std::mutex mutex_;
     bool initialized_{false};
 };

@@ -24,9 +24,10 @@ enum class DrawOpType {
 
 struct DrawOp {
     DrawOpType type;
-    double d[8] = {0};
+    double d[12] = {0};
     Color c1;
     Color c2;
+    Color c3;
     std::string str;
     int i1 = 0, i2 = 0, i3 = 0;
 };

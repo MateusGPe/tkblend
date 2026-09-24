@@ -41,11 +41,17 @@ void DrawBatch::draw_text(const std::string& text, double x, double y, float fon
 }
 
 void DrawBatch::draw_shadow_rounded_rect(double x, double y, double w, double h, double rx, double ry, double blur_radius, double spread, double offset_x, double offset_y, const Color& shadow_color) {
-    DrawOp op; op.type = DrawOpType::DrawShadowRoundedRect; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=rx; op.d[5]=ry; op.d[6]=blur_radius; op.d[7]=spread; op.c1=shadow_color; ops.push_back(std::move(op));
+    DrawOp op; op.type = DrawOpType::DrawShadowRoundedRect;
+    op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=rx; op.d[5]=ry;
+    op.d[6]=blur_radius; op.d[7]=spread; op.d[8]=offset_x; op.d[9]=offset_y;
+    op.c1=shadow_color; ops.push_back(std::move(op));
 }
 
 void DrawBatch::draw_card(double x, double y, double w, double h, double rx, double ry, const Color& bg, const Color& border, double border_w, double shadow_blur, double shadow_spread, double shadow_ox, double shadow_oy, const Color& shadow_col) {
-    DrawOp op; op.type = DrawOpType::DrawCard; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=rx; op.d[5]=ry; op.d[6]=border_w; op.d[7]=shadow_blur; op.c1=bg; op.c2=border; ops.push_back(std::move(op));
+    DrawOp op; op.type = DrawOpType::DrawCard;
+    op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=rx; op.d[5]=ry;
+    op.d[6]=border_w; op.d[7]=shadow_blur; op.d[8]=shadow_spread; op.d[9]=shadow_ox; op.d[10]=shadow_oy;
+    op.c1=bg; op.c2=border; op.c3=shadow_col; ops.push_back(std::move(op));
 }
 
 void DrawBatch::save() { DrawOp op; op.type = DrawOpType::Save; ops.push_back(std::move(op)); }

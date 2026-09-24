@@ -9,7 +9,7 @@
 #include <sstream>
 #include <optional>
 #include <stdexcept>
-
+#include <mutex>
 
 namespace nb = nanobind;
 
@@ -214,18 +214,18 @@ void bind_gradient(nb::module_& m) {
 void bind_path(nb::module_& m) {
     nb::class_<Path>(m, "Path")
         .def(nb::init<>())
-        .def("move_to", &Path::move_to, nb::arg("x"), nb::arg("y"), nb::rv_policy::reference)
-        .def("line_to", &Path::line_to, nb::arg("x"), nb::arg("y"), nb::rv_policy::reference)
-        .def("quad_to", &Path::quad_to, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::rv_policy::reference)
-        .def("cubic_to", &Path::cubic_to, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::arg("x3"), nb::arg("y3"), nb::rv_policy::reference)
-        .def("arc_to", &Path::arc_to, nb::arg("cx"), nb::arg("cy"), nb::arg("rx"), nb::arg("ry"), nb::arg("start_angle"), nb::arg("sweep_angle"), nb::rv_policy::reference)
-        .def("add_rect", &Path::add_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::rv_policy::reference)
-        .def("add_rounded_rect", &Path::add_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::rv_policy::reference)
-        .def("add_circle", &Path::add_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::rv_policy::reference)
-        .def("add_ellipse", &Path::add_ellipse, nb::arg("cx"), nb::arg("cy"), nb::arg("rx"), nb::arg("ry"), nb::rv_policy::reference)
-        .def("close", &Path::close, nb::rv_policy::reference)
-        .def("clear", &Path::clear, nb::rv_policy::reference)
-        .def("reset", &Path::reset, nb::rv_policy::reference);
+        .def("move_to", &Path::move_to, nb::arg("x"), nb::arg("y"), nb::rv_policy::reference_internal)
+        .def("line_to", &Path::line_to, nb::arg("x"), nb::arg("y"), nb::rv_policy::reference_internal)
+        .def("quad_to", &Path::quad_to, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::rv_policy::reference_internal)
+        .def("cubic_to", &Path::cubic_to, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::arg("x3"), nb::arg("y3"), nb::rv_policy::reference_internal)
+        .def("arc_to", &Path::arc_to, nb::arg("cx"), nb::arg("cy"), nb::arg("rx"), nb::arg("ry"), nb::arg("start_angle"), nb::arg("sweep_angle"), nb::rv_policy::reference_internal)
+        .def("add_rect", &Path::add_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::rv_policy::reference_internal)
+        .def("add_rounded_rect", &Path::add_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::rv_policy::reference_internal)
+        .def("add_circle", &Path::add_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::rv_policy::reference_internal)
+        .def("add_ellipse", &Path::add_ellipse, nb::arg("cx"), nb::arg("cy"), nb::arg("rx"), nb::arg("ry"), nb::rv_policy::reference_internal)
+        .def("close", &Path::close, nb::rv_policy::reference_internal)
+        .def("clear", &Path::clear, nb::rv_policy::reference_internal)
+        .def("reset", &Path::reset, nb::rv_policy::reference_internal);
 }
 
 void bind_font_manager(nb::module_& m) {
@@ -282,7 +282,72 @@ void bind_font_manager(nb::module_& m) {
     });
 }
 
+// Note on GC support: SurfaceBufferObject holds a strong reference to surface_py
+// to ensure the Python Surface wrapper outlives any active buffer views / memoryviews.
+// The Surface C++ instance does not hold references back to SurfaceBufferObject or the memoryview,
+// so reference cycles cannot form under normal usage. If future Python wrappers store
+// the buffer view inside the Surface instance, cyclic GC support (Py_TPFLAGS_HAVE_GC,
+// tp_traverse, tp_clear) should be added.
+struct SurfaceBufferObject {
+    PyObject_HEAD
+    Surface* surface;
+    PyObject* surface_py;
+    uint8_t* data;
+    size_t size;
+    Py_ssize_t shape[1];
+    Py_ssize_t strides[1];
+};
+
+static PyBufferProcs surface_buffer_as_buffer = {
+    [](PyObject* self, Py_buffer* view, int flags) -> int {
+        (void)flags;
+        auto* obj = reinterpret_cast<SurfaceBufferObject*>(self);
+        if (!obj->surface) return -1;
+        view->buf = obj->data;
+        view->obj = self;
+        Py_INCREF(self);
+        view->len = static_cast<Py_ssize_t>(obj->size);
+        view->readonly = 0;
+        view->itemsize = 1;
+        view->format = const_cast<char*>("B");
+        view->ndim = 1;
+        view->shape = obj->shape;
+        view->strides = obj->strides;
+        view->suboffsets = nullptr;
+        view->internal = nullptr;
+        return 0;
+    },
+    [](PyObject*, Py_buffer*) {}
+};
+
+static PyTypeObject SurfaceBufferType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+};
+
+static void init_surface_buffer_type() {
+    static std::once_flag flag;
+    std::call_once(flag, []() {
+        SurfaceBufferType.tp_name = "tkblend.SurfaceBuffer";
+        SurfaceBufferType.tp_basicsize = sizeof(SurfaceBufferObject);
+        SurfaceBufferType.tp_flags = Py_TPFLAGS_DEFAULT;
+        SurfaceBufferType.tp_doc = "tkblend raw surface buffer wrapper";
+        SurfaceBufferType.tp_as_buffer = &surface_buffer_as_buffer;
+        SurfaceBufferType.tp_dealloc = [](PyObject* self) {
+            auto* obj = reinterpret_cast<SurfaceBufferObject*>(self);
+            if (obj->surface) {
+                obj->surface->release_buffer_view();
+            }
+            Py_XDECREF(obj->surface_py);
+            Py_TYPE(self)->tp_free(self);
+        };
+        if (PyType_Ready(&SurfaceBufferType) < 0) {
+            throw std::runtime_error("Failed to initialize SurfaceBufferType");
+        }
+    });
+}
+
 void bind_surface(nb::module_& m) {
+    init_surface_buffer_type();
     nb::class_<Surface>(m, "Surface")
         .def(nb::init<int, int>(), nb::arg("width"), nb::arg("height"))
         .def_prop_ro("width", &Surface::width)
@@ -603,46 +668,27 @@ void bind_surface(nb::module_& m) {
              nb::arg("dst_x") = 0, nb::arg("dst_y") = 0)
         .def("stride", &Surface::stride)
         .def("size_in_bytes", &Surface::size_in_bytes)
+        .def("active_buffers", &Surface::active_buffers)
         
         .def("get_buffer", [](nb::handle self) -> nb::object {
             Surface& s = nb::cast<Surface&>(self);
-
-            // Allocate shape on the heap — PyMemoryView_FromBuffer stores shape by pointer,
-            // NOT by value, so a stack array would be a dangling pointer after this lambda
-            // returns. A PyCapsule keeps the allocation alive until the memoryview is GC'd.
-            auto* heap_shape = new Py_ssize_t[1]{ static_cast<Py_ssize_t>(s.size_in_bytes()) };
-
-            PyObject* capsule = PyCapsule_New(
-                heap_shape, nullptr,
-                [](PyObject* cap) noexcept {
-                    delete[] static_cast<Py_ssize_t*>(PyCapsule_GetPointer(cap, nullptr));
-                }
-            );
-            if (!capsule) {
-                delete[] heap_shape;
-                throw std::runtime_error("Failed to create PyCapsule for get_buffer shape");
+            init_surface_buffer_type();
+            auto* obj = PyObject_New(SurfaceBufferObject, &SurfaceBufferType);
+            if (!obj) {
+                throw std::runtime_error("Failed to allocate SurfaceBufferObject");
             }
+            obj->surface = &s;
+            obj->surface_py = self.ptr();
+            Py_INCREF(self.ptr());
 
-            // strides only need to survive the PyMemoryView_FromBuffer call: for a
-            // 1-D contiguous buffer the memoryview copies the stride value internally.
-            Py_ssize_t strides[1] = { 1 };
+            auto info = s.acquire_buffer_view();
+            obj->data = info.data;
+            obj->size = info.size;
+            obj->shape[0] = static_cast<Py_ssize_t>(info.size);
+            obj->strides[0] = 1;
 
-            Py_buffer view{};
-            view.buf        = s.data_ptr();
-            view.obj        = capsule;   // capsule keeps heap_shape alive as long as the view lives
-            view.len        = heap_shape[0];
-            view.itemsize   = 1;
-            view.readonly   = 0;
-            view.format     = const_cast<char*>("B");
-            view.ndim       = 1;
-            view.shape      = heap_shape;
-            view.strides    = strides;
-            view.suboffsets = nullptr;
-
-            PyObject* mem = PyMemoryView_FromBuffer(&view);
-            // memoryview now owns the only strong reference to the capsule (via view.obj).
-            // Decrement the extra ref we hold so the capsule's lifetime is tied to the view.
-            Py_DECREF(capsule);
+            PyObject* mem = PyMemoryView_FromObject(reinterpret_cast<PyObject*>(obj));
+            Py_DECREF(reinterpret_cast<PyObject*>(obj));
             if (!mem) {
                 throw std::runtime_error("Failed to create memoryview from surface buffer");
             }

@@ -165,7 +165,11 @@ bool apply_round_rect_shape(uint64_t window_id, int width, int height, double rx
     if (!hrgn) {
         return false;
     }
-    return SetWindowRgn(hwnd, hrgn, TRUE) != 0;
+    if (!SetWindowRgn(hwnd, hrgn, TRUE)) {
+        DeleteObject(hrgn);
+        return false;
+    }
+    return true;
 }
 
 bool clear_window_shape(uint64_t window_id) {
@@ -181,6 +185,9 @@ bool clear_window_shape(uint64_t window_id) {
 #elif defined(__APPLE__)
 #import <Cocoa/Cocoa.h>
 
+// Note: Under ARC builds (-fobjc-arc), __bridge is a non-retaining borrowed reference cast.
+// The caller (Tk/Tkinter) manages the lifetime of the native NSView window hierarchy.
+// @autoreleasepool ensures any transient ObjC allocations during property access are released.
 namespace tkblend {
 
 bool is_window_shaping_supported() {
