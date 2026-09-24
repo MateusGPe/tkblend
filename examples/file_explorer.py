@@ -1,13 +1,16 @@
 """
 tkblend File Explorer Example
-Modern Blend2D-powered Native TTK File Explorer.
+Modern Blend2D-powered Pure Vector File Explorer.
+Zero TTK dependencies.
+
 Features:
-- 3-Pane responsive layout with interactive Panedwindow
-- Switchable views via SegmentedControl: Details Table (sortable) and Grid/Icon Tiles
-- Rich multi-format preview panel: Image thumbnails (Pillow), text/code viewer (ThemedText), and metadata cards
-- Lazy-loaded filesystem tree with vector chevrons and Pinned Quick Access favorites
-- Full navigation toolbar: Back, Forward, Up, Refresh, SearchEntry, and Dark/Light mode switcher
-- Safe context menu with path copying, OS file manager integration, and hidden file toggle
+- 3-Pane responsive layout with pure Blend2D Card and Frame containers
+- Switchable views via SegmentedButton: Details Table (sortable, filterable) and Grid Card Tiles
+- Rich multi-format preview panel: Image thumbnails (Pillow), text/code viewer (TextBox), and metadata cards
+- Quick Access favorites and directory navigation
+- Full navigation toolbar: Back, Forward, Up, Refresh, Path TextInput, Live Search, Hidden Switch, and Theme Selector (OptionMenu)
+- Context menu with path copying, OS file manager integration, and terminal launcher
+- Dynamic reactive theming supporting all tkblend palette presets
 """
 
 from __future__ import annotations
@@ -21,7 +24,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 
 # PIL for image thumbnail generation
 try:
@@ -31,17 +34,10 @@ try:
 except ImportError:
     HAS_PIL = False
 
-import tkblend
-
-# Shared theme parameters
-_THEME_OPTS = dict(
-    button_radius=8.0,
-    entry_radius=8.0,
-    shadow_blur=8.0,
-)
+import tkblend as tb
 
 # File extension categorizations for Badges & Icons
-FILE_CATEGORIES = {
+FILE_CATEGORIES: Dict[str, Tuple[str, str, str]] = {
     # Code
     ".py": ("Python", "primary", "🐍"),
     ".pyi": ("Python Stub", "primary", "🐍"),
@@ -101,7 +97,7 @@ FILE_CATEGORIES = {
 
 
 def format_file_size(size_bytes: int) -> str:
-    """Format bytes into readable size string (B, KB, MB, GB)."""
+    """Format bytes into human readable size string (B, KB, MB, GB)."""
     if size_bytes < 1024:
         return f"{size_bytes} B"
     elif size_bytes < 1024 * 1024:
@@ -170,66 +166,27 @@ def get_file_info(path: Path) -> Dict[str, Any]:
     return info
 
 
-class ScrolledFrame(ttk.Frame):
-    """A smooth scrollable container frame with vertical scrollbar."""
-
-    def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
-        self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
-        self.content = ttk.Frame(self.canvas)
-
-        self.content.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
-        )
-        self._window_id = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
-        self.canvas.bind(
-            "<Configure>",
-            lambda e: self.canvas.itemconfig(self._window_id, width=e.width),
-        )
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-
-        self.scrollbar.pack(side="right", fill="y")
-        self.canvas.pack(side="left", fill="both", expand=True)
-
-        self._bind_mousewheel(self.canvas)
-        self._bind_mousewheel(self.content)
-
-    def _bind_mousewheel(self, widget):
-        widget.bind("<MouseWheel>", self._on_mousewheel, add="+")
-        widget.bind("<Button-4>", self._on_mousewheel, add="+")
-        widget.bind("<Button-5>", self._on_mousewheel, add="+")
-
-    def _on_mousewheel(self, event):
-        if event.num == 4:
-            self.canvas.yview_scroll(-2, "units")
-        elif event.num == 5:
-            self.canvas.yview_scroll(2, "units")
-        elif event.delta:
-            self.canvas.yview_scroll(int(-1 * (event.delta / 120) * 2), "units")
-
-
 class FileExplorerApp:
-    def __init__(self, root: tk.Tk):
-        self.root = root
-        self.root.title("tkblend File Explorer")
-        self.root.geometry("1180x760")
-        self.root.minsize(960, 620)
+    def __init__(self, root: Optional[tk.Tk] = None):
+        self._owns_root = root is None
+        self.root = root if root is not None else tk.Tk()
+        self.root.title("tkblend File Explorer - Pure Blend2D UI")
+        self.root.geometry("1200x780")
+        self.root.minsize(980, 640)
 
-        self.is_dark = True
-        self.show_hidden_var = tk.BooleanVar(value=False)
+        # Default theme
+        tb.set_theme("dark")
+        pal = tb.get_theme()
+        self.root.configure(background=pal.bg)
+
+        # Navigation & sorting state
+        self.show_hidden = False
         self.current_view_mode = "Details"
         self.search_query = ""
         self.sort_column = "name"
         self.sort_descending = False
 
-        # Apply native Blend2D TTK theme
-        tkblend.apply_theme(
-            self.root, dark_mode=self.is_dark, enable_shadows=True, **_THEME_OPTS
-        )
-
-        # Initial directory is current workspace or user home
+        # Initial directory
         initial_dir = Path(os.getcwd()).resolve()
         if not initial_dir.exists():
             initial_dir = Path.home().resolve()
@@ -248,9 +205,13 @@ class FileExplorerApp:
 
         # Build UI layout
         self._build_toolbar()
-        self._build_panes()
+        self._build_main_panes()
         self._build_status_bar()
         self._build_context_menu()
+
+        # Connect theme listener
+        tb.add_theme_listener(self._on_theme_changed)
+        self._on_theme_changed(pal)
 
         # Load initial location
         self.navigate_to(self.current_dir, record_history=False)
@@ -259,114 +220,185 @@ class FileExplorerApp:
     # Top Navigation Toolbar
     # -------------------------------------------------------------------------
     def _build_toolbar(self):
-        toolbar = ttk.Frame(self.root, padding=(16, 10, 16, 8))
-        toolbar.pack(fill="x", side="top")
+        self.toolbar_card = tb.Frame(
+            self.root,
+            rx=0,
+            ry=0,
+            elevation=2.0,
+            height=54,
+        )
+        self.toolbar_card.pack(fill="x", side="top")
+
+        # Container inside toolbar
+        self.tb_inner = tk.Frame(self.toolbar_card, bg=self.toolbar_card.bg_color)
+        self.tb_inner.pack(fill="both", expand=True, padx=12, pady=6)
 
         # Left Nav Buttons: Back, Forward, Up, Refresh
-        nav_box = ttk.Frame(toolbar)
-        nav_box.pack(side="left", padx=(0, 10))
+        self.nav_box = tk.Frame(self.tb_inner, bg=self.toolbar_card.bg_color)
+        self.nav_box.pack(side="left", padx=(0, 8))
 
-        self.btn_back = ttk.Button(
-            nav_box, text="◀", width=3, style="Ghost.TButton", command=self.go_back
+        self.btn_back = tb.Button(
+            self.nav_box,
+            text="◀",
+            width=36,
+            height=32,
+            rx=6,
+            ry=6,
+            variant="secondary",
+            command=self.go_back,
         )
         self.btn_back.pack(side="left", padx=2)
 
-        self.btn_forward = ttk.Button(
-            nav_box, text="▶", width=3, style="Ghost.TButton", command=self.go_forward
+        self.btn_forward = tb.Button(
+            self.nav_box,
+            text="▶",
+            width=36,
+            height=32,
+            rx=6,
+            ry=6,
+            variant="secondary",
+            command=self.go_forward,
         )
         self.btn_forward.pack(side="left", padx=2)
 
-        self.btn_up = ttk.Button(
-            nav_box, text="▲", width=3, style="Ghost.TButton", command=self.go_up
+        self.btn_up = tb.Button(
+            self.nav_box,
+            text="▲",
+            width=36,
+            height=32,
+            rx=6,
+            ry=6,
+            variant="secondary",
+            command=self.go_up,
         )
         self.btn_up.pack(side="left", padx=2)
 
-        self.btn_refresh = ttk.Button(
-            nav_box, text="🔄", width=3, style="Ghost.TButton", command=self.refresh
+        self.btn_refresh = tb.Button(
+            self.nav_box,
+            text="🔄",
+            width=36,
+            height=32,
+            rx=6,
+            ry=6,
+            variant="secondary",
+            command=self.refresh,
         )
         self.btn_refresh.pack(side="left", padx=(2, 6))
 
-        # Path Entry / Location Bar
-        path_box = ttk.Frame(toolbar)
-        path_box.pack(side="left", fill="x", expand=True, padx=(0, 12))
+        # Path Location Entry
+        self.path_box = tk.Frame(self.tb_inner, bg=self.toolbar_card.bg_color)
+        self.path_box.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-        ttk.Label(path_box, text="📍", font=("Helvetica", 11)).pack(
-            side="left", padx=(0, 4)
+        self.path_entry = tb.TextInput(
+            self.path_box,
+            placeholder_text="Enter folder path...",
+            height=32,
         )
-        self.path_entry = tkblend.TextInput(path_box, placeholder="Enter folder path...", height=34)
         self.path_entry.pack(side="left", fill="x", expand=True)
         self.path_entry.bind("<Return>", self._on_path_entered)
 
         # Right Action & View Controls
-        actions_box = ttk.Frame(toolbar)
-        actions_box.pack(side="right")
+        self.actions_box = tk.Frame(self.tb_inner, bg=self.toolbar_card.bg_color)
+        self.actions_box.pack(side="right")
 
         # Live Search Field
-        self.search_entry = tkblend.TextInput(
-            actions_box, placeholder="Search files...", width=160, height=34
+        self.search_entry = tb.TextInput(
+            self.actions_box,
+            placeholder_text="Search files...",
+            width=160,
+            height=32,
         )
-        self.search_entry.pack(side="left", padx=(0, 10))
+        self.search_entry.pack(side="left", padx=(0, 8))
         self.search_entry.bind("<KeyRelease>", self._on_search_changed)
 
-        # Details vs Grid Segmented Control
-        self.seg_view = tkblend.SegmentedControl(
-            actions_box,
+        # Details vs Grid Segmented Button
+        self.seg_view = tb.SegmentedButton(
+            self.actions_box,
             values=["Details", "Grid"],
-            command=self._on_view_mode_changed,
+            selected_index=0,
+            width=140,
+            height=32,
+            on_change=lambda idx, val: self._on_view_mode_changed(val),
         )
-        self.seg_view.pack(side="left", padx=(0, 12))
+        self.seg_view.pack(side="left", padx=(0, 10))
 
-        # Hidden Files Toggle
-        hidden_box = ttk.Frame(actions_box)
-        hidden_box.pack(side="left", padx=(0, 12))
-        ttk.Label(hidden_box, text="Hidden:").pack(side="left", padx=(0, 6))
-        self.toggle_hidden = tkblend.ToggleSwitch(
-            hidden_box,
-            variable=self.show_hidden_var,
-            command=self._on_toggle_hidden,
+        # Hidden Files Toggle Switch
+        self.hidden_box = tk.Frame(self.actions_box, bg=self.toolbar_card.bg_color)
+        self.hidden_box.pack(side="left", padx=(0, 10))
+
+        self.lbl_hidden = tk.Label(
+            self.hidden_box,
+            text="Hidden:",
+            font=("sans-serif", 9),
+            bg=self.toolbar_card.bg_color,
+            fg=tb.get_theme().fg,
+        )
+        self.lbl_hidden.pack(side="left", padx=(0, 4))
+
+        self.toggle_hidden = tb.Switch(
+            self.hidden_box,
+            is_on=self.show_hidden,
+            on_toggle=self._on_toggle_hidden,
+            width=42,
+            height=22,
         )
         self.toggle_hidden.pack(side="left")
 
-        # Theme Switcher Button
-        self.btn_theme = ttk.Button(
-            actions_box,
-            text="☀️ Light" if self.is_dark else "🌙 Dark",
-            style="Secondary.TButton",
-            command=self.toggle_theme,
+        # Theme Selector Dropdown
+        theme_names = list(tb.get_available_themes())
+        self.theme_menu = tb.OptionMenu(
+            self.actions_box,
+            values=theme_names,
+            selected_value=tb.get_theme().name,
+            command=self._on_theme_selected,
+            width=130,
+            height=32,
         )
-        self.btn_theme.pack(side="left")
+        self.theme_menu.pack(side="left")
 
     # -------------------------------------------------------------------------
-    # 3-Pane Responsive Layout (PanedWindow)
+    # Main 3-Pane Layout
     # -------------------------------------------------------------------------
-    def _build_panes(self):
-        self.paned = ttk.Panedwindow(self.root, orient="horizontal")
-        self.paned.pack(fill="both", expand=True, padx=16, pady=(4, 8))
+    def _build_main_panes(self):
+        self.panes_container = tk.Frame(self.root, bg=tb.get_theme().bg)
+        self.panes_container.pack(fill="both", expand=True, padx=12, pady=(8, 4))
 
-        # Pane 1: Left Navigation Sidebar (Favorites + Directory Tree)
-        self.sidebar_frame = ttk.Frame(self.paned, padding=4)
-        self._build_sidebar(self.sidebar_frame)
+        self.panes_container.grid_columnconfigure(0, weight=1)  # Left Sidebar
+        self.panes_container.grid_columnconfigure(1, weight=4)  # Center Files
+        self.panes_container.grid_columnconfigure(2, weight=2)  # Right Inspector
+        self.panes_container.grid_rowconfigure(0, weight=1)
 
-        # Pane 2: Center File Content Area (Details Table or Grid Tiles)
-        self.center_frame = ttk.Frame(self.paned, padding=4)
-        self._build_center_area(self.center_frame)
+        # Pane 1: Left Sidebar
+        self.sidebar_card = tb.Card(self.panes_container, rx=10, ry=10, elevation=2.0)
+        self.sidebar_card.grid(row=0, column=0, padx=(0, 6), sticky="nsew")
+        self._build_sidebar(self.sidebar_card)
+
+        # Pane 2: Center File Content Area
+        self.center_card = tb.Card(self.panes_container, rx=10, ry=10, elevation=2.0)
+        self.center_card.grid(row=0, column=1, padx=4, sticky="nsew")
+        self._build_center_area(self.center_card)
 
         # Pane 3: Right Collapsible Preview & Inspector Panel
-        self.preview_frame = tkblend.Card(self.paned, padding=12)
-        self._build_preview_panel(self.preview_frame)
-
-        # Add panes with default proportional weights
-        self.paned.add(self.sidebar_frame, weight=1)
-        self.paned.add(self.center_frame, weight=3)
-        self.paned.add(self.preview_frame, weight=2)
+        self.preview_card = tb.Card(self.panes_container, rx=10, ry=10, elevation=2.0)
+        self.preview_card.grid(row=0, column=2, padx=(6, 0), sticky="nsew")
+        self._build_preview_panel(self.preview_card)
 
     # -------------------------------------------------------------------------
-    # Sidebar: Quick Access Favorites + Lazy-Loaded Treeview
+    # Sidebar: Quick Access Favorites + Directory Hierarchy
     # -------------------------------------------------------------------------
-    def _build_sidebar(self, parent: ttk.Frame):
-        # Quick Access Favorites Card
-        fav_card = ttk.Labelframe(parent, text=" Quick Access ", padding=8)
-        fav_card.pack(fill="x", pady=(0, 8))
+    def _build_sidebar(self, parent: tb.Card):
+        self.side_inner = tk.Frame(parent, bg=parent.bg_color)
+        self.side_inner.pack(fill="both", expand=True, padx=10, pady=10)
+
+        self.lbl_fav_title = tk.Label(
+            self.side_inner,
+            text="⚡ QUICK ACCESS",
+            font=("sans-serif", 9, "bold"),
+            bg=parent.bg_color,
+            fg=tb.get_theme().primary,
+            anchor="w",
+        )
+        self.lbl_fav_title.pack(fill="x", pady=(0, 6))
 
         workspace_path = Path(os.getcwd()).resolve()
         home_path = Path.home().resolve()
@@ -384,183 +416,149 @@ class FileExplorerApp:
             favs.append(("📥 Downloads", down_path))
         favs.append(("💻 System Root", root_path))
 
+        self.fav_buttons: List[tb.Button] = []
         for label, path in favs:
-            btn = ttk.Button(
-                fav_card,
+            btn = tb.Button(
+                self.side_inner,
                 text=label,
-                style="Ghost.TButton",
+                variant="secondary",
+                rx=6,
+                ry=6,
+                height=30,
                 command=lambda p=path: self.navigate_to(p),
             )
-            btn.pack(fill="x", pady=1)
+            btn.pack(fill="x", pady=2)
+            self.fav_buttons.append(btn)
 
-        # Filesystem Tree
-        tree_box = ttk.Labelframe(parent, text=" File System ", padding=4)
-        tree_box.pack(fill="both", expand=True)
-
-        tree_container = ttk.Frame(tree_box)
-        tree_container.pack(fill="both", expand=True)
-
-        self.side_tree = ttk.Treeview(tree_container, show="tree", selectmode="browse")
-        self.side_scroll = ttk.Scrollbar(
-            tree_container, orient="vertical", command=self.side_tree.yview
+        # Divider
+        self.lbl_tree_title = tk.Label(
+            self.side_inner,
+            text="📂 DIRECTORY BROWSER",
+            font=("sans-serif", 9, "bold"),
+            bg=parent.bg_color,
+            fg=tb.get_theme().primary,
+            anchor="w",
         )
-        self.side_tree.configure(yscrollcommand=self.side_scroll.set)
+        self.lbl_tree_title.pack(fill="x", pady=(14, 6))
 
-        self.side_scroll.pack(side="right", fill="y")
-        self.side_tree.pack(side="left", fill="both", expand=True)
+        # Scrollable Folder List
+        self.folder_scroll = tb.ScrollableFrame(
+            self.side_inner,
+            rx=8,
+            ry=8,
+            elevation=0.0,
+        )
+        self.folder_scroll.pack(fill="both", expand=True)
+        self.folder_list_frame = self.folder_scroll.scrollable_frame
 
-        self.side_tree.bind("<<TreeviewOpen>>", self._on_tree_node_open)
-        self.side_tree.bind("<<TreeviewSelect>>", self._on_tree_node_select)
+    def _populate_sidebar_folders(self):
+        """Populate subdirectories of current directory in sidebar for quick navigation."""
+        for child in self.folder_list_frame.winfo_children():
+            child.destroy()
 
-        # Populate top root node
-        self._populate_sidebar_tree_roots()
+        try:
+            subdirs = [
+                p
+                for p in self.current_dir.iterdir()
+                if p.is_dir()
+                and (self.show_hidden or not p.name.startswith("."))
+            ]
+            subdirs.sort(key=lambda p: p.name.lower())
+        except (PermissionError, OSError):
+            subdirs = []
 
-    def _populate_sidebar_tree_roots(self):
-        """Populate top-level root folders in sidebar tree."""
-        self.side_tree.delete(*self.side_tree.get_children())
-        roots = []
-
-        workspace_path = Path(os.getcwd()).resolve()
-        roots.append(("Workspace", workspace_path))
-
-        if platform.system() == "Windows":
-            import string
-
-            for drive in string.ascii_uppercase:
-                p = Path(f"{drive}:\\")
-                if p.exists():
-                    roots.append((f"Local Disk ({drive}:)", p))
-        else:
-            roots.append(("Root (/)", Path("/")))
-            roots.append(("Home (~)", Path.home()))
-
-        for name, path in roots:
-            node_id = self.side_tree.insert(
-                "", "end", text=f"📁 {name}", values=(str(path),)
+        if not subdirs:
+            lbl_empty = tk.Label(
+                self.folder_list_frame,
+                text="No subfolders",
+                font=("sans-serif", 9),
+                bg=self.folder_scroll.bg_color,
+                fg=tb.get_theme().secondary_fg,
             )
-            # Insert dummy node for lazy-loading subdirectories
-            self.side_tree.insert(node_id, "end", text="Loading...")
-
-    def _on_tree_node_open(self, event):
-        """Lazy-load directory children when tree node chevron is expanded."""
-        sel = self.side_tree.focus()
-        if not sel:
+            lbl_empty.pack(padx=8, pady=8)
             return
 
-        values = self.side_tree.item(sel, "values")
-        if not values:
-            return
-
-        dir_path = Path(values[0])
-        children = self.side_tree.get_children(sel)
-
-        # If only dummy node exists, replace with real subdirectories
-        if (
-            len(children) == 1
-            and self.side_tree.item(children[0], "text") == "Loading..."
-        ):
-            self.side_tree.delete(children[0])
-            try:
-                subdirs = [
-                    p
-                    for p in dir_path.iterdir()
-                    if p.is_dir()
-                    and (self.show_hidden_var.get() or not p.name.startswith("."))
-                ]
-                subdirs.sort(key=lambda p: p.name.lower())
-                for sub in subdirs:
-                    sub_node = self.side_tree.insert(
-                        sel, "end", text=f"📁 {sub.name}", values=(str(sub),)
-                    )
-                    # Check if sub has children to add dummy placeholder
-                    try:
-                        has_children = any(c.is_dir() for c in sub.iterdir())
-                        if has_children:
-                            self.side_tree.insert(sub_node, "end", text="Loading...")
-                    except (PermissionError, OSError):
-                        pass
-            except (PermissionError, OSError):
-                pass
-
-    def _on_tree_node_select(self, event):
-        """Navigate to selected directory when clicking a node in sidebar."""
-        sel = self.side_tree.focus()
-        if not sel:
-            return
-        values = self.side_tree.item(sel, "values")
-        if values:
-            target = Path(values[0])
-            if target.is_dir() and target != self.current_dir:
-                self.navigate_to(target)
+        for sub in subdirs:
+            btn = tb.Button(
+                self.folder_list_frame,
+                text=f"📁 {sub.name}",
+                variant="outline",
+                rx=6,
+                ry=6,
+                height=28,
+                command=lambda p=sub: self.navigate_to(p),
+            )
+            btn.pack(fill="x", padx=4, pady=1)
 
     # -------------------------------------------------------------------------
     # Center Pane: Details Table & Grid / Icon Tile Views
     # -------------------------------------------------------------------------
-    def _build_center_area(self, parent: ttk.Frame):
-        self.center_container = ttk.Frame(parent)
-        self.center_container.pack(fill="both", expand=True)
+    def _build_center_area(self, parent: tb.Card):
+        self.center_inner = tk.Frame(parent, bg=parent.bg_color)
+        self.center_inner.pack(fill="both", expand=True, padx=8, pady=8)
 
-        # 1. Details Table Frame (Card container with unified rounded border)
-        self.details_frame = tkblend.Card(self.center_container, padding=2)
+        # 1. Details Table (tb.Table)
+        columns = [
+            {"id": "icon", "title": "", "width": 36, "align": "center"},
+            {"id": "name", "title": "Name", "width": 240, "align": "left"},
+            {"id": "size_str", "title": "Size", "width": 85, "align": "right"},
+            {
+                "id": "category",
+                "title": "Type",
+                "width": 110,
+                "align": "center",
+                "type": "badge",
+                "badge_colors": {
+                    "Folder": "#3b82f6",
+                    "Python": "#10b981",
+                    "Python Stub": "#10b981",
+                    "C Source": "#8b5cf6",
+                    "C++ Source": "#8b5cf6",
+                    "Rust": "#f97316",
+                    "Go": "#06b6d4",
+                    "JavaScript": "#eab308",
+                    "TypeScript": "#3b82f6",
+                    "Text": "#64748b",
+                    "Markdown": "#64748b",
+                    "JSON Data": "#f59e0b",
+                    "TOML Config": "#f59e0b",
+                    "YAML Config": "#f59e0b",
+                    "PNG Image": "#10b981",
+                    "JPEG Image": "#10b981",
+                    "Zip Archive": "#ec4899",
+                },
+                "badge_fg": "#ffffff",
+            },
+            {"id": "mtime_str", "title": "Date Modified", "width": 150, "align": "left"},
+            {"id": "permissions", "title": "Permissions", "width": 100, "align": "left"},
+        ]
 
-        columns = ("name", "size", "type", "modified", "permissions")
-        self.table = ttk.Treeview(
-            self.details_frame, columns=columns, show="headings", selectmode="browse"
+        self.table = tb.Table(
+            self.center_inner,
+            columns=columns,
+            data=[],
+            select_mode="single",
+            rx=8,
+            ry=8,
+            elevation=0.0,
+            on_select=self._on_table_select,
+            on_double_click=self._on_table_double_click,
         )
-        self.table_scroll_y = ttk.Scrollbar(
-            self.details_frame, orient="vertical", command=self.table.yview
-        )
-        self.table_scroll_x = ttk.Scrollbar(
-            self.details_frame, orient="horizontal", command=self.table.xview
-        )
-        self.table.configure(
-            yscrollcommand=self.table_scroll_y.set,
-            xscrollcommand=self.table_scroll_x.set,
-        )
-
-        self.table.heading(
-            "name", text="Name", command=lambda: self._sort_table_by("name")
-        )
-        self.table.heading(
-            "size", text="Size", command=lambda: self._sort_table_by("size")
-        )
-        self.table.heading(
-            "type", text="Type", command=lambda: self._sort_table_by("type")
-        )
-        self.table.heading(
-            "modified",
-            text="Date Modified",
-            command=lambda: self._sort_table_by("modified"),
-        )
-        self.table.heading(
-            "permissions",
-            text="Permissions",
-            command=lambda: self._sort_table_by("permissions"),
-        )
-
-        self.table.column("name", width=220, minwidth=130, stretch=True)
-        self.table.column("size", width=80, minwidth=65, stretch=False, anchor="e")
-        self.table.column("type", width=110, minwidth=80, stretch=False)
-        self.table.column("modified", width=150, minwidth=110, stretch=False)
-        self.table.column("permissions", width=95, minwidth=70, stretch=False)
-
-        self.table_scroll_y.pack(side="right", fill="y")
-        self.table_scroll_x.pack(side="bottom", fill="x")
-        self.table.pack(side="left", fill="both", expand=True)
-
-        self.table.bind("<<TreeviewSelect>>", self._on_table_select)
-        self.table.bind("<Double-Button-1>", self._on_table_double_click)
+        self.table.pack(fill="both", expand=True)
         self.table.bind("<Button-3>", self._on_show_context_menu)
 
-        # 2. Grid / Tiles Frame (ScrolledFrame)
-        self.grid_frame = ScrolledFrame(self.center_container)
-        self.grid_frame.content.bind("<Button-3>", self._on_show_context_menu)
-
-        # Pack initial default view mode
-        self.details_frame.pack(fill="both", expand=True)
+        # 2. Grid / Tiles Frame (tb.ScrollableFrame)
+        self.grid_scroll = tb.ScrollableFrame(
+            self.center_inner,
+            rx=8,
+            ry=8,
+            elevation=0.0,
+        )
+        self.grid_content = self.grid_scroll.scrollable_frame
+        self.grid_content.bind("<Button-3>", self._on_show_context_menu)
 
     def _sort_table_by(self, column: str):
-        """Toggle column sort order and re-render."""
+        """Toggle column sort order and refresh views."""
         if self.sort_column == column:
             self.sort_descending = not self.sort_descending
         else:
@@ -572,41 +570,56 @@ class FileExplorerApp:
         """Switch between Details table and Grid tile views."""
         self.current_view_mode = mode
         if mode == "Details":
-            self.grid_frame.pack_forget()
-            self.details_frame.pack(fill="both", expand=True)
+            self.grid_scroll.pack_forget()
+            self.table.pack(fill="both", expand=True)
         else:
-            self.details_frame.pack_forget()
-            self.grid_frame.pack(fill="both", expand=True)
+            self.table.pack_forget()
+            self.grid_scroll.pack(fill="both", expand=True)
             self._render_grid_view()
 
     # -------------------------------------------------------------------------
     # Right Pane: Multi-Format Preview & Inspector Panel
     # -------------------------------------------------------------------------
-    def _build_preview_panel(self, parent: ttk.Frame):
+    def _build_preview_panel(self, parent: tb.Card):
+        self.preview_inner = tk.Frame(parent, bg=parent.bg_color)
+        self.preview_inner.pack(fill="both", expand=True, padx=10, pady=10)
+
         # Header Box with Title and File Type Badge
-        self.p_header = ttk.Frame(parent)
+        self.p_header = tk.Frame(self.preview_inner, bg=parent.bg_color)
         self.p_header.pack(fill="x", pady=(0, 8))
 
         self.p_title_var = tk.StringVar(value="Select an item")
-        self.lbl_preview_title = ttk.Label(
+        self.lbl_preview_title = tk.Label(
             self.p_header,
             textvariable=self.p_title_var,
-            font=("Helvetica", 12, "bold"),
-            wraplength=220,
+            font=("sans-serif", 11, "bold"),
+            bg=parent.bg_color,
+            fg=tb.get_theme().fg,
+            wraplength=230,
+            justify="left",
+            anchor="w",
         )
-        self.lbl_preview_title.pack(anchor="w")
+        self.lbl_preview_title.pack(fill="x")
 
-        self.p_badge_box = ttk.Frame(self.p_header)
-        self.p_badge_box.pack(anchor="w", pady=(4, 0))
+        self.p_badge_box = tk.Frame(self.p_header, bg=parent.bg_color)
+        self.p_badge_box.pack(anchor="w", pady=(6, 0))
 
-        self.preview_badge = tkblend.Badge(
-            self.p_badge_box, text="File Explorer", variant="primary", dot=True
+        self.preview_badge = tb.Badge(
+            self.p_badge_box, text="File Explorer", variant="primary"
         )
         self.preview_badge.pack(side="left")
 
-        # Metadata Details Card
-        meta_card = ttk.Labelframe(parent, text=" File Properties ", padding=8)
-        meta_card.pack(fill="x", pady=(0, 10))
+        # Metadata Properties Card
+        self.meta_card = tb.Frame(
+            self.preview_inner,
+            rx=8,
+            ry=8,
+            elevation=0.0,
+        )
+        self.meta_card.pack(fill="x", pady=(0, 10))
+
+        self.meta_inner = tk.Frame(self.meta_card, bg=self.meta_card.bg_color)
+        self.meta_inner.pack(fill="both", expand=True, padx=8, pady=8)
 
         self.meta_vars = {
             "Path": tk.StringVar(value="-"),
@@ -615,63 +628,94 @@ class FileExplorerApp:
             "Permissions": tk.StringVar(value="-"),
         }
 
-        for idx, (label, var) in enumerate(self.meta_vars.items()):
-            row = ttk.Frame(meta_card)
+        self.meta_labels: List[tk.Label] = []
+        for label, var in self.meta_vars.items():
+            row = tk.Frame(self.meta_inner, bg=self.meta_card.bg_color)
             row.pack(fill="x", pady=2)
-            ttk.Label(
-                row, text=f"{label}:", width=12, font=("Helvetica", 9, "bold")
-            ).pack(side="left")
-            ttk.Label(
-                row, textvariable=var, font=("Helvetica", 9), wraplength=180
-            ).pack(side="left", fill="x", expand=True)
+            lbl_key = tk.Label(
+                row,
+                text=f"{label}:",
+                width=11,
+                font=("sans-serif", 9, "bold"),
+                bg=self.meta_card.bg_color,
+                fg=tb.get_theme().fg,
+                anchor="w",
+            )
+            lbl_key.pack(side="left")
+            self.meta_labels.append(lbl_key)
+
+            lbl_val = tk.Label(
+                row,
+                textvariable=var,
+                font=("sans-serif", 9),
+                bg=self.meta_card.bg_color,
+                fg=tb.get_theme().secondary_fg,
+                wraplength=170,
+                justify="left",
+                anchor="w",
+            )
+            lbl_val.pack(side="left", fill="x", expand=True)
+            self.meta_labels.append(lbl_val)
 
         # Content Preview Section
-        prev_section = ttk.Labelframe(parent, text=" Content Preview ", padding=6)
-        prev_section.pack(fill="both", expand=True)
+        self.prev_section_lbl = tk.Label(
+            self.preview_inner,
+            text="CONTENT PREVIEW",
+            font=("sans-serif", 9, "bold"),
+            bg=parent.bg_color,
+            fg=tb.get_theme().primary,
+            anchor="w",
+        )
+        self.prev_section_lbl.pack(fill="x", pady=(4, 6))
 
-        self.prev_container = ttk.Frame(prev_section)
+        self.prev_container = tk.Frame(self.preview_inner, bg=parent.bg_color)
         self.prev_container.pack(fill="both", expand=True)
 
-        # 1. Text Viewer (Text + Scrollbar in container)
-        self.text_box = ttk.Frame(self.prev_container)
-        self.text_scroll = ttk.Scrollbar(self.text_box, orient="vertical")
-        self.text_preview = tk.Text(
-            self.text_box,
+        # 1. Text / Code Viewer (tb.TextBox)
+        self.text_preview = tb.TextBox(
+            self.prev_container,
+            rx=8,
+            ry=8,
             wrap="none",
-            font=("Courier", 9),
-            borderwidth=0,
-            highlightthickness=0,
-            yscrollcommand=self.text_scroll.set,
-        )
-        self.text_scroll.configure(command=self.text_preview.yview)
-        self.text_scroll.pack(side="right", fill="y")
-        self.text_preview.pack(side="left", fill="both", expand=True)
-
-        # 2. Image / Visual Canvas
-        self.image_preview_lbl = ttk.Label(
-            self.prev_container, text="No preview available", anchor="center"
+            placeholder_text="No text content to preview...",
         )
 
-        # Show empty placeholder initially
+        # 2. Image / Visual Label
+        self.image_preview_lbl = tk.Label(
+            self.prev_container,
+            text="No preview available",
+            bg=parent.bg_color,
+            fg=tb.get_theme().secondary_fg,
+            font=("sans-serif", 10),
+            justify="center",
+        )
         self.image_preview_lbl.pack(fill="both", expand=True)
 
     # -------------------------------------------------------------------------
     # Status Bar
     # -------------------------------------------------------------------------
     def _build_status_bar(self):
-        status_frame = ttk.Frame(self.root)
-        status_frame.pack(side="bottom", fill="x")
+        self.status_card = tb.Frame(
+            self.root,
+            rx=0,
+            ry=0,
+            elevation=1.0,
+            height=30,
+        )
+        self.status_card.pack(side="bottom", fill="x")
 
         self.status_var = tk.StringVar(value="Ready")
-        ttk.Label(
-            status_frame,
+        self.lbl_status = tk.Label(
+            self.status_card,
             textvariable=self.status_var,
-            padding=(16, 6),
-            font=("Helvetica", 9),
-        ).pack(side="left", fill="x", expand=True)
-
-        self.sizegrip = ttk.Sizegrip(status_frame)
-        self.sizegrip.pack(side="right", anchor="se", padx=2, pady=2)
+            font=("sans-serif", 9),
+            bg=self.status_card.bg_color,
+            fg=tb.get_theme().fg,
+            padx=16,
+            pady=4,
+            anchor="w",
+        )
+        self.lbl_status.pack(side="left", fill="x", expand=True)
 
     # -------------------------------------------------------------------------
     # Context Menu
@@ -703,11 +747,6 @@ class FileExplorerApp:
 
     def _on_show_context_menu(self, event):
         """Popup right-click context menu."""
-        # Find item under cursor if clicking on tree
-        item_id = self.table.identify_row(event.y)
-        if item_id:
-            self.table.selection_set(item_id)
-            self._on_table_select(None)
         try:
             self.context_menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -733,14 +772,9 @@ class FileExplorerApp:
             self.current_dir = target_path
             self.path_entry.set(str(self.current_dir))
 
-            # Update Back/Forward button states
-            self.btn_back.configure(state="normal" if self.history_back else "disabled")
-            self.btn_forward.configure(
-                state="normal" if self.history_forward else "disabled"
-            )
-
             # Scan directory items
             self._scan_current_directory()
+            self._populate_sidebar_folders()
             self._refresh_content_views()
 
         except PermissionError:
@@ -754,16 +788,16 @@ class FileExplorerApp:
         """Scan directory entries and cache metadata."""
         items: List[Dict[str, Any]] = []
         try:
-            show_hidden = self.show_hidden_var.get()
             with os.scandir(self.current_dir) as entries:
                 for entry in entries:
-                    if not show_hidden and entry.name.startswith("."):
+                    if not self.show_hidden and entry.name.startswith("."):
                         continue
                     p = Path(entry.path)
                     items.append(get_file_info(p))
         except (PermissionError, OSError) as e:
             self.status_var.set(f"Scan warning: {e}")
 
+        # Default sort: folders first, then by sort_column
         self.current_items = items
 
     def _refresh_content_views(self):
@@ -773,7 +807,6 @@ class FileExplorerApp:
             query = self.search_query.lower()
             filtered = [it for it in filtered if query in it["name"].lower()]
 
-        # Sort: Folders always first, then by selected column
         def sort_key(it: Dict[str, Any]):
             is_folder = 0 if it["is_dir"] else 1
             val: Any = it["name"].lower()
@@ -789,23 +822,8 @@ class FileExplorerApp:
 
         filtered.sort(key=sort_key, reverse=self.sort_descending)
 
-        # Populate Details table
-        self.table.delete(*self.table.get_children())
-        for it in filtered:
-            icon_prefix = it["icon"] + " "
-            row_id = self.table.insert(
-                "",
-                "end",
-                values=(
-                    icon_prefix + it["name"],
-                    it["size_str"],
-                    it["category"],
-                    it["mtime_str"],
-                    it["permissions"],
-                ),
-            )
-            # Store path in tag
-            self.table.item(row_id, tags=(str(it["path"]),))
+        # Populate Table
+        self.table.set_data(filtered)
 
         # Populate Grid View if active
         if self.current_view_mode == "Grid":
@@ -841,8 +859,7 @@ class FileExplorerApp:
                 query = self.search_query.lower()
                 items = [it for it in items if query in it["name"].lower()]
 
-        # Clear existing grid content
-        for widget in self.grid_frame.content.winfo_children():
+        for widget in self.grid_content.winfo_children():
             widget.destroy()
 
         columns_count = 4
@@ -850,29 +867,42 @@ class FileExplorerApp:
             row = idx // columns_count
             col = idx % columns_count
 
-            # Card tile container
-            card = tkblend.Card(self.grid_frame.content, padding=10)
-            card.grid(row=row, column=col, padx=8, pady=8, sticky="nsew")
+            card = tb.Card(self.grid_content, rx=8, ry=8, elevation=1.0)
+            card.grid(row=row, column=col, padx=6, pady=6, sticky="nsew")
 
-            # Icon & Name
-            lbl_icon = ttk.Label(card, text=it["icon"], font=("Helvetica", 24))
-            lbl_icon.pack(pady=(4, 2))
+            card_inner = tk.Frame(card, bg=card.bg_color)
+            card_inner.pack(fill="both", expand=True, padx=8, pady=8)
+
+            lbl_icon = tk.Label(
+                card_inner,
+                text=it["icon"],
+                font=("sans-serif", 24),
+                bg=card.bg_color,
+            )
+            lbl_icon.pack(pady=(2, 2))
 
             short_name = it["name"]
-            if len(short_name) > 16:
-                short_name = short_name[:13] + "..."
-            lbl_name = ttk.Label(card, text=short_name, font=("Helvetica", 10, "bold"))
+            if len(short_name) > 14:
+                short_name = short_name[:11] + "..."
+            lbl_name = tk.Label(
+                card_inner,
+                text=short_name,
+                font=("sans-serif", 9, "bold"),
+                bg=card.bg_color,
+                fg=tb.get_theme().fg,
+            )
             lbl_name.pack()
 
-            lbl_sub = ttk.Label(
-                card,
+            lbl_sub = tk.Label(
+                card_inner,
                 text=it["size_str"] if not it["is_dir"] else "Folder",
-                font=("Helvetica", 8),
+                font=("sans-serif", 8),
+                bg=card.bg_color,
+                fg=tb.get_theme().secondary_fg,
             )
-            lbl_sub.pack(pady=(2, 4))
+            lbl_sub.pack(pady=(2, 2))
 
-            # Bindings for selection and navigation
-            for w in (card, lbl_icon, lbl_name, lbl_sub):
+            for w in (card, card_inner, lbl_icon, lbl_name, lbl_sub):
                 w.bind("<Button-1>", lambda e, item=it: self._select_item(item))
                 w.bind(
                     "<Double-Button-1>",
@@ -881,7 +911,7 @@ class FileExplorerApp:
                 w.bind("<Button-3>", self._on_show_context_menu)
 
         for c in range(columns_count):
-            self.grid_frame.content.columnconfigure(c, weight=1)
+            self.grid_content.columnconfigure(c, weight=1)
 
     # -------------------------------------------------------------------------
     # Item Selection & Multi-Format Preview Display
@@ -913,14 +943,14 @@ class FileExplorerApp:
 
         # 1. Directory Preview
         if it["is_dir"]:
-            self.text_box.pack_forget()
+            self.text_preview.pack_forget()
             self.image_preview_lbl.pack(fill="both", expand=True)
             try:
                 sub_count = len(list(target_path.iterdir()))
                 self.image_preview_lbl.configure(
                     image="",
                     text=f"📁 Folder\n\nContains {sub_count} items.\nDouble-click to browse folder.",
-                    font=("Helvetica", 10),
+                    font=("sans-serif", 10),
                 )
             except Exception:
                 self.image_preview_lbl.configure(
@@ -941,16 +971,16 @@ class FileExplorerApp:
         ):
             try:
                 img = Image.open(target_path)
-                img.thumbnail((260, 240), Image.Resampling.LANCZOS)
+                img.thumbnail((260, 220), Image.Resampling.LANCZOS)
                 self._thumbnail_photo = ImageTk.PhotoImage(img)
 
-                self.text_box.pack_forget()
+                self.text_preview.pack_forget()
                 self.image_preview_lbl.pack(fill="both", expand=True)
                 self.image_preview_lbl.configure(
                     image=self._thumbnail_photo,
                     text=f"\nImage Resolution: {img.width} × {img.height}",
                     compound="top",
-                    font=("Helvetica", 9),
+                    font=("sans-serif", 9),
                 )
                 return
             except Exception as err:
@@ -990,55 +1020,44 @@ class FileExplorerApp:
         if is_text_candidate or it["size"] < 256 * 1024:
             try:
                 with open(target_path, "r", encoding="utf-8", errors="replace") as f:
-                    lines = [f.readline() for _ in range(300)]
+                    lines = [f.readline() for _ in range(250)]
 
                 self.image_preview_lbl.pack_forget()
-                self.text_box.pack(fill="both", expand=True)
-                self.text_preview.delete("1.0", tk.END)
+                self.text_preview.pack(fill="both", expand=True)
+                self.text_preview.clear()
 
-                # Format with line numbers for neat code display
                 preview_lines = []
                 for i, line in enumerate(lines, 1):
-                    preview_lines.append(f"{i:4d} | {line}")
-                self.text_preview.insert("1.0", "".join(preview_lines))
+                    preview_lines.append(f"{i:3d} | {line}")
+                self.text_preview.set_text("".join(preview_lines))
                 return
             except Exception:
                 pass
 
         # 4. Binary / Unsupported Preview Placeholder
-        self.text_box.pack_forget()
+        self.text_preview.pack_forget()
         self.image_preview_lbl.pack(fill="both", expand=True)
         self.image_preview_lbl.configure(
             image="",
             text=f"⚙️ Binary / Structured File\n\nDirect preview not available.\nSize: {it['size_str']}",
             compound="none",
-            font=("Helvetica", 10),
+            font=("sans-serif", 10),
         )
 
     # -------------------------------------------------------------------------
     # Event Handlers & Actions
     # -------------------------------------------------------------------------
-    def _on_table_select(self, event):
-        sel = self.table.focus()
-        if not sel:
-            return
-        tags = self.table.item(sel, "tags")
-        if tags:
-            selected_path = Path(tags[0])
-            for it in self.current_items:
-                if it["path"] == selected_path:
-                    self._select_item(it)
-                    break
+    def _on_table_select(self, indices: Any, rows: Any = None):
+        selected_rows = self.table.get_selected_rows()
+        if selected_rows:
+            row = selected_rows[0]
+            if isinstance(row, dict):
+                self._select_item(row)
 
-    def _on_table_double_click(self, event):
-        sel = self.table.focus()
-        if not sel:
-            return
-        tags = self.table.item(sel, "tags")
-        if tags:
-            target = Path(tags[0])
-            if target.is_dir():
-                self.navigate_to(target)
+    def _on_table_double_click(self, row_idx: int, row_data: Any):
+        if isinstance(row_data, dict):
+            if row_data.get("is_dir"):
+                self.navigate_to(row_data["path"])
 
     def _on_item_double_click(self, it: Dict[str, Any]):
         if it["is_dir"]:
@@ -1053,8 +1072,10 @@ class FileExplorerApp:
         self.search_query = self.search_entry.get().strip()
         self._refresh_content_views()
 
-    def _on_toggle_hidden(self):
+    def _on_toggle_hidden(self, is_on: bool):
+        self.show_hidden = is_on
         self._scan_current_directory()
+        self._populate_sidebar_folders()
         self._refresh_content_views()
 
     def go_back(self):
@@ -1076,19 +1097,39 @@ class FileExplorerApp:
 
     def refresh(self):
         self._scan_current_directory()
+        self._populate_sidebar_folders()
         self._refresh_content_views()
         self.status_var.set(f"Refreshed: {self.current_dir.name}")
 
     def toggle_theme(self):
-        """Toggle between Dark Mode and Light Mode with native Blend2D TTK theme."""
-        self.is_dark = not self.is_dark
-        tkblend.apply_theme(
-            self.root, dark_mode=self.is_dark, enable_shadows=True, **_THEME_OPTS
-        )
-        self.btn_theme.configure(text="☀️ Light" if self.is_dark else "🌙 Dark")
-        self.status_var.set(
-            f"Theme switched to {'Dark' if self.is_dark else 'Light'} mode."
-        )
+        """Toggle between dark and light themes."""
+        cur = tb.get_theme()
+        new_theme = "light" if cur.dark_mode else "dark"
+        tb.set_theme(new_theme)
+
+    def _on_theme_selected(self, theme_name: str):
+        tb.set_theme(theme_name)
+
+    def _on_theme_changed(self, palette: tb.Palette):
+        if not self.root.winfo_exists():
+            return
+        self.root.configure(background=palette.bg)
+        self.panes_container.configure(background=palette.bg)
+        self.theme_menu.set(palette.name)
+
+        # Update label colors
+        self.lbl_fav_title.configure(bg=self.sidebar_card.bg_color, fg=palette.primary)
+        self.lbl_tree_title.configure(bg=self.sidebar_card.bg_color, fg=palette.primary)
+        self.lbl_preview_title.configure(bg=self.preview_card.bg_color, fg=palette.fg)
+        self.prev_section_lbl.configure(bg=self.preview_card.bg_color, fg=palette.primary)
+        self.lbl_hidden.configure(bg=self.toolbar_card.bg_color, fg=palette.fg)
+        self.lbl_status.configure(bg=self.status_card.bg_color, fg=palette.fg)
+        self.image_preview_lbl.configure(bg=self.preview_card.bg_color, fg=palette.secondary_fg)
+
+        for lbl in self.meta_labels:
+            lbl.configure(bg=self.meta_card.bg_color)
+
+        tb.cascade_bg_to_children(self.root, palette.bg)
 
     # -------------------------------------------------------------------------
     # Context Menu Actions
@@ -1148,7 +1189,6 @@ class FileExplorerApp:
             elif platform.system() == "Darwin":
                 subprocess.run(["open", "-a", "Terminal", str(target_dir)], check=False)
             else:
-                # Try common Linux terminal emulators
                 terminals = [
                     "x-terminal-emulator",
                     "gnome-terminal",
@@ -1168,11 +1208,13 @@ class FileExplorerApp:
         except Exception as err:
             self.status_var.set(f"Open terminal failed: {err}")
 
+    def mainloop(self):
+        self.root.mainloop()
+
 
 def main():
-    root = tk.Tk()
-    app = FileExplorerApp(root)
-    root.mainloop()
+    app = FileExplorerApp()
+    app.mainloop()
 
 
 if __name__ == "__main__":
