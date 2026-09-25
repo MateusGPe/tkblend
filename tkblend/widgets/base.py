@@ -271,8 +271,11 @@ class Widget(tk.Label):
         if event is not None and getattr(event, "widget", None) != self:
             return
         remove_theme_listener(self._on_theme_changed)
-        if hasattr(self, "_cleanup_variable_sync"):
-            self._cleanup_variable_sync()
+        if hasattr(self, "_var_sync") and self._var_sync is not None:
+            try:
+                self._var_sync.cleanup()
+            except Exception:
+                pass
         if hasattr(self, "_surface") and self._surface is not None:
             try:
                 self._surface.close()
@@ -346,7 +349,8 @@ class Widget(tk.Label):
             self._widget_w = new_w
             self._widget_h = new_h
             self._photo.configure(width=photo_w, height=photo_h)
-            self._surface.resize(self._widget_w, self._widget_h)
+            if self._surface is not None:
+                self._surface.resize(self._widget_w, self._widget_h)
             self.render()
 
     def _on_enter(self, event) -> None:
@@ -406,58 +410,100 @@ class Widget(tk.Label):
         self._surface.blit(self._photo)
 
 
-class VariableSyncMixin:
+class VariableSync:
     """
-    Mixin providing standard, robust synchronization with Tkinter variables
+    Controller providing standard, robust synchronization with Tkinter variables
     (StringVar, IntVar, DoubleVar, BooleanVar) including tracing, type safety,
-    and automatic cleanup.
+    re-entrancy suppression, and automatic cleanup.
     """
 
-    _variable: Optional[Any] = None
-    _trace_id: Optional[str] = None
-    _on_variable_change_cb: Optional[Any] = None
-    _type_caster: Optional[Any] = None
-
-    def _init_variable_sync(
+    def __init__(
         self,
         variable: Optional[Any] = None,
         initial_value: Any = None,
-        on_variable_change: Optional[Any] = None,
-        type_caster: Optional[Any] = None,
-    ) -> Any:
-        self._variable = variable
-        self._on_variable_change_cb = on_variable_change
-        self._type_caster = type_caster
-        val = initial_value
+        on_change: Optional[Callable[[Any], None]] = None,
+        type_caster: Optional[Callable[[Any], Any]] = None,
+    ) -> None:
+        self._variable: Optional[Any] = None
+        self._trace_id: Optional[str] = None
+        self._on_change: Optional[Callable[[Any], None]] = on_change
+        self._type_caster: Optional[Callable[[Any], Any]] = type_caster
+        self._current_value: Any = initial_value
+        self._suppress_trace: bool = False
+
+        if variable is not None:
+            self.set_variable(variable, initial_value=initial_value)
+        else:
+            self._current_value = initial_value
+
+    @property
+    def variable(self) -> Optional[Any]:
+        return self._variable
+
+    @variable.setter
+    def variable(self, new_var: Optional[Any]) -> None:
+        self.set_variable(new_var)
+
+    @property
+    def has_variable(self) -> bool:
+        return self._variable is not None
+
+    def get(self) -> Any:
         if self._variable is not None:
             try:
                 raw = self._variable.get()
-                val = self._type_caster(raw) if self._type_caster else raw
+                self._current_value = self._type_caster(raw) if self._type_caster else raw
             except Exception as e:
-                logger.debug("Failed reading initial variable value in %s: %s", self.__class__.__name__, e)
-            try:
-                self._trace_id = self._variable.trace_add("write", self._on_sync_var_changed)
-            except Exception as e:
-                logger.debug("Failed adding trace to variable in %s: %s", self.__class__.__name__, e)
-        return val
+                logger.debug("Failed reading variable value: %s", e)
+        return self._current_value
 
-    def _on_sync_var_changed(self, *args) -> None:
-        if self._variable is not None and self._on_variable_change_cb is not None:
-            try:
-                raw = self._variable.get()
-                val = self._type_caster(raw) if self._type_caster else raw
-                self._on_variable_change_cb(val)
-            except Exception as e:
-                logger.debug("Failed reading synced variable in %s: %s", self.__class__.__name__, e)
-
-    def _set_synced_value(self, val: Any) -> None:
+    def set(self, val: Any) -> None:
+        self._current_value = self._type_caster(val) if self._type_caster else val
         if self._variable is not None:
+            self._suppress_trace = True
             try:
                 self._variable.set(val)
             except Exception as e:
-                logger.debug("Failed setting synced variable in %s: %s", self.__class__.__name__, e)
+                logger.debug("Failed setting synced variable: %s", e)
+            finally:
+                self._suppress_trace = False
 
-    def _cleanup_variable_sync(self) -> None:
+    def set_variable(self, variable: Optional[Any], initial_value: Any = None) -> Any:
+        self.cleanup()
+        self._variable = variable
+        if initial_value is not None:
+            self._current_value = initial_value
+
+        if self._variable is not None:
+            try:
+                raw = self._variable.get()
+                self._current_value = self._type_caster(raw) if self._type_caster else raw
+            except Exception as e:
+                logger.debug("Failed reading initial variable value: %s", e)
+                if self._current_value is not None:
+                    try:
+                        self._variable.set(self._current_value)
+                    except Exception:
+                        pass
+            try:
+                self._trace_id = self._variable.trace_add("write", self._on_trace_write)
+            except Exception as e:
+                logger.debug("Failed adding trace to variable: %s", e)
+        return self._current_value
+
+    def _on_trace_write(self, *args) -> None:
+        if self._suppress_trace:
+            return
+        if self._variable is not None and self._on_change is not None:
+            try:
+                raw = self._variable.get()
+                val = self._type_caster(raw) if self._type_caster else raw
+                self._current_value = val
+                self._on_change(val)
+            except Exception as e:
+                logger.debug("Failed reading synced variable in trace: %s", e)
+
+    def cleanup(self) -> None:
         if self._variable is not None and self._trace_id is not None:
             try:
                 self._variable.trace_remove("write", self._trace_id)

@@ -16,14 +16,14 @@ from tkblend.theme import (
     remove_theme_listener,
     blend_color_hex,
 )
-from tkblend.widgets.base import Widget, ScalingTracker, VariableSyncMixin
+from tkblend.widgets.base import Widget, ScalingTracker, VariableSync
 from tkblend.widgets.dropdown import Dropdown, DropdownItem
 from tkblend.widgets.drawing import draw_vector_chevron, truncate_text
 
 logger = logging.getLogger(__name__)
 
 
-class OptionMenu(Widget, VariableSyncMixin):
+class OptionMenu(Widget):
     """
     Modern OptionMenu selector widget: A button displaying the active selection
     with a vector dropdown chevron and a floating Blend2D popup menu.
@@ -50,12 +50,13 @@ class OptionMenu(Widget, VariableSyncMixin):
     ):
         self._values = list(values) if values else ["Option 1", "Option 2"]
         default_val = selected_value or (self._values[0] if self._values else "")
-        self._selected = self._init_variable_sync(
+        self._var_sync = VariableSync(
             variable=variable,
             initial_value=default_val,
-            on_variable_change=self._on_var_changed,
+            on_change=self._on_var_changed,
             type_caster=str,
         )
+        self._selected = self._var_sync.get()
         self._command = command
         self._rx = rx
         self._ry = ry
@@ -91,7 +92,7 @@ class OptionMenu(Widget, VariableSyncMixin):
     def set(self, value: str) -> None:
         """Set the active selected value."""
         self._selected = str(value)
-        self._set_synced_value(self._selected)
+        self._var_sync.set(self._selected)
         self.render()
 
     def get(self) -> str:
@@ -99,7 +100,7 @@ class OptionMenu(Widget, VariableSyncMixin):
         return self._selected
 
     def destroy(self) -> None:
-        self._cleanup_variable_sync()
+        self._close_popup()
         super().destroy()
 
     def configure_values(self, values: List[str]) -> None:

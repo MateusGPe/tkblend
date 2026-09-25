@@ -11,6 +11,7 @@ from tkblend.theme import blend_color_hex
 from tkblend.widgets.base import (
     ScalingTracker,
     Widget,
+    VariableSync,
     _round_half_away,
     cascade_bg_to_children,
 )
@@ -103,6 +104,7 @@ __all__ = [
     # Base & Infrastructure
     "ScalingTracker",
     "Widget",
+    "VariableSync",
     "cascade_bg_to_children",
     "blend_color_hex",
     # Standard Tk/ttk Canonical Widgets

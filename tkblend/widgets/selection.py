@@ -15,12 +15,12 @@ from tkblend.theme import (
     remove_theme_listener,
     resolve_color_failsafe,
 )
-from tkblend.widgets.base import Widget, VariableSyncMixin
+from tkblend.widgets.base import Widget, VariableSync
 
 logger = logging.getLogger(__name__)
 
 
-class Switch(Widget, VariableSyncMixin):
+class Switch(Widget):
     """
     Modern iOS / Fluent style toggle switch with smooth pill knob.
     """
@@ -40,12 +40,13 @@ class Switch(Widget, VariableSyncMixin):
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
-        self._is_on = self._init_variable_sync(
+        self._var_sync = VariableSync(
             variable=variable,
             initial_value=is_on,
-            on_variable_change=self._on_var_changed,
+            on_change=self._on_var_changed,
             type_caster=bool,
         )
+        self._is_on = self._var_sync.get()
         self._on_toggle = on_toggle or command
         self._explicit_on_color = on_color
         self._explicit_off_color = off_color
@@ -68,12 +69,12 @@ class Switch(Widget, VariableSyncMixin):
     @is_on.setter
     def is_on(self, val: bool) -> None:
         self._is_on = bool(val)
-        self._set_synced_value(self._is_on)
+        self._var_sync.set(self._is_on)
         self.render()
 
     def toggle(self) -> None:
         self._is_on = not self._is_on
-        self._set_synced_value(self._is_on)
+        self._var_sync.set(self._is_on)
         self.render()
         if self._on_toggle:
             try:
@@ -84,10 +85,6 @@ class Switch(Widget, VariableSyncMixin):
     def _handle_click(self, event) -> None:
         if not self._is_disabled:
             self.toggle()
-
-    def destroy(self) -> None:
-        self._cleanup_variable_sync()
-        super().destroy()
 
     def render(self) -> None:
         if self._widget_w <= 1 or self._widget_h <= 1:
@@ -138,7 +135,7 @@ class Switch(Widget, VariableSyncMixin):
 ToggleSwitch = Switch
 
 
-class Checkbutton(Widget, VariableSyncMixin):
+class Checkbutton(Widget):
     """
     Antialiased vector checkbox with custom checkmark Path and label text.
     """
@@ -160,12 +157,13 @@ class Checkbutton(Widget, VariableSyncMixin):
     ):
         self._text = text
         init_val = checked if is_checked is None else bool(is_checked)
-        self._checked = self._init_variable_sync(
+        self._var_sync = VariableSync(
             variable=variable or kwargs.pop("variable", None),
             initial_value=init_val,
-            on_variable_change=self._on_var_changed,
+            on_change=self._on_var_changed,
             type_caster=bool,
         )
+        self._checked = self._var_sync.get()
         self._on_change = on_change or command
         pal = get_theme()
         self._active_color = active_color or pal.primary
@@ -183,7 +181,7 @@ class Checkbutton(Widget, VariableSyncMixin):
     @checked.setter
     def checked(self, val: bool) -> None:
         self._checked = bool(val)
-        self._set_synced_value(self._checked)
+        self._var_sync.set(self._checked)
         self.render()
 
     def get(self) -> bool:
@@ -196,7 +194,7 @@ class Checkbutton(Widget, VariableSyncMixin):
 
     def toggle(self) -> None:
         self._checked = not self._checked
-        self._set_synced_value(self._checked)
+        self._var_sync.set(self._checked)
         self.render()
         if self._on_change:
             try:
@@ -207,10 +205,6 @@ class Checkbutton(Widget, VariableSyncMixin):
     def _handle_click(self, event) -> None:
         if not self._is_disabled:
             self.toggle()
-
-    def destroy(self) -> None:
-        self._cleanup_variable_sync()
-        super().destroy()
 
     def render(self) -> None:
         if self._widget_w <= 1 or self._widget_h <= 1:
@@ -269,7 +263,7 @@ class Checkbutton(Widget, VariableSyncMixin):
             logger.debug("Render failed in Checkbox: %s", e, exc_info=True)
 
 
-class Radiobutton(Widget, VariableSyncMixin):
+class Radiobutton(Widget):
     """
     Individual circular vector radio button with concentric animated dot indicator.
     """
@@ -293,12 +287,13 @@ class Radiobutton(Widget, VariableSyncMixin):
         self._group = group
         pal = get_theme()
         self._active_color = active_color or pal.accent
-        self._selected = self._init_variable_sync(
+        self._var_sync = VariableSync(
             variable=variable or kwargs.pop("variable", None),
             initial_value=bool(selected),
-            on_variable_change=self._on_var_changed,
+            on_change=self._on_var_changed,
             type_caster=lambda v: (str(v) == str(value)) if str(v) not in ("True", "False") else bool(v),
         )
+        self._selected = self._var_sync.get()
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
         if group:
             group.register(self)
@@ -315,8 +310,8 @@ class Radiobutton(Widget, VariableSyncMixin):
     @selected.setter
     def selected(self, val: bool) -> None:
         self._selected = bool(val)
-        if self._selected and self._variable is not None:
-            self._set_synced_value(self._value)
+        if self._selected and self._var_sync.has_variable:
+            self._var_sync.set(self._value)
         self.render()
 
     def get(self) -> str:
@@ -333,10 +328,6 @@ class Radiobutton(Widget, VariableSyncMixin):
                 self._group.select(self._value)
             else:
                 self.selected = True
-
-    def destroy(self) -> None:
-        self._cleanup_variable_sync()
-        super().destroy()
 
     def render(self) -> None:
         if self._widget_w <= 1 or self._widget_h <= 1:
