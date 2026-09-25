@@ -316,4 +316,11 @@ BLFont FontManager::create_font(const std::string& family, float size, int weigh
     return font;
 }
 
+void FontManager::clear_cache() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    font_faces_.clear();
+    font_paths_.clear();
+    system_fonts_cache_.clear();
+}
+
 } // namespace tkblend

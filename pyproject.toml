@@ -60,6 +60,9 @@ CMAKE_BUILD_TYPE = "Release"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --strict-markers"
+markers = [
+    "slow: heavy-stress tests (500-1000 iterations). Run with: pytest -m slow",
+]
 
 [tool.coverage.run]
 source = ["tkblend"]

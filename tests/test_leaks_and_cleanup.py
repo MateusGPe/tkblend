@@ -280,3 +280,120 @@ def test_surface_get_buffer_multithreaded_concurrency():
 
     assert len(errors) == 0
 
+
+def test_tcl_photoimage_registry_cleanup(root):
+    """Verify that widget destruction immediately purges PhotoImage names from Tcl interpreter registry."""
+    initial_images = set(root.tk.call("image", "names"))
+
+    # Create multiple widgets with backing photo images
+    btn = tb.Button(root, text="Click")
+    card = tb.Card(root, title="Card")
+    sw = tb.Switch(root)
+    canvas = tb.BlendCanvas(root, width=100, height=100)
+    root.update_idletasks()
+
+    created_images = set(root.tk.call("image", "names"))
+    assert len(created_images) > len(initial_images)
+
+    # Destroy all widgets
+    btn.destroy()
+    card.destroy()
+    sw.destroy()
+    canvas.destroy()
+    root.update_idletasks()
+
+    final_images = set(root.tk.call("image", "names"))
+    # Every PhotoImage registered by these widgets must be deleted from Tcl registry
+    assert final_images == initial_images
+
+
+def test_surface_explicit_close_and_context_manager():
+    """Verify explicit Surface.close() and context manager behavior."""
+    with tb.Surface(60, 60) as s:
+        assert not s.is_closed
+        s.clear("#ff0000")
+        s.fill_rect(5, 5, 20, 20, "#00ff00")
+
+    assert s.is_closed
+
+    # Operating on closed surface should raise RuntimeError
+    with pytest.raises(RuntimeError, match="Cannot operate on a closed Surface|Cannot resize a closed Surface|Cannot blit from a closed Surface|Cannot get buffer from a closed Surface"):
+        s.clear("#0000ff")
+
+
+def test_surface_buffer_cyclic_reference_gc():
+    """Verify that reference cycles between Surface and its get_buffer memoryview are collected cleanly."""
+    gc.collect()
+
+    class CyclicHolder:
+        def __init__(self):
+            self.surface = tb.Surface(40, 40)
+            self.surface.clear("#ffffff")
+            # Create reference cycle: holder -> surface -> buffer -> holder
+            self.buffer = self.surface.get_buffer()
+            self.buffer_ref = self
+
+    holder = CyclicHolder()
+    del holder
+    gc.collect()
+
+    surfaces_alive = [obj for obj in gc.get_objects() if isinstance(obj, NativeSurface)]
+    assert len(surfaces_alive) == 0
+
+
+def test_cache_purging_and_byte_metrics():
+    """Verify shadow, font, and emoji cache metrics and clear_caches APIs."""
+    tb.clear_caches()
+    assert tb.get_shadow_cache_size() == 0
+    assert tb.get_shadow_cache_bytes() == 0
+
+    surf = tb.Surface(200, 200)
+    # Render shadow to populate cache
+    surf.draw_shadow_rounded_rect(10, 10, 80, 80, 8, 8, blur_radius=6.0, shadow_color="#00000080")
+    surf.flush()
+
+    assert tb.get_shadow_cache_size() >= 1
+    assert tb.get_shadow_cache_bytes() > 0
+
+    # Purge all caches
+    tb.clear_caches()
+    assert tb.get_shadow_cache_size() == 0
+    assert tb.get_shadow_cache_bytes() == 0
+
+
+def test_tracemalloc_stress_lifecycle_bounded_memory(root):
+    """Verify memory remains bounded under high-frequency widget creation/destruction cycles."""
+    import tracemalloc
+
+    gc.collect()
+    tb.clear_caches()
+
+    tracemalloc.start()
+    snapshot1 = tracemalloc.take_snapshot()
+
+    for _ in range(50):
+        b = tb.Button(root, text="Stress")
+        c = tb.Card(root, title="Stress Card")
+        s = tb.Switch(root)
+        root.update_idletasks()
+        b.destroy()
+        c.destroy()
+        s.destroy()
+
+    root.update_idletasks()
+    gc.collect()
+    tb.clear_caches()
+
+    snapshot2 = tracemalloc.take_snapshot()
+    tracemalloc.stop()
+
+    top_stats = snapshot2.compare_to(snapshot1, 'lineno')
+    total_diff_kb = sum(stat.size_diff for stat in top_stats) / 1024.0
+
+    # Total memory growth across 50 iterations must be negligible (< 150 KB)
+    assert total_diff_kb < 150.0
+
+    surfaces_alive = [obj for obj in gc.get_objects() if isinstance(obj, NativeSurface)]
+    assert len(surfaces_alive) == 0
+
+

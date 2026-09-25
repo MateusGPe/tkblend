@@ -12,10 +12,29 @@ Surface::Surface(int width, int height)
 }
 
 Surface::~Surface() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!is_closed_) {
+        ctx_.end();
+        image_.reset();
+        is_closed_ = true;
+    }
+}
+
+void Surface::close() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (is_closed_) return;
+    if (active_buffers_.load(std::memory_order_relaxed) > 0) {
+        throw std::runtime_error("Cannot close Surface while active buffer views exist");
+    }
     ctx_.end();
+    image_.reset();
+    is_closed_ = true;
 }
 
 void Surface::init_context() {
+    if (is_closed_) {
+        throw std::runtime_error("Cannot re-initialize closed Surface");
+    }
     ctx_.end();
     image_.create(width_, height_, BL_FORMAT_PRGB32);
     ctx_.begin(image_);
@@ -28,6 +47,9 @@ void Surface::resize(int width, int height) {
     if (w == width_ && h == height_) return;
 
     std::lock_guard<std::mutex> lock(mutex_);
+    if (is_closed_) {
+        throw std::runtime_error("Cannot resize a closed Surface");
+    }
     if (active_buffers_.load(std::memory_order_relaxed) > 0) {
         throw std::runtime_error("Cannot resize Surface while active buffer views exist");
     }
@@ -38,6 +60,9 @@ void Surface::resize(int width, int height) {
 
 void Surface::clear(const Color& color) {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (is_closed_) {
+        throw std::runtime_error("Cannot operate on a closed Surface");
+    }
     if (color.a == 0) {
         ctx_.clear_all();
     } else {
@@ -48,21 +73,33 @@ void Surface::clear(const Color& color) {
 
 void Surface::clear_rect(double x, double y, double w, double h) {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (is_closed_) {
+        throw std::runtime_error("Cannot operate on a closed Surface");
+    }
     ctx_.clear_rect(BLRect(x, y, w, h));
 }
 
 void Surface::save() {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (is_closed_) {
+        throw std::runtime_error("Cannot operate on a closed Surface");
+    }
     ctx_.save();
 }
 
 void Surface::restore() {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (is_closed_) {
+        throw std::runtime_error("Cannot operate on a closed Surface");
+    }
     ctx_.restore();
 }
 
 void Surface::reset_transform() {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (is_closed_) {
+        throw std::runtime_error("Cannot operate on a closed Surface");
+    }
     ctx_.user_to_meta();
 }
 
@@ -945,6 +982,9 @@ void Surface::blit_to_photo(
     int dst_y
 ) {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (is_closed_) {
+        throw std::runtime_error("Cannot blit from a closed Surface");
+    }
     ctx_.flush(BL_CONTEXT_FLUSH_SYNC);
 
     Tcl_Interp* interp = reinterpret_cast<Tcl_Interp*>(interp_addr);
@@ -984,6 +1024,9 @@ void Surface::blit_to_photo(
 
 Surface::BufferViewInfo Surface::acquire_buffer_view() {
     std::lock_guard<std::mutex> lock(mutex_);
+    if (is_closed_) {
+        throw std::runtime_error("Cannot acquire buffer view from a closed Surface");
+    }
     active_buffers_.fetch_add(1, std::memory_order_relaxed);
     BLImageData imgData;
     image_.get_data(&imgData);

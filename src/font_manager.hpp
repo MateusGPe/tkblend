@@ -21,6 +21,7 @@ public:
 
     std::string get_active_font() const;
     bool set_active_font(const std::string& family_or_path);
+    void clear_cache();
 
     // Returns a BLFont by value; the lock is held for the entire resolution + construction.
     // Callers must NOT call this while already holding mutex_.

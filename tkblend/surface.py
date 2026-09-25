@@ -21,10 +21,22 @@ from tkblend._tkblend import (  # type: ignore
     EXTEND_PAD,
     EXTEND_REPEAT,
     EXTEND_REFLECT,
+    clear_all_caches,
+    clear_font_cache,
+    clear_shadow_cache,
+    clear_emoji_cache,
+    get_shadow_cache_size,
+    get_shadow_cache_bytes,
+    set_shadow_cache_limits,
 )
 from tkblend.theme import resolve_theme_color
 
 ColorLike = Union[str, int, Tuple[int, int, int], Tuple[int, int, int, int], _NativeColor]
+
+
+def clear_caches() -> None:
+    """Purge all C++ and engine caches (shadows, fonts, emojis) to reclaim memory immediately."""
+    clear_all_caches()
 
 
 def parse_color(c: ColorLike, alpha: Optional[Union[float, int]] = None) -> _NativeColor:
@@ -100,6 +112,29 @@ class Surface:
 
     def __init__(self, width: int, height: int):
         self._surface = _NativeSurface(max(1, int(width)), max(1, int(height)))
+
+    def __enter__(self) -> Surface:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
+    def __del__(self) -> None:
+        try:
+            if hasattr(self, "_surface") and self._surface is not None and not self._surface.is_closed:
+                self._surface.close()
+        except Exception:
+            pass
+
+    @property
+    def is_closed(self) -> bool:
+        """Return whether the native Blend2D surface has been explicitly closed."""
+        return self._surface.is_closed if self._surface is not None else True
+
+    def close(self) -> None:
+        """Explicitly release native Blend2D context and pixel buffers immediately."""
+        if hasattr(self, "_surface") and self._surface is not None and not self._surface.is_closed:
+            self._surface.close()
 
     @property
     def width(self) -> int:
@@ -433,6 +468,8 @@ class Surface:
             float(blur_radius), float(spread), float(offset_x), float(offset_y),
             parse_color(shadow_color)
         )
+
+    draw_shadow_rounded_rect = draw_shadow
 
     def draw_card(
         self,

@@ -22,6 +22,11 @@ public:
         int& out_pad_x, int& out_pad_y
     );
 
+    void clear_cache();
+    size_t get_cache_size() const;
+    size_t get_cache_bytes() const;
+    void set_cache_limits(size_t max_entries, size_t max_bytes);
+
 private:
     ShadowEngine() = default;
 
@@ -52,12 +57,15 @@ private:
         BLImage image;
         int pad_x = 0;
         int pad_y = 0;
+        size_t bytes = 0;
     };
 
     std::list<CachedShadow> lru_list_;
     std::unordered_map<ShadowKey, std::list<CachedShadow>::iterator, ShadowKeyHash> cache_map_;
-    const size_t max_cache_entries_ = 128;
-    std::mutex mutex_;
+    size_t max_cache_entries_{128};
+    size_t max_cache_bytes_{32 * 1024 * 1024};
+    size_t current_cache_bytes_{0};
+    mutable std::mutex mutex_;
 };
 
 } // namespace tkblend

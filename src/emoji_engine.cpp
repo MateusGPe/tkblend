@@ -284,4 +284,10 @@ bool EmojiEngine::get_emoji_glyph(
     return true;
 }
 
+void EmojiEngine::clear_cache() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    cache_map_.clear();
+    lru_list_.clear();
+}
+
 } // namespace tkblend

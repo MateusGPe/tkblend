@@ -169,18 +169,52 @@ BLImage ShadowEngine::get_or_render_rounded_shadow(
         apply_3pass_box_blur(img_data, blur_radius);
     }
 
-    // Store in LRU cache
-    if (lru_list_.size() >= max_cache_entries_) {
+    size_t new_bytes = static_cast<size_t>(mask_w * mask_h * 4);
+
+    // Evict old entries if entry count or byte limit exceeded
+    while (!lru_list_.empty() && (lru_list_.size() >= max_cache_entries_ || current_cache_bytes_ + new_bytes > max_cache_bytes_)) {
         auto last = lru_list_.end();
         --last;
+        current_cache_bytes_ = (current_cache_bytes_ >= last->bytes) ? (current_cache_bytes_ - last->bytes) : 0;
         cache_map_.erase(last->key);
         lru_list_.pop_back();
     }
 
-    lru_list_.push_front(CachedShadow{key, shadow_img, pad, pad});
+    lru_list_.push_front(CachedShadow{key, shadow_img, pad, pad, new_bytes});
+    current_cache_bytes_ += new_bytes;
     cache_map_[key] = lru_list_.begin();
 
     return shadow_img;
+}
+
+void ShadowEngine::clear_cache() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    cache_map_.clear();
+    lru_list_.clear();
+    current_cache_bytes_ = 0;
+}
+
+size_t ShadowEngine::get_cache_size() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return lru_list_.size();
+}
+
+size_t ShadowEngine::get_cache_bytes() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return current_cache_bytes_;
+}
+
+void ShadowEngine::set_cache_limits(size_t max_entries, size_t max_bytes) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    max_cache_entries_ = std::max<size_t>(1, max_entries);
+    max_cache_bytes_ = std::max<size_t>(1024 * 1024, max_bytes);
+    while (!lru_list_.empty() && (lru_list_.size() > max_cache_entries_ || current_cache_bytes_ > max_cache_bytes_)) {
+        auto last = lru_list_.end();
+        --last;
+        current_cache_bytes_ = (current_cache_bytes_ >= last->bytes) ? (current_cache_bytes_ - last->bytes) : 0;
+        cache_map_.erase(last->key);
+        lru_list_.pop_back();
+    }
 }
 
 } // namespace tkblend

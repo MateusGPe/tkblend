@@ -46,6 +46,8 @@ public:
 
     // Lifecycle & buffer sizing
     void resize(int width, int height);
+    void close();
+    bool is_closed() const { return is_closed_; }
     int width() const { return width_; }
     int height() const { return height_; }
     void clear(const Color& color);
@@ -264,6 +266,7 @@ private:
     BLContext ctx_;
     mutable std::mutex mutex_;
     std::atomic<int> active_buffers_{0};
+    bool is_closed_{false};
 };
 
 } // namespace tkblend

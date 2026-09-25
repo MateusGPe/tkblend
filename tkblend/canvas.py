@@ -182,8 +182,36 @@ class BlendCanvas(tk.Label):
         if event is not None and getattr(event, "widget", None) != self:
             return
         self._on_draw = None
-        self._surface = None
-        self._photo = None
+
+        # Clean up theme listener
+        cb = getattr(self, "_tkblend_theme_cb", None)
+        if cb is not None:
+            try:
+                from tkblend.theme import remove_theme_listener
+                remove_theme_listener(cb)
+            except Exception:
+                pass
+            self._tkblend_theme_cb = None
+
+        # Explicitly close Surface backing Blend2D context and buffer
+        if hasattr(self, "_surface") and self._surface is not None:
+            try:
+                self._surface.close()
+            except Exception:
+                pass
+            self._surface = None
+
+        # Explicitly delete PhotoImage from Tcl/Tk image registry
+        if hasattr(self, "_photo") and self._photo is not None:
+            try:
+                photo_name = str(self._photo.name)
+                if self.winfo_exists():
+                    self.configure(image="")
+                if hasattr(self, "tk") and self.tk is not None:
+                    self.tk.call("image", "delete", photo_name)
+            except Exception:
+                pass
+            self._photo = None
 
     def destroy(self) -> None:
         """Clean up surface, backing photo, and callbacks cleanly on widget destruction."""

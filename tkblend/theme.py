@@ -925,24 +925,34 @@ def add_theme_listener(callback: Callable[[Palette], None], priority: bool = Fal
     """Register a callback for theme changes."""
     _theme_manager.add_listener(callback, priority=priority)
 
-def remove_theme_listener(callback: Callable[[Palette], None]) -> None:
+def remove_theme_listener(callback: Any) -> None:
     """Unregister a theme callback."""
+    if hasattr(callback, "_tkblend_theme_cb"):
+        _theme_manager.remove_listener(getattr(callback, "_tkblend_theme_cb"))
     _theme_manager.remove_listener(callback)
 
 def bind_theme_changed(widget: Any, callback: Callable[[], None]) -> None:
     """Bind a widget callback to theme change events with auto-cleanup."""
-    def _wrapper(palette: Palette) -> None:
+    def _theme_cb(palette: Palette) -> None:
         if hasattr(widget, "winfo_exists"):
             try:
                 if not widget.winfo_exists():
-                    remove_theme_listener(_wrapper)
+                    remove_theme_listener(_theme_cb)
                     return
-            except Exception as e:
-                logger.debug("Error checking widget.winfo_exists in bind_theme_changed: %s", e)
-                remove_theme_listener(_wrapper)
+            except Exception:
+                remove_theme_listener(_theme_cb)
                 return
-        callback()
-    add_theme_listener(_wrapper)
+        try:
+            callback()
+        except Exception as e:
+            logger.debug("Error running theme callback on widget: %s", e)
+
+    if widget is not None:
+        try:
+            widget._tkblend_theme_cb = _theme_cb
+        except Exception:
+            pass
+    add_theme_listener(_theme_cb)
 
 def is_inside_card(widget: Any) -> bool:
     """Check if a widget is inside a Card or Frame container."""

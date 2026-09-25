@@ -20,6 +20,7 @@ public:
 
     static bool is_emoji(uint32_t codepoint);
     bool get_emoji_glyph(uint32_t codepoint, float target_size, BLImage& out_img, double& out_advance_x, double& out_bearing_y);
+    void clear_cache();
 
 private:
     EmojiEngine();

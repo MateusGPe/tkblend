@@ -268,9 +268,27 @@ class Widget(tk.Label):
         self.font = fc
 
     def _on_destroy(self, event=None) -> None:
+        if event is not None and getattr(event, "widget", None) != self:
+            return
         remove_theme_listener(self._on_theme_changed)
-        self._surface = None  # type: ignore
-        self._photo = None  # type: ignore
+        if hasattr(self, "_cleanup_variable_sync"):
+            self._cleanup_variable_sync()
+        if hasattr(self, "_surface") and self._surface is not None:
+            try:
+                self._surface.close()
+            except Exception:
+                pass
+            self._surface = None  # type: ignore
+        if hasattr(self, "_photo") and self._photo is not None:
+            try:
+                photo_name = str(self._photo.name)
+                if self.winfo_exists():
+                    self.configure(image="")
+                if hasattr(self, "tk") and self.tk is not None:
+                    self.tk.call("image", "delete", photo_name)
+            except Exception:
+                pass
+            self._photo = None  # type: ignore
 
     def destroy(self) -> None:
         self._on_destroy()
@@ -528,9 +546,25 @@ class ContainerBase(tk.Frame):
         self.after_idle(self.render)
 
     def _on_destroy(self, event=None) -> None:
+        if event is not None and getattr(event, "widget", None) != self:
+            return
         remove_theme_listener(self._on_theme_changed)
-        self._surface = None  # type: ignore
-        self._photo = None  # type: ignore
+        if hasattr(self, "_surface") and self._surface is not None:
+            try:
+                self._surface.close()
+            except Exception:
+                pass
+            self._surface = None  # type: ignore
+        if hasattr(self, "_photo") and self._photo is not None:
+            try:
+                photo_name = str(self._photo.name)
+                if hasattr(self, "_bg_label") and self._bg_label is not None and self._bg_label.winfo_exists():
+                    self._bg_label.configure(image="")
+                if hasattr(self, "tk") and self.tk is not None:
+                    self.tk.call("image", "delete", photo_name)
+            except Exception:
+                pass
+            self._photo = None  # type: ignore
 
     def destroy(self) -> None:
         self._on_destroy()

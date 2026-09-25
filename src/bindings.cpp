@@ -280,14 +280,41 @@ void bind_font_manager(nb::module_& m) {
     m.def("get_emoji_font", []() -> std::string {
         return EmojiEngine::instance().get_emoji_font_path();
     });
+
+    m.def("clear_font_cache", []() {
+        FontManager::instance().clear_cache();
+    });
+
+    m.def("clear_shadow_cache", []() {
+        ShadowEngine::instance().clear_cache();
+    });
+
+    m.def("clear_emoji_cache", []() {
+        EmojiEngine::instance().clear_cache();
+    });
+
+    m.def("get_shadow_cache_size", []() -> size_t {
+        return ShadowEngine::instance().get_cache_size();
+    });
+
+    m.def("get_shadow_cache_bytes", []() -> size_t {
+        return ShadowEngine::instance().get_cache_bytes();
+    });
+
+    m.def("set_shadow_cache_limits", [](size_t max_entries, size_t max_bytes) {
+        ShadowEngine::instance().set_cache_limits(max_entries, max_bytes);
+    }, nb::arg("max_entries"), nb::arg("max_bytes"));
+
+    m.def("clear_all_caches", []() {
+        ShadowEngine::instance().clear_cache();
+        FontManager::instance().clear_cache();
+        EmojiEngine::instance().clear_cache();
+    });
 }
 
-// Note on GC support: SurfaceBufferObject holds a strong reference to surface_py
-// to ensure the Python Surface wrapper outlives any active buffer views / memoryviews.
-// The Surface C++ instance does not hold references back to SurfaceBufferObject or the memoryview,
-// so reference cycles cannot form under normal usage. If future Python wrappers store
-// the buffer view inside the Surface instance, cyclic GC support (Py_TPFLAGS_HAVE_GC,
-// tp_traverse, tp_clear) should be added.
+// SurfaceBufferObject provides a direct Python buffer protocol view into Surface PRGB32 pixels.
+// Full cyclic GC support (Py_TPFLAGS_HAVE_GC, tp_traverse, tp_clear) is implemented so that
+// reference cycles between Surface and its active memoryviews can be detected and collected.
 struct SurfaceBufferObject {
     PyObject_HEAD
     Surface* surface;
@@ -320,6 +347,28 @@ static PyBufferProcs surface_buffer_as_buffer = {
     [](PyObject*, Py_buffer*) {}
 };
 
+static int surface_buffer_traverse(PyObject* self, visitproc visit, void* arg) {
+    auto* obj = reinterpret_cast<SurfaceBufferObject*>(self);
+    Py_VISIT(obj->surface_py);
+    return 0;
+}
+
+static int surface_buffer_clear(PyObject* self) {
+    auto* obj = reinterpret_cast<SurfaceBufferObject*>(self);
+    if (obj->surface) {
+        obj->surface->release_buffer_view();
+        obj->surface = nullptr;
+    }
+    Py_CLEAR(obj->surface_py);
+    return 0;
+}
+
+static void surface_buffer_dealloc(PyObject* self) {
+    PyObject_GC_UnTrack(self);
+    surface_buffer_clear(self);
+    Py_TYPE(self)->tp_free(self);
+}
+
 static PyTypeObject SurfaceBufferType = {
     PyVarObject_HEAD_INIT(NULL, 0)
 };
@@ -329,17 +378,12 @@ static void init_surface_buffer_type() {
     std::call_once(flag, []() {
         SurfaceBufferType.tp_name = "tkblend.SurfaceBuffer";
         SurfaceBufferType.tp_basicsize = sizeof(SurfaceBufferObject);
-        SurfaceBufferType.tp_flags = Py_TPFLAGS_DEFAULT;
-        SurfaceBufferType.tp_doc = "tkblend raw surface buffer wrapper";
+        SurfaceBufferType.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC;
+        SurfaceBufferType.tp_doc = "tkblend raw surface buffer wrapper with cyclic GC support";
         SurfaceBufferType.tp_as_buffer = &surface_buffer_as_buffer;
-        SurfaceBufferType.tp_dealloc = [](PyObject* self) {
-            auto* obj = reinterpret_cast<SurfaceBufferObject*>(self);
-            if (obj->surface) {
-                obj->surface->release_buffer_view();
-            }
-            Py_XDECREF(obj->surface_py);
-            Py_TYPE(self)->tp_free(self);
-        };
+        SurfaceBufferType.tp_traverse = surface_buffer_traverse;
+        SurfaceBufferType.tp_clear = surface_buffer_clear;
+        SurfaceBufferType.tp_dealloc = surface_buffer_dealloc;
         if (PyType_Ready(&SurfaceBufferType) < 0) {
             throw std::runtime_error("Failed to initialize SurfaceBufferType");
         }
@@ -350,6 +394,8 @@ void bind_surface(nb::module_& m) {
     init_surface_buffer_type();
     nb::class_<Surface>(m, "Surface")
         .def(nb::init<int, int>(), nb::arg("width"), nb::arg("height"))
+        .def("close", &Surface::close)
+        .def_prop_ro("is_closed", &Surface::is_closed)
         .def_prop_ro("width", &Surface::width)
         .def_prop_ro("height", &Surface::height)
         .def("resize", &Surface::resize, nb::arg("width"), nb::arg("height"), nb::call_guard<nb::gil_scoped_release>())
@@ -672,8 +718,11 @@ void bind_surface(nb::module_& m) {
         
         .def("get_buffer", [](nb::handle self) -> nb::object {
             Surface& s = nb::cast<Surface&>(self);
+            if (s.is_closed()) {
+                throw std::runtime_error("Cannot get buffer from a closed Surface");
+            }
             init_surface_buffer_type();
-            auto* obj = PyObject_New(SurfaceBufferObject, &SurfaceBufferType);
+            auto* obj = PyObject_GC_New(SurfaceBufferObject, &SurfaceBufferType);
             if (!obj) {
                 throw std::runtime_error("Failed to allocate SurfaceBufferObject");
             }
@@ -686,6 +735,8 @@ void bind_surface(nb::module_& m) {
             obj->size = info.size;
             obj->shape[0] = static_cast<Py_ssize_t>(info.size);
             obj->strides[0] = 1;
+
+            PyObject_GC_Track(reinterpret_cast<PyObject*>(obj));
 
             PyObject* mem = PyMemoryView_FromObject(reinterpret_cast<PyObject*>(obj));
             Py_DECREF(reinterpret_cast<PyObject*>(obj));
@@ -712,6 +763,7 @@ void bind_window_shape(nb::module_& m) {
 } // namespace tkblend
 
 NB_MODULE(_tkblend, m) {
+    nb::set_leak_warnings(true);
     m.doc() = "High-performance Blend2D vector engine and Tkinter photo blitter";
 
     tkblend::bind_constants(m);
