@@ -70,6 +70,18 @@ int map_weight_to_fc(int weight) {
     return 210;                     // Black
 }
 
+inline bool is_supported_font_file(const std::string& path) {
+    if (path.empty()) return false;
+    try {
+        if (!fs::exists(path)) return false;
+        std::string ext = fs::path(path).extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        return (ext == ".ttf" || ext == ".otf" || ext == ".ttc");
+    } catch (...) {
+        return false;
+    }
+}
+
 const std::vector<std::string>& get_linux_font_candidates() {
     static std::vector<std::string> candidates = []() {
         std::vector<std::string> list;
@@ -244,20 +256,21 @@ private:
         FcDefaultSubstitute(pat);
 
         FcResult result = FcResultNoMatch;
-        FcPattern* match = FcFontMatch(config_, pat, &result);
+        FcFontSet* fs_sort = FcFontSort(config_, pat, 1, nullptr, &result);
         std::string resolved_path;
 
-        if (match) {
-            FcChar8* file = nullptr;
-            if (FcPatternGetString(match, FC_FILE, 0, &file) == FcResultMatch && file) {
-                std::string p = reinterpret_cast<const char*>(file);
-                try {
-                    if (fs::exists(p)) {
+        if (fs_sort) {
+            for (int i = 0; i < fs_sort->nfont; ++i) {
+                FcChar8* file = nullptr;
+                if (FcPatternGetString(fs_sort->fonts[i], FC_FILE, 0, &file) == FcResultMatch && file) {
+                    std::string p = reinterpret_cast<const char*>(file);
+                    if (is_supported_font_file(p)) {
                         resolved_path = p;
+                        break;
                     }
-                } catch (...) {}
+                }
             }
-            FcPatternDestroy(match);
+            FcFontSetDestroy(fs_sort);
         }
         FcPatternDestroy(pat);
         return resolved_path;
@@ -294,27 +307,25 @@ private:
                 FcChar8* file = nullptr;
                 if (FcPatternGetString(font_pat, FC_FILE, 0, &file) == FcResultMatch && file) {
                     std::string p = reinterpret_cast<const char*>(file);
-                    try {
-                        if (fs::exists(p)) {
-                            if (fallback_candidate.empty()) {
-                                fallback_candidate = p;
-                            }
-
-                            int font_slant = 0;
-                            int font_weight = FC_WEIGHT_REGULAR;
-                            FcPatternGetInteger(font_pat, FC_SLANT, 0, &font_slant);
-                            FcPatternGetInteger(font_pat, FC_WEIGHT, 0, &font_weight);
-
-                            int slant_penalty = (target_slant > 0) == (font_slant > 0) ? 0 : 500;
-                            int weight_penalty = std::abs(font_weight - target_weight);
-                            int score = slant_penalty + weight_penalty;
-
-                            if (score < best_score) {
-                                best_score = score;
-                                resolved_path = p;
-                            }
+                    if (is_supported_font_file(p)) {
+                        if (fallback_candidate.empty()) {
+                            fallback_candidate = p;
                         }
-                    } catch (...) {}
+
+                        int font_slant = 0;
+                        int font_weight = FC_WEIGHT_REGULAR;
+                        FcPatternGetInteger(font_pat, FC_SLANT, 0, &font_slant);
+                        FcPatternGetInteger(font_pat, FC_WEIGHT, 0, &font_weight);
+
+                        int slant_penalty = (target_slant > 0) == (font_slant > 0) ? 0 : 500;
+                        int weight_penalty = std::abs(font_weight - target_weight);
+                        int score = slant_penalty + weight_penalty;
+
+                        if (score < best_score) {
+                            best_score = score;
+                            resolved_path = p;
+                        }
+                    }
                 }
             }
             if (resolved_path.empty()) {
@@ -338,9 +349,7 @@ private:
 
         if (lower == "sans-serif" || lower == "default") {
             for (const auto& path : get_linux_font_candidates()) {
-                try {
-                    if (fs::exists(path)) return path;
-                } catch (...) {}
+                if (is_supported_font_file(path)) return path;
             }
         }
 
@@ -352,19 +361,21 @@ private:
                 if (fs::exists(d)) {
                     for (const auto& entry : fs::recursive_directory_iterator(d, fs::directory_options::skip_permission_denied)) {
                         if (entry.is_regular_file()) {
+                            std::string path_str = entry.path().string();
+                            if (!is_supported_font_file(path_str)) continue;
                             std::string stem = entry.path().stem().string();
                             std::string lower_stem = stem;
                             std::transform(lower_stem.begin(), lower_stem.end(), lower_stem.begin(), ::tolower);
 
                             if (lower_stem.find(lower) != std::string::npos) {
                                 if (fallback_candidate.empty()) {
-                                    fallback_candidate = entry.path().string();
+                                    fallback_candidate = path_str;
                                 }
                                 bool is_bold = (lower_stem.find("bold") != std::string::npos || lower_stem.find("-b") != std::string::npos);
                                 bool is_italic = (lower_stem.find("italic") != std::string::npos || lower_stem.find("oblique") != std::string::npos);
 
                                 if (is_bold == (weight >= 600) && is_italic == italic) {
-                                    return entry.path().string();
+                                    return path_str;
                                 }
                             }
                         }

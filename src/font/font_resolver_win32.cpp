@@ -58,6 +58,18 @@ std::string get_user_font_dir() {
     return "";
 }
 
+inline bool is_supported_font_file(const std::string& path) {
+    if (path.empty()) return false;
+    try {
+        if (!fs::exists(path)) return false;
+        std::string ext = fs::path(path).extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        return (ext == ".ttf" || ext == ".otf" || ext == ".ttc");
+    } catch (...) {
+        return false;
+    }
+}
+
 class Win32FontResolver {
 public:
     static Win32FontResolver& instance() {
@@ -239,11 +251,9 @@ private:
                             if (SUCCEEDED(local_loader->GetFilePathFromKey(ref_key, key_size, &wpath[0], path_len + 1))) {
                                 wpath.resize(path_len);
                                 std::string resolved = wide_to_utf8(wpath);
-                                try {
-                                    if (fs::exists(resolved)) {
-                                        result_path = resolved;
-                                    }
-                                } catch (...) {}
+                                if (is_supported_font_file(resolved)) {
+                                    result_path = resolved;
+                                }
                             }
                         }
                     }
@@ -291,21 +301,19 @@ private:
                         std::string full_path = (target_file.find('\\') != std::string::npos || target_file.find('/') != std::string::npos)
                             ? target_file : win_fonts + target_file;
 
-                        try {
-                            if (fs::exists(full_path)) {
-                                if (fallback_candidate.empty()) {
-                                    fallback_candidate = full_path;
-                                }
-
-                                bool is_bold = (lower_key.find("bold") != std::string::npos);
-                                bool is_italic = (lower_key.find("italic") != std::string::npos || lower_key.find("oblique") != std::string::npos);
-
-                                if (is_bold == (weight >= 600) && is_italic == italic) {
-                                    RegCloseKey(hkey);
-                                    return full_path;
-                                }
+                        if (is_supported_font_file(full_path)) {
+                            if (fallback_candidate.empty()) {
+                                fallback_candidate = full_path;
                             }
-                        } catch (...) {}
+
+                            bool is_bold = (lower_key.find("bold") != std::string::npos);
+                            bool is_italic = (lower_key.find("italic") != std::string::npos || lower_key.find("oblique") != std::string::npos);
+
+                            if (is_bold == (weight >= 600) && is_italic == italic) {
+                                RegCloseKey(hkey);
+                                return full_path;
+                            }
+                        }
                     }
                 }
 
@@ -332,14 +340,10 @@ private:
             for (const char* ext : { ".ttf", ".otf", ".ttc" }) {
                 std::string name = lower_family + suf + ext;
                 std::string p1 = win_fonts + name;
-                try {
-                    if (fs::exists(p1)) return p1;
-                } catch (...) {}
+                if (is_supported_font_file(p1)) return p1;
                 if (!user_fonts.empty()) {
                     std::string p2 = user_fonts + name;
-                    try {
-                        if (fs::exists(p2)) return p2;
-                    } catch (...) {}
+                    if (is_supported_font_file(p2)) return p2;
                 }
             }
         }
@@ -348,9 +352,7 @@ private:
 
     std::string fallback_standard(const std::string& default_filename, int weight, bool italic) {
         std::string p = get_windows_font_dir() + default_filename;
-        try {
-            if (fs::exists(p)) return p;
-        } catch (...) {}
+        if (is_supported_font_file(p)) return p;
         return fallback_file_search("arial", weight, italic);
     }
 };

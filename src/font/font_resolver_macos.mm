@@ -17,6 +17,18 @@ namespace tkblend {
 
 namespace {
 
+inline bool is_supported_font_file(const std::string& path) {
+    if (path.empty()) return false;
+    try {
+        if (!fs::exists(path)) return false;
+        std::string ext = fs::path(path).extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        return (ext == ".ttf" || ext == ".otf" || ext == ".ttc");
+    } catch (...) {
+        return false;
+    }
+}
+
 const std::vector<std::string>& get_macos_candidate_fonts() {
     static std::vector<std::string> candidates = []() {
         std::vector<std::string> list;
@@ -170,11 +182,9 @@ private:
 
         if (ok && buffer[0] != '\0') {
             std::string path(buffer);
-            try {
-                if (fs::exists(path)) {
-                    return path;
-                }
-            } catch (...) {}
+            if (is_supported_font_file(path)) {
+                return path;
+            }
         }
 
         return "";
@@ -182,9 +192,7 @@ private:
 
     std::string fallback_scan() {
         for (const auto& candidate : get_macos_candidate_fonts()) {
-            try {
-                if (fs::exists(candidate)) return candidate;
-            } catch (...) {}
+            if (is_supported_font_file(candidate)) return candidate;
         }
         return "";
     }
