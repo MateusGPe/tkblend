@@ -34,6 +34,7 @@ class OptionMenu(Widget):
         master: Optional[tk.Misc] = None,
         values: Optional[List[str]] = None,
         selected_value: Optional[str] = None,
+        default_value: Optional[str] = None,
         command: Optional[Callable[[str], None]] = None,
         variable: Optional[Any] = None,
         width: Optional[int] = None,
@@ -49,7 +50,7 @@ class OptionMenu(Widget):
         **kwargs,
     ):
         self._values = list(values) if values else ["Option 1", "Option 2"]
-        default_val = selected_value or (self._values[0] if self._values else "")
+        default_val = selected_value or default_value or (self._values[0] if self._values else "")
         self._var_sync = VariableSync(
             variable=variable,
             initial_value=default_val,

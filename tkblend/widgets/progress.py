@@ -29,13 +29,31 @@ class Progressbar(Widget):
         track_color: Optional[ColorLike] = None,
         fill_color_start: Optional[ColorLike] = None,
         fill_color_end: Optional[ColorLike] = None,
+        color: Optional[ColorLike] = None,
+        bootstyle: Optional[str] = None,
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
         self._value = max(0.0, min(100.0, float(value)))
         self._explicit_track_color = track_color
-        self._explicit_fill_start = fill_color_start
-        self._explicit_fill_end = fill_color_end
+        pal = get_theme()
+        style_col = None
+        if bootstyle:
+            b_low = bootstyle.lower()
+            if b_low == "success":
+                style_col = pal.success
+            elif b_low in ("danger", "destructive"):
+                style_col = pal.destructive
+            elif b_low == "warning":
+                style_col = pal.warning
+            elif b_low in ("secondary", "muted"):
+                style_col = pal.secondary
+            elif b_low == "accent":
+                style_col = pal.accent
+            else:
+                style_col = pal.primary
+        self._explicit_fill_start = color or style_col or fill_color_start
+        self._explicit_fill_end = color or style_col or fill_color_end
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
 
     @property
@@ -118,6 +136,8 @@ class CircularProgress(Widget):
         stroke_width: float = 8.0,
         track_color: Optional[ColorLike] = None,
         fill_color: Optional[ColorLike] = None,
+        color: Optional[ColorLike] = None,
+        bootstyle: Optional[str] = None,
         unit: str = "%",
         parent_bg: Optional[str] = None,
         **kwargs,
@@ -125,7 +145,7 @@ class CircularProgress(Widget):
         self._value = max(0.0, min(100.0, float(value)))
         self._stroke_w = stroke_width
         self._explicit_track_color = track_color
-        self._explicit_fill_color = fill_color
+        self._explicit_fill_color = color or fill_color or bootstyle
         self._unit = unit
         super().__init__(master=master, width=size, height=size, bg=parent_bg, **kwargs)
 

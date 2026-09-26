@@ -148,6 +148,11 @@ class ScrollableFrame(tk.Frame):
         """Access the interior frame where children widgets should be placed."""
         return self._scrollable_content
 
+    @property
+    def content(self) -> tk.Frame:
+        """Alias for scrollable_frame."""
+        return self._scrollable_content
+
     def _on_content_configure(self, event) -> None:
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
 

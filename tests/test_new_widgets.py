@@ -103,8 +103,16 @@ def test_table(root):
     # Insert & Delete
     table.insert_row({"id": 4, "name": "Dave", "score": 88})
     assert len(table._data) == 4
+    # Test insert_row(index, row)
+    table.insert_row(0, {"id": 5, "name": "Eve", "score": 99})
+    assert len(table._data) == 5
+    assert table._data[0]["name"] == "Eve"
+    # Test insert_row(row, index)
+    table.insert_row({"id": 6, "name": "Frank", "score": 75}, 1)
+    assert len(table._data) == 6
+    assert table._data[1]["name"] == "Frank"
     table.delete_row(0)
-    assert len(table._data) == 3
+    assert len(table._data) == 5
 
 
 def test_vector_icons_and_labels(root):

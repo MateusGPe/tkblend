@@ -229,6 +229,16 @@ class Palette:
     thumb_color: str = "#d0bcff"
     shadow_color: str = "#00000055"
 
+    @property
+    def fg_subtle(self) -> str:
+        """Ergonomic alias for text_muted."""
+        return self.text_muted
+
+    @property
+    def danger(self) -> str:
+        """Ergonomic alias for destructive."""
+        return self.destructive
+
 
 DARK_PALETTE = Palette(
     name="dark",
@@ -693,11 +703,21 @@ class ThemeManager:
             self._current_palette = theme_or_palette
         elif isinstance(theme_or_palette, str):
             key = theme_or_palette.lower()
+            THEME_ALIASES = {
+                "monokai": "monokai_pro",
+                "emerald": "emerald_forest",
+                "sunset": "sunset_amber",
+                "catppuccin": "catppuccin_mocha",
+                "solarized": "solarized_dark",
+                "tokyo": "tokyo_night",
+                "ocean": "nord",
+            }
+            resolved_key = THEME_ALIASES.get(key, key)
             if key in ("system", "auto"):
                 mode = detect_system_theme(fallback="dark")
                 self._current_palette = DARK_PALETTE if mode == "dark" else LIGHT_PALETTE
-            elif key in self._palettes:
-                self._current_palette = self._palettes[key]
+            elif resolved_key in self._palettes:
+                self._current_palette = self._palettes[resolved_key]
             elif key in ("true", "1", "dark"):
                 self._current_palette = DARK_PALETTE
             elif key in ("false", "0", "light"):

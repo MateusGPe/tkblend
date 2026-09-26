@@ -3,6 +3,7 @@ Base classes and display scaling infrastructure for tkblend vector widgets.
 """
 
 from __future__ import annotations
+from collections.abc import Callable
 import logging
 import sys
 import tkinter as tk

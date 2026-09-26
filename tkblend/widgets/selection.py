@@ -373,13 +373,16 @@ class RadioGroup(tk.Frame):
         master: Optional[tk.Misc] = None,
         options: Optional[List[str]] = None,
         selected: Optional[str] = None,
+        default_value: Optional[str] = None,
+        selected_value: Optional[str] = None,
         on_change: Optional[Callable[[str], None]] = None,
         orientation: str = "vertical",
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
         self._radios: List[Radio] = []
-        self._value: str = selected or ""
+        sel_val = selected or default_value or selected_value
+        self._value: str = sel_val or ""
         self._on_change = on_change
         self._explicit_parent_bg = parent_bg
         pal = get_theme()
@@ -462,6 +465,8 @@ class SegmentedControl(Widget):
         master: Optional[tk.Misc] = None,
         values: Optional[List[str]] = None,
         selected_index: int = 0,
+        selected_value: Optional[str] = None,
+        default_value: Optional[str] = None,
         on_change: Optional[Callable] = None,
         command: Optional[Callable] = None,
         width: int = 340,
@@ -471,7 +476,11 @@ class SegmentedControl(Widget):
         **kwargs,
     ):
         self._values = list(values) if values else ["Option 1", "Option 2"]
-        self._selected = max(0, min(len(self._values) - 1, selected_index))
+        val_str = selected_value or default_value
+        if val_str is not None and val_str in self._values:
+            self._selected = self._values.index(val_str)
+        else:
+            self._selected = max(0, min(len(self._values) - 1, selected_index))
         self._on_change = on_change or command
         self._explicit_active_color = active_color
         pal = get_theme()
@@ -518,12 +527,24 @@ class SegmentedControl(Widget):
             if self._on_change:
                 val = self._values[idx]
                 try:
-                    self._on_change(idx, val)
-                except TypeError:
+                    import inspect
+                    sig = inspect.signature(self._on_change)
+                    params = [p for p in sig.parameters.values() if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
+                    has_varargs = any(p.kind == p.VAR_POSITIONAL for p in sig.parameters.values())
+                    if has_varargs or len(params) >= 2:
+                        self._on_change(idx, val)
+                    elif len(params) == 1:
+                        self._on_change(val)
+                    else:
+                        self._on_change()
+                except (ValueError, TypeError):
                     try:
                         self._on_change(val)
                     except TypeError:
-                        self._on_change()
+                        try:
+                            self._on_change(idx, val)
+                        except TypeError:
+                            self._on_change()
 
     def get(self) -> str:
         """Return the value of the currently active segment."""

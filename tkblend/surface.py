@@ -79,9 +79,26 @@ class LinearGradient:
 
 
 class RadialGradient:
-    """Helper class to build radial gradients with stops."""
-    def __init__(self, x0: float, y0: float, r0: float, x1: float, y1: float, r1: float):
-        self._gradient = _NativeGradient.radial(x0, y0, r0, x1, y1, r1)
+    """Helper class to build radial gradients with stops.
+
+    Can be constructed either with:
+    - Center and radius: RadialGradient(cx, cy, r)
+    - Two circles (focal & outer): RadialGradient(x0, y0, r0, x1, y1, r1)
+    """
+    def __init__(
+        self,
+        x0: float,
+        y0: float,
+        r0_or_r: float,
+        x1: Optional[float] = None,
+        y1: Optional[float] = None,
+        r1: Optional[float] = None,
+    ):
+        if x1 is None or y1 is None or r1 is None:
+            # RadialGradient(cx, cy, r) centered at (x0, y0) with radius r0_or_r
+            self._gradient = _NativeGradient.radial(x0, y0, 0.0, x0, y0, r0_or_r)
+        else:
+            self._gradient = _NativeGradient.radial(x0, y0, r0_or_r, x1, y1, r1)
 
     def add_stop(self, offset: float, color: ColorLike, alpha: Optional[float] = None) -> RadialGradient:
         self._gradient.add_stop(offset, parse_color(color, alpha=alpha))
@@ -501,6 +518,40 @@ class Surface:
             float(shadow_offset_x),
             float(shadow_offset_y),
             parse_color(shadow_color),
+        )
+
+    def fill_shadowed_rounded_rect(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        rx: float = 12.0,
+        ry: float = 12.0,
+        fill: ColorLike = "#1e1e2e",
+        border: ColorLike = "#00000000",
+        border_width: float = 0.0,
+        shadow_blur: float = 12.0,
+        shadow_spread: float = 0.0,
+        shadow_offset_x: float = 0.0,
+        shadow_offset_y: float = 4.0,
+        shadow_color: ColorLike = "#00000055",
+        **kwargs,
+    ) -> None:
+        """Alias for draw_card with fill/border parameter naming."""
+        bg = kwargs.get("bg_color", fill)
+        bc = kwargs.get("border_color", border)
+        bw = kwargs.get("border_width", border_width)
+        self.draw_card(
+            x, y, w, h, rx, ry,
+            bg_color=bg,
+            border_color=bc,
+            border_width=bw,
+            shadow_blur=shadow_blur,
+            shadow_spread=shadow_spread,
+            shadow_offset_x=shadow_offset_x,
+            shadow_offset_y=shadow_offset_y,
+            shadow_color=shadow_color,
         )
 
     # Compound Widget Rendering Primitives (C++)

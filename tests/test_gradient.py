@@ -37,6 +37,12 @@ class TestGradient(unittest.TestCase):
         self.assertIsInstance(rg.native, NativeGradient)
         self.assertIs(_unwrap_gradient(rg), rg.native)
 
+        # Also test 3-arg constructor RadialGradient(cx, cy, r)
+        rg3 = RadialGradient(50.0, 50.0, 40.0)
+        rg3.add_stop(0.0, "#ffffff").add_stop(1.0, "#000000")
+        self.assertIsInstance(rg3.native, NativeGradient)
+        self.assertIs(_unwrap_gradient(rg3), rg3.native)
+
     def test_native_gradient_direct(self):
         g_lin = NativeGradient.linear(10, 20, 30, 40)
         g_lin.add_stop(0.0, Color(255, 0, 0, 255))

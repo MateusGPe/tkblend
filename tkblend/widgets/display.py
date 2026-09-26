@@ -46,15 +46,24 @@ class Badge(Widget):
         master: Optional[tk.Misc] = None,
         text: str = "Badge",
         variant: str = "primary",
+        bootstyle: Optional[str] = None,
+        color: Optional[str] = None,
+        text_color: Optional[str] = None,
+        border_color: Optional[str] = None,
         dot: bool = False,
-        width: int = 90,
+        width: Optional[int] = None,
         height: int = 24,
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
         self._text = text
-        self._variant = variant
+        self._variant = bootstyle or variant
+        self._explicit_color = color
+        self._explicit_text_color = text_color
+        self._explicit_border_color = border_color
         self._dot = dot
+        if width is None:
+            width = max(40, int(len(str(text)) * 9 + 24))
         super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
 
     @property
@@ -93,14 +102,20 @@ class Badge(Widget):
             r = h / 2.0
 
             style = self._get_style(self._variant)
-            self._surface.fill_rounded_rect(pad, pad, w, h, r, r, style["bg"])
-            self._surface.stroke_rounded_rect(pad, pad, w, h, r, r, style["border"], 1.0 * s)
+            bg_col = self._explicit_color or style["bg"]
+            if self._explicit_color and len(bg_col) == 7 and bg_col.startswith("#"):
+                bg_col = f"{bg_col}26"
+            border_col = self._explicit_border_color or self._explicit_color or style["border"]
+            fg_col = self._explicit_text_color or self._explicit_color or style["fg"]
+
+            self._surface.fill_rounded_rect(pad, pad, w, h, r, r, bg_col)
+            self._surface.stroke_rounded_rect(pad, pad, w, h, r, r, border_col, 1.0 * s)
 
             font_sz = 11.0 * s
             if self._dot:
                 dot_cx = pad + 10.0 * s
                 dot_cy = self._widget_h / 2.0
-                self._surface.fill_circle(dot_cx, dot_cy, 3.0 * s, style["fg"])
+                self._surface.fill_circle(dot_cx, dot_cy, 3.0 * s, fg_col)
                 text_x = dot_cx + 8.0 * s + (w - 18.0 * s) / 2.0
             else:
                 text_x = self._widget_w / 2.0
@@ -111,7 +126,7 @@ class Badge(Widget):
                 self._widget_h / 2.0 + (font_sz * 0.35),
                 font_size=font_sz,
                 font_family="sans-serif",
-                color=style["fg"],
+                color=fg_col,
                 align="center",
             )
             self._surface.blit(self._photo)
@@ -134,18 +149,22 @@ class Avatar(Widget):
         self,
         master: Optional[tk.Misc] = None,
         initials: str = "TK",
+        text: Optional[str] = None,
         status: Optional[str] = "online",
         size: int = 44,
+        bg_color: Optional[ColorLike] = None,
+        color: Optional[ColorLike] = None,
         bg_gradient_start: Optional[ColorLike] = None,
         bg_gradient_end: Optional[ColorLike] = None,
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
-        self._initials = initials
+        self._initials = text or initials
         self._status = status
         pal = get_theme()
-        self._grad_start = bg_gradient_start or pal.primary
-        self._grad_end = bg_gradient_end or pal.accent
+        solid_bg = bg_color or color
+        self._grad_start = bg_gradient_start or solid_bg or pal.primary
+        self._grad_end = bg_gradient_end or solid_bg or pal.accent
         super().__init__(master=master, width=size, height=size, bg=parent_bg, **kwargs)
 
     def render(self) -> None:

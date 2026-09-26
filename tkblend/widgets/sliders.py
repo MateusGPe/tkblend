@@ -117,6 +117,10 @@ class Scale(Widget):
         """Get current slider value (Tkinter compatible)."""
         return self._value
 
+    def get_value(self) -> float:
+        """Get current slider value."""
+        return self._value
+
     def set(self, val: float) -> None:
         """Set slider value (Tkinter compatible)."""
         self.value = val
@@ -191,6 +195,10 @@ class RangeSlider(Widget):
         max_val: float = 100.0,
         low_val: float = 20.0,
         high_val: float = 80.0,
+        from_: Optional[float] = None,
+        to: Optional[float] = None,
+        low_value: Optional[float] = None,
+        high_value: Optional[float] = None,
         on_change: Optional[Callable[[float, float], None]] = None,
         track_color: Optional[ColorLike] = None,
         active_color: Optional[ColorLike] = None,
@@ -198,10 +206,12 @@ class RangeSlider(Widget):
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
-        self._min = min_val
-        self._max = max_val
-        self._low = max(min_val, min(max_val, float(low_val)))
-        self._high = max(self._low, min(max_val, float(high_val)))
+        self._min = from_ if from_ is not None else min_val
+        self._max = to if to is not None else max_val
+        eff_low = low_value if low_value is not None else low_val
+        eff_high = high_value if high_value is not None else high_val
+        self._low = max(self._min, min(self._max, float(eff_low)))
+        self._high = max(self._low, min(self._max, float(eff_high)))
         self._on_change = on_change
         self._explicit_track_color = track_color
         self._explicit_active_color = active_color
@@ -261,6 +271,22 @@ class RangeSlider(Widget):
     @property
     def range(self) -> Tuple[float, float]:
         return (self._low, self._high)
+
+    def get(self) -> Tuple[float, float]:
+        """Get current (low, high) range values."""
+        return (self._low, self._high)
+
+    def get_values(self) -> Tuple[float, float]:
+        """Get current (low, high) range values."""
+        return (self._low, self._high)
+
+    def set_values(self, low: float, high: float) -> None:
+        """Set (low, high) range values."""
+        self._low = max(self._min, min(self._max, float(low)))
+        self._high = max(self._min, min(self._max, float(high)))
+        if self._low > self._high:
+            self._low, self._high = self._high, self._low
+        self.render()
 
     def _val_to_x(self, val: float, pad: float, usable_w: float) -> float:
         rel = (val - self._min) / (self._max - self._min) if self._max > self._min else 0.0

@@ -131,6 +131,8 @@ class BlendCanvas(tk.Label):
         elif hasattr(self, "_redraw") and callable(getattr(self, "_redraw")):
             # Delegate to specialized subclass redraw (e.g. Badge, ToggleSwitch)
             self._redraw()
+            if self._surface is not None and self._photo is not None:
+                self._surface.blit(self._photo)
         elif self._surface is not None and self._photo is not None:
             self._surface.blit(self._photo)
 

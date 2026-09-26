@@ -841,14 +841,29 @@ class Table(tk.Frame):
 
     def insert_row(
         self,
-        row: Union[Dict[str, Any], List[Any], Tuple[Any, ...]],
-        index: Optional[int] = None,
+        arg1: Union[int, Dict[str, Any], List[Any], Tuple[Any, ...]],
+        arg2: Optional[Union[int, Dict[str, Any], List[Any], Tuple[Any, ...]]] = None,
     ) -> None:
-        """Insert a single row."""
+        """Insert a single row.
+
+        Supports both calling conventions:
+        - ``table.insert_row(row, index=None)``
+        - ``table.insert_row(index, row)``
+        """
+        if isinstance(arg1, int) and arg2 is not None and not isinstance(arg2, int):
+            index = arg1
+            row = arg2
+        elif isinstance(arg2, int):
+            row = arg1
+            index = arg2
+        else:
+            row = arg1
+            index = None
+
         if index is None or index >= len(self._data):
             self._data.append(row)
         else:
-            self._data.insert(index, row)
+            self._data.insert(max(0, index), row)
         self._update_filtered_indices()
         self._update_scroll_geometry()
         self._update_pagination_ui()
