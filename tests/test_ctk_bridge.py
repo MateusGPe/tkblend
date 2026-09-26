@@ -210,3 +210,88 @@ def test_ctk_scrollbar():
         assert engine._params["end_value"] == pytest.approx(0.6, abs=0.01)
     finally:
         root.destroy()
+
+
+def test_ctk_segmented_button():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        seg = ctk.CTkSegmentedButton(root, values=["A", "B", "C"])
+        seg.set("B")
+        seg.pack()
+        root.update()
+
+        for btn in seg._buttons_dict.values():
+            engine = btn._canvas._blend_engine
+            assert isinstance(engine, TkBlendDrawEngine)
+            assert engine._surface is not None
+    finally:
+        root.destroy()
+
+
+def test_ctk_entry():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        entry = ctk.CTkEntry(root, placeholder_text="Type...")
+        entry.pack()
+        root.update()
+
+        engine = entry._canvas._blend_engine
+        assert engine._shape_type == "rounded_rect"
+        assert engine._surface is not None
+    finally:
+        root.destroy()
+
+
+def test_ctk_radiobutton():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        rb = ctk.CTkRadioButton(root, text="Choice 1")
+        rb.select()
+        rb.pack()
+        root.update()
+
+        engine = rb._canvas._blend_engine
+        assert engine._shape_type == "rounded_rect"
+        assert engine._surface is not None
+    finally:
+        root.destroy()
+
+
+def test_ctk_indeterminate_progressbar():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        pbar = ctk.CTkProgressBar(root, mode="indeterminate")
+        pbar.start()
+        pbar.step()
+        pbar.pack()
+        root.update()
+
+        engine = pbar._canvas._blend_engine
+        assert engine._shape_type == "progress_bar"
+        assert engine._surface is not None
+    finally:
+        root.destroy()
+
+
+def test_nested_frame_background_resolution():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        outer = ctk.CTkFrame(root, fg_color="#1a1a1a")
+        outer.pack()
+        inner = ctk.CTkFrame(outer, fg_color="#2b2b2b")
+        inner.pack()
+        btn = ctk.CTkButton(inner, text="Nested")
+        btn.pack()
+        root.update()
+
+        engine = btn._canvas._blend_engine
+        bg = engine._resolve_bg_color()
+        assert bg == "#2b2b2b"
+    finally:
+        root.destroy()
+

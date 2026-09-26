@@ -401,13 +401,33 @@ class Surface:
         elif align == "right":
             align_code = 2
 
+        parsed_col = parse_color(color)
+        if "\n" in text:
+            lines = text.split("\n")
+            line_height = float(cfg.size) * 1.35
+            for line_idx, line_str in enumerate(lines):
+                if line_str:
+                    self._surface.draw_text(
+                        line_str,
+                        float(x),
+                        float(y + line_idx * line_height),
+                        float(cfg.size),
+                        cfg.family,
+                        parsed_col,
+                        align_code,
+                        cfg.weight,
+                        cfg.italic,
+                        cfg.bold,
+                    )
+            return
+
         self._surface.draw_text(
             text,
             float(x),
             float(y),
             float(cfg.size),
             cfg.family,
-            parse_color(color),
+            parsed_col,
             align_code,
             cfg.weight,
             cfg.italic,

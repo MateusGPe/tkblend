@@ -336,7 +336,16 @@ class _TableViewSurface(Widget):
 
                     # Extract raw cell value
                     if isinstance(row, dict):
-                        cell_raw_val = row.get(col_id, "")
+                        cell_raw_val = row.get(
+                            col_id,
+                            row.get(
+                                col.get("name"),
+                                row.get(
+                                    col.get("title"),
+                                    row.get(col.get("key"), ""),
+                                ),
+                            ),
+                        )
                     elif isinstance(row, (list, tuple)) and c_idx < len(row):
                         cell_raw_val = row[c_idx]
                     else:
@@ -491,8 +500,16 @@ class _TableViewSurface(Widget):
             font_sz_hdr = max(9.0, 11.0 * s)
             for i, col in enumerate(cols):
                 cw = col.get("width", 100) * s
-                title = col.get("title", f"Col {i}")
                 align = col.get("align", "left")
+                title = (
+                    col.get("title")
+                    or col.get("name")
+                    or col.get("header")
+                    or col.get("heading")
+                    or col.get("label")
+                    or col.get("text")
+                    or col.get("id", f"Col {i}")
+                )
 
                 if curr_x + cw > 0 and curr_x < w:
                     # Hover on column header
@@ -600,10 +617,7 @@ class Table(tk.Frame):
         pal = get_theme()
         self._explicit_parent_bg = parent_bg
         self._parent_bg = parent_bg or Widget._resolve_default_bg(master, pal)
-        self._columns = list(columns) if columns else [
-            {"id": "col1", "title": "Column 1", "width": 120, "align": "left"},
-            {"id": "col2", "title": "Column 2", "width": 140, "align": "left"},
-        ]
+        self._columns = self._normalize_columns(columns)
         self._data = list(data) if data else []
         self._header_height = header_height
         self._row_height = row_height
@@ -817,12 +831,47 @@ class Table(tk.Frame):
         if self._btn_next:
             self._btn_next.config(state="normal" if cur_p < total_p else "disabled")
 
+    @classmethod
+    def _normalize_columns(cls, columns: Optional[List[Union[Dict[str, Any], str]]]) -> List[Dict[str, Any]]:
+        if not columns:
+            return [
+                {"id": "col1", "title": "Column 1", "width": 120, "align": "left"},
+                {"id": "col2", "title": "Column 2", "width": 140, "align": "left"},
+            ]
+        norm: List[Dict[str, Any]] = []
+        for i, col in enumerate(columns):
+            if isinstance(col, str):
+                norm.append({"id": col, "title": col, "width": 100, "align": "left"})
+            elif isinstance(col, dict):
+                c = dict(col)
+                title = (
+                    c.get("title")
+                    or c.get("name")
+                    or c.get("header")
+                    or c.get("heading")
+                    or c.get("label")
+                    or c.get("text")
+                )
+                if title is None:
+                    title = c.get("id", f"Col {i}")
+                c["title"] = str(title)
+                if "id" not in c:
+                    c["id"] = str(c.get("name") or c.get("key") or f"col_{i}")
+                if "width" not in c:
+                    c["width"] = 100
+                if "align" not in c:
+                    c["align"] = "left"
+                norm.append(c)
+            else:
+                norm.append({"id": f"col_{i}", "title": str(col), "width": 100, "align": "left"})
+        return norm
+
     # -------------------------------------------------------------
     # DATA & COLUMN MANAGEMENT
     # -------------------------------------------------------------
-    def set_columns(self, columns: List[Dict[str, Any]]) -> None:
+    def set_columns(self, columns: List[Union[Dict[str, Any], str]]) -> None:
         """Set the table columns definition."""
-        self._columns = list(columns)
+        self._columns = self._normalize_columns(columns)
         self._update_scroll_geometry()
         self._view.render()
 
@@ -1598,13 +1647,12 @@ class Table(tk.Frame):
             self._card._bg_color = palette.card_bg
         if self._border_color is None:
             self._card._border_color = palette.card_border
-        self._card.set_parent_bg(self._parent_bg)
-        self._card.render()
+        self._card.set_parent_bg(self._parent_bg, render=False)
         inner_bg = self._card.bg_color
 
-        self._v_scrollbar.set_parent_bg(inner_bg)
-        self._h_scrollbar.set_parent_bg(inner_bg)
-        self._view.set_parent_bg(inner_bg)
+        self._v_scrollbar.set_parent_bg(inner_bg, render=False)
+        self._h_scrollbar.set_parent_bg(inner_bg, render=False)
+        self._view.set_parent_bg(inner_bg, render=False)
 
         if self._page_frame:
             self._page_frame.config(bg=inner_bg)
@@ -1615,7 +1663,7 @@ class Table(tk.Frame):
             if self._btn_next:
                 self._btn_next.config(bg=palette.secondary, fg=palette.fg, activebackground=palette.primary)
 
-        self._view.render()
+        self.render()
 
     def render(self) -> None:
         """Render the data table view surface and scrollbars."""

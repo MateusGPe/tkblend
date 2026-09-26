@@ -121,22 +121,25 @@ class ShowcaseHub(tk.Frame):
         sb_body = self._sidebar.body
 
         # App Brand Header
-        brand_box = tk.Frame(sb_body, background=self._sidebar.bg_color)
-        brand_box.pack(fill="x", padx=16, pady=(20, 16))
+        self._brand_box = tk.Frame(sb_body, background=self._sidebar.bg_color)
+        self._brand_box.pack(fill="x", padx=16, pady=(20, 16))
 
-        Avatar(brand_box, text="TB", size=40, bg_color=pal.primary).pack(side="left")
+        Avatar(self._brand_box, text="TB", size=40, bg_color=pal.primary).pack(side="left")
 
-        title_col = tk.Frame(brand_box, background=self._sidebar.bg_color)
+        title_col = tk.Frame(self._brand_box, background=self._sidebar.bg_color)
         title_col.pack(side="left", padx=10)
 
-        tk.Label(title_col, text="tkblend", font=("Segoe UI", 15, "bold"), fg=pal.fg, bg=self._sidebar.bg_color).pack(anchor="w")
+        self._brand_title_lbl = tk.Label(title_col, text="tkblend", font=("Segoe UI", 15, "bold"), fg=pal.fg, bg=self._sidebar.bg_color)
+        self._brand_title_lbl.pack(anchor="w")
         Badge(title_col, text="v0.3.0 Vector", color=pal.accent, height=18).pack(anchor="w", pady=(2, 0))
 
         # Nav Divider
-        tk.Frame(sb_body, height=1, background=pal.surface_border).pack(fill="x", padx=16, pady=8)
+        self._nav_divider = tk.Frame(sb_body, height=1, background=pal.surface_border)
+        self._nav_divider.pack(fill="x", padx=16, pady=8)
 
         # Nav Section Label
-        tk.Label(sb_body, text="SHOWCASE APPLICATIONS", font=("Segoe UI", 8, "bold"), fg=pal.fg_subtle, bg=self._sidebar.bg_color).pack(anchor="w", padx=18, pady=(4, 8))
+        self._section_lbl = tk.Label(sb_body, text="SHOWCASE APPLICATIONS", font=("Segoe UI", 8, "bold"), fg=pal.fg_subtle, bg=self._sidebar.bg_color)
+        self._section_lbl.pack(anchor="w", padx=18, pady=(4, 8))
 
         # Nav Buttons List
         for mod in SHOWCASE_MODULES:
@@ -146,7 +149,7 @@ class ShowcaseHub(tk.Frame):
                 text=mod["title"],
                 width=236,
                 height=36,
-                bootstyle="outline-primary" if m_id == self._current_app_id else "secondary",
+                bootstyle="primary" if m_id == self._current_app_id else "secondary",
                 command=lambda mid=m_id: self._load_view(mid),
             )
             btn.pack(fill="x", padx=16, pady=3)
@@ -155,14 +158,15 @@ class ShowcaseHub(tk.Frame):
         # Bottom Sidebar Controls
         tk.Frame(sb_body, background=self._sidebar.bg_color).pack(fill="both", expand=True)
 
-        bot_box = tk.Frame(sb_body, background=self._sidebar.bg_color)
-        bot_box.pack(fill="x", padx=16, pady=(0, 20))
+        self._bot_box = tk.Frame(sb_body, background=self._sidebar.bg_color)
+        self._bot_box.pack(fill="x", padx=16, pady=(0, 20))
 
-        tk.Label(bot_box, text="Theme Palette:", font=("Segoe UI", 9), fg=pal.fg_subtle, bg=self._sidebar.bg_color).pack(anchor="w", pady=(0, 4))
+        self._theme_lbl = tk.Label(self._bot_box, text="Theme Palette:", font=("Segoe UI", 9), fg=pal.fg_subtle, bg=self._sidebar.bg_color)
+        self._theme_lbl.pack(anchor="w", pady=(0, 4))
         self._theme_opt = OptionMenu(
-            bot_box,
+            self._bot_box,
             values=list(get_available_themes()),
-            default_value="dark",
+            default_value=pal.name,
             command=self._on_theme_changed,
             width=236,
             height=32,
@@ -171,7 +175,7 @@ class ShowcaseHub(tk.Frame):
 
         # Pop-out Detached Window Button
         Button(
-            bot_box,
+            self._bot_box,
             text="⤢ Pop Out Standalone",
             width=236,
             height=32,
@@ -182,6 +186,9 @@ class ShowcaseHub(tk.Frame):
         # Right Content Viewport Area
         self._viewport = tk.Frame(self, background=pal.bg)
         self._viewport.pack(side="right", fill="both", expand=True)
+
+        from tkblend.theme import add_theme_listener
+        add_theme_listener(lambda p: self._on_global_theme_changed(p))
 
     def _load_view(self, app_id: str) -> None:
         self._current_app_id = app_id
@@ -212,10 +219,25 @@ class ShowcaseHub(tk.Frame):
 
     def _on_theme_changed(self, theme_name: str) -> None:
         set_theme(theme_name)
-        pal = get_theme()
-        self.configure(background=pal.bg)
-        self._viewport.configure(background=pal.bg)
-        cascade_bg_to_children(self, pal.bg)
+
+    def _on_global_theme_changed(self, pal) -> None:
+        try:
+            self.configure(background=pal.bg)
+            self._viewport.configure(background=pal.bg)
+            self._sidebar.configure(background=pal.bg)
+            self._brand_box.configure(background=self._sidebar.bg_color)
+            self._bot_box.configure(background=self._sidebar.bg_color)
+            self._brand_title_lbl.configure(fg=pal.fg, bg=self._sidebar.bg_color)
+            self._section_lbl.configure(fg=pal.fg_subtle, bg=self._sidebar.bg_color)
+            self._theme_lbl.configure(fg=pal.fg_subtle, bg=self._sidebar.bg_color)
+            self._nav_divider.configure(background=pal.surface_border)
+            if self._theme_opt.get() != pal.name:
+                self._theme_opt.set(pal.name)
+            for mid, btn in self._nav_buttons.items():
+                btn.set_bootstyle("primary" if mid == self._current_app_id else "secondary")
+            cascade_bg_to_children(self, pal.bg)
+        except Exception as e:
+            print(e)
 
 
 def main():

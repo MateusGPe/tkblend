@@ -18,6 +18,7 @@ _CTK_MODULES = [
     "customtkinter.windows.widgets.core_rendering",
     "customtkinter.windows.widgets.core_rendering.draw_engine",
     "customtkinter.windows.widgets.core_rendering.ctk_canvas",
+    "customtkinter.windows.widgets.core_widget_classes.dropdown_menu",
     "customtkinter.windows.widgets.ctk_button",
     "customtkinter.windows.widgets.ctk_checkbox",
     "customtkinter.windows.widgets.ctk_combobox",
@@ -29,6 +30,7 @@ _CTK_MODULES = [
     "customtkinter.windows.widgets.ctk_radiobutton",
     "customtkinter.windows.widgets.ctk_scrollbar",
     "customtkinter.windows.widgets.ctk_scrollable_frame",
+    "customtkinter.windows.widgets.ctk_segmented_button",
     "customtkinter.windows.widgets.ctk_slider",
     "customtkinter.windows.widgets.ctk_switch",
     "customtkinter.windows.widgets.ctk_tabview",
@@ -44,6 +46,8 @@ def patch(enable_shadows: bool = False) -> None:
         enable_shadows: If True, renders subtle Blend2D soft drop shadows behind buttons and frames.
     """
     global _is_patched, _originals
+
+    TkBlendDrawEngine.enable_shadows_globally = enable_shadows
 
     import customtkinter
     import customtkinter.windows.widgets.core_rendering as core_rendering

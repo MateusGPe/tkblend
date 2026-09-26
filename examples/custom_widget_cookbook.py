@@ -169,7 +169,7 @@ class SpeedometerGauge(Widget):
         self._max_v = max_value
         self._value = value
         self._unit = unit
-        super().__init__(master=master, width=size, height=int(size * 0.75), bg=parent_bg, **kwargs)
+        super().__init__(master=master, width=size, height=int(size * 0.85), bg=parent_bg, **kwargs)
 
     def set_value(self, val: float) -> None:
         self._value = max(self._min_v, min(self._max_v, float(val)))
@@ -184,15 +184,22 @@ class SpeedometerGauge(Widget):
         w = float(self._widget_w)
         h = float(self._widget_h)
         cx = w / 2.0
-        cy = h - 25.0 * s
-        r = min(w / 2.0, h) - 20.0 * s
 
         self._surface.clear(self._parent_bg)
 
-        # Gauge arc parameters (135 deg to 405 deg / -135 to 45 deg relative)
+        # Gauge arc parameters (144 deg to 396 deg / -144 to 36 deg relative)
         start_rad = math.pi * 0.8
         end_rad = math.pi * 2.2
         span_rad = end_rad - start_rad
+
+        # Calculate radius and center so top/bottom ticks and hub are completely unclipped
+        max_tick_extra = 12.0 * s
+        pad = 14.0 * s
+        vert_factor = 1.0 + math.sin(0.8 * math.pi)  # ~1.5878
+        max_r_from_h = (h - 2.0 * pad) / vert_factor - max_tick_extra
+        max_r_from_w = (w / 2.0) - pad - max_tick_extra
+        r = max(10.0, min(max_r_from_h, max_r_from_w))
+        cy = pad + (r + max_tick_extra)
 
         # 1. Track Arc
         track_path = Path()

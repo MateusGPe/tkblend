@@ -259,7 +259,7 @@ class Entry(tk.Frame):
 
     config = configure
 
-    def set_parent_bg(self, bg: str, force: bool = False) -> None:
+    def set_parent_bg(self, bg: str, force: bool = False, render: bool = True) -> None:
         """Update parent background and re-render."""
         from tkblend.theme import resolve_color_failsafe
         self._parent_bg = resolve_color_failsafe(bg, master=self, fallback=self._parent_bg)
@@ -270,8 +270,9 @@ class Entry(tk.Frame):
         except Exception as e:
             logger.debug("Failed configuring TextInput background: %s", e)
         if hasattr(self, "_bg_widget"):
-            self._bg_widget.set_parent_bg(self._parent_bg, force=force)
-        self._render_bg()
+            self._bg_widget.set_parent_bg(self._parent_bg, force=force, render=render)
+        if render:
+            self._render_bg()
 
     def _update_theme_colors(self) -> None:
         if not self.winfo_exists():

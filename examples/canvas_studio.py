@@ -117,7 +117,7 @@ class CanvasStudio(tk.Frame):
         canvas_card.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
         c_body = canvas_card.body
-        self._canvas = BlendCanvas(c_body, width=620, height=520, bg="card_bg", on_draw=self._draw_canvas)
+        self._canvas = BlendCanvas(c_body, width=620, height=520, bg="surface", on_draw=self._draw_canvas)
         self._canvas.pack(fill="both", expand=True, padx=6, pady=6)
 
         # Mouse bindings for scratchpad
@@ -126,9 +126,12 @@ class CanvasStudio(tk.Frame):
         self._canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
 
         # Right Control Panel Card
-        self._param_card = Card(workspace, title="Studio Controls", width=260, height=540, rx=14, ry=14, elevation=6)
+        self._param_card = Card(workspace, title="Studio Controls", width=290, height=540, rx=14, ry=14, elevation=6)
         self._param_card.pack(side="right", fill="y", padx=(6, 0))
         self._setup_param_panel(self._param_card.body)
+
+        from tkblend.theme import add_theme_listener
+        add_theme_listener(lambda p: self._on_global_theme_changed(p))
 
         cascade_bg_to_children(self, pal.bg)
 
@@ -450,11 +453,15 @@ class CanvasStudio(tk.Frame):
 
     def _on_theme_changed(self, theme_name: str) -> None:
         set_theme(theme_name)
-        pal = get_theme()
-        self.configure(background=pal.bg)
-        cascade_bg_to_children(self, pal.bg)
-        self._update_ctrl_panel()
-        self._canvas.redraw()
+
+    def _on_global_theme_changed(self, pal) -> None:
+        try:
+            self.configure(background=pal.bg)
+            cascade_bg_to_children(self, pal.bg)
+            self._update_ctrl_panel()
+            self._canvas.redraw()
+        except Exception:
+            pass
 
 
 def main():

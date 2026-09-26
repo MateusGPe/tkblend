@@ -96,6 +96,10 @@ class OptionMenu(Widget):
         self._var_sync.set(self._selected)
         self.render()
 
+    def set_value(self, value: str) -> None:
+        """Ergonomic alias for set()."""
+        self.set(value)
+
     def get(self) -> str:
         """Return the current selected value."""
         return self._selected

@@ -19,12 +19,14 @@ class TkBlendDrawEngine:
 
     DRAWING_METHODS = ["blend2d_vector", "polygon_shapes", "font_shapes", "circle_shapes"]
     preferred_drawing_method = "blend2d_vector"
+    enable_shadows_globally: bool = False
 
     def __init__(self, canvas: tk.Canvas):
         self._canvas = canvas
         self._canvas._blend_engine = self
         self._round_width_to_even_numbers: bool = True
         self._round_height_to_even_numbers: bool = True
+        self._canvas_bg: Optional[str] = None
 
         # Rendering state
         self._shape_type: Optional[str] = None
@@ -54,7 +56,7 @@ class TkBlendDrawEngine:
         self._surface_h: int = 0
 
         # Optional visual enhancements
-        self._enable_shadows: bool = False
+        self._enable_shadows: bool = TkBlendDrawEngine.enable_shadows_globally
         self._shadow_blur: float = 8.0
         self._shadow_color: str = "#00000033"
 
@@ -65,6 +67,10 @@ class TkBlendDrawEngine:
     ) -> None:
         self._round_width_to_even_numbers = round_width_to_even_numbers
         self._round_height_to_even_numbers = round_height_to_even_numbers
+
+    def set_canvas_bg(self, bg: str) -> None:
+        """Store canvas background color configured by CustomTkinter."""
+        self._canvas_bg = bg
 
     def set_color(self, tag: str, color: Optional[str]) -> None:
         """Update color for a vector element tag."""
@@ -104,6 +110,62 @@ class TkBlendDrawEngine:
             return bool(self._params.get("background_corners_active", False))
         return False
 
+    def _resolve_bg_color(self) -> str:
+        """
+        Resolve the effective background color of the widget / master.
+        Used to pre-fill the Blend2D surface so subpixel anti-aliasing renders
+        with smooth alpha blending against the exact parent background,
+        completely eliminating dark alpha-fringes and black halos.
+        """
+        # 1. Background corner colors if defined
+        for tag in (
+            "background_corner_top_left",
+            "background_corner_top_right",
+            "background_corner_bottom_left",
+            "background_corner_bottom_right",
+        ):
+            c = self._colors.get(tag)
+            if c and c != "transparent":
+                return c
+
+        # 2. Canvas bg attribute explicitly set
+        if self._canvas_bg and self._canvas_bg != "transparent":
+            return self._canvas_bg
+
+        try:
+            bg = self._canvas.cget("bg")
+            if bg and bg != "transparent":
+                return bg
+        except Exception:
+            pass
+
+        # 3. Traverse parent hierarchy for CTk _bg_color / _fg_color or Tk cget('bg')
+        curr = getattr(self._canvas, "master", None)
+        while curr is not None:
+            try:
+                app_mode = getattr(curr, "_apply_appearance_mode", None)
+                for attr in ("_fg_color", "_bg_color"):
+                    if hasattr(curr, attr):
+                        val = getattr(curr, attr)
+                        if val:
+                            resolved = app_mode(val) if app_mode else val
+                            if resolved and resolved != "transparent":
+                                return resolved
+                bg = curr.cget("bg")
+                if bg and bg != "transparent":
+                    return bg
+            except Exception:
+                pass
+            curr = getattr(curr, "master", None)
+
+        # 4. Fallback based on CustomTkinter appearance mode
+        try:
+            import customtkinter as ctk
+            mode = ctk.get_appearance_mode()
+            return "#242424" if str(mode).lower() == "dark" else "#ebebeb"
+        except Exception:
+            return "#242424"
+
     def _ensure_surface(self, width: int, height: int) -> Surface:
         """Ensure the backing Blend2D Surface and Tk PhotoImage match the requested dimensions."""
         w = max(1, int(width))
@@ -113,7 +175,14 @@ class TkBlendDrawEngine:
             self._surface_w = w
             self._surface_h = h
             self._surface = Surface(w, h)
-            self._photo = tk.PhotoImage(master=self._canvas, width=w, height=h)
+
+            if self._photo is None:
+                self._photo = tk.PhotoImage(master=self._canvas, width=w, height=h)
+            else:
+                try:
+                    self._photo.configure(width=w, height=h)
+                except Exception:
+                    self._photo = tk.PhotoImage(master=self._canvas, width=w, height=h)
 
             if self._image_id is None or not self._canvas.find_withtag("tkblend_surface"):
                 self._image_id = self._canvas.create_image(0, 0, anchor="nw", image=self._photo, tags="tkblend_surface")
@@ -346,9 +415,11 @@ class TkBlendDrawEngine:
             self._params["checkmark_active"] = False
         elif tag in ("dropdown_arrow", "dropdown_arrow_parts"):
             self._params["dropdown_arrow_active"] = False
-        elif tag == "border_parts":
+        elif tag in ("border_parts", "border_line_1", "border_rectangle_1"):
             self._params["border_width"] = 0
             self._params["border_spacing"] = 0
+        elif tag in ("background_parts", "background_corner_top_left", "background_corner_top_right", "background_corner_bottom_right", "background_corner_bottom_left"):
+            self._params["background_corners_active"] = False
         self.render()
 
     def render(self) -> None:
@@ -360,18 +431,22 @@ class TkBlendDrawEngine:
             return
 
         surface = self._ensure_surface(w, h)
-        surface.clear("#00000000")  # Transparent base
+        bg = self._resolve_bg_color()
 
-        # 1. Background Corners (if enabled)
+        # Fill base background cleanly with resolved parent color
+        # This completely eliminates dark alpha halos & black fringe artifacts
+        surface.fill_rect(0, 0, w, h, bg)
+
+        # 1. Background Corners (if quadrant corner colors differ)
         if self._params.get("background_corners_active"):
             bg_w = self._params.get("bg_w", w)
             bg_h = self._params.get("bg_h", h)
             mid_w, mid_h = round(bg_w / 2), round(bg_h / 2)
 
-            tl = self._colors.get("background_corner_top_left")
-            tr = self._colors.get("background_corner_top_right")
-            br = self._colors.get("background_corner_bottom_right")
-            bl = self._colors.get("background_corner_bottom_left")
+            tl = self._colors.get("background_corner_top_left") or bg
+            tr = self._colors.get("background_corner_top_right") or bg
+            br = self._colors.get("background_corner_bottom_right") or bg
+            bl = self._colors.get("background_corner_bottom_left") or bg
 
             if tl and tl != "transparent":
                 surface.fill_rect(0, 0, mid_w, mid_h, tl)
@@ -385,15 +460,15 @@ class TkBlendDrawEngine:
         # 2. Render based on active shape
         shape = self._shape_type
         if shape == "rounded_rect":
-            self._render_rounded_rect(surface, w, h)
+            self._render_rounded_rect(surface, w, h, bg)
         elif shape == "vertical_split":
-            self._render_vertical_split(surface, w, h)
+            self._render_vertical_split(surface, w, h, bg)
         elif shape == "progress_bar":
-            self._render_progress_bar(surface, w, h)
+            self._render_progress_bar(surface, w, h, bg)
         elif shape == "slider":
-            self._render_slider(surface, w, h)
+            self._render_slider(surface, w, h, bg)
         elif shape == "scrollbar":
-            self._render_scrollbar(surface, w, h)
+            self._render_scrollbar(surface, w, h, bg)
 
         # 3. Checkmark overlay (if active)
         if self._params.get("checkmark_active"):
@@ -408,14 +483,15 @@ class TkBlendDrawEngine:
             surface.blit(self._photo)
             self._canvas.tag_lower("tkblend_surface")
 
-    def _render_rounded_rect(self, surface: Surface, width: float, height: float) -> None:
+    def _render_rounded_rect(self, surface: Surface, width: float, height: float, bg: str) -> None:
         r = float(self._params.get("corner_radius", 0))
         bw = float(self._params.get("border_width", 0))
+        r = min(r, width / 2.0, height / 2.0)
         inner_color = self._colors.get("inner_parts")
         border_color = self._colors.get("border_parts")
 
         # Optional subtle drop shadow for enhanced Blend2D rendering
-        if self._enable_shadows and inner_color and inner_color != "transparent":
+        if (self._enable_shadows or TkBlendDrawEngine.enable_shadows_globally) and inner_color and inner_color != "transparent":
             surface.draw_shadow(
                 0, 1, width, height, r, r,
                 blur_radius=self._shadow_blur,
@@ -427,27 +503,32 @@ class TkBlendDrawEngine:
             surface.fill_rounded_rect(0, 0, width, height, r, r, border_color)
 
             # Inner foreground fill
-            if inner_color and inner_color != "transparent":
-                inner_r = max(0.0, r - bw)
-                inner_w = max(0.0, width - 2 * bw)
-                inner_h = max(0.0, height - 2 * bw)
-                if inner_w > 0 and inner_h > 0:
-                    surface.fill_rounded_rect(bw, bw, inner_w, inner_h, inner_r, inner_r, inner_color)
+            effective_inner = inner_color if (inner_color and inner_color != "transparent") else bg
+            inner_r = max(0.0, r - bw)
+            inner_w = max(0.0, width - 2 * bw)
+            inner_h = max(0.0, height - 2 * bw)
+            if inner_w > 0 and inner_h > 0:
+                surface.fill_rounded_rect(bw, bw, inner_w, inner_h, inner_r, inner_r, effective_inner)
         else:
             if inner_color and inner_color != "transparent":
                 surface.fill_rounded_rect(0, 0, width, height, r, r, inner_color)
 
-    def _render_vertical_split(self, surface: Surface, width: float, height: float) -> None:
+    def _render_vertical_split(self, surface: Surface, width: float, height: float, bg: str) -> None:
         r = float(self._params.get("corner_radius", 0))
         bw = float(self._params.get("border_width", 0))
+        r = min(r, width / 2.0, height / 2.0)
         split_width = height  # Typical dropdown button width on right
         split_x = max(0.0, width - split_width)
 
         border_color = self._colors.get("border_parts")
-        left_color = self._colors.get("inner_parts_left") or self._colors.get("inner_parts")
-        right_color = self._colors.get("inner_parts_right") or self._colors.get("inner_parts")
+        left_color = self._colors.get("inner_parts_left") or self._colors.get("inner_parts") or bg
+        right_color = self._colors.get("inner_parts_right") or self._colors.get("inner_parts") or bg
 
-        # Border base
+        if left_color == "transparent":
+            left_color = bg
+        if right_color == "transparent":
+            right_color = bg
+
         if bw > 0 and border_color and border_color != "transparent":
             surface.fill_rounded_rect(0, 0, width, height, r, r, border_color)
             inner_r = max(0.0, r - bw)
@@ -455,42 +536,42 @@ class TkBlendDrawEngine:
             inner_h = max(0.0, height - 2 * bw)
 
             # Left section with clip
-            if left_color and left_color != "transparent":
-                with surface.saved():
-                    surface.clip_rect(bw, bw, split_x - bw, inner_h)
-                    surface.fill_rounded_rect(bw, bw, inner_w, inner_h, inner_r, inner_r, left_color)
+            with surface.saved():
+                surface.clip_rect(bw, bw, max(0.0, split_x - bw), inner_h)
+                surface.fill_rounded_rect(bw, bw, inner_w, inner_h, inner_r, inner_r, left_color)
 
             # Right section with clip
-            if right_color and right_color != "transparent":
-                with surface.saved():
-                    surface.clip_rect(split_x, bw, width - bw - split_x, inner_h)
-                    surface.fill_rounded_rect(bw, bw, inner_w, inner_h, inner_r, inner_r, right_color)
+            with surface.saved():
+                surface.clip_rect(split_x, bw, max(0.0, width - bw - split_x), inner_h)
+                surface.fill_rounded_rect(bw, bw, inner_w, inner_h, inner_r, inner_r, right_color)
 
             # Vertical separator line
             surface.draw_line(split_x, bw, split_x, height - bw, border_color, stroke_width=bw)
         else:
             # Left section
-            if left_color and left_color != "transparent":
-                with surface.saved():
-                    surface.clip_rect(0, 0, split_x, height)
-                    surface.fill_rounded_rect(0, 0, width, height, r, r, left_color)
+            with surface.saved():
+                surface.clip_rect(0, 0, split_x, height)
+                surface.fill_rounded_rect(0, 0, width, height, r, r, left_color)
 
             # Right section
-            if right_color and right_color != "transparent":
-                with surface.saved():
-                    surface.clip_rect(split_x, 0, width - split_x, height)
-                    surface.fill_rounded_rect(0, 0, width, height, r, r, right_color)
+            with surface.saved():
+                surface.clip_rect(split_x, 0, max(0.0, width - split_x), height)
+                surface.fill_rounded_rect(0, 0, width, height, r, r, right_color)
 
-    def _render_progress_bar(self, surface: Surface, width: float, height: float) -> None:
+    def _render_progress_bar(self, surface: Surface, width: float, height: float, bg: str) -> None:
         r = float(self._params.get("corner_radius", 0))
         bw = float(self._params.get("border_width", 0))
+        r = min(r, width / 2.0, height / 2.0)
         val1 = float(self._params.get("progress_value_1", 0.0))
         val2 = float(self._params.get("progress_value_2", 0.0))
-        orientation = self._params.get("orientation", "w")
+        orientation = str(self._params.get("orientation", "w")).lower()
 
-        track_color = self._colors.get("inner_parts")
+        track_color = self._colors.get("inner_parts") or bg
         border_color = self._colors.get("border_parts")
         prog_color = self._colors.get("progress_parts")
+
+        if track_color == "transparent":
+            track_color = bg
 
         # 1. Base track & border
         if bw > 0 and border_color and border_color != "transparent":
@@ -498,53 +579,55 @@ class TkBlendDrawEngine:
             inner_r = max(0.0, r - bw)
             inner_w = max(0.0, width - 2 * bw)
             inner_h = max(0.0, height - 2 * bw)
-            if track_color and track_color != "transparent" and inner_w > 0 and inner_h > 0:
+            if inner_w > 0 and inner_h > 0:
                 surface.fill_rounded_rect(bw, bw, inner_w, inner_h, inner_r, inner_r, track_color)
         else:
-            if track_color and track_color != "transparent":
-                surface.fill_rounded_rect(0, 0, width, height, r, r, track_color)
+            surface.fill_rounded_rect(0, 0, width, height, r, r, track_color)
 
         # 2. Progress fill (clipped to rounded track for crisp edges)
-        if prog_color and prog_color != "transparent" and val2 > val1:
+        min_val = min(val1, val2)
+        max_val = max(val1, val2)
+        if prog_color and prog_color != "transparent" and max_val > min_val:
             with surface.saved():
-                surface.clip_rounded_rect(bw, bw, width - 2 * bw, height - 2 * bw, max(0.0, r - bw), max(0.0, r - bw))
-                if orientation == "w":  # Left to right
-                    px0 = bw + (width - 2 * bw) * val1
-                    px1 = bw + (width - 2 * bw) * val2
+                surface.clip_rounded_rect(bw, bw, max(0.0, width - 2 * bw), max(0.0, height - 2 * bw), max(0.0, r - bw), max(0.0, r - bw))
+                if orientation in ("w", "horizontal"):  # Left to right
+                    px0 = bw + (width - 2 * bw) * min_val
+                    px1 = bw + (width - 2 * bw) * max_val
                     surface.fill_rect(px0, bw, max(0.0, px1 - px0), height - 2 * bw, prog_color)
                 elif orientation == "e":  # Right to left
-                    px0 = bw + (width - 2 * bw) * (1.0 - val2)
-                    px1 = bw + (width - 2 * bw) * (1.0 - val1)
+                    px0 = bw + (width - 2 * bw) * (1.0 - max_val)
+                    px1 = bw + (width - 2 * bw) * (1.0 - min_val)
                     surface.fill_rect(px0, bw, max(0.0, px1 - px0), height - 2 * bw, prog_color)
-                elif orientation == "s":  # Bottom to top
-                    py0 = bw + (height - 2 * bw) * (1.0 - val2)
-                    py1 = bw + (height - 2 * bw) * (1.0 - val1)
+                elif orientation in ("s", "vertical"):  # Bottom to top
+                    py0 = bw + (height - 2 * bw) * (1.0 - max_val)
+                    py1 = bw + (height - 2 * bw) * (1.0 - min_val)
                     surface.fill_rect(bw, py0, width - 2 * bw, max(0.0, py1 - py0), prog_color)
                 elif orientation == "n":  # Top to bottom
-                    py0 = bw + (height - 2 * bw) * val1
-                    py1 = bw + (height - 2 * bw) * val2
+                    py0 = bw + (height - 2 * bw) * min_val
+                    py1 = bw + (height - 2 * bw) * max_val
                     surface.fill_rect(bw, py0, width - 2 * bw, max(0.0, py1 - py0), prog_color)
 
-    def _render_slider(self, surface: Surface, width: float, height: float) -> None:
+    def _render_slider(self, surface: Surface, width: float, height: float, bg: str) -> None:
         # First draw the background track and progress
-        self._render_progress_bar(surface, width, height)
+        self._render_progress_bar(surface, width, height, bg)
 
         r = float(self._params.get("corner_radius", 0))
         btn_len = float(self._params.get("button_length", 0))
         btn_r = float(self._params.get("button_corner_radius", 0))
         slider_val = float(self._params.get("slider_value", 0.0))
-        orientation = self._params.get("orientation", "w")
+        slider_val = max(0.0, min(1.0, slider_val))
+        orientation = str(self._params.get("orientation", "w")).lower()
         slider_color = self._colors.get("slider_parts")
         border_color = self._colors.get("border_parts")
 
         if slider_color and slider_color != "transparent":
-            if orientation == "w":
+            if orientation in ("w", "horizontal"):
                 sx = r + (btn_len / 2.0) + (width - 2.0 * r - btn_len) * slider_val
                 bx = sx - (btn_len / 2.0)
                 by = 0.0
                 bw = btn_len
                 bh = height
-            elif orientation == "s":
+            elif orientation in ("s", "vertical"):
                 sy = r + (btn_len / 2.0) + (height - 2.0 * r - btn_len) * (1.0 - slider_val)
                 bx = 0.0
                 by = sy - (btn_len / 2.0)
@@ -553,25 +636,30 @@ class TkBlendDrawEngine:
             else:
                 return
 
+            btn_r = min(btn_r, bw / 2.0, bh / 2.0)
             # Draw slider thumb with subtle shadow and border
-            surface.draw_shadow(bx, by + 1.0, bw, bh, btn_r, btn_r, blur_radius=4.0, shadow_color="#00000040")
+            if self._enable_shadows or TkBlendDrawEngine.enable_shadows_globally:
+                surface.draw_shadow(bx, by + 1.0, bw, bh, btn_r, btn_r, blur_radius=4.0, shadow_color="#00000040")
             surface.fill_rounded_rect(bx, by, bw, bh, btn_r, btn_r, slider_color)
             if border_color and border_color != "transparent":
-                surface.stroke_rounded_rect(bx + 0.5, by + 0.5, bw - 1.0, bh - 1.0, btn_r, btn_r, border_color, stroke_width=1.0)
+                surface.stroke_rounded_rect(bx + 0.5, by + 0.5, max(0.0, bw - 1.0), max(0.0, bh - 1.0), btn_r, btn_r, border_color, stroke_width=1.0)
 
-    def _render_scrollbar(self, surface: Surface, width: float, height: float) -> None:
+    def _render_scrollbar(self, surface: Surface, width: float, height: float, bg: str) -> None:
         r = float(self._params.get("corner_radius", 0))
+        r = min(r, width / 2.0, height / 2.0)
         spacing = float(self._params.get("border_spacing", 0))
         s_val = float(self._params.get("start_value", 0.0))
         e_val = float(self._params.get("end_value", 1.0))
-        orientation = self._params.get("orientation", "vertical")
+        orientation = str(self._params.get("orientation", "vertical")).lower()
 
-        track_color = self._colors.get("border_parts") or self._colors.get("inner_parts")
+        track_color = self._colors.get("border_parts") or self._colors.get("inner_parts") or bg
         thumb_color = self._colors.get("scrollbar_parts")
 
+        if track_color == "transparent":
+            track_color = bg
+
         # Track
-        if track_color and track_color != "transparent":
-            surface.fill_rounded_rect(0, 0, width, height, r, r, track_color)
+        surface.fill_rounded_rect(0, 0, width, height, r, r, track_color)
 
         # Thumb
         if thumb_color and thumb_color != "transparent":
@@ -581,12 +669,14 @@ class TkBlendDrawEngine:
                 y1 = r + (height - 2.0 * r) * e_val
                 thumb_h = max(4.0, y1 - y0)
                 thumb_w = max(1.0, width - 2.0 * spacing)
+                thumb_r = min(thumb_r, thumb_w / 2.0, thumb_h / 2.0)
                 surface.fill_rounded_rect(spacing, y0, thumb_w, thumb_h, thumb_r, thumb_r, thumb_color)
             elif orientation == "horizontal":
                 x0 = r + (width - 2.0 * r) * s_val
                 x1 = r + (width - 2.0 * r) * e_val
                 thumb_w = max(4.0, x1 - x0)
                 thumb_h = max(1.0, height - 2.0 * spacing)
+                thumb_r = min(thumb_r, thumb_w / 2.0, thumb_h / 2.0)
                 surface.fill_rounded_rect(x0, spacing, thumb_w, thumb_h, thumb_r, thumb_r, thumb_color)
 
     def _render_checkmark(self, surface: Surface) -> None:

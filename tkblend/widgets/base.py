@@ -200,10 +200,12 @@ class Widget(tk.Label):
         self.bind("<FocusOut>", self._on_focus_out)
         self.bind("<Destroy>", self._on_destroy)
 
+        self._theme_dirty = False
+
         # Register for theme notifications
         add_theme_listener(self._on_theme_changed)
 
-        self.after_idle(self.render)
+        self.after_idle(lambda: self.render() if self.winfo_exists() else None)
 
     @property
     def surface(self) -> Surface:
@@ -298,7 +300,7 @@ class Widget(tk.Label):
         self._on_destroy()
         super().destroy()
 
-    def set_parent_bg(self, bg: str, force: bool = False) -> None:
+    def set_parent_bg(self, bg: str, force: bool = False, render: bool = True) -> None:
         """Explicitly update the parent background and re-render."""
         resolved = resolve_color_failsafe(bg, master=self, fallback=self._parent_bg)
         self._parent_bg = resolved
@@ -308,18 +310,38 @@ class Widget(tk.Label):
             self.configure(background=self._parent_bg)
         except Exception as e:
             logger.debug("Failed configuring Widget background to '%s': %s", self._parent_bg, e)
-        self.render()
+        if render:
+            self.render()
+        else:
+            self._theme_dirty = True
 
-    def _on_theme_changed(self, palette: Palette) -> None:
+    def _apply_theme_update(self, palette: Palette) -> None:
+        """Execute scheduled theme render in non-blocking batch."""
         if not self.winfo_exists():
+            return
+        if not self._theme_dirty:
             return
         if self._explicit_bg is None:
             self._parent_bg = self._resolve_default_bg(getattr(self, "master", None), palette)
             try:
                 self.configure(background=self._parent_bg)
             except Exception as e:
-                logger.debug("Failed updating Widget background during theme change on %r: %s", self, e)
+                logger.debug("Failed updating Widget background in _apply_theme_update on %r: %s", self, e)
+        self._theme_dirty = False
         self.render()
+
+    def _on_theme_changed(self, palette: Palette) -> None:
+        if not self.winfo_exists():
+            return
+        self._theme_dirty = True
+        if self._explicit_bg is None:
+            self._parent_bg = self._resolve_default_bg(getattr(self, "master", None), palette)
+            try:
+                self.configure(background=self._parent_bg)
+            except Exception as e:
+                logger.debug("Failed updating Widget background during theme change on %r: %s", self, e)
+        from ..theme import ThemeManager
+        ThemeManager().queue_render(self)
 
     def _on_configure(self, event) -> None:
         # Ignore unmapped / transient <= 1px geometry events during container layout recalculations
@@ -590,7 +612,7 @@ class ContainerBase(tk.Frame):
         self.bind("<Configure>", self._on_configure)
         self.bind("<Destroy>", self._on_destroy)
         add_theme_listener(self._on_theme_changed)
-        self.after_idle(self.render)
+        self.after_idle(lambda: self.render() if self.winfo_exists() else None)
 
     def _on_destroy(self, event=None) -> None:
         if event is not None and getattr(event, "widget", None) != self:
@@ -707,7 +729,7 @@ class ContainerBase(tk.Frame):
             self.after_idle(lambda: apply_round_rect_shape(frame, w, h, inner_rx, inner_ry))
         return frame
 
-    def set_parent_bg(self, bg: str, force: bool = False) -> None:
+    def set_parent_bg(self, bg: str, force: bool = False, render: bool = True) -> None:
         """Update parent background and re-render container."""
         self._parent_bg = resolve_color_failsafe(bg, master=self, fallback=self._parent_bg)
         if force:
@@ -718,7 +740,8 @@ class ContainerBase(tk.Frame):
                 self._bg_label.configure(background=self._parent_bg)
         except Exception as e:
             logger.debug("Failed configuring container background to '%s': %s", self._parent_bg, e)
-        self.render()
+        if render:
+            self.render()
 
     def _on_theme_changed(self, palette: Palette) -> None:
         if not self.winfo_exists():
@@ -741,7 +764,7 @@ class ContainerBase(tk.Frame):
         except Exception as e:
             logger.debug("Failed updating container colors during theme change: %s", e)
         self.render()
-        cascade_bg_to_children(self, str(self._bg_color))
+        cascade_bg_to_children(self, str(self._bg_color), preserve_overrides=True, render=False)
 
     def _on_configure(self, event) -> None:
         if event.width <= 1 or event.height <= 1:
@@ -843,7 +866,12 @@ class ContainerBase(tk.Frame):
             logger.debug("Render failed in ContainerBase: %s", e, exc_info=True)
 
 
-def cascade_bg_to_children(container: Any, bg: str, preserve_overrides: bool = True) -> None:
+def cascade_bg_to_children(
+    container: Any,
+    bg: str,
+    preserve_overrides: bool = True,
+    render: bool = False,
+) -> None:
     """Recursively propagate background color down through child widgets."""
     if not hasattr(container, "winfo_children"):
         return
@@ -869,11 +897,11 @@ def cascade_bg_to_children(container: Any, bg: str, preserve_overrides: bool = T
         if hasattr(child, "bg_color") and not callable(getattr(child, "bg_color", None)):
             if hasattr(child, "set_parent_bg"):
                 try:
-                    child.set_parent_bg(bg)
+                    child.set_parent_bg(bg, render=render)
                 except Exception as e:
                     logger.debug("Failed setting parent_bg on child container %r: %s", child, e)
             inner_bg = str(child.bg_color)
-            cascade_bg_to_children(child, inner_bg, preserve_overrides=preserve_overrides)
+            cascade_bg_to_children(child, inner_bg, preserve_overrides=preserve_overrides, render=render)
             continue
 
         # If it's a vector Widget or has set_parent_bg:
@@ -881,7 +909,7 @@ def cascade_bg_to_children(container: Any, bg: str, preserve_overrides: bool = T
             if preserve_overrides and getattr(child, "_explicit_bg", None) is not None:
                 continue
             try:
-                child.set_parent_bg(bg)
+                child.set_parent_bg(bg, render=render)
             except Exception as e:
                 logger.debug("Failed setting parent_bg on child widget %r: %s", child, e)
             continue
@@ -892,5 +920,5 @@ def cascade_bg_to_children(container: Any, bg: str, preserve_overrides: bool = T
                 child.configure(background=bg)
             except Exception as e:
                 logger.debug("Failed updating standard widget background on %r: %s", child, e)
-        cascade_bg_to_children(child, bg, preserve_overrides=preserve_overrides)
+        cascade_bg_to_children(child, bg, preserve_overrides=preserve_overrides, render=render)
 

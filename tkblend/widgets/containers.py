@@ -241,7 +241,7 @@ class Accordion(tk.Frame):
             self._header = None  # type: ignore
         super().destroy()
 
-    def set_parent_bg(self, bg: str, force: bool = False) -> None:
+    def set_parent_bg(self, bg: str, force: bool = False, render: bool = True) -> None:
         """Update parent background and re-render."""
         self._parent_bg = resolve_color_failsafe(bg, master=self, fallback=self._parent_bg)
         if force:
@@ -251,8 +251,9 @@ class Accordion(tk.Frame):
         except Exception as e:
             logger.debug("Failed configuring Accordion background to '%s': %s", self._parent_bg, e)
         if hasattr(self, "_header"):
-            self._header.set_parent_bg(self._parent_bg, force=force)
-        self._render_header()
+            self._header.set_parent_bg(self._parent_bg, force=force, render=render)
+        if render:
+            self._render_header()
 
     def _on_theme_changed(self, palette: Palette) -> None:
         if not self.winfo_exists():
@@ -263,7 +264,7 @@ class Accordion(tk.Frame):
             self.configure(bg=self._parent_bg)
             if hasattr(self, "_content") and self._content.winfo_exists():
                 self._content.configure(bg=palette.surface)
-                cascade_bg_to_children(self._content, palette.surface)
+                cascade_bg_to_children(self._content, palette.surface, render=False)
         except Exception as e:
             logger.debug("Failed updating Accordion background during theme change: %s", e)
         self._render_header()

@@ -273,31 +273,31 @@ DARK_PALETTE = Palette(
 LIGHT_PALETTE = Palette(
     name="light",
     dark_mode=False,
-    bg="#f8f4fa",
-    fg="#1d1b20",
-    text_muted="#49454f",
+    bg="#f4f5f7",
+    fg="#0f172a",
+    text_muted="#475569",
     card_bg="#ffffff",
-    card_border="#cac4d0",
-    surface="#f0eaf4",
-    surface_border="#e7e0ec",
-    primary="#6750a4",
-    primary_hover="#7f67be",
-    primary_active="#533d8b",
+    card_border="#cbd5e1",
+    surface="#e2e8f0",
+    surface_border="#cbd5e1",
+    primary="#6366f1",
+    primary_hover="#4f46e5",
+    primary_active="#4338ca",
     primary_fg="#ffffff",
-    secondary="#e8def8",
-    secondary_hover="#ded3ee",
-    secondary_active="#cbbcdb",
-    secondary_fg="#1d192b",
-    accent="#7d5260",
-    success="#2e6c43",
-    warning="#8f4c00",
-    destructive="#ba1a1a",
+    secondary="#e2e8f0",
+    secondary_hover="#cbd5e1",
+    secondary_active="#94a3b8",
+    secondary_fg="#0f172a",
+    accent="#0ea5e9",
+    success="#10b981",
+    warning="#f59e0b",
+    destructive="#ef4444",
     input_bg="#ffffff",
-    input_border="#79747e",
-    input_focus="#6750a4",
-    track_bg="#e7e0ec",
-    thumb_color="#6750a4",
-    shadow_color="#00000010",
+    input_border="#94a3b8",
+    input_focus="#6366f1",
+    track_bg="#e2e8f0",
+    thumb_color="#6366f1",
+    shadow_color="#00000018",
 )
 
 DRACULA_PALETTE = Palette(
@@ -604,8 +604,8 @@ SOLARIZED_LIGHT_PALETTE = Palette(
     name="solarized_light",
     dark_mode=False,
     bg="#fdf6e3",
-    fg="#586e75",
-    text_muted="#657b83",
+    fg="#073642",
+    text_muted="#586e75",
     card_bg="#ffffff",
     card_border="#93a1a1",
     surface="#eee8d5",
@@ -617,7 +617,7 @@ SOLARIZED_LIGHT_PALETTE = Palette(
     secondary="#eee8d5",
     secondary_hover="#dfd8c2",
     secondary_active="#cec7b0",
-    secondary_fg="#586e75",
+    secondary_fg="#073642",
     accent="#2aa198",
     success="#859900",
     warning="#b58900",
@@ -627,7 +627,7 @@ SOLARIZED_LIGHT_PALETTE = Palette(
     input_focus="#268bd2",
     track_bg="#e4dec9",
     thumb_color="#268bd2",
-    shadow_color="#00000010",
+    shadow_color="#00000015",
 )
 
 THEME_PRESETS: Dict[str, Palette] = {
@@ -668,6 +668,24 @@ def _unwrap_listener(ref: Any) -> Optional[Callable[[Palette], None]]:
     return ref
 
 
+def get_preset_semantic_colors() -> Dict[str, set[str]]:
+    """Return a mapping of semantic token names to a set of lowercased hex values across all registered palettes."""
+    manager = ThemeManager()
+    res: Dict[str, set[str]] = {
+        "bg": set(),
+        "card_bg": set(),
+        "surface": set(),
+        "input_bg": set(),
+        "track_bg": set(),
+    }
+    for p in manager.palettes.values():
+        for token in res:
+            val = getattr(p, token, None)
+            if isinstance(val, str) and val.startswith("#"):
+                res[token].add(val.lower())
+    return res
+
+
 class ThemeManager:
     """Central singleton managing the active theme palette and listeners."""
     _instance: Optional[ThemeManager] = None
@@ -680,6 +698,9 @@ class ThemeManager:
             cls._instance._previous_palette: Optional[Palette] = None
             cls._instance._listeners = []
             cls._instance._priority_listeners = []
+            cls._instance._known_roots = weakref.WeakSet()
+            cls._instance._render_queue = weakref.WeakSet()
+            cls._instance._queue_scheduled = False
         return cls._instance
 
     @property
@@ -696,6 +717,125 @@ class ThemeManager:
 
     def register_palette(self, name: str, palette: Palette) -> None:
         self._palettes[name.lower()] = palette
+
+    def register_root(self, root: Any) -> None:
+        """Register a Tk root / Toplevel window for auto-theme synchronization."""
+        if root is not None and hasattr(root, "winfo_exists"):
+            self._known_roots.add(root)
+
+    def _get_active_root(self) -> Optional[Any]:
+        """Find a live Tk root or toplevel window capable of scheduling after callbacks."""
+        try:
+            for root in list(self._known_roots):
+                if root is not None and hasattr(root, "winfo_exists") and root.winfo_exists():
+                    return root
+        except Exception:
+            pass
+        try:
+            import tkinter as tk
+            d_root = getattr(tk, "_default_root", None)
+            if d_root is not None and hasattr(d_root, "winfo_exists") and d_root.winfo_exists():
+                return d_root
+        except Exception:
+            pass
+        return None
+
+    def queue_render(self, widget: Any) -> None:
+        """Enqueue a vector widget for batched, non-blocking rendering under the active theme."""
+        if widget is not None:
+            self._render_queue.add(widget)
+            self._schedule_queue_processing()
+
+    def _schedule_queue_processing(self) -> None:
+        if self._queue_scheduled:
+            return
+        root = self._get_active_root()
+        if root is not None and hasattr(root, "after_idle"):
+            try:
+                self._queue_scheduled = True
+                root.after_idle(self._process_queue_slice)
+            except Exception as e:
+                logger.debug("Failed scheduling queue processing on root: %s", e)
+                self.flush_queue()
+        else:
+            self.flush_queue()
+
+    def _process_queue_slice(self, slice_budget_ms: float = 12.0, max_items: int = 100) -> None:
+        self._queue_scheduled = False
+        import time
+        start_time = time.perf_counter()
+        processed = 0
+        pal = self._current_palette
+
+        while self._render_queue and (time.perf_counter() - start_time) * 1000.0 < slice_budget_ms and processed < max_items:
+            try:
+                w = self._render_queue.pop()
+            except KeyError:
+                break
+            processed += 1
+            if w is not None and hasattr(w, "winfo_exists"):
+                try:
+                    if w.winfo_exists():
+                        if hasattr(w, "_apply_theme_update"):
+                            w._apply_theme_update(pal)
+                        elif hasattr(w, "_on_theme_changed"):
+                            w._on_theme_changed(pal)
+                        elif hasattr(w, "render"):
+                            w.render()
+                except Exception as e:
+                    logger.debug("Error updating widget in theme render queue %r: %s", w, e)
+
+        if self._render_queue:
+            root = self._get_active_root()
+            if root is not None and hasattr(root, "after"):
+                try:
+                    self._queue_scheduled = True
+                    root.after(1, self._process_queue_slice)
+                except Exception as e:
+                    logger.debug("Failed rescheduling queue slice: %s", e)
+                    self.flush_queue()
+            else:
+                self.flush_queue()
+
+    def flush_queue(self) -> None:
+        """Flush and execute all pending theme re-render operations synchronously."""
+        self._queue_scheduled = False
+        pal = self._current_palette
+        while self._render_queue:
+            try:
+                w = self._render_queue.pop()
+            except KeyError:
+                break
+            if w is not None and hasattr(w, "winfo_exists"):
+                try:
+                    if w.winfo_exists():
+                        if hasattr(w, "_apply_theme_update"):
+                            w._apply_theme_update(pal)
+                        elif hasattr(w, "_on_theme_changed"):
+                            w._on_theme_changed(pal)
+                        elif hasattr(w, "render"):
+                            w.render()
+                except Exception as e:
+                    logger.debug("Error in flush_queue on %r: %s", w, e)
+
+    def _sync_roots(self) -> None:
+        """Automatically style and synchronize active Tk root windows."""
+        try:
+            import tkinter as tk
+            d_root = getattr(tk, "_default_root", None)
+            if d_root is not None and hasattr(d_root, "winfo_exists"):
+                self._known_roots.add(d_root)
+        except Exception as e:
+            logger.debug("Failed discovering default root: %s", e)
+
+        for root in list(self._known_roots):
+            try:
+                if root.winfo_exists():
+                    if not getattr(root, "_tkblend_auto_themed", False):
+                        root._tkblend_auto_themed = True
+                        apply_theme(root)
+            except Exception as e:
+                logger.debug("Error during auto root theme synchronization: %s", e)
 
     def set_theme(self, theme_or_palette: Union[str, Palette]) -> None:
         old_pal = self._current_palette
@@ -725,6 +865,7 @@ class ThemeManager:
             else:
                 raise ValueError(f"Unknown theme '{theme_or_palette}'. Available: {list(self._palettes.keys()) + ['system', 'auto']}")
         self._previous_palette = old_pal
+        self._sync_roots()
         self.notify_listeners()
 
     def get_palette(self) -> Palette:
@@ -792,6 +933,8 @@ class ThemeManager:
                     cb(self._current_palette)
                 except Exception as e:
                     logger.error("Error executing theme listener %r: %s", cb, e, exc_info=True)
+        # Process scheduled render queue
+        self._schedule_queue_processing()
 
 
 # Global singleton and module-level convenience functions
@@ -925,6 +1068,11 @@ def stop_auto_theme() -> None:
     _auto_theme_thread = None
 
 
+def flush_theme_queue() -> None:
+    """Flush and immediately render all queued widget theme updates synchronously."""
+    _theme_manager.flush_queue()
+
+
 def get_theme() -> Palette:
     """Return the active Palette."""
     return _theme_manager.current
@@ -1051,9 +1199,19 @@ def resolve_ancestor_bg(
                     if m_bg and str(m_bg).strip() not in ("", "None"):
                         res = resolve_color_failsafe(m_bg, master=curr, fallback=None)
                         if res:
+                            r_low = res.lower()
+                            preset_maps = get_preset_semantic_colors()
+                            if r_low in preset_maps["bg"]:
+                                return pal.bg
+                            elif r_low in preset_maps["card_bg"]:
+                                return pal.card_bg
+                            elif r_low in preset_maps["surface"]:
+                                return pal.surface
+                            elif r_low in preset_maps["input_bg"]:
+                                return pal.input_bg
+                            
                             prev = _theme_manager.previous
                             if prev is not None:
-                                r_low = res.lower()
                                 if r_low == prev.bg.lower():
                                     return pal.bg
                                 elif r_low == prev.card_bg.lower():
@@ -1126,15 +1284,20 @@ def apply_theme(
     import tkinter as tk
     from .font import sync_tk_fonts
 
+    ThemeManager().register_root(root)
+
     if auto_detect:
         auto_theme(root=root, listen=True)
     elif dark_mode is not None:
         set_dark_mode(dark_mode)
     elif palette is not None:
+        cur = get_theme()
         if isinstance(palette, str):
-            set_theme(palette)
+            if palette.lower() != cur.name.lower():
+                set_theme(palette)
         elif isinstance(palette, Palette):
-            set_theme(palette)
+            if palette is not cur:
+                set_theme(palette)
 
     initial_root_bg = ""
     if hasattr(root, "cget"):
@@ -1171,20 +1334,42 @@ def apply_theme(
 
         try:
             curr_bg = w.cget("background")
+            curr_low = curr_bg.lower() if isinstance(curr_bg, str) else ""
+
+            preset_maps = get_preset_semantic_colors()
+            all_preset_surfaces = (
+                preset_maps["bg"]
+                | preset_maps["card_bg"]
+                | preset_maps["surface"]
+                | preset_maps["input_bg"]
+                | preset_maps["track_bg"]
+            )
+
             prev = _theme_manager.previous
             prev_colors = ()
             if prev is not None:
                 prev_colors = (prev.bg.lower(), prev.card_bg.lower(), prev.surface.lower())
-            curr_low = curr_bg.lower() if isinstance(curr_bg, str) else ""
 
-            if curr_low in prev_colors or curr_bg in (initial_root_bg, prev_injected, pal.bg, pal.card_bg, pal.surface):
+            if (
+                curr_low in all_preset_surfaces
+                or curr_low in prev_colors
+                or curr_bg in (initial_root_bg, prev_injected, pal.bg, pal.card_bg, pal.surface)
+            ):
                 return True
 
             if hasattr(w, "_tkblend_injected_bg"):
-                if curr_bg != w._tkblend_injected_bg and curr_low not in prev_colors:
+                if curr_bg != w._tkblend_injected_bg and curr_low not in all_preset_surfaces and curr_low not in prev_colors:
                     w._tkblend_custom_override = True
                     return False
             else:
+                # First time styling this widget: theme it unless explicitly initialized with non-default color
+                std_defaults = {
+                    "#2c2c2c", "#d9d9d9", "#ececec", "#f0f0f0", "#e0e0e0",
+                    "systembuttonface", "systemwindow", "gray85", "gray", "white", "black",
+                    initial_root_bg.lower() if initial_root_bg else "",
+                }
+                if curr_low in std_defaults or not curr_low or curr_low in all_preset_surfaces:
+                    return True
                 w._tkblend_custom_override = True
                 return False
         except Exception as e:
@@ -1218,7 +1403,7 @@ def apply_theme(
             # Card / Frame container surface
             if hasattr(target, "_bg_color"):
                 if hasattr(target, "set_parent_bg"):
-                    target.set_parent_bg(container_bg or pal.bg, force=not preserve_overrides)
+                    target.set_parent_bg(container_bg or pal.bg, force=not preserve_overrides, render=False)
                 try:
                     target._on_theme_changed(pal)
                 except Exception as e:
@@ -1227,7 +1412,7 @@ def apply_theme(
             elif hasattr(target, "_header") and hasattr(target, "_content"):
                 # Accordion container
                 if hasattr(target, "set_parent_bg"):
-                    target.set_parent_bg(container_bg or pal.bg, force=not preserve_overrides)
+                    target.set_parent_bg(container_bg or pal.bg, force=not preserve_overrides, render=False)
                 try:
                     target._on_theme_changed(pal)
                 except Exception as e:
@@ -1236,7 +1421,7 @@ def apply_theme(
             else:
                 # Vector leaf widget
                 if hasattr(target, "set_parent_bg"):
-                    target.set_parent_bg(container_bg or pal.bg, force=not preserve_overrides)
+                    target.set_parent_bg(container_bg or pal.bg, force=not preserve_overrides, render=False)
                 try:
                     target._on_theme_changed(pal)
                 except Exception as e:

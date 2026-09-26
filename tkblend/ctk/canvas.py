@@ -88,6 +88,25 @@ class TkBlendCanvas(tk.Canvas):
         """Compatibility method: Blend2D renders crisp circles directly in the draw engine."""
         return 0
 
+    def configure(self, cnf=None, **kwargs):
+        res = super().configure(cnf, **kwargs)
+        if hasattr(self, "_blend_engine") and self._blend_engine is not None:
+            bg = kwargs.get("bg") or kwargs.get("background")
+            if bg is not None:
+                self._blend_engine.set_canvas_bg(bg)
+                self._blend_engine.render()
+        return res
+
+    def config(self, cnf=None, **kwargs):
+        return self.configure(cnf, **kwargs)
+
+    def itemcget(self, tag_or_id: Any, option: str) -> Any:
+        if isinstance(tag_or_id, str) and tag_or_id in VECTOR_TAGS:
+            if hasattr(self, "_blend_engine") and self._blend_engine is not None:
+                if option in ("fill", "outline"):
+                    return self._blend_engine.get_color(tag_or_id) or ""
+        return super().itemcget(tag_or_id, option)
+
     def itemconfig(self, tag_or_id: Any, **kwargs) -> Optional[dict]:
         if isinstance(tag_or_id, str) and tag_or_id in VECTOR_TAGS:
             if hasattr(self, "_blend_engine") and self._blend_engine is not None:
@@ -124,10 +143,12 @@ class TkBlendCanvas(tk.Canvas):
         return super().find_withtag(tag_or_id)
 
     def delete(self, *tags_or_ids: Any) -> None:
+        has_vector_delete = False
         for item in tags_or_ids:
             if isinstance(item, str) and item in VECTOR_TAGS:
                 if hasattr(self, "_blend_engine") and self._blend_engine is not None:
                     self._blend_engine.delete_part(item)
+                    has_vector_delete = True
             else:
                 super().delete(item)
 
@@ -136,13 +157,13 @@ class TkBlendCanvas(tk.Canvas):
         # Keep Blend2D backing image at the very bottom
         if hasattr(self, "_blend_engine") and self._blend_engine is not None:
             img_id = getattr(self._blend_engine, "_image_id", None)
-            if img_id is not None:
-                super().tag_lower(img_id)
+            if img_id is not None and self.find_withtag("tkblend_surface"):
+                super().tag_lower("tkblend_surface")
 
     def tag_raise(self, *args) -> None:
         super().tag_raise(*args)
         # Keep Blend2D backing image at the very bottom
         if hasattr(self, "_blend_engine") and self._blend_engine is not None:
             img_id = getattr(self._blend_engine, "_image_id", None)
-            if img_id is not None:
-                super().tag_lower(img_id)
+            if img_id is not None and self.find_withtag("tkblend_surface"):
+                super().tag_lower("tkblend_surface")
