@@ -159,6 +159,22 @@ button:disabled {
   border-radius: 8px;
 }
 
+
+.btn-ghost, button.ghost, .btn-flat, button.flat {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.btn-ghost:hover, button.ghost:hover, .btn-flat:hover, button.flat:hover {
+  background: var(--surface);
+  color: var(--fg);
+}
+.btn-ghost:active, button.ghost:active, .btn-flat:active, button.flat:active {
+  background: var(--secondary-active);
+}
+
 card, .card {
   background: var(--card-bg);
   color: var(--fg);
@@ -378,6 +394,22 @@ button:disabled {
   color: var(--success);
   border: 1px solid var(--success);
   border-radius: 8px;
+}
+
+
+.btn-ghost, button.ghost, .btn-flat, button.flat {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.btn-ghost:hover, button.ghost:hover, .btn-flat:hover, button.flat:hover {
+  background: var(--surface);
+  color: var(--fg);
+}
+.btn-ghost:active, button.ghost:active, .btn-flat:active, button.flat:active {
+  background: var(--secondary-active);
 }
 
 card, .card {

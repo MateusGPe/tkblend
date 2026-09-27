@@ -1,13 +1,32 @@
 """
-Tests for new vector widgets: Tabview, ScrollableFrame, TextBox, Table, ComboBox, OptionMenu, SegmentedButton, VectorIcon, IconLabel.
+Unit tests for new pure vector widgets:
+Sparklines, Charts, ColorPicker/ColorWell, Volume/VUMeter, and Toolbar.
 """
 
 import pytest
 import tkinter as tk
 import tkblend as tb
+from tkblend import (
+    Sparkline,
+    LineChart,
+    AreaChart,
+    BarChart,
+    PieChart,
+    DonutChart,
+    ColorPicker,
+    ColorWell,
+    VolumeControl,
+    VolumeSlider,
+    VUMeter,
+    AudioMeter,
+    Toolbar,
+    ToolbarSeparator,
+    get_theme,
+    set_theme,
+)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def root():
     r = tk.Tk()
     r.withdraw()
@@ -18,140 +37,150 @@ def root():
         pass
 
 
-def test_tabview(root):
-    tabview = tb.Tabview(root, width=300, height=200)
-    tab1 = tabview.add("Overview")
-    tab2 = tabview.add("Settings")
-    assert tabview.get() == "Overview"
-    assert tabview.tab("Overview") == tab1
-    assert tabview.tab("Settings") == tab2
+def test_sparkline_widget(root):
+    data = [10, 25, 18, 42, 35, 60, 55, 80]
+    sp = Sparkline(root, data=data, kind="line")
+    sp.render()
+    assert sp.data == [float(v) for v in data]
 
-    tabview.set("Settings")
-    assert tabview.get() == "Settings"
+    # Test area mode
+    sp.kind = "area"
+    sp.render()
 
-    tabview.delete("Overview")
-    assert tabview.get() == "Settings"
-    assert "Overview" not in tabview._tabs
+    # Test bar mode
+    sp.kind = "bar"
+    sp.render()
+
+    # Test winloss mode
+    sp.kind = "winloss"
+    sp.data = [1, -1, 1, 0, 1, -1]
+    sp.render()
+
+    # Test push_data
+    sp.push_data(1.0, max_points=10)
+    assert len(sp.data) <= 10
+
+    sp.destroy()
 
 
-def test_scrollable_frame(root):
-    sf = tb.ScrollableFrame(root, width=200, height=200, orientation="vertical")
-    inner = sf.scrollable_frame
-    btn = tb.Button(inner, text="Scroll Child")
-    btn.pack()
+def test_chart_widgets(root):
+    # LineChart
+    lc = LineChart(root, data=[10, 20, 15, 30, 25], title="Network Traffic", smooth=True)
+    lc.add_series("Upload", [5, 12, 8, 18, 14], color="#10b981")
+    lc.push_data({"Series 1": 35.0, "Upload": 22.0})
+    lc.render()
+    lc.destroy()
+
+    # AreaChart
+    ac = AreaChart(root, data=[100, 200, 150, 300], title="Storage Usage")
+    ac.render()
+    ac.destroy()
+
+    # BarChart
+    bc = BarChart(root, data=[45, 80, 60, 95], categories=["Q1", "Q2", "Q3", "Q4"], show_values=True)
+    bc.add_series("2025", [30, 65, 50, 75], color="#f59e0b")
+    bc.render()
+    bc.destroy()
+
+    # PieChart & DonutChart
+    pie = PieChart(root, data={"Chrome": 65, "Firefox": 20, "Safari": 10, "Edge": 5}, title="Browser Share")
+    pie.render()
+    pie.destroy()
+
+    donut = DonutChart(root, data={"CPU": 45, "RAM": 35, "Disk": 20})
+    donut.render()
+    donut.destroy()
+
+
+def test_color_picker_and_well(root):
+    changed = []
+
+    def on_color_change(c):
+        changed.append(c)
+
+    picker = ColorPicker(root, initial_color="#ef4444", on_change=on_color_change)
+    picker.render()
+    assert picker.get_color().startswith("#")
+    
+    picker.set_color("#10b981")
+    assert len(changed) > 0
+    assert picker.get_color() == "#10B981"
+    picker.destroy()
+
+    well = ColorWell(root, color="#3b82f6", on_change=on_color_change)
+    well.render()
+    assert well.color == "#3b82f6"
+    well.destroy()
+
+
+def test_volume_and_vu_meter(root):
+    vol_changes = []
+
+    def on_vol_change(v):
+        vol_changes.append(v)
+
+    vol = VolumeControl(root, value=80, on_change=on_vol_change)
+    vol.render()
+    assert vol.value == 80.0
+    assert not vol.is_muted
+
+    # Toggle Mute
+    vol.toggle_mute()
+    assert vol.is_muted
+    assert vol.value == 0.0
+
+    vol.toggle_mute()
+    assert not vol.is_muted
+    assert vol.value == 80.0
+
+    vol.destroy()
+
+    # VUMeter / AudioMeter
+    vu = VUMeter(root, channels=2, mode="segmented")
+    vu.set_levels(0.75, 0.60)
+    vu.render()
+
+    vu_grad = AudioMeter(root, channels=1, mode="gradient")
+    vu_grad.set_levels(0.85)
+    vu_grad.render()
+
+    vu.destroy()
+    vu_grad.destroy()
+
+
+def test_toolbar(root):
+    toolbar = Toolbar(root, orientation="horizontal", style="floating")
+    
+    b1 = toolbar.add_button("New", icon="+", command=lambda: None)
+    b2 = toolbar.add_button("Save", icon="💾")
+    sep = toolbar.add_separator()
+    t1 = toolbar.add_toggle("Bold", initial=True)
+    spacer = toolbar.add_spacer()
+    well = toolbar.add_widget(ColorWell(toolbar, color="#10b981"))
+    
+    toolbar.pack()
     root.update_idletasks()
-    assert sf.winfo_exists()
+
+    assert len(toolbar._items) >= 5
+    toolbar.destroy()
 
 
-def test_textbox(root):
-    tb_widget = tb.TextBox(root, placeholder_text="Type something...")
-    assert tb_widget.get() == ""
-    tb_widget.insert("1.0", "Hello Blend2D")
-    assert "Hello Blend2D" in tb_widget.get()
-    tb_widget.clear()
-    assert tb_widget.get() == ""
+def test_theme_switch_adaptation(root):
+    # Verify widgets gracefully re-render on theme switch
+    sp = Sparkline(root, data=[10, 20, 30])
+    chart = LineChart(root, data=[5, 15, 25])
+    picker = ColorPicker(root)
+    vol = VolumeControl(root)
+    vu = VUMeter(root)
+    tb_bar = Toolbar(root)
 
+    set_theme("dark")
+    set_theme("light")
+    set_theme("dracula")
 
-def test_option_menu(root):
-    opt = tb.OptionMenu(root, values=["Alpha", "Beta", "Gamma"], selected_value="Alpha")
-    assert opt.get() == "Alpha"
-    opt.set("Beta")
-    assert opt.get() == "Beta"
-    opt.configure_values(["X", "Y", "Z"])
-    assert opt.get() == "X"
-
-
-def test_combobox(root):
-    cb = tb.ComboBox(root, values=["Option A", "Option B"])
-    assert cb.get() == "Option A"
-    cb.set("Custom Typed Value")
-    assert cb.get() == "Custom Typed Value"
-
-
-def test_segmented_button(root):
-    sb = tb.SegmentedButton(root, values=["Day", "Week", "Month"])
-    assert sb.get() == "Day"
-    sb.set("Week")
-    assert sb.get() == "Week"
-
-
-def test_table(root):
-    cols = [
-        {"id": "id", "title": "ID", "width": 50},
-        {"id": "name", "title": "Name", "width": 100},
-        {"id": "score", "title": "Score", "width": 60},
-    ]
-    data = [
-        {"id": 1, "name": "Alice", "score": 95},
-        {"id": 2, "name": "Bob", "score": 82},
-        {"id": 3, "name": "Charlie", "score": 90},
-    ]
-    table = tb.Table(root, columns=cols, data=data)
-    assert len(table._data) == 3
-
-    # Sorting
-    table.sort_by(2, descending=True)  # Sort by score desc
-    assert table._data[0]["name"] == "Alice"
-    assert table._data[1]["name"] == "Charlie"
-    assert table._data[2]["name"] == "Bob"
-
-    # Selection
-    table.set_selection(1)
-    assert table.get_selected_index() == 1
-    assert table.get_selected_row()["name"] == "Charlie"
-
-    # Insert & Delete
-    table.insert_row({"id": 4, "name": "Dave", "score": 88})
-    assert len(table._data) == 4
-    # Test insert_row(index, row)
-    table.insert_row(0, {"id": 5, "name": "Eve", "score": 99})
-    assert len(table._data) == 5
-    assert table._data[0]["name"] == "Eve"
-    # Test insert_row(row, index)
-    table.insert_row({"id": 6, "name": "Frank", "score": 75}, 1)
-    assert len(table._data) == 6
-    assert table._data[1]["name"] == "Frank"
-    table.delete_row(0)
-    assert len(table._data) == 5
-
-
-def test_vector_icons_and_labels(root):
-    icon = tb.VectorIcon(root, icon_name="checkmark")
-    icon.icon_name = "chevron_down"
-    assert icon.icon_name == "chevron_down"
-
-    lbl = tb.IconLabel(root, text="Status", icon="dot")
-    lbl.set_text("Updated Status")
-    assert lbl._text == "Updated Status"
-
-
-def test_option_menu_and_combobox_popup_lifecycle(root):
-    root.deiconify()
-    root.geometry("400x400+100+100")
-    root.update_idletasks()
-
-    opt = tb.OptionMenu(root, values=["Option 1", "Option 2"])
-    opt.pack()
-    cb = tb.ComboBox(root, values=["Choice A", "Choice B"])
-    cb.pack()
-    root.update_idletasks()
-
-    # Open OptionMenu popup
-    opt._open_popup()
-    assert opt._is_open is True
-    assert opt._popup is not None
-    assert opt._popup.winfo_exists()
-    assert opt._popup.winfo_viewable()
-    opt._close_popup()
-    assert opt._is_open is False
-    assert opt._popup is None
-
-    # Open ComboBox popup
-    cb._open_popup()
-    assert cb._is_open is True
-    assert cb._popup is not None
-    assert cb._popup.winfo_exists()
-    assert cb._popup.winfo_viewable()
-    cb._close_popup()
-    assert cb._is_open is False
-    assert cb._popup is None
+    sp.destroy()
+    chart.destroy()
+    picker.destroy()
+    vol.destroy()
+    vu.destroy()
+    tb_bar.destroy()

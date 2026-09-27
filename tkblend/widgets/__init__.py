@@ -99,6 +99,32 @@ from tkblend.widgets.image import (
     IconLabel,
     VectorImage,
 )
+from tkblend.widgets.sparkline import (
+    Sparkline,
+)
+from tkblend.widgets.chart import (
+    BaseChart,
+    LineChart,
+    AreaChart,
+    BarChart,
+    PieChart,
+    DonutChart,
+)
+from tkblend.widgets.color_picker import (
+    ColorPicker,
+    ColorWell,
+    ask_color,
+)
+from tkblend.widgets.volume import (
+    VolumeControl,
+    VolumeSlider,
+    VUMeter,
+    AudioMeter,
+)
+from tkblend.widgets.toolbar import (
+    Toolbar,
+    ToolbarSeparator,
+)
 
 __all__ = [
     # Base & Infrastructure
@@ -155,6 +181,23 @@ __all__ = [
     "VectorIcon",
     "IconLabel",
     "VectorImage",
+    # Data Visualization & Media Controls
+    "Sparkline",
+    "BaseChart",
+    "LineChart",
+    "AreaChart",
+    "BarChart",
+    "PieChart",
+    "DonutChart",
+    "ColorPicker",
+    "ColorWell",
+    "ask_color",
+    "VolumeControl",
+    "VolumeSlider",
+    "VUMeter",
+    "AudioMeter",
+    "Toolbar",
+    "ToolbarSeparator",
     # Drawing Utilities
     "draw_vector_checkmark",
     "draw_vector_chevron",
@@ -162,3 +205,4 @@ __all__ = [
     "draw_vector_minus",
     "truncate_text",
 ]
+
