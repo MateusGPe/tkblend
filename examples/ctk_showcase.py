@@ -78,7 +78,7 @@ class CTKBridgeInfoFrame(tk.Frame):
 
         # Code snippet display
         code_box = Card(body, title="How to use in your CustomTkinter projects:", width=660, height=130, rx=10, ry=10, elevation=2)
-        code_box.pack(fill="x", padx=16, pady=8)
+        code_box.pack(fill="both", expand=True, padx=16, pady=8)
 
         code_text = (
             "import customtkinter as ctk\n"

@@ -322,7 +322,7 @@ class Entry(tk.Frame):
     def _on_bg_click(self, event) -> None:
         s = self._scale
         clear_cx = self._bg_widget._widget_w - 20.0 * s
-        if abs(event.x - clear_cx) <= 12.0 * s and self.get():
+        if self.get() and abs(event.x - clear_cx) <= 12.0 * s:
             self.set("")
             self._entry.focus_set()
             return
@@ -404,10 +404,10 @@ class Entry(tk.Frame):
             if self.get():
                 cx = self._bg_widget._widget_w - 20.0 * s
                 cy = self._bg_widget._widget_h / 2.0
-                self._bg_widget.handle.fill_circle(cx, cy, 7.0 * s, pal.secondary)
+                self._bg_widget.handle.fill_circle(cx, cy, 7.0 * s, parse_color(pal.secondary))
                 cr = 3.0 * s
-                self._bg_widget.handle.draw_line(cx - cr, cy - cr, cx + cr, cy + cr, pal.fg, 1.2 * s)
-                self._bg_widget.handle.draw_line(cx + cr, cy - cr, cx - cr, cy + cr, pal.fg, 1.2 * s)
+                self._bg_widget.handle.draw_line(cx - cr, cy - cr, cx + cr, cy + cr, parse_color(pal.fg), 1.2 * s)
+                self._bg_widget.handle.draw_line(cx + cr, cy - cr, cx - cr, cy + cr, parse_color(pal.fg), 1.2 * s)
 
             self._bg_widget.handle.blit_to_photo(int(self.tk.interpaddr()), str(self._bg_widget.photo.name))
         except Exception as e:

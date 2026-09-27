@@ -357,6 +357,17 @@ class Combobox(tk.Frame):
         )
         self._card.pack(fill="both", expand=True)
 
+        # Dropdown arrow button (pack right first so it preserves allocated geometry)
+        self._btn = Widget(
+            self._card,
+            width=28,
+            height=30,
+            bg=pal.input_bg,
+        )
+        self._btn.render = self._render_button
+        self._btn.bind("<ButtonRelease-1>", self._on_btn_click)
+        self._btn.pack(side="right", fill="y", padx=(0, 2), pady=2)
+
         # Inner text entry
         font_sz = max(9, int(11 * self._scale))
         self._entry = tk.Entry(
@@ -372,16 +383,7 @@ class Combobox(tk.Frame):
         )
         self._entry.pack(side="left", fill="both", expand=True, padx=(10, 2), pady=4)
 
-        # Dropdown arrow button
-        self._btn = Widget(
-            self._card,
-            width=28,
-            height=30,
-            bg=pal.input_bg,
-        )
-        self._btn.render = self._render_button
-        self._btn.bind("<ButtonRelease-1>", self._on_btn_click)
-        self._btn.pack(side="right", fill="y", padx=(0, 2), pady=2)
+        self._btn.render()
 
         if self._values and not self.get():
             self.set(self._values[0])

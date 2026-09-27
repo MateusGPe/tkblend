@@ -334,12 +334,12 @@ class WidgetGallery(tk.Frame):
 
         scr = ScrollableFrame(body, width=580, height=480)
         scr.pack(fill="both", expand=True, padx=4, pady=4)
-        c = scr.content
+        # c = scr.content
 
-        # Accordion Card
-        acc_card = Card(c, title="Vector Accordion Component", width=560, height=280, elevation=4)
-        acc_card.pack(fill="x", pady=6)
-        acc_body = acc_card.body
+        # # Accordion Card
+        # acc_card = Card(c, title="Vector Accordion Component", width=560, height=280, elevation=4)
+        # acc_card.pack(fill="both", expand=True, pady=6)
+        acc_body = scr.content
 
         acc1 = Accordion(acc_body, title="1. Core Blend2D Architecture", width=520)
         acc1.pack(fill="x", padx=8, pady=3)
