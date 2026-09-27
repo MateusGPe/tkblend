@@ -114,6 +114,9 @@ find_path(TK_INCLUDE_PATH
         /opt/homebrew/opt/tcl-tk/include
         "C:/Program Files/Tcl"
         "C:/Program Files/Tcl/include"
+        "C:/msys64/ucrt64/include"
+        "C:/msys64/mingw64/include"
+        "C:/msys64/clang64/include"
     PATH_SUFFIXES tcl8.6 tk8.6 tcl tk include
 )
 
@@ -130,6 +133,9 @@ find_path(TCL_INCLUDE_PATH
         /opt/homebrew/opt/tcl-tk/include
         "C:/Program Files/Tcl"
         "C:/Program Files/Tcl/include"
+        "C:/msys64/ucrt64/include"
+        "C:/msys64/mingw64/include"
+        "C:/msys64/clang64/include"
     PATH_SUFFIXES tcl8.6 tk8.6 tcl include
 )
 
@@ -145,6 +151,9 @@ find_library(TK_LIBRARY
         /opt/homebrew/lib
         /opt/homebrew/opt/tcl-tk/lib
         "C:/Program Files/Tcl/lib"
+        "C:/msys64/ucrt64/lib"
+        "C:/msys64/mingw64/lib"
+        "C:/msys64/clang64/lib"
 )
 
 find_library(TCL_LIBRARY
@@ -159,6 +168,9 @@ find_library(TCL_LIBRARY
         /opt/homebrew/lib
         /opt/homebrew/opt/tcl-tk/lib
         "C:/Program Files/Tcl/lib"
+        "C:/msys64/ucrt64/lib"
+        "C:/msys64/mingw64/lib"
+        "C:/msys64/clang64/lib"
 )
 
 find_library(TK_STUB_LIBRARY
@@ -173,6 +185,9 @@ find_library(TK_STUB_LIBRARY
         /opt/homebrew/lib
         /opt/homebrew/opt/tcl-tk/lib
         "C:/Program Files/Tcl/lib"
+        "C:/msys64/ucrt64/lib"
+        "C:/msys64/mingw64/lib"
+        "C:/msys64/clang64/lib"
 )
 
 find_library(TCL_STUB_LIBRARY
@@ -187,6 +202,9 @@ find_library(TCL_STUB_LIBRARY
         /opt/homebrew/lib
         /opt/homebrew/opt/tcl-tk/lib
         "C:/Program Files/Tcl/lib"
+        "C:/msys64/ucrt64/lib"
+        "C:/msys64/mingw64/lib"
+        "C:/msys64/clang64/lib"
 )
 
 message(STATUS "TK_INCLUDE_PATH: ${TK_INCLUDE_PATH}")
@@ -339,6 +357,10 @@ endif()
 
 if(ENABLE_NANOBIND_LEAK_CHECK)
     target_compile_definitions(_tkblend PRIVATE NB_DEBUG=1 NB_ABORT_ON_LEAK=1)
+endif()
+
+if(MINGW)
+    target_link_options(_tkblend PRIVATE -static-libgcc -static-libstdc++)
 endif()
 
 # Install target for packaging
