@@ -436,8 +436,11 @@ class Surface:
             align_code = 2
 
         parsed_col = parse_color(color)
-        if "\n" in text:
-            lines = text.split("\n")
+        from tkblend.icons import parse_icon_markup
+        processed_text = parse_icon_markup(str(text)) if (":" in text or "{" in text) else str(text)
+
+        if "\n" in processed_text:
+            lines = processed_text.split("\n")
             line_height = float(cfg.size) * 1.35
             for line_idx, line_str in enumerate(lines):
                 if line_str:
@@ -456,7 +459,7 @@ class Surface:
             return
 
         self._surface.draw_text(
-            text,
+            processed_text,
             float(x),
             float(y),
             float(cfg.size),
@@ -466,6 +469,34 @@ class Surface:
             cfg.weight,
             cfg.italic,
             cfg.bold,
+        )
+
+    def draw_icon(
+        self,
+        icon: str,
+        x: float,
+        y: float,
+        size: float = 16.0,
+        color: ColorLike = "#ffffff",
+        family: str = "fa-solid",
+        align: str = "left",
+    ) -> None:
+        """
+        Draw a vector icon from embedded Font Awesome or Lucide icon sets.
+        'icon' can be an icon name (e.g. 'rocket', 'fa:rocket', 'lucide:sparkles')
+        or a unicode icon character (e.g. Icons.ROCKET).
+        """
+        from tkblend.icons import Icons
+        icon_char = Icons.get(icon, default=icon)
+        align_code = 1 if align == "center" else (2 if align == "right" else 0)
+        self._surface.draw_icon(
+            str(icon_char),
+            float(x),
+            float(y),
+            float(size),
+            str(family),
+            parse_color(color),
+            align_code,
         )
 
     def draw_text_wrapped(

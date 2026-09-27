@@ -1,9 +1,11 @@
 #include "font_manager.hpp"
 #include "font/font_resolver.hpp"
+#include "font/embedded_fonts.hpp"
 
 #include <algorithm>
 #include <filesystem>
 #include <stdexcept>
+#include <iostream>
 
 namespace fs = std::filesystem;
 
@@ -107,6 +109,142 @@ bool FontManager::load_font_face(const std::string& name, const std::string& fil
     return false;
 }
 
+bool FontManager::load_font_face_from_data(const std::string& name, const void* data, size_t size) {
+    if (!data || size == 0) return false;
+
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    // Copy font buffer to keep it alive
+    std::vector<uint8_t> buf(static_cast<const uint8_t*>(data), static_cast<const uint8_t*>(data) + size);
+    font_memory_buffers_.push_back(std::move(buf));
+    const auto& stored_buf = font_memory_buffers_.back();
+
+    BLFontData font_data;
+    BLResult res = font_data.create_from_data(stored_buf.data(), stored_buf.size());
+    if (res != BL_SUCCESS) {
+        return false;
+    }
+    font_datas_.push_back(font_data);
+
+    BLFontFace face;
+    res = face.create_from_data(font_data, 0);
+    if (res == BL_SUCCESS) {
+        std::string lower_name = name;
+        std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(), ::tolower);
+        font_faces_[lower_name] = face;
+
+        const BLString& fam = face.family_name();
+        if (!fam.is_empty()) {
+            std::string real_fam = fam.data();
+            std::string lower_real = real_fam;
+            std::transform(lower_real.begin(), lower_real.end(), lower_real.begin(), ::tolower);
+            if (lower_real != lower_name) {
+                font_faces_[lower_real] = face;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
+void FontManager::_ensure_embedded_fonts_loaded_locked() {
+    if (embedded_loaded_) return;
+    embedded_loaded_ = true;
+
+    const auto& embedded = get_embedded_fonts();
+    for (const auto& ef : embedded) {
+        std::vector<uint8_t> decompressed;
+        if (decompress_embedded_font(ef, decompressed)) {
+            font_memory_buffers_.push_back(std::move(decompressed));
+            const auto& stored_buf = font_memory_buffers_.back();
+
+            BLFontData font_data;
+            if (font_data.create_from_data(stored_buf.data(), stored_buf.size()) == BL_SUCCESS) {
+                font_datas_.push_back(font_data);
+                BLFontFace face;
+                if (face.create_from_data(font_data, 0) == BL_SUCCESS) {
+                    std::string lower_alias = ef.name;
+                    std::transform(lower_alias.begin(), lower_alias.end(), lower_alias.begin(), ::tolower);
+                    font_faces_[lower_alias] = face;
+
+                    std::string lower_fam = ef.family;
+                    std::transform(lower_fam.begin(), lower_fam.end(), lower_fam.begin(), ::tolower);
+                    if (lower_fam != lower_alias) {
+                        font_faces_[lower_fam] = face;
+                    }
+
+                    fallback_families_.push_back(lower_alias);
+                }
+            }
+        }
+    }
+}
+
+void FontManager::ensure_embedded_fonts_loaded() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    _ensure_embedded_fonts_loaded_locked();
+}
+
+bool FontManager::font_has_glyph(const BLFont& font, uint32_t codepoint) {
+    if (font.is_empty() || codepoint == 0) return false;
+    BLGlyphBuffer gb;
+    gb.set_text(&codepoint, 1, BL_TEXT_ENCODING_UTF32);
+    BLGlyphMappingState state;
+    font.map_text_to_glyphs(gb, state);
+    if (state.undefined_count == 0 && gb.size() > 0) {
+        const uint32_t* glyphs = gb.content();
+        return glyphs && glyphs[0] != 0;
+    }
+    return false;
+}
+
+BLFontFace* FontManager::_find_fallback_face_for_codepoint_locked(uint32_t codepoint, int weight, bool italic) {
+    _ensure_embedded_fonts_loaded_locked();
+
+    // 1. Check embedded icon fonts and active fallback families first
+    for (const auto& fam : fallback_families_) {
+        auto it = font_faces_.find(fam);
+        if (it != font_faces_.end() && it->second.is_valid()) {
+            BLFont test_font;
+            test_font.create_from_face(it->second, 12.0f);
+            if (font_has_glyph(test_font, codepoint)) {
+                return &it->second;
+            }
+        }
+    }
+
+    // 2. Check standard system fallback fonts
+    static const std::vector<std::string> sys_fallbacks = {
+        "Segoe UI Symbol", "Segoe UI Emoji", "Arial Unicode MS",
+        "Apple Symbols", "Apple Color Emoji",
+        "Noto Sans", "Noto Sans Symbols", "Noto Color Emoji",
+        "DejaVu Sans", "Symbola", "FreeSans", "Unifont"
+    };
+
+    for (const auto& fam : sys_fallbacks) {
+        BLFontFace* face = _get_font_face_locked(fam, weight, italic);
+        if (face && face->is_valid()) {
+            BLFont test_font;
+            test_font.create_from_face(*face, 12.0f);
+            if (font_has_glyph(test_font, codepoint)) {
+                return face;
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+BLFont FontManager::create_fallback_font_for_codepoint(uint32_t codepoint, float size, int weight, bool italic) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    BLFontFace* face = _find_fallback_face_for_codepoint_locked(codepoint, weight, italic);
+    BLFont font;
+    if (face && face->is_valid()) {
+        font.create_from_face(*face, size);
+    }
+    return font;
+}
+
 std::string FontManager::find_system_font(const std::string& family, int weight, bool italic) {
     std::lock_guard<std::mutex> lock(mutex_);
     return resolve_system_font_path(family, weight, italic);
@@ -114,6 +252,7 @@ std::string FontManager::find_system_font(const std::string& family, int weight,
 
 std::vector<std::string> FontManager::get_loaded_fonts() {
     std::lock_guard<std::mutex> lock(mutex_);
+    _ensure_embedded_fonts_loaded_locked();
     std::vector<std::string> fonts;
     fonts.reserve(font_faces_.size());
     for (const auto& kv : font_faces_) {
@@ -215,6 +354,8 @@ bool FontManager::set_active_font(const std::string& family_or_path) {
 // Private — MUST be called with mutex_ already held.
 // Returns a pointer into font_faces_; valid only while the lock is held.
 BLFontFace* FontManager::_get_font_face_locked(const std::string& family, int weight, bool italic) {
+    _ensure_embedded_fonts_loaded_locked();
+
     std::string lower_family = family;
     std::transform(lower_family.begin(), lower_family.end(), lower_family.begin(), ::tolower);
 
@@ -320,7 +461,11 @@ void FontManager::clear_cache() {
     std::lock_guard<std::mutex> lock(mutex_);
     font_faces_.clear();
     font_paths_.clear();
+    font_datas_.clear();
+    font_memory_buffers_.clear();
+    fallback_families_.clear();
     system_fonts_cache_.clear();
+    embedded_loaded_ = false;
 }
 
 } // namespace tkblend

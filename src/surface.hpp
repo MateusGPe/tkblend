@@ -137,6 +137,15 @@ public:
         int max_lines = 0
     );
 
+    void draw_icon(
+        const std::string& icon_char_or_name,
+        double x, double y,
+        float size = 16.0f,
+        const Color& color = Color(255, 255, 255, 255),
+        const std::string& font_family = "fa-solid",
+        int align = 0
+    );
+
     // Modern Soft Shadows & Cards
     void draw_shadow_rounded_rect(
         double x, double y, double w, double h,

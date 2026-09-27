@@ -146,6 +146,14 @@ class Button(Widget):
             btn_w = max(1.0, self._widget_w - pad * 2.0)
             btn_h = max(1.0, self._widget_h - pad * 2.0)
 
+            # Keep shadow subtle and bounded within pad budget so button size is never reduced
+            if self._elevation > 0.0:
+                style.shadow_blur = min(float(self._elevation * 0.8), float(pad * 0.8))
+                style.shadow_offset_y = min(float(self._elevation * 0.3), float(pad * 0.3))
+            elif style.shadow_blur > 0.0:
+                style.shadow_blur = min(float(style.shadow_blur), float(pad * 0.8))
+                style.shadow_offset_y = min(float(style.shadow_offset_y), float(pad * 0.3))
+
             self._handle.render_box(
                 float(pad), float(pad),
                 float(btn_w), float(btn_h),
@@ -156,3 +164,5 @@ class Button(Widget):
             self.end_render()
         except Exception as e:
             logger.debug("Render failed in Button: %s", e, exc_info=True)
+
+

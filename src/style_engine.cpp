@@ -83,22 +83,11 @@ StyleEngine::StyleEngine() {
 void StyleEngine::init_default_themes() {
     register_theme("dark", DEFAULT_DARK_THEME_CSS);
     register_theme("light", DEFAULT_LIGHT_THEME_CSS);
-    register_theme("nord", DEFAULT_NORD_THEME_CSS);
-    register_theme("dracula", DEFAULT_DRACULA_THEME_CSS);
-    register_theme("tokyo_night", DEFAULT_TOKYO_NIGHT_THEME_CSS);
-    register_theme("catppuccin_mocha", DEFAULT_CATPPUCCIN_MOCHA_THEME_CSS);
-    register_theme("catppuccin_latte", DEFAULT_CATPPUCCIN_LATTE_THEME_CSS);
-    register_theme("emerald", DEFAULT_EMERALD_THEME_CSS);
-    register_theme("ocean", DEFAULT_OCEAN_THEME_CSS);
-    register_theme("sunset", DEFAULT_SUNSET_THEME_CSS);
-    register_theme("monokai", DEFAULT_MONOKAI_THEME_CSS);
-    register_theme("cyberpunk", DEFAULT_CYBERPUNK_THEME_CSS);
-    register_theme("solarized_dark", DEFAULT_SOLARIZED_DARK_THEME_CSS);
-    register_theme("solarized_light", DEFAULT_SOLARIZED_LIGHT_THEME_CSS);
 
-    // Global widget rules
+    // Global widget rules fallback
     parse_and_apply_css(DEFAULT_DARK_THEME_CSS, "");
 }
+
 
 uint32_t StyleEngine::intern_token(const std::string& token) {
     auto it = token_to_id_.find(token);

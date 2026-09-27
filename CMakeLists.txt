@@ -241,6 +241,8 @@ else()
     endif()
 endif()
 
+find_package(ZLIB REQUIRED)
+
 # ------------------------------------------------------------------------------
 # Module Target
 # ------------------------------------------------------------------------------
@@ -250,6 +252,7 @@ set(TKBLEND_SOURCES
     src/gradient.cpp
     src/path.cpp
     src/font_manager.cpp
+    src/font/embedded_fonts.cpp
     src/shadow_engine.cpp
     src/emoji_engine.cpp
     src/draw_batch.cpp
@@ -290,6 +293,7 @@ endif()
 
 target_link_libraries(_tkblend PRIVATE
     blend2d::blend2d
+    ZLIB::ZLIB
     ${PLATFORM_LIBS}
     ${CMAKE_DL_LIBS}
 )

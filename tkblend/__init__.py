@@ -11,6 +11,9 @@ logging.getLogger("tkblend").addHandler(logging.NullHandler())
 from tkblend._tkblend import (  # type: ignore
     Color,
     Gradient,
+    StyleEngine,
+    PseudoState,
+    ComputedStyle,
     load_font_face,
     load_font,
     register_font,
@@ -64,7 +67,20 @@ from tkblend.surface import (
 )
 
 from tkblend.canvas import BlendCanvas
-from tkblend.font import FontConfig, parse_font, extract_font_family, sync_tk_fonts
+from tkblend.icons import Icons, parse_icon_markup, FA_SOLID, FA_REGULAR, FA_BRANDS, LUCIDE
+from tkblend.font import (
+    FontConfig,
+    parse_font,
+    extract_font_family,
+    sync_tk_fonts,
+    MissingGlyphError,
+    set_glyph_fallback_mode,
+    get_glyph_fallback_mode,
+    register_glyph_replacement,
+    register_glyph_fallback_hook,
+    sanitize_text,
+    get_similar_glyph,
+)
 
 from tkblend.theme import (
     Palette,
@@ -76,8 +92,12 @@ from tkblend.theme import (
     CATPPUCCIN_MOCHA_PALETTE,
     CATPPUCCIN_LATTE_PALETTE,
     CYBERPUNK_PALETTE,
+    EMERALD_PALETTE,
     EMERALD_FOREST_PALETTE,
+    OCEAN_PALETTE,
+    SUNSET_PALETTE,
     SUNSET_AMBER_PALETTE,
+    MONOKAI_PALETTE,
     MONOKAI_PRO_PALETTE,
     SOLARIZED_DARK_PALETTE,
     SOLARIZED_LIGHT_PALETTE,
@@ -89,6 +109,9 @@ from tkblend.theme import (
     get_palette,
     set_theme,
     set_dark_mode,
+    register_theme,
+    load_theme_file,
+    load_theme_dir,
     add_theme_listener,
     remove_theme_listener,
     resolve_theme_color,
@@ -107,6 +130,7 @@ from tkblend.theme import (
 )
 
 resolve_color = resolve_theme_color
+
 
 from tkblend.widgets import (
     ScalingTracker,
@@ -170,6 +194,9 @@ __all__ = [
     "Path",
     "Color",
     "Gradient",
+    "StyleEngine",
+    "PseudoState",
+    "ComputedStyle",
     "parse_color",
     "ColorLike",
     "GradientLike",
@@ -183,8 +210,12 @@ __all__ = [
     "CATPPUCCIN_MOCHA_PALETTE",
     "CATPPUCCIN_LATTE_PALETTE",
     "CYBERPUNK_PALETTE",
+    "EMERALD_PALETTE",
     "EMERALD_FOREST_PALETTE",
+    "OCEAN_PALETTE",
+    "SUNSET_PALETTE",
     "SUNSET_AMBER_PALETTE",
+    "MONOKAI_PALETTE",
     "MONOKAI_PRO_PALETTE",
     "SOLARIZED_DARK_PALETTE",
     "SOLARIZED_LIGHT_PALETTE",
@@ -195,6 +226,9 @@ __all__ = [
     "get_palette",
     "set_theme",
     "set_dark_mode",
+    "register_theme",
+    "load_theme_file",
+    "load_theme_dir",
     "flush_theme_queue",
     "add_theme_listener",
     "remove_theme_listener",

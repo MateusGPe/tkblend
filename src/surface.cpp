@@ -293,22 +293,16 @@ void Surface::draw_text(
     BLFont font = FontManager::instance().create_font(font_family, font_size, weight, italic);
     if (font.is_empty()) return;
 
-    // Fast check: does text contain any multibyte characters that could be emoji?
-    bool has_potential_emoji = false;
+    // Fast check: does text contain any multibyte characters or characters requiring fallback?
+    bool has_non_ascii = false;
     for (size_t i = 0; i < text.size(); ++i) {
         if (static_cast<unsigned char>(text[i]) >= 0x80) {
-            const char* p = text.data() + i;
-            const char* end = text.data() + text.size();
-            uint32_t cp = decode_utf8(p, end);
-            if (EmojiEngine::is_emoji(cp)) {
-                has_potential_emoji = true;
-                break;
-            }
-            i = (p - text.data()) - 1;
+            has_non_ascii = true;
+            break;
         }
     }
 
-    if (!has_potential_emoji) {
+    if (!has_non_ascii) {
         double draw_x = x;
         double draw_y = y;
 
@@ -331,10 +325,12 @@ void Surface::draw_text(
         return;
     }
 
-    // Rich text path with emoji run-splitting
+    // Rich text path with emoji and font fallback run-splitting
+    enum class RunType { Text, FallbackFont, Emoji };
     struct TextRun {
-        bool is_emoji;
+        RunType type;
         std::string text;
+        BLFont fallback_font;
         BLImage emoji_img;
         double width;
         double bearing_y;
@@ -356,7 +352,7 @@ void Surface::draw_text(
             if (w <= 0.0) {
                 w = cur_text.size() * (font_size * 0.3);
             }
-            runs.push_back(TextRun{false, cur_text, BLImage(), w, 0.0});
+            runs.push_back(TextRun{RunType::Text, cur_text, BLFont(), BLImage(), w, 0.0});
             cur_text.clear();
         }
     };
@@ -379,12 +375,32 @@ void Surface::draw_text(
             double adv_x = 0, bear_y = 0;
             if (EmojiEngine::instance().get_emoji_glyph(cp, font_size, emoji_img, adv_x, bear_y)) {
                 flush_text();
-                runs.push_back(TextRun{true, "", emoji_img, adv_x, bear_y});
+                runs.push_back(TextRun{RunType::Emoji, "", BLFont(), emoji_img, adv_x, bear_y});
                 continue;
             }
         }
 
-        cur_text.append(prev_p, p - prev_p);
+        // Check if primary font has glyph
+        if (FontManager::font_has_glyph(font, cp)) {
+            cur_text.append(prev_p, p - prev_p);
+        } else {
+            // Find fallback font
+            BLFont fb = FontManager::instance().create_fallback_font_for_codepoint(cp, font_size, weight, italic);
+            if (!fb.is_empty()) {
+                flush_text();
+                std::string fb_str(prev_p, p - prev_p);
+                BLTextMetrics tm;
+                BLGlyphBuffer gb;
+                gb.set_utf8_text(fb_str.data(), fb_str.size());
+                fb.get_text_metrics(gb, tm);
+                double w = tm.advance.x;
+                if (w <= 0.0) w = tm.bounding_box.x1 - tm.bounding_box.x0;
+                if (w <= 0.0) w = font_size * 0.8;
+                runs.push_back(TextRun{RunType::FallbackFont, fb_str, fb, BLImage(), w, 0.0});
+            } else {
+                cur_text.append(prev_p, p - prev_p);
+            }
+        }
     }
     flush_text();
 
@@ -406,14 +422,30 @@ void Surface::draw_text(
     ctx_.set_fill_style(color.to_bl_rgba32());
 
     for (const auto& r : runs) {
-        if (r.is_emoji) {
+        if (r.type == RunType::Emoji) {
             ctx_.blit_image(BLPoint(curr_x, y - r.bearing_y), r.emoji_img);
+            curr_x += r.width;
+        } else if (r.type == RunType::FallbackFont) {
+            ctx_.fill_utf8_text(BLPoint(curr_x, y), r.fallback_font, r.text.data(), r.text.size());
             curr_x += r.width;
         } else {
             ctx_.fill_utf8_text(BLPoint(curr_x, y), font, r.text.data(), r.text.size());
             curr_x += r.width;
         }
     }
+}
+
+void Surface::draw_icon(
+    const std::string& icon_char_or_name,
+    double x, double y,
+    float size,
+    const Color& color,
+    const std::string& font_family,
+    int align
+) {
+    if (icon_char_or_name.empty()) return;
+    std::string fam = font_family.empty() ? "fa-solid" : font_family;
+    draw_text(icon_char_or_name, x, y, size, fam, color, align);
 }
 
 void Surface::draw_shadow_rounded_rect(

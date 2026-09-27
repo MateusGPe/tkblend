@@ -1,0 +1,220 @@
+/* Catppuccin Latte Theme */
+:root {
+  --bg: #eff1f5;
+  --fg: #4c4f69;
+  --text-muted: #6c6f85;
+  --fg-subtle: #6c6f85;
+  --card-bg: #ffffff;
+  --card-border: #ccd0da;
+  --surface: #e6e9ef;
+  --surface-border: #ccd0da;
+  --primary: #8839ef;
+  --primary-hover: #9a52f4;
+  --primary-active: #7222df;
+  --primary-fg: #ffffff;
+  --secondary: #ccd0da;
+  --secondary-hover: #bcc0cc;
+  --secondary-active: #acb0be;
+  --secondary-fg: #4c4f69;
+  --accent: #ea76cb;
+  --success: #40a02b;
+  --warning: #df8e1d;
+  --destructive: #d20f39;
+  --danger: #d20f39;
+  --input-bg: #ffffff;
+  --input-border: #bcc0cc;
+  --input-focus: #8839ef;
+  --track-bg: #dce0e8;
+  --thumb-color: #8839ef;
+  --shadow: rgba(0, 0, 0, 0.08);
+  --shadow-color: rgba(0, 0, 0, 0.08);
+}
+
+button {
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px var(--shadow);
+  font-size: 13px;
+  font-family: sans-serif;
+  font-weight: 500;
+}
+button:hover {
+  background: var(--primary-hover);
+  color: var(--primary-fg);
+  box-shadow: 0 2px 4px var(--shadow);
+}
+button:active {
+  background: var(--primary-active);
+  box-shadow: none;
+}
+button:disabled {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--card-border);
+  box-shadow: none;
+}
+
+.btn-primary, button.primary {
+  background: var(--primary);
+  color: var(--primary-fg);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px var(--shadow);
+}
+.btn-primary:hover, button.primary:hover {
+  background: var(--primary-hover);
+  color: var(--primary-fg);
+  box-shadow: 0 2px 4px var(--shadow);
+}
+.btn-primary:active, button.primary:active {
+  background: var(--primary-active);
+  box-shadow: none;
+}
+
+.btn-secondary, button.secondary {
+  background: var(--secondary);
+  color: var(--secondary-fg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+}
+.btn-secondary:hover, button.secondary:hover {
+  background: var(--secondary-hover);
+}
+.btn-secondary:active, button.secondary:active {
+  background: var(--secondary-active);
+}
+
+.btn-accent, button.accent, .btn-info, button.info {
+  background: var(--accent);
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px var(--shadow);
+}
+.btn-accent:hover, button.accent:hover, .btn-info:hover, button.info:hover {
+  background: var(--primary-hover);
+}
+
+.btn-destructive, button.destructive, .btn-danger, button.danger {
+  background: var(--destructive);
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.btn-success, button.success {
+  background: var(--success);
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.btn-warning, button.warning {
+  background: var(--warning);
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.btn-outline, button.outline, .btn-outline-primary {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  box-shadow: none;
+}
+.btn-outline:hover, button.outline:hover, .btn-outline-primary:hover {
+  background: var(--primary-hover);
+  color: var(--primary-fg);
+}
+.btn-outline:active, button.outline:active, .btn-outline-primary:active {
+  background: var(--primary-active);
+}
+
+.btn-outline-secondary {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+}
+.btn-outline-danger, .btn-outline-destructive {
+  background: transparent;
+  color: var(--destructive);
+  border: 1px solid var(--destructive);
+  border-radius: 8px;
+}
+.btn-outline-success {
+  background: transparent;
+  color: var(--success);
+  border: 1px solid var(--success);
+  border-radius: 8px;
+}
+
+card, .card {
+  background: var(--card-bg);
+  color: var(--fg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+input, entry, .input, .entry {
+  background: var(--input-bg);
+  color: var(--fg);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  font-size: 13px;
+}
+input:focus, entry:focus {
+  border: 1.5px solid var(--input-focus);
+}
+
+badge, .badge {
+  background: var(--secondary);
+  color: var(--fg);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge-primary, badge.primary {
+  background: var(--primary);
+  color: var(--primary-fg);
+}
+.badge-success, badge.success {
+  background: var(--success);
+  color: #ffffff;
+}
+.badge-warning, badge.warning {
+  background: var(--warning);
+  color: #ffffff;
+}
+.badge-danger, .badge-destructive, badge.danger {
+  background: var(--destructive);
+  color: #ffffff;
+}
+
+switch, .switch {
+  background: var(--track-bg);
+  color: var(--thumb-color);
+  border-radius: 12px;
+}
+switch:checked {
+  background: var(--primary);
+}
+
+progress, .progress {
+  background: var(--track-bg);
+  color: var(--primary);
+  border-radius: 6px;
+}
+
+slider, .slider {
+  background: var(--track-bg);
+  color: var(--primary);
+  border-radius: 4px;
+}

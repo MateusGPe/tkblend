@@ -1,14 +1,281 @@
-"""
-Typography, FontConfig, and universal font parser for tkblend.
-"""
-
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional, Union, Tuple, Any
+from typing import Optional, Union, Tuple, Any, Dict, List, Callable
 import logging
 import re
+import unicodedata
 
 logger = logging.getLogger(__name__)
+
+
+class MissingGlyphError(Exception):
+    """Raised when a character/glyph is unsupported in strict mode."""
+    pass
+
+
+_CURRENT_FALLBACK_MODE: str = "warn"  # "strict", "warn", "silent"
+_USER_REPLACEMENT_TABLE: Dict[str, str] = {}
+_USER_FALLBACK_HOOKS: List[Callable[[str], Optional[str]]] = []
+
+# Curated similarity transliteration table for common unicode symbols, typography, and emojis
+SIMILARITY_REPLACEMENT_TABLE: Dict[str, str] = {
+    # Typography & Punctuation
+    "…": "...",
+    "—": "--",
+    "–": "-",
+    "“": '"',
+    "”": '"',
+    "‘": "'",
+    "’": "'",
+    "«": "<<",
+    "»": ">>",
+    "•": "*",
+    "·": "*",
+    "‰": "%",
+    "№": "No.",
+    "™": "(TM)",
+    "©": "(C)",
+    "®": "(R)",
+    "±": "+/-",
+    "×": "x",
+    "÷": "/",
+    "≠": "!=",
+    "≤": "<=",
+    "≥": ">=",
+    "≈": "~=",
+    "∞": "inf",
+    "√": "sqrt",
+    "∑": "sum",
+    "∆": "delta",
+    "µ": "u",
+    "°": "deg",
+    "§": "sec.",
+    "¶": "P",
+    "†": "+",
+    "‡": "++",
+
+    # Mathematical / Directional Arrows
+    "→": "->",
+    "←": "<-",
+    "↑": "^",
+    "↓": "v",
+    "↔": "<->",
+    "⇒": "=>",
+    "⇐": "<=",
+    "⇔": "<=>",
+    "➔": "->",
+    "➜": "->",
+    "►": ">",
+    "◄": "<",
+    "▲": "^",
+    "▼": "v",
+
+    # Common UI & Status Icons / Emojis
+    "✓": "[v]",
+    "✔": "[v]",
+    "✅": "[v]",
+    "✗": "[x]",
+    "✘": "[x]",
+    "❌": "[x]",
+    "❎": "[x]",
+    "⚠️": "[!]",
+    "⚠": "[!]",
+    "❗": "!",
+    "❓": "?",
+    "ℹ": "[i]",
+    "ℹ️": "[i]",
+    "⭐": "*",
+    "★": "*",
+    "☆": "*",
+    "✨": "*",
+    "❤️": "<3",
+    "♥": "<3",
+    "♡": "<3",
+    "⚙": "[#]",
+    "⚙️": "[#]",
+    "🔍": "[?]",
+    "🔎": "[?]",
+    "💡": "[i]",
+    "🚀": "=>",
+    "🔥": "*",
+    "👍": "+1",
+    "👎": "-1",
+    "🔒": "[lock]",
+    "🔓": "[unlock]",
+    "📁": "[dir]",
+    "📂": "[dir]",
+    "📄": "[doc]",
+    "📝": "[edit]",
+    "👤": "[user]",
+    "👥": "[users]",
+    "🔔": "[bell]",
+    "🔕": "[mute]",
+    "💬": "[msg]",
+    "👁": "[view]",
+    "🔗": "[link]",
+    "🗑": "[del]",
+    "📦": "[pkg]",
+    "⏳": "[time]",
+    "⏱": "[time]",
+    "⏰": "[time]",
+    "🔄": "[refresh]",
+    "🔁": "[repeat]",
+    "➕": "+",
+    "➖": "-",
+}
+
+
+def set_glyph_fallback_mode(mode: str) -> None:
+    """
+    Set the global glyph fallback mode:
+    - 'strict': Raises MissingGlyphError when a character cannot be natively resolved.
+    - 'warn' (default): Emits logger.warning and substitutes with the most similar replacement.
+    - 'silent': Transparently substitutes with the most similar replacement.
+    """
+    global _CURRENT_FALLBACK_MODE
+    clean = str(mode).strip().lower()
+    if clean not in ("strict", "warn", "silent"):
+        raise ValueError(f"Invalid fallback mode '{mode}'. Choose from 'strict', 'warn', 'silent'.")
+    _CURRENT_FALLBACK_MODE = clean
+
+
+def get_glyph_fallback_mode() -> str:
+    """Get the active global glyph fallback mode ('strict', 'warn', or 'silent')."""
+    return _CURRENT_FALLBACK_MODE
+
+
+def register_glyph_replacement(char_or_symbol: str, replacement: str) -> None:
+    """Register a custom character/emoji fallback replacement string."""
+    _USER_REPLACEMENT_TABLE[char_or_symbol] = replacement
+
+
+def register_glyph_fallback_hook(hook: Callable[[str], Optional[str]]) -> None:
+    """Register a custom callback hook for resolving missing character replacements."""
+    _USER_FALLBACK_HOOKS.append(hook)
+
+
+def get_similar_glyph(char: str) -> str:
+    """
+    Find the most visually/semantically similar ASCII or unicode replacement for an unsupported character:
+    1. User custom replacement table
+    2. User fallback hooks
+    3. Curated similarity replacement table
+    4. Unicode NFKD decomposition (stripping combining diacritics/accents)
+    5. Fallback placeholder '?'
+    """
+    if not char:
+        return char
+
+    # 1. Custom user table
+    if char in _USER_REPLACEMENT_TABLE:
+        return _USER_REPLACEMENT_TABLE[char]
+
+    # 2. Custom hooks
+    for hook in _USER_FALLBACK_HOOKS:
+        try:
+            res = hook(char)
+            if res is not None:
+                return res
+        except Exception as e:
+            logger.debug("Error in user glyph fallback hook: %s", e)
+
+    # 3. Curated table
+    if char in SIMILARITY_REPLACEMENT_TABLE:
+        return SIMILARITY_REPLACEMENT_TABLE[char]
+
+    # 4. Unicode NFKD decomposition (e.g. 'é' -> 'e', 'ō' -> 'o')
+    decomposed = unicodedata.normalize("NFKD", char)
+    stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
+    if stripped and stripped != char and stripped.isascii():
+        return stripped
+
+    # 5. Unicode character category fallback
+    cat = unicodedata.category(char)
+    if cat.startswith("Z"):  # Separator / space
+        return " "
+    elif cat.startswith("P"):  # Punctuation
+        return "-"
+    elif cat.startswith("S"):  # Symbol
+        return "*"
+
+    return "?"
+
+
+def sanitize_text(
+    text: str,
+    font_family: str = "default",
+    mode: Optional[str] = None,
+    weight: int = 400,
+    italic: bool = False,
+    font_size: float = 14.0,
+) -> str:
+    """
+    Sanitizes text by verifying glyph availability in the primary and fallback fonts.
+    Applies configurable strictness mode ('strict', 'warn', 'silent') when missing characters occur.
+    """
+    if not text:
+        return text
+
+    effective_mode = mode.lower() if mode else _CURRENT_FALLBACK_MODE
+
+    # Check if all characters are simple ASCII
+    if text.isascii():
+        return text
+
+    try:
+        try:
+            from tkblend._tkblend import font_has_glyph, ensure_embedded_fonts
+        except ImportError:
+            from _tkblend import font_has_glyph, ensure_embedded_fonts
+        ensure_embedded_fonts()
+    except Exception as e:
+        logger.debug("Failed checking font_has_glyph in sanitize_text: %s", e)
+        return text
+
+    result_chars = []
+    i = 0
+    while i < len(text):
+        c = text[i]
+        cp = ord(c)
+
+        # ASCII characters always render cleanly
+        if cp < 128:
+            result_chars.append(c)
+            i += 1
+            continue
+
+        # Check primary font
+        has = font_has_glyph(font_family, cp, font_size, weight, italic)
+        if not has:
+            # Check embedded icon fonts & system fallbacks
+            for fb_fam in ("fa-solid", "fa-regular", "fa-brands", "lucide", "sans-serif"):
+                if font_has_glyph(fb_fam, cp, font_size, weight, italic):
+                    has = True
+                    break
+
+        if has:
+            result_chars.append(c)
+        else:
+            # Handle missing glyph according to strictness mode
+            sub = get_similar_glyph(c)
+            if effective_mode == "strict":
+                raise MissingGlyphError(
+                    f"Font '{font_family}' has no glyph for '{c}' (U+{cp:04X}, name={unicodedata.name(c, 'UNKNOWN')})"
+                )
+            elif effective_mode == "warn":
+                logger.warning(
+                    "Font '%s' missing glyph for '%s' (U+%04X); replaced with '%s'",
+                    font_family,
+                    c,
+                    cp,
+                    sub,
+                )
+            result_chars.append(sub)
+
+        i += 1
+
+    return "".join(result_chars)
+
 
 
 @dataclass

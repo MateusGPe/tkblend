@@ -1,13 +1,14 @@
 """
 Declarative theme engine and color palette management for tkblend.
-Bridges to the high-performance C++ StyleEngine singleton.
+Bridges to the high-performance C++ StyleEngine singleton with support for external .css theme files.
 """
 
 from __future__ import annotations
 import logging
 import weakref
 from dataclasses import dataclass
-from typing import Dict, Any, Callable, Optional, Union, List
+from pathlib import Path
+from typing import Dict, Any, Callable, Optional, Union, List, Set
 
 import tkinter as tk
 from tkblend._tkblend import (
@@ -274,6 +275,48 @@ class Palette:
         )
 
 
+def register_theme(name: str, css_text: str) -> None:
+    """Register custom CSS theme in C++ StyleEngine."""
+    StyleEngine.register_theme(name, css_text)
+
+
+def load_theme_file(filepath: Union[str, Path], name: Optional[str] = None) -> str:
+    """Load and register a CSS theme stylesheet from a file path."""
+    p = Path(filepath)
+    if not p.is_file():
+        raise FileNotFoundError(f"Theme file not found: {p}")
+    css_text = p.read_text(encoding="utf-8")
+    theme_name = name or p.stem.lower()
+    register_theme(theme_name, css_text)
+    if "THEME_PRESETS" in globals():
+        THEME_PRESETS[theme_name] = Palette.from_theme(theme_name)
+    return theme_name
+
+
+def load_theme_dir(dirpath: Union[str, Path]) -> List[str]:
+    """Load and register all .css theme stylesheets from a directory."""
+    p = Path(dirpath)
+    if not p.is_dir():
+        return []
+    loaded = []
+    for css_file in sorted(p.glob("*.css")):
+        try:
+            t_name = load_theme_file(css_file)
+            loaded.append(t_name)
+        except Exception as e:
+            logger.warning("Failed loading theme file %s: %s", css_file, e)
+    return loaded
+
+
+def _load_builtin_themes() -> None:
+    """Load all built-in .css theme files from tkblend/themes/."""
+    builtin_dir = Path(__file__).parent / "themes"
+    if builtin_dir.is_dir():
+        load_theme_dir(builtin_dir)
+
+
+_load_builtin_themes()
+
 DARK_PALETTE = Palette.from_theme("dark")
 LIGHT_PALETTE = Palette.from_theme("light")
 NORD_PALETTE = Palette.from_theme("nord")
@@ -282,17 +325,17 @@ TOKYO_NIGHT_PALETTE = Palette.from_theme("tokyo_night")
 CATPPUCCIN_MOCHA_PALETTE = Palette.from_theme("catppuccin_mocha")
 CATPPUCCIN_LATTE_PALETTE = Palette.from_theme("catppuccin_latte")
 EMERALD_PALETTE = Palette.from_theme("emerald")
+EMERALD_FOREST_PALETTE = Palette.from_theme("emerald_forest")
 OCEAN_PALETTE = Palette.from_theme("ocean")
 SUNSET_PALETTE = Palette.from_theme("sunset")
+SUNSET_AMBER_PALETTE = Palette.from_theme("sunset_amber")
 MONOKAI_PALETTE = Palette.from_theme("monokai")
+MONOKAI_PRO_PALETTE = Palette.from_theme("monokai_pro")
 CYBERPUNK_PALETTE = Palette.from_theme("cyberpunk")
-EMERALD_FOREST_PALETTE = Palette.from_theme("emerald")
-SUNSET_AMBER_PALETTE = Palette.from_theme("sunset")
-MONOKAI_PRO_PALETTE = Palette.from_theme("monokai")
 SOLARIZED_DARK_PALETTE = Palette.from_theme("solarized_dark")
 SOLARIZED_LIGHT_PALETTE = Palette.from_theme("solarized_light")
 
-THEME_PRESETS = {
+THEME_PRESETS: Dict[str, Palette] = {
     "dark": DARK_PALETTE,
     "light": LIGHT_PALETTE,
     "nord": NORD_PALETTE,
@@ -301,13 +344,35 @@ THEME_PRESETS = {
     "catppuccin_mocha": CATPPUCCIN_MOCHA_PALETTE,
     "catppuccin_latte": CATPPUCCIN_LATTE_PALETTE,
     "emerald": EMERALD_PALETTE,
+    "emerald_forest": EMERALD_FOREST_PALETTE,
     "ocean": OCEAN_PALETTE,
     "sunset": SUNSET_PALETTE,
+    "sunset_amber": SUNSET_AMBER_PALETTE,
     "monokai": MONOKAI_PALETTE,
+    "monokai_pro": MONOKAI_PRO_PALETTE,
     "cyberpunk": CYBERPUNK_PALETTE,
     "solarized_dark": SOLARIZED_DARK_PALETTE,
     "solarized_light": SOLARIZED_LIGHT_PALETTE,
 }
+
+
+def get_preset_semantic_colors() -> Dict[str, Set[str]]:
+    """Return dictionary of sets containing all known semantic surface colors across presets."""
+    res: Dict[str, Set[str]] = {
+        "bg": set(),
+        "card_bg": set(),
+        "surface": set(),
+        "input_bg": set(),
+        "track_bg": set(),
+    }
+    for pal in THEME_PRESETS.values():
+        res["bg"].add(pal.bg.lower())
+        res["card_bg"].add(pal.card_bg.lower())
+        res["surface"].add(pal.surface.lower())
+        res["input_bg"].add(pal.input_bg.lower())
+        res["track_bg"].add(pal.track_bg.lower())
+    return res
+
 
 
 class ThemeManager:
@@ -465,10 +530,6 @@ def get_available_themes() -> List[str]:
     """Return all available registered theme names."""
     return StyleEngine.get_available_themes()
 
-
-def register_theme(name: str, css_text: str) -> None:
-    """Register custom CSS theme in C++ StyleEngine."""
-    StyleEngine.register_theme(name, css_text)
 
 
 def add_theme_listener(callback: Callable[[Palette], None], priority: bool = False) -> None:

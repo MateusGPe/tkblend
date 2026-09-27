@@ -275,6 +275,19 @@ void bind_font_manager(nb::module_& m) {
         return FontManager::instance().register_font_directory(dir_path);
     }, nb::arg("dir_path"));
 
+    m.def("load_font_face_from_bytes", [](const std::string& name, nb::bytes data) -> bool {
+        return FontManager::instance().load_font_face_from_data(name, data.data(), data.size());
+    }, nb::arg("name"), nb::arg("data"));
+
+    m.def("ensure_embedded_fonts", []() {
+        FontManager::instance().ensure_embedded_fonts_loaded();
+    });
+
+    m.def("font_has_glyph", [](const std::string& family, uint32_t codepoint, float size, int weight, bool italic) -> bool {
+        BLFont f = FontManager::instance().create_font(family, size, weight, italic);
+        return FontManager::font_has_glyph(f, codepoint);
+    }, nb::arg("family"), nb::arg("codepoint"), nb::arg("size") = 12.0f, nb::arg("weight") = 400, nb::arg("italic") = false);
+
     m.def("set_emoji_font", [](const std::string& path) {
         EmojiEngine::instance().set_emoji_font(path);
     }, nb::arg("path"));
@@ -515,6 +528,22 @@ void bind_surface(nb::module_& m) {
              nb::arg("line_height_factor") = 1.25,
              nb::arg("truncate_ellipsis") = false,
              nb::arg("max_lines") = 0)
+
+        .def("draw_icon", [](Surface& s,
+                             const std::string& icon_char_or_name,
+                             double x, double y,
+                             float size,
+                             const std::string& font_family,
+                             std::optional<Color> color,
+                             int align) {
+            Color col = color.value_or(Color(255, 255, 255, 255));
+            s.draw_icon(icon_char_or_name, x, y, size, col, font_family, align);
+        },
+             nb::arg("icon"), nb::arg("x"), nb::arg("y"),
+             nb::arg("size") = 16.0f,
+             nb::arg("font_family") = "fa-solid",
+             nb::arg("color") = nb::none(),
+             nb::arg("align") = 0)
 
         // Shadows & Cards
         .def("render_box", [](Surface& s,
