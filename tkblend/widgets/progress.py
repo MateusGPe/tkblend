@@ -8,8 +8,8 @@ import math
 import tkinter as tk
 from typing import Optional
 
-from tkblend.surface import LinearGradient, Path, ColorLike
-from tkblend.theme import get_theme, Palette, resolve_color_failsafe
+from tkblend.surface import Path, ColorLike
+from tkblend.theme import get_theme, Palette
 from tkblend.widgets.base import Widget, _resolve_color
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class Progressbar(Widget):
                 style_col = pal.primary
         self._explicit_fill_start = color or style_col or fill_color_start
         self._explicit_fill_end = color or style_col or fill_color_end
-        super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
+        super().__init__(master=master, width=width, height=height, bg=parent_bg, tag_name="progress", **kwargs)
 
     @property
     def track_color(self) -> ColorLike:
@@ -93,11 +93,11 @@ class Progressbar(Widget):
         self.value = val
 
     def render(self) -> None:
-        if self._widget_w <= 1 or self._widget_h <= 1:
+        s = self.begin_render()
+        if s <= 0.0:
             return
         try:
-            self._surface.clear(self._parent_bg)
-            pad = 2.0 * self._scale
+            pad = 2.0 * s
             w = max(1.0, self._widget_w - pad * 2.0)
             h = max(1.0, self._widget_h - pad * 2.0)
             r = h / 2.0
@@ -118,7 +118,7 @@ class Progressbar(Widget):
                 bar_bg=fill_start,
                 progress_t=prog,
             )
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in ProgressBar: %s", e, exc_info=True)
 
@@ -134,6 +134,7 @@ class CircularProgress(Widget):
         size: int = 110,
         value: float = 65.0,
         stroke_width: float = 8.0,
+        thickness: Optional[float] = None,
         track_color: Optional[ColorLike] = None,
         fill_color: Optional[ColorLike] = None,
         color: Optional[ColorLike] = None,
@@ -142,6 +143,10 @@ class CircularProgress(Widget):
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
+        if thickness is not None:
+            stroke_width = float(thickness)
+        elif "thickness" in kwargs:
+            stroke_width = float(kwargs.pop("thickness"))
         self._value = max(0.0, min(100.0, float(value)))
         self._stroke_w = stroke_width
         self._explicit_track_color = track_color
@@ -190,11 +195,10 @@ class CircularProgress(Widget):
         self.value = val
 
     def render(self) -> None:
-        if self._widget_w <= 1 or self._widget_h <= 1:
+        s = self.begin_render()
+        if s <= 0.0:
             return
         try:
-            self._surface.clear(self._parent_bg)
-            s = self._scale
             cx = self._widget_w / 2.0
             cy = self._widget_h / 2.0
             sw = self._stroke_w * s
@@ -228,11 +232,9 @@ class CircularProgress(Widget):
                 color=pal.fg,
                 align="center",
             )
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in CircularProgress: %s", e, exc_info=True)
-
-
 
 
 ProgressBar = Progressbar

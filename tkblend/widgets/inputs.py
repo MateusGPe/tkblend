@@ -7,7 +7,8 @@ import logging
 import tkinter as tk
 from typing import Optional, Callable, Any, Union, Tuple
 
-from tkblend.theme import get_theme, Palette
+from tkblend.surface import StyleEngine, PseudoState
+from tkblend.theme import get_theme, Palette, resolve_color_failsafe
 from tkblend.font import FontConfig, parse_font
 from tkblend.widgets.base import Widget, ScalingTracker
 from tkblend.widgets.drawing import draw_vector_plus, draw_vector_minus
@@ -18,13 +19,13 @@ logger = logging.getLogger(__name__)
 class _TextInputBackground(Widget):
     """Backing vector surface for TextInput."""
 
-    def __init__(self, owner: "TextInput", master: tk.Misc, width: int, height: int, bg: Optional[str] = None):
+    def __init__(self, owner: Entry, master: tk.Misc, width: int, height: int, bg: Optional[str] = None):
         import weakref
         self._owner_ref = weakref.ref(owner)
         super().__init__(master=master, width=width, height=height, bg=bg)
 
     @property
-    def _owner(self) -> Optional["TextInput"]:
+    def _owner(self) -> Optional[Entry]:
         return self._owner_ref() if hasattr(self, "_owner_ref") else None
 
     def _on_configure(self, event) -> None:
@@ -80,7 +81,6 @@ class Entry(tk.Frame):
         self._custom_font_override = any(
             x is not None for x in (font_spec, font_size, font_family, bold, italic, weight)
         )
-        from tkblend.font import parse_font
         self._font_config = parse_font(
             font=font_spec,
             font_size=font_size,
@@ -116,6 +116,7 @@ class Entry(tk.Frame):
             insertbackground=pal.input_focus,
             borderwidth=0,
             highlightthickness=0,
+            relief="flat",
             font=entry_font,
         )
         self._entry._tkblend_injected_font = entry_font
@@ -178,7 +179,6 @@ class Entry(tk.Frame):
 
     @font.setter
     def font(self, val: Any) -> None:
-        from tkblend.font import parse_font
         self._custom_font_override = True
         self._font_config = parse_font(
             font=val,
@@ -215,6 +215,21 @@ class Entry(tk.Frame):
     def font_config(self, fc: FontConfig) -> None:
         self.font = fc
 
+    @property
+    def surface(self) -> Any:
+        return self._bg_widget.surface
+
+    @property
+    def _widget_w(self) -> int:
+        return getattr(self._bg_widget, "_widget_w", self.winfo_width())
+
+    @property
+    def _widget_h(self) -> int:
+        return getattr(self._bg_widget, "_widget_h", self.winfo_height())
+
+    def render(self) -> None:
+        self._render_bg()
+
     def configure(self, cnf=None, **kwargs):
         if cnf:
             kwargs.update(cnf)
@@ -225,24 +240,14 @@ class Entry(tk.Frame):
         bg = kwargs.pop("bg", kwargs.pop("background", None))
 
         if font_spec is not None or font_size is not None or font_family is not None:
-            from tkblend.font import parse_font
             self._custom_font_override = True
-            if font_spec is not None:
-                self._font_config = parse_font(
-                    font=font_spec,
-                    font_size=font_size,
-                    font_family=font_family,
-                    default_family=self._font_config.family,
-                    default_size=self._font_config.size,
-                )
-            else:
-                self._font_config = parse_font(
-                    font=self._font_config,
-                    font_size=font_size,
-                    font_family=font_family,
-                    default_family=self._font_config.family,
-                    default_size=self._font_config.size,
-                )
+            self._font_config = parse_font(
+                font=font_spec if font_spec is not None else self._font_config,
+                font_size=font_size,
+                font_family=font_family,
+                default_family=self._font_config.family,
+                default_size=self._font_config.size,
+            )
             self._update_entry_font()
 
         if placeholder is not None:
@@ -261,15 +266,14 @@ class Entry(tk.Frame):
 
     def set_parent_bg(self, bg: str, force: bool = False, render: bool = True) -> None:
         """Update parent background and re-render."""
-        from tkblend.theme import resolve_color_failsafe
         self._parent_bg = resolve_color_failsafe(bg, master=self, fallback=self._parent_bg)
         if force:
             self._explicit_parent_bg = None
         try:
             self.configure(bg=self._parent_bg)
         except Exception as e:
-            logger.debug("Failed configuring TextInput background: %s", e)
-        if hasattr(self, "_bg_widget"):
+            logger.debug("Failed configuring Entry background: %s", e)
+        if hasattr(self, "_bg_widget") and self._bg_widget is not None:
             self._bg_widget.set_parent_bg(self._parent_bg, force=force, render=render)
         if render:
             self._render_bg()
@@ -283,7 +287,7 @@ class Entry(tk.Frame):
             try:
                 super().configure(bg=self._parent_bg)
             except Exception as e:
-                logger.debug("Failed updating TextInput super bg in _update_theme_colors: %s", e)
+                logger.debug("Failed updating Entry super bg in _update_theme_colors: %s", e)
         fg_col = pal.text_muted if self._placeholder_active else pal.fg
         self._entry.configure(
             bg=pal.input_bg,
@@ -379,39 +383,35 @@ class Entry(tk.Frame):
         if self._bg_widget._widget_w <= 1 or self._bg_widget._widget_h <= 1:
             return
         try:
-            surf = self._bg_widget.surface
-            surf.clear(self._parent_bg)
+            from tkblend.surface import parse_color
+            self._bg_widget.handle.clear(parse_color(self._parent_bg))
             s = self._scale
             pad = 2.0 * s
             w = max(1.0, self._bg_widget._widget_w - pad * 2.0)
             h = max(1.0, self._bg_widget._widget_h - pad * 2.0)
-            r = 8.0 * s
+
+            state = int(PseudoState.Focused) if self._has_focus else (int(PseudoState.Hover) if getattr(self._bg_widget, "_is_hovered", False) else 0)
+            style = StyleEngine.resolve("input", "", state)
+            style.border_radius = float(8.0 * s)
+            style.border_width = float(1.5 * s if self._has_focus else 1.0 * s)
+
+            self._bg_widget.handle.render_box(
+                float(pad), float(pad), float(w), float(h),
+                style, "", 0
+            )
 
             pal = get_theme()
-            if self._has_focus:
-                border_col = pal.input_focus
-                border_w = 1.5 * s
-            elif getattr(self._bg_widget, "_is_hovered", False):
-                border_col = pal.secondary_hover
-                border_w = 1.2 * s
-            else:
-                border_col = pal.input_border
-                border_w = 1.0 * s
-
-            surf.fill_rounded_rect(pad, pad, w, h, r, r, pal.input_bg)
-            surf.stroke_rounded_rect(pad, pad, w, h, r, r, border_col, border_w)
-
             if self.get():
                 cx = self._bg_widget._widget_w - 20.0 * s
                 cy = self._bg_widget._widget_h / 2.0
-                surf.fill_circle(cx, cy, 7.0 * s, pal.secondary)
+                self._bg_widget.handle.fill_circle(cx, cy, 7.0 * s, pal.secondary)
                 cr = 3.0 * s
-                surf.draw_line(cx - cr, cy - cr, cx + cr, cy + cr, pal.fg, 1.2 * s)
-                surf.draw_line(cx + cr, cy - cr, cx - cr, cy + cr, pal.fg, 1.2 * s)
+                self._bg_widget.handle.draw_line(cx - cr, cy - cr, cx + cr, cy + cr, pal.fg, 1.2 * s)
+                self._bg_widget.handle.draw_line(cx + cr, cy - cr, cx - cr, cy + cr, pal.fg, 1.2 * s)
 
-            surf.blit(self._bg_widget.photo)
+            self._bg_widget.handle.blit_to_photo(int(self.tk.interpaddr()), str(self._bg_widget.photo.name))
         except Exception as e:
-            logger.debug("Render failed in TextInput _render_bg: %s", e, exc_info=True)
+            logger.debug("Render failed in Entry _render_bg: %s", e, exc_info=True)
 
     def bind(self, sequence=None, func=None, add=None):
         """Bind event to container frame and internal entry widget."""
@@ -419,6 +419,59 @@ class Entry(tk.Frame):
         if hasattr(self, "_entry") and self._entry.winfo_exists():
             return self._entry.bind(sequence, func, add=add)
         return ""
+
+    def focus_set(self) -> None:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            self._entry.focus_set()
+        else:
+            super().focus_set()
+
+    def select_range(self, start: int, end: int) -> None:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            self._entry.select_range(start, end)
+
+    def select_clear(self) -> None:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            self._entry.select_clear()
+
+    def select_present(self) -> bool:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            return self._entry.select_present()
+        return False
+
+    def select_adjust(self, index: int) -> None:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            self._entry.select_adjust(index)
+
+    def select_from(self, index: int) -> None:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            self._entry.select_from(index)
+
+    def select_to(self, index: int) -> None:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            self._entry.select_to(index)
+
+    def icursor(self, index: int) -> None:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            self._entry.icursor(index)
+
+    def index(self, index: Any) -> int:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            return self._entry.index(index)
+        return 0
+
+    def xview(self, *args) -> Any:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            return self._entry.xview(*args)
+        return ()
+
+    def xview_moveto(self, fraction: float) -> None:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            self._entry.xview_moveto(fraction)
+
+    def xview_scroll(self, number: int, what: str) -> None:
+        if hasattr(self, "_entry") and self._entry.winfo_exists():
+            self._entry.xview_scroll(number, what)
 
     def render(self) -> None:
         """Render backing vector entry background."""
@@ -430,7 +483,7 @@ class Entry(tk.Frame):
             try:
                 self._bg_widget.destroy()
             except Exception as e:
-                logger.debug("Error destroying _bg_widget in TextInput.destroy: %s", e)
+                logger.debug("Error destroying _bg_widget in Entry.destroy: %s", e)
             self._bg_widget = None  # type: ignore
         super().destroy()
 
@@ -471,11 +524,9 @@ class Spinbox(Widget):
         self._pressed_btn: Optional[str] = None
         self._repeat_timer: Optional[str] = None
 
-        super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
+        super().__init__(master=master, width=width, height=height, bg=parent_bg, tag_name="input", **kwargs)
 
-        s = self._scale
         pal = get_theme()
-
         entry_font = self._get_effective_tk_font()
         self._entry = tk.Entry(
             self,
@@ -484,6 +535,7 @@ class Spinbox(Widget):
             insertbackground=pal.input_focus,
             borderwidth=0,
             highlightthickness=0,
+            relief="flat",
             justify="left",
             font=entry_font,
         )
@@ -659,27 +711,24 @@ class Spinbox(Widget):
                 self._pressed_btn = None
         else:
             self._pressed_btn = None
-            if hasattr(self, "_entry") and self._entry.winfo_exists():
-                self._entry.focus_set()
+            self._cancel_repeat()
 
     def _start_repeat(self, delta: int) -> None:
         self._cancel_repeat()
-        self._repeat_timer = self.after(400, lambda: self._step_repeat(delta))
+        self._repeat_timer = self.after(400, lambda: self._do_repeat(delta, interval=80))
 
-    def _step_repeat(self, delta: int) -> None:
-        if self._pressed_btn is not None:
-            if (delta < 0 and self._value > self._min) or (delta > 0 and self._value < self._max):
-                self.step_by(delta)
-                self._repeat_timer = self.after(70, lambda: self._step_repeat(delta))
-            else:
-                self._cancel_repeat()
+    def _do_repeat(self, delta: int, interval: int) -> None:
+        if self._pressed_btn:
+            self.step_by(delta)
+            next_int = max(30, int(interval * 0.9))
+            self._repeat_timer = self.after(next_int, lambda: self._do_repeat(delta, next_int))
 
     def _cancel_repeat(self) -> None:
         if self._repeat_timer is not None:
             try:
                 self.after_cancel(self._repeat_timer)
-            except Exception as e:
-                logger.debug("Failed cancelling repeat timer in SpinBox: %s", e)
+            except Exception:
+                pass
             self._repeat_timer = None
 
     def _handle_release(self, event) -> None:
@@ -692,23 +741,25 @@ class Spinbox(Widget):
         self._pressed_btn = None
 
     def render(self) -> None:
-        if self._widget_w <= 1 or self._widget_h <= 1:
+        s = self.begin_render()
+        if s <= 0.0:
             return
         try:
-            self._surface.clear(self._parent_bg)
-            s = self._scale
             pad = 2.0 * s
             w = max(1.0, self._widget_w - pad * 2.0)
             h = max(1.0, self._widget_h - pad * 2.0)
-            r = 8.0 * s
+
+            state = int(PseudoState.Focused) if self._has_focus else (int(PseudoState.Hover) if self._is_hovered else 0)
+            style = StyleEngine.resolve("input", "", state)
+            style.border_radius = float(8.0 * s)
+            style.border_width = float(1.5 * s if self._has_focus else 1.0 * s)
+
+            self._handle.render_box(
+                float(pad), float(pad), float(w), float(h),
+                style, "", 0
+            )
 
             pal = get_theme()
-            self._surface.fill_rounded_rect(pad, pad, w, h, r, r, pal.input_bg)
-
-            border_col = pal.input_focus if self._has_focus else pal.input_border
-            border_w = 1.5 * s if self._has_focus else 1.0 * s
-            self._surface.stroke_rounded_rect(pad, pad, w, h, r, r, border_col, border_w)
-
             minus_x, plus_x, btn_y, btn_w, btn_h, btn_r = self._button_geometry()
             cy = btn_y + btn_h / 2.0
 
@@ -748,11 +799,9 @@ class Spinbox(Widget):
             self._surface.fill_rounded_rect(plus_x, btn_y, btn_w, btn_h, btn_r, btn_r, plus_bg)
             draw_vector_plus(self._surface, plus_x + btn_w / 2.0, cy, 4.0 * s, plus_fg, 1.6 * s)
 
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in SpinBox: %s", e, exc_info=True)
-
-
 
 
 TextInput = Entry

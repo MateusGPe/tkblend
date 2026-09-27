@@ -12,7 +12,14 @@ from typing import Optional, Union, List, Tuple, Any
 
 logger = logging.getLogger(__name__)
 
-from tkblend.surface import Surface, ColorLike
+from tkblend.surface import (
+    Surface,
+    ColorLike,
+    SurfaceHandle,
+    PseudoState,
+    StyleEngine,
+    ComputedStyle,
+)
 from tkblend.theme import (
     get_theme,
     Palette,
@@ -116,9 +123,9 @@ ScalingTracker.activate_high_dpi_awareness()
 
 class Widget(tk.Label):
     """
-    Base vector widget rendering on a Blend2D Surface with zero-copy blit
-    to a backing Tkinter PhotoImage. Handles DPI scaling, resize, mouse states,
-    and dynamic theme notifications.
+    Base vector widget rendering on a Blend2D SurfaceHandle with zero-copy blit
+    to a backing Tkinter PhotoImage. Handles DPI scaling, resize, CSS-like pseudo states,
+    and declarative style resolution.
     """
 
     @classmethod
@@ -133,6 +140,8 @@ class Widget(tk.Label):
         height: int = 40,
         bg: Optional[str] = None,
         parent_bg: Optional[str] = None,
+        tag_name: str = "widget",
+        class_name: str = "",
         **kwargs,
     ):
         self._logical_w = max(1, width)
@@ -146,12 +155,29 @@ class Widget(tk.Label):
         self._parent_bg = eff_bg if eff_bg is not None else self._resolve_default_bg(master, get_theme())
 
         self._photo = tk.PhotoImage(master=master, width=self._widget_w, height=self._widget_h)
-        self._surface = Surface(self._widget_w, self._widget_h)
+        self._handle = SurfaceHandle(self._widget_w, self._widget_h)
+        self._surface = Surface(self._handle)
 
-        self._is_hovered = False
-        self._is_pressed = False
-        self._is_disabled = False
-        self._has_focus = False
+        self._state: int = int(PseudoState.Normal)
+        self._tag_name: str = tag_name
+        self._class_name: str = class_name
+
+        if not hasattr(self, "_explicit_fg"):
+            self._explicit_fg = None
+        if not hasattr(self, "_explicit_border_color"):
+            self._explicit_border_color = None
+        if not hasattr(self, "_custom_rx"):
+            self._custom_rx = None
+        if not hasattr(self, "_custom_ry"):
+            self._custom_ry = None
+        if not hasattr(self, "_variant"):
+            self._variant = ""
+        if not hasattr(self, "_text"):
+            self._text = kwargs.pop("text", "")
+        if not hasattr(self, "_command"):
+            self._command = kwargs.pop("command", None)
+        if not hasattr(self, "_elevation"):
+            self._elevation = 0.0
 
         self.resizable_width: bool = kwargs.pop("resizable_width", True)
         self.resizable_height: bool = kwargs.pop("resizable_height", True)
@@ -208,8 +234,329 @@ class Widget(tk.Label):
         self.after_idle(lambda: self.render() if self.winfo_exists() else None)
 
     @property
+    def surface_id(self) -> int:
+        """64-bit handle ID of the native surface in SurfaceRegistry."""
+        return self._handle.surface_id if self._handle is not None else 0
+
+    @property
+    def handle(self) -> SurfaceHandle:
+        return self._handle
+
+    @property
     def surface(self) -> Surface:
         return self._surface
+
+    @property
+    def state(self) -> int:
+        return self._state
+
+    @state.setter
+    def state(self, val: int) -> None:
+        self._state = int(val)
+        self.render()
+
+    @property
+    def tag_name(self) -> str:
+        return self._tag_name
+
+    @tag_name.setter
+    def tag_name(self, val: str) -> None:
+        self._tag_name = str(val)
+        self.render()
+
+    @property
+    def class_name(self) -> str:
+        return self._class_name
+
+    @class_name.setter
+    def class_name(self, val: str) -> None:
+        self._class_name = str(val)
+        self.render()
+
+    @property
+    def text(self) -> str:
+        return self._text
+
+    @text.setter
+    def text(self, val: str) -> None:
+        self._text = str(val)
+        self.render()
+
+    def set_text(self, text: str) -> None:
+        self.text = text
+
+    @property
+    def command(self) -> Optional[Callable]:
+        return self._command
+
+    @command.setter
+    def command(self, cmd: Optional[Callable]) -> None:
+        self._command = cmd
+
+    @property
+    def variant(self) -> str:
+        return self._variant
+
+    @variant.setter
+    def variant(self, val: str) -> None:
+        self._variant = str(val)
+        self._class_name = f".{self._tag_name}-{self._variant}" if self._variant else ""
+        self.render()
+
+    def set_variant(self, variant: str) -> None:
+        self.variant = variant
+
+    @property
+    def bootstyle(self) -> str:
+        return self.variant
+
+    @bootstyle.setter
+    def bootstyle(self, val: str) -> None:
+        self.variant = val
+
+    def set_bootstyle(self, style: str) -> None:
+        self.variant = style
+
+    @property
+    def corner_radius(self) -> float:
+        return float(self._custom_rx / self._scale) if self._custom_rx is not None else 8.0
+
+    @corner_radius.setter
+    def corner_radius(self, radius: float) -> None:
+        s = self._scale
+        self._custom_rx = float(radius) * s
+        self._custom_ry = float(radius) * s
+        self.render()
+
+    def set_corner_radius(self, radius: float) -> None:
+        self.corner_radius = radius
+
+    @property
+    def bg_color(self) -> Optional[ColorLike]:
+        return self._explicit_bg
+
+    @bg_color.setter
+    def bg_color(self, color: Optional[ColorLike]) -> None:
+        self._explicit_bg = color
+        self.render()
+
+    def set_bg_color(self, color: ColorLike) -> None:
+        self.bg_color = color
+
+    @property
+    def fg_color(self) -> Optional[ColorLike]:
+        return self._explicit_fg
+
+    @fg_color.setter
+    def fg_color(self, color: Optional[ColorLike]) -> None:
+        self._explicit_fg = color
+        self.render()
+
+    def set_fg_color(self, color: ColorLike) -> None:
+        self.fg_color = color
+
+    @property
+    def border_color(self) -> Optional[ColorLike]:
+        return self._explicit_border_color
+
+    @border_color.setter
+    def border_color(self, color: Optional[ColorLike]) -> None:
+        self._explicit_border_color = color
+        self.render()
+
+    def set_border_color(self, color: ColorLike) -> None:
+        self.border_color = color
+
+    @property
+    def text_color(self) -> Optional[ColorLike]:
+        return self.fg_color
+
+    @text_color.setter
+    def text_color(self, color: Optional[ColorLike]) -> None:
+        self.fg_color = color
+
+    def set_text_color(self, color: ColorLike) -> None:
+        self.text_color = color
+
+    def set_state(self, state: str) -> None:
+        self._is_disabled = (str(state).lower() == "disabled")
+        self.render()
+
+    def get_computed_style(
+        self,
+        tag_name: Optional[str] = None,
+        class_name: Optional[str] = None,
+        state: Optional[int] = None,
+    ) -> ComputedStyle:
+        """Resolve declarative CSS style for widget, scaling geometric values for display DPI and applying instance overrides."""
+        tag = tag_name if tag_name is not None else self._tag_name
+        cls_sel = class_name if class_name is not None else self._class_name
+        if not cls_sel and self._variant:
+            cls_sel = f".{tag}-{self._variant}" if not self._variant.startswith(".") else self._variant
+        st = self._state if state is None else state
+        style = StyleEngine.resolve(tag, cls_sel, st)
+        s = self._scale
+
+        if self._custom_font_override:
+            style.font_size = float(self._font_config.size * s)
+            style.font_family = self._font_config.family
+            style.font_weight = self._font_config.weight
+        else:
+            style.font_size = float(style.font_size * s)
+
+        if self._custom_rx is not None:
+            style.border_radius = float(self._custom_rx)
+        else:
+            style.border_radius = float(style.border_radius * s)
+
+        style.border_width = float(style.border_width * s)
+        style.shadow_blur = float(style.shadow_blur * s)
+        style.shadow_offset_x = float(style.shadow_offset_x * s)
+        style.shadow_offset_y = float(style.shadow_offset_y * s)
+
+        from tkblend.surface import parse_color
+        if self._explicit_bg is not None:
+            style.bg_color = parse_color(self._explicit_bg)
+        if self._explicit_fg is not None:
+            style.fg_color = parse_color(self._explicit_fg)
+        if self._explicit_border_color is not None:
+            style.border_color = parse_color(self._explicit_border_color)
+
+        return style
+
+    def begin_render(self, clear_color: Optional[ColorLike] = None) -> float:
+        """Clear surface to solid parent background and return display scaling factor. Returns 0.0 if unmapped."""
+        if getattr(self, "_surface", None) is None or getattr(self, "_handle", None) is None:
+            raise RuntimeError("Surface is closed or None")
+        if self._widget_w <= 1 or self._widget_h <= 1:
+            return 0.0
+        from tkblend.surface import parse_color
+        bg = clear_color if clear_color is not None else self._parent_bg
+        self._handle.clear(parse_color(bg))
+        return self._scale
+
+    def end_render(self) -> None:
+        """Blit native surface directly to backing Tkinter PhotoImage."""
+        if self.winfo_exists() and hasattr(self, "_photo") and self._photo is not None:
+            self._handle.blit_to_photo(int(self.tk.interpaddr()), str(self._photo.name))
+
+    def configure(self, **kwargs) -> Any:
+        """Configure widget options dynamically with automatic re-render."""
+        render_needed = False
+        if "text" in kwargs:
+            self._text = str(kwargs.pop("text"))
+            render_needed = True
+        if "command" in kwargs:
+            self._command = kwargs.pop("command")
+        if "variant" in kwargs:
+            self._variant = str(kwargs.pop("variant"))
+            self._class_name = f".{self._tag_name}-{self._variant}" if self._variant else ""
+            render_needed = True
+        if "bootstyle" in kwargs:
+            self._variant = str(kwargs.pop("bootstyle"))
+            self._class_name = f".{self._tag_name}-{self._variant}" if self._variant else ""
+            render_needed = True
+        if "corner_radius" in kwargs:
+            cr = kwargs.pop("corner_radius")
+            s = self._scale
+            self._custom_rx = float(cr) * s if cr is not None else None
+            self._custom_ry = float(cr) * s if cr is not None else None
+            render_needed = True
+        if "bg_color" in kwargs:
+            self._explicit_bg = kwargs.pop("bg_color")
+            render_needed = True
+        if "fg_color" in kwargs:
+            self._explicit_fg = kwargs.pop("fg_color")
+            render_needed = True
+        if "text_color" in kwargs:
+            self._explicit_fg = kwargs.pop("text_color")
+            render_needed = True
+        if "border_color" in kwargs:
+            self._explicit_border_color = kwargs.pop("border_color")
+            render_needed = True
+        if "state" in kwargs:
+            st = kwargs.pop("state")
+            self._is_disabled = (str(st).lower() == "disabled")
+            render_needed = True
+        if "parent_bg" in kwargs:
+            self.set_parent_bg(kwargs.pop("parent_bg"), render=False)
+            render_needed = True
+        if "font" in kwargs or "font_size" in kwargs or "font_family" in kwargs:
+            from tkblend.font import parse_font
+            self._custom_font_override = True
+            self._font_config = parse_font(
+                font=kwargs.pop("font", None),
+                font_size=kwargs.pop("font_size", None),
+                font_family=kwargs.pop("font_family", None),
+                default_family=self._font_config.family,
+                default_size=self._font_config.size,
+            )
+            self._on_font_changed()
+            render_needed = True
+
+        res = None
+        if kwargs:
+            res = super().configure(**kwargs)
+        if render_needed:
+            self.render()
+        return res
+
+    config = configure
+
+    @property
+    def _is_hovered(self) -> bool:
+        return bool(self._state & int(PseudoState.Hover))
+
+    @_is_hovered.setter
+    def _is_hovered(self, val: bool) -> None:
+        if val:
+            self._state |= int(PseudoState.Hover)
+        else:
+            self._state &= ~int(PseudoState.Hover)
+
+    @property
+    def _is_pressed(self) -> bool:
+        return bool(self._state & int(PseudoState.Active))
+
+    @_is_pressed.setter
+    def _is_pressed(self, val: bool) -> None:
+        if val:
+            self._state |= int(PseudoState.Active)
+        else:
+            self._state &= ~int(PseudoState.Active)
+
+    @property
+    def _is_disabled(self) -> bool:
+        return bool(self._state & int(PseudoState.Disabled))
+
+    @_is_disabled.setter
+    def _is_disabled(self, val: bool) -> None:
+        if val:
+            self._state |= int(PseudoState.Disabled)
+        else:
+            self._state &= ~int(PseudoState.Disabled)
+
+    @property
+    def _has_focus(self) -> bool:
+        return bool(self._state & int(PseudoState.Focused))
+
+    @_has_focus.setter
+    def _has_focus(self, val: bool) -> None:
+        if val:
+            self._state |= int(PseudoState.Focused)
+        else:
+            self._state &= ~int(PseudoState.Focused)
+
+    @property
+    def _is_checked(self) -> bool:
+        return bool(self._state & int(PseudoState.Checked))
+
+    @_is_checked.setter
+    def _is_checked(self, val: bool) -> None:
+        if val:
+            self._state |= int(PseudoState.Checked)
+        else:
+            self._state &= ~int(PseudoState.Checked)
 
     @property
     def photo(self) -> tk.PhotoImage:
@@ -271,8 +618,10 @@ class Widget(tk.Label):
         self.font = fc
 
     def _on_destroy(self, event=None) -> None:
-        if event is not None and getattr(event, "widget", None) != self:
-            return
+        if event is not None:
+            w = getattr(event, "widget", None)
+            if w is not None and w != self and str(w) != str(self):
+                return
         remove_theme_listener(self._on_theme_changed)
         if hasattr(self, "_var_sync") and self._var_sync is not None:
             try:
@@ -285,6 +634,12 @@ class Widget(tk.Label):
             except Exception:
                 pass
             self._surface = None  # type: ignore
+        if hasattr(self, "_handle") and self._handle is not None:
+            try:
+                self._handle.close()
+            except Exception:
+                pass
+            self._handle = None  # type: ignore
         if hasattr(self, "_photo") and self._photo is not None:
             try:
                 photo_name = str(self._photo.name)
@@ -297,8 +652,23 @@ class Widget(tk.Label):
             self._photo = None  # type: ignore
 
     def destroy(self) -> None:
+        try:
+            for child in list(getattr(self, "children", {}).values()):
+                if hasattr(child, "destroy"):
+                    try:
+                        child.destroy()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         self._on_destroy()
         super().destroy()
+
+    def __del__(self) -> None:
+        try:
+            self._on_destroy()
+        except Exception:
+            pass
 
     def set_parent_bg(self, bg: str, force: bool = False, render: bool = True) -> None:
         """Explicitly update the parent background and re-render."""
@@ -372,32 +742,33 @@ class Widget(tk.Label):
             self._widget_w = new_w
             self._widget_h = new_h
             self._photo.configure(width=photo_w, height=photo_h)
-            if self._surface is not None:
+            if self._handle is not None:
+                self._handle.resize(self._widget_w, self._widget_h)
+            elif self._surface is not None:
                 self._surface.resize(self._widget_w, self._widget_h)
             self.render()
 
     def _on_enter(self, event) -> None:
         if not self._is_disabled:
-            self._is_hovered = True
+            self._state |= int(PseudoState.Hover)
             self._handle_enter(event)
             self.render()
 
     def _on_leave(self, event) -> None:
         if not self._is_disabled:
-            self._is_hovered = False
-            self._is_pressed = False
+            self._state &= ~(int(PseudoState.Hover) | int(PseudoState.Active))
             self._handle_leave(event)
             self.render()
 
     def _on_press(self, event) -> None:
         if not self._is_disabled:
-            self._is_pressed = True
+            self._state |= int(PseudoState.Active)
             self._handle_press(event)
             self.render()
 
     def _on_release(self, event) -> None:
         if not self._is_disabled:
-            self._is_pressed = False
+            self._state &= ~int(PseudoState.Active)
             in_bounds = (0 <= event.x <= self._widget_w and 0 <= event.y <= self._widget_h)
             if in_bounds:
                 self._handle_click(event)
@@ -405,11 +776,11 @@ class Widget(tk.Label):
             self.render()
 
     def _on_focus_in(self, event) -> None:
-        self._has_focus = True
+        self._state |= int(PseudoState.Focused)
         self.render()
 
     def _on_focus_out(self, event) -> None:
-        self._has_focus = False
+        self._state &= ~int(PseudoState.Focused)
         self.render()
 
     def _handle_enter(self, event) -> None:
@@ -425,12 +796,15 @@ class Widget(tk.Label):
         pass
 
     def _handle_click(self, event) -> None:
-        pass
+        if not self._is_disabled and self._command:
+            self._command()
 
     def render(self) -> None:
         """Override in subclasses to draw custom vector UI."""
-        self._surface.clear(self._parent_bg)
-        self._surface.blit(self._photo)
+        s = self.begin_render()
+        if s <= 0.0:
+            return
+        self.end_render()
 
 
 class VariableSync:
@@ -594,10 +968,11 @@ class ContainerBase(tk.Frame):
         self._shadow_offset_y = shadow_offset_y * self._scale
         self._explicit_padding = padding
         self._padding = (padding * self._scale) if padding is not None else None
-        self._current_pad = 0.0
+        self._current_pad = (padding * self._scale) if padding is not None else max(8.0 * self._scale, self._elevation * 0.8)
 
         self._photo = tk.PhotoImage(master=self, width=self._widget_w, height=self._widget_h)
-        self._surface = Surface(self._widget_w, self._widget_h)
+        self._handle = SurfaceHandle(self._widget_w, self._widget_h)
+        self._surface = Surface(self._handle)
 
         self._bg_label = tk.Label(
             self,
@@ -614,9 +989,24 @@ class ContainerBase(tk.Frame):
         add_theme_listener(self._on_theme_changed)
         self.after_idle(lambda: self.render() if self.winfo_exists() else None)
 
+    @property
+    def surface_id(self) -> int:
+        """64-bit handle ID of the native surface in SurfaceRegistry."""
+        return self._handle.surface_id if self._handle is not None else 0
+
+    @property
+    def handle(self) -> SurfaceHandle:
+        return self._handle
+
+    @property
+    def surface(self) -> Surface:
+        return self._surface
+
     def _on_destroy(self, event=None) -> None:
-        if event is not None and getattr(event, "widget", None) != self:
-            return
+        if event is not None:
+            w = getattr(event, "widget", None)
+            if w is not None and w != self and str(w) != str(self):
+                return
         remove_theme_listener(self._on_theme_changed)
         if hasattr(self, "_surface") and self._surface is not None:
             try:
@@ -624,6 +1014,12 @@ class ContainerBase(tk.Frame):
             except Exception:
                 pass
             self._surface = None  # type: ignore
+        if hasattr(self, "_handle") and self._handle is not None:
+            try:
+                self._handle.close()
+            except Exception:
+                pass
+            self._handle = None  # type: ignore
         if hasattr(self, "_photo") and self._photo is not None:
             try:
                 photo_name = str(self._photo.name)
@@ -636,8 +1032,23 @@ class ContainerBase(tk.Frame):
             self._photo = None  # type: ignore
 
     def destroy(self) -> None:
+        try:
+            for child in list(getattr(self, "children", {}).values()):
+                if hasattr(child, "destroy"):
+                    try:
+                        child.destroy()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         self._on_destroy()
         super().destroy()
+
+    def __del__(self) -> None:
+        try:
+            self._on_destroy()
+        except Exception:
+            pass
 
     @property
     def clip_children(self) -> bool:
@@ -815,6 +1226,7 @@ class ContainerBase(tk.Frame):
     def padding(self, value: Optional[float]) -> None:
         self._explicit_padding = value
         self._padding = (value * self._scale) if value is not None else None
+        self._current_pad = (value * self._scale) if value is not None else max(8.0 * self._scale, self._elevation * 0.8)
         self._update_body_geometry()
         self.render()
 
@@ -822,7 +1234,8 @@ class ContainerBase(tk.Frame):
         if self._widget_w <= 1 or self._widget_h <= 1:
             return
         try:
-            self._surface.clear(self._parent_bg)
+            from tkblend.surface import parse_color
+            self._handle.clear(parse_color(self._parent_bg))
             if self._padding is not None:
                 pad = max(0.0, self._padding)
             else:
@@ -834,34 +1247,45 @@ class ContainerBase(tk.Frame):
             draw_h = max(1.0, self._widget_h - pad * 2.0)
 
             if draw_w <= 1.0 or draw_h <= 1.0:
-                self._surface.blit(self._photo)
+                self._handle.blit_to_photo(int(self.tk.interpaddr()), str(self._photo.name))
                 return
+
+            style = StyleEngine.resolve("card", "", 0)
+            if self._explicit_bg_color is not None:
+                style.bg_color = parse_color(self._explicit_bg_color)
+            elif self._bg_color is not None:
+                style.bg_color = parse_color(self._bg_color)
+
+            if self._explicit_border_color is not None:
+                style.border_color = parse_color(self._explicit_border_color)
+            elif self._border_color is not None:
+                style.border_color = parse_color(self._border_color)
+
+            style.border_width = float(self._border_width)
+            style.border_radius = float(self._rx)
 
             if self._elevation > 0.0 and pad > 0.0:
                 max_blur = pad * 0.6
-                safe_blur = min(self._elevation * 0.8, max_blur)
-                safe_offset_y = min(self._shadow_offset_y, pad * 0.2, safe_blur * 0.4)
+                style.shadow_blur = float(min(self._elevation * 0.8, max_blur))
+                style.shadow_offset_y = float(min(self._shadow_offset_y, pad * 0.2, style.shadow_blur * 0.4))
+                if self._explicit_shadow_color is not None:
+                    style.shadow_color = parse_color(self._explicit_shadow_color)
+                elif self._shadow_color is not None:
+                    style.shadow_color = parse_color(self._shadow_color)
             else:
-                safe_blur = 0.0
-                safe_offset_y = 0.0
+                style.shadow_blur = 0.0
+                style.shadow_offset_y = 0.0
 
-            self._surface.draw_card(
-                x=draw_x,
-                y=draw_y,
-                w=draw_w,
-                h=draw_h,
-                rx=self._rx,
-                ry=self._ry,
-                bg_color=self._bg_color,
-                border_color=self._border_color,
-                border_width=self._border_width,
-                shadow_blur=safe_blur,
-                shadow_spread=0.0,
-                shadow_offset_x=0.0,
-                shadow_offset_y=safe_offset_y,
-                shadow_color=self._shadow_color,
+            self._handle.render_box(
+                float(draw_x),
+                float(draw_y),
+                float(draw_w),
+                float(draw_h),
+                style,
+                "",
+                1,
             )
-            self._surface.blit(self._photo)
+            self._handle.blit_to_photo(int(self.tk.interpaddr()), str(self._photo.name))
         except Exception as e:
             logger.debug("Render failed in ContainerBase: %s", e, exc_info=True)
 
@@ -914,11 +1338,18 @@ def cascade_bg_to_children(
                 logger.debug("Failed setting parent_bg on child widget %r: %s", child, e)
             continue
 
-        # Standard container (e.g. tk.Frame, tk.Canvas): update its background and recurse
+        # Standard container (e.g. tk.Frame, tk.Canvas, tk.Label): update its background and recurse
         if hasattr(child, "configure"):
             try:
-                child.configure(background=bg)
+                if isinstance(child, tk.Label):
+                    pal = get_theme()
+                    child.configure(background=bg, foreground=pal.text_muted)
+                else:
+                    child.configure(background=bg)
             except Exception as e:
-                logger.debug("Failed updating standard widget background on %r: %s", child, e)
+                try:
+                    child.configure(background=bg)
+                except Exception:
+                    pass
         cascade_bg_to_children(child, bg, preserve_overrides=preserve_overrides, render=render)
 

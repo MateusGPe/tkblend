@@ -8,7 +8,7 @@ import tkinter as tk
 from typing import Optional, Callable, Tuple
 
 from tkblend.surface import ColorLike
-from tkblend.theme import get_theme, Palette, resolve_color_failsafe
+from tkblend.theme import get_theme, Palette
 from tkblend.widgets.base import Widget, ScalingTracker, _resolve_color
 
 logger = logging.getLogger(__name__)
@@ -56,11 +56,10 @@ class Scale(Widget):
         self._explicit_knob_color = knob_color
         scale = ScalingTracker.get_scaling_factor(master)
         self._knob_r = knob_radius * scale
-        super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
+        super().__init__(master=master, width=width, height=height, bg=parent_bg, tag_name="slider", **kwargs)
 
         self.bind("<B1-Motion>", self._on_drag)
         self.bind("<Button-1>", self._on_drag)
-
 
     @property
     def track_color(self) -> ColorLike:
@@ -128,7 +127,6 @@ class Scale(Widget):
     def set_value(self, val: float) -> None:
         self.value = val
 
-
     def _on_drag(self, event) -> None:
         pad = self._knob_r + 4.0 * self._scale
         usable_w = self._widget_w - pad * 2.0
@@ -140,12 +138,12 @@ class Scale(Widget):
                 self._on_change(self._value)
 
     def render(self) -> None:
-        if self._widget_w <= 1 or self._widget_h <= 1:
+        s = self.begin_render()
+        if s <= 0.0:
             return
         try:
-            self._surface.clear(self._parent_bg)
-            pad = self._knob_r + 4.0 * self._scale
-            track_h = 6.0 * self._scale
+            pad = self._knob_r + 4.0 * s
+            track_h = 6.0 * s
             usable_w = max(1.0, self._widget_w - pad * 2.0)
 
             pal = get_theme()
@@ -157,7 +155,7 @@ class Scale(Widget):
             rel = (self._value - self._min) / (self._max - self._min) if self._max > self._min else 0.0
 
             focus_col = pal.input_focus if self._has_focus else "#00000000"
-            focus_width = 1.5 * self._scale if self._has_focus else 0.0
+            focus_width = 1.5 * s if self._has_focus else 0.0
 
             self._surface.draw_slider(
                 x=pad,
@@ -176,7 +174,7 @@ class Scale(Widget):
                 focus_ring_color=focus_col,
                 focus_ring_width=focus_width,
             )
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in Slider: %s", e, exc_info=True)
 
@@ -325,12 +323,12 @@ class RangeSlider(Widget):
         self._dragging_thumb = None
 
     def render(self) -> None:
-        if self._widget_w <= 1 or self._widget_h <= 1:
+        s = self.begin_render()
+        if s <= 0.0:
             return
         try:
-            self._surface.clear(self._parent_bg)
-            pad = self._knob_r + 4.0 * self._scale
-            track_h = 6.0 * self._scale
+            pad = self._knob_r + 4.0 * s
+            track_h = 6.0 * s
             track_y = (self._widget_h - track_h) / 2.0
             usable_w = max(1.0, self._widget_w - pad * 2.0)
 
@@ -354,8 +352,8 @@ class RangeSlider(Widget):
                 )
 
             v_margin = max(1.0, (self._widget_h / 2.0) - self._knob_r)
-            safe_blur = min(2.5 * self._scale, v_margin * 0.65)
-            safe_offset_y = min(0.8 * self._scale, v_margin * 0.25)
+            safe_blur = min(2.5 * s, v_margin * 0.65)
+            safe_offset_y = min(0.8 * s, v_margin * 0.25)
             for cx in (low_x, high_x):
                 self._surface.draw_shadow(
                     cx - self._knob_r,
@@ -371,11 +369,9 @@ class RangeSlider(Widget):
                 self._surface.fill_circle(cx, self._widget_h / 2.0, self._knob_r, knob_col)
                 self._surface.stroke_circle(cx, self._widget_h / 2.0, self._knob_r, border_col, stroke_width=1.2)
 
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in RangeSlider: %s", e, exc_info=True)
-
-
 
 
 Slider = Scale

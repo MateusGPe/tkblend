@@ -55,7 +55,7 @@ class Switch(Widget):
         self._on_color = on_color or pal.primary
         self._off_color = off_color or pal.track_bg
         self._knob_color = knob_color or pal.thumb_color
-        super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
+        super().__init__(master=master, width=width, height=height, bg=parent_bg, tag_name="switch", **kwargs)
 
     def _on_var_changed(self, new_val: bool) -> None:
         if new_val != self._is_on:
@@ -87,11 +87,11 @@ class Switch(Widget):
             self.toggle()
 
     def render(self) -> None:
-        if self._widget_w <= 1 or self._widget_h <= 1:
+        s = self.begin_render()
+        if s <= 0.0:
             return
         try:
-            self._surface.clear(self._parent_bg)
-            pad = 2.0 * self._scale
+            pad = 2.0 * s
             w = max(1.0, self._widget_w - pad * 2.0)
             h = max(1.0, self._widget_h - pad * 2.0)
 
@@ -111,7 +111,7 @@ class Switch(Widget):
             progress = 1.0 if self._is_on else 0.0
 
             focus_col = pal.input_focus if self._has_focus else "#00000000"
-            focus_width = 1.5 * self._scale if self._has_focus else 0.0
+            focus_width = 1.5 * s if self._has_focus else 0.0
             thumb_border = "#00000020" if not pal.dark_mode else "#ffffff15"
 
             self._surface.draw_switch(
@@ -127,7 +127,7 @@ class Switch(Widget):
                 focus_ring_color=focus_col,
                 focus_ring_width=focus_width,
             )
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in Switch: %s", e, exc_info=True)
 
@@ -167,7 +167,7 @@ class Checkbutton(Widget):
         self._on_change = on_change or command
         pal = get_theme()
         self._active_color = active_color or pal.primary
-        super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
+        super().__init__(master=master, width=width, height=height, bg=parent_bg, tag_name="checkbox", **kwargs)
 
     def _on_var_changed(self, new_val: bool) -> None:
         if new_val != self._checked:
@@ -207,11 +207,10 @@ class Checkbutton(Widget):
             self.toggle()
 
     def render(self) -> None:
-        if self._widget_w <= 1 or self._widget_h <= 1:
+        s = self.begin_render()
+        if s <= 0.0:
             return
         try:
-            self._surface.clear(self._parent_bg)
-            s = self._scale
             box_size = 18.0 * s
             box_x = 4.0 * s
             box_y = (self._widget_h - box_size) / 2.0
@@ -258,7 +257,7 @@ class Checkbutton(Widget):
                 color=pal.fg,
                 align="left",
             )
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in Checkbox: %s", e, exc_info=True)
 
@@ -274,7 +273,9 @@ class Radiobutton(Widget):
         text: str = "Radio",
         value: str = "",
         selected: bool = False,
-        group: Optional["RadioGroup"] = None,
+        is_selected: Optional[bool] = None,
+        checked: Optional[bool] = None,
+        group: Optional[RadioGroup] = None,
         variable: Optional[Any] = None,
         width: int = 150,
         height: int = 28,
@@ -282,6 +283,14 @@ class Radiobutton(Widget):
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
+        if is_selected is not None:
+            selected = is_selected
+        elif "is_selected" in kwargs:
+            selected = bool(kwargs.pop("is_selected"))
+        if checked is not None:
+            selected = checked
+        elif "checked" in kwargs:
+            selected = bool(kwargs.pop("checked"))
         self._text = text
         self._value = value
         self._group = group
@@ -294,7 +303,7 @@ class Radiobutton(Widget):
             type_caster=lambda v: (str(v) == str(value)) if str(v) not in ("True", "False") else bool(v),
         )
         self._selected = self._var_sync.get()
-        super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
+        super().__init__(master=master, width=width, height=height, bg=parent_bg, tag_name="radio", **kwargs)
         if group:
             group.register(self)
 
@@ -330,11 +339,10 @@ class Radiobutton(Widget):
                 self.selected = True
 
     def render(self) -> None:
-        if self._widget_w <= 1 or self._widget_h <= 1:
+        s = self.begin_render()
+        if s <= 0.0:
             return
         try:
-            self._surface.clear(self._parent_bg)
-            s = self._scale
             r = 8.5 * s
             cx = 4.0 * s + r
             cy = self._widget_h / 2.0
@@ -357,7 +365,7 @@ class Radiobutton(Widget):
                 color=pal.fg,
                 align="left",
             )
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in Radio: %s", e, exc_info=True)
 
@@ -380,7 +388,7 @@ class RadioGroup(tk.Frame):
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
-        self._radios: List[Radio] = []
+        self._radios: List[Radiobutton] = []
         sel_val = selected or default_value or selected_value
         self._value: str = sel_val or ""
         self._on_change = on_change
@@ -399,7 +407,7 @@ class RadioGroup(tk.Frame):
         if options:
             for opt in options:
                 is_sel = (opt == selected) if selected else (len(self._radios) == 0)
-                r = Radio(
+                r = Radiobutton(
                     self,
                     text=opt,
                     value=opt,
@@ -430,7 +438,7 @@ class RadioGroup(tk.Frame):
         if event is None or event.widget == self:
             remove_theme_listener(self._on_theme_changed)
 
-    def register(self, radio: Radio) -> None:
+    def register(self, radio: Radiobutton) -> None:
         self._radios.append(radio)
         if not self._value:
             self._value = radio._value
@@ -464,6 +472,8 @@ class SegmentedControl(Widget):
         self,
         master: Optional[tk.Misc] = None,
         values: Optional[List[str]] = None,
+        items: Optional[List[str]] = None,
+        options: Optional[List[str]] = None,
         selected_index: int = 0,
         selected_value: Optional[str] = None,
         default_value: Optional[str] = None,
@@ -475,7 +485,12 @@ class SegmentedControl(Widget):
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
-        self._values = list(values) if values else ["Option 1", "Option 2"]
+        raw_vals = values or items or options
+        if "items" in kwargs:
+            raw_vals = raw_vals or kwargs.pop("items")
+        if "options" in kwargs:
+            raw_vals = raw_vals or kwargs.pop("options")
+        self._values = list(raw_vals) if raw_vals else ["Option 1", "Option 2"]
         val_str = selected_value or default_value
         if val_str is not None and val_str in self._values:
             self._selected = self._values.index(val_str)
@@ -486,7 +501,7 @@ class SegmentedControl(Widget):
         pal = get_theme()
         self._active_color = active_color or pal.primary
         self._hovered_index: Optional[int] = None
-        super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
+        super().__init__(master=master, width=width, height=height, bg=parent_bg, tag_name="segmented", **kwargs)
 
         self.bind("<Motion>", self._on_mouse_move)
 
@@ -565,11 +580,10 @@ class SegmentedControl(Widget):
         self.render()
 
     def render(self) -> None:
-        if self._widget_w <= 1 or self._widget_h <= 1:
+        s = self.begin_render()
+        if s <= 0.0:
             return
         try:
-            self._surface.clear(self._parent_bg)
-            s = self._scale
             pad = 3.0 * s
             w = max(1.0, self._widget_w - pad * 2.0)
             h = max(1.0, self._widget_h - pad * 2.0)
@@ -604,7 +618,7 @@ class SegmentedControl(Widget):
                 color = pal.primary_fg if i == self._selected else pal.fg
                 self._surface.draw_text(val, tx, ty, font_size=font_sz, font_family="sans-serif", color=color, align="center")
 
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in SegmentedControl: %s", e, exc_info=True)
 

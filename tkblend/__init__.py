@@ -307,9 +307,13 @@ __all__ = [
 
 def __getattr__(name: str):
     if name == "ctk":
-        from tkblend import ctk
-        return ctk
+        import importlib
+        mod = importlib.import_module("tkblend.ctk")
+        globals()["ctk"] = mod
+        return mod
     if name == "prismtk":
-        from tkblend import prismtk
-        return prismtk
+        import importlib
+        mod = importlib.import_module("tkblend.prismtk")
+        globals()["prismtk"] = mod
+        return mod
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

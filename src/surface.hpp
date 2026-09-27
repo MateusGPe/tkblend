@@ -20,6 +20,8 @@
 
 namespace tkblend {
 
+struct ComputedStyle;
+
 // Text Metrics & Typography Layout
 struct TextMetrics {
     double width = 0.0;
@@ -142,6 +144,14 @@ public:
         double blur_radius, double spread,
         double offset_x, double offset_y,
         const Color& shadow_color
+    );
+
+    // High-Level Declarative Box Painter
+    void render_box(
+        double x, double y, double w, double h,
+        const ComputedStyle& style,
+        const std::string& text = "",
+        int text_align = 1 // 0=left, 1=center, 2=right
     );
 
     void draw_card(

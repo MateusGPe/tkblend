@@ -12,6 +12,11 @@ from tkblend._tkblend import (  # type: ignore
     Gradient as _NativeGradient,
     Path as _NativePath,
     Surface as _NativeSurface,
+    SurfaceHandle,
+    ComputedStyle,
+    PseudoState,
+    StyleEngine,
+    SurfaceRegistry,
     DrawBatch,
     TextMetrics,
     EasingType,
@@ -127,8 +132,12 @@ class Surface:
     High-performance Blend2D Vector Surface with direct Tkinter blitting.
     """
 
-    def __init__(self, width: int, height: int):
-        self._surface = _NativeSurface(max(1, int(width)), max(1, int(height)))
+    def __init__(self, width: Union[int, _NativeSurface, SurfaceHandle], height: Optional[int] = None):
+        if isinstance(width, (_NativeSurface, SurfaceHandle)):
+            self._surface = width
+        else:
+            h = int(height) if height is not None else 1
+            self._surface = _NativeSurface(max(1, int(width)), max(1, h))
 
     def __enter__(self) -> Surface:
         return self
@@ -165,9 +174,34 @@ class Surface:
     def native(self) -> _NativeSurface:
         return self._surface
 
+    def stride(self) -> int:
+        """Return the pixel row stride in bytes."""
+        return self._surface.stride()
+
+    def size_in_bytes(self) -> int:
+        """Return the total pixel buffer size in bytes."""
+        return self._surface.size_in_bytes()
+
     def resize(self, width: int, height: int) -> None:
         """Resize the surface backing image."""
         self._surface.resize(max(1, int(width)), max(1, int(height)))
+
+    def render_box(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        style: Any,
+        text: str = "",
+        text_align: int = 1,
+    ) -> None:
+        """Render declarative box (shadow + fill + border + text) using computed style."""
+        self._surface.render_box(float(x), float(y), float(w), float(h), style, str(text), int(text_align))
+
+    def blit_to_photo(self, interp_addr: int, photo_name: str, dst_x: int = 0, dst_y: int = 0) -> None:
+        """Blit surface to Tkinter PhotoImage directly with interpreter pointer and image name."""
+        self._surface.blit_to_photo(int(interp_addr), str(photo_name), int(dst_x), int(dst_y))
 
     def clear(self, color: ColorLike = "#00000000") -> None:
         """Clear the surface with a solid color."""

@@ -1,5 +1,5 @@
 """
-Display widgets: Badge (status pill) and Avatar (circular profile).
+Display widgets: Badge (status pill), Avatar (circular profile), and vector Label.
 """
 
 from __future__ import annotations
@@ -16,30 +16,8 @@ logger = logging.getLogger(__name__)
 
 class Badge(Widget):
     """
-    Status pill badge with variant fills, borders, optional status dot, and antialiased text.
+    Status pill badge with CSS-driven variant fills, borders, optional status dot, and antialiased text.
     """
-
-    VARIANT_STYLES: Dict[str, Dict[str, str]] = {
-        "primary": {"bg": "#d0bcff26", "border": "#d0bcff", "fg": "#d0bcff"},
-        "success": {"bg": "#85d69726", "border": "#85d697", "fg": "#85d697"},
-        "warning": {"bg": "#ffb87726", "border": "#ffb877", "fg": "#ffb877"},
-        "destructive": {"bg": "#ffb4ab26", "border": "#ffb4ab", "fg": "#ffb4ab"},
-        "outline": {"bg": "#00000000", "border": "#49454f", "fg": "#e6e0e9"},
-    }
-
-    @classmethod
-    def _get_style(cls, variant: str) -> Dict[str, str]:
-        pal = get_theme()
-        if variant == "success":
-            return {"bg": f"{pal.success[:7]}26", "border": pal.success, "fg": pal.success}
-        elif variant == "warning":
-            return {"bg": f"{pal.warning[:7]}26", "border": pal.warning, "fg": pal.warning}
-        elif variant == "destructive":
-            return {"bg": f"{pal.destructive[:7]}26", "border": pal.destructive, "fg": pal.destructive}
-        elif variant == "outline":
-            return {"bg": "#00000000", "border": pal.card_border, "fg": pal.fg}
-        else:  # primary
-            return {"bg": f"{pal.primary[:7]}26", "border": pal.primary, "fg": pal.primary}
 
     def __init__(
         self,
@@ -56,80 +34,63 @@ class Badge(Widget):
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
-        self._text = text
-        self._variant = bootstyle or variant
-        self._explicit_color = color
-        self._explicit_text_color = text_color
-        self._explicit_border_color = border_color
         self._dot = dot
+        self._explicit_bg = color
+        self._explicit_fg = text_color
+        self._explicit_border_color = border_color
+        eff_variant = bootstyle or variant
         if width is None:
             width = max(40, int(len(str(text)) * 9 + 24))
-        super().__init__(master=master, width=width, height=height, bg=parent_bg, **kwargs)
-
-    @property
-    def text(self) -> str:
-        return self._text
-
-    @text.setter
-    def text(self, val: str) -> None:
-        self.set_text(val)
-
-    def set_text(self, text: str) -> None:
-        self._text = str(text)
-        self.render()
-
-    @property
-    def variant(self) -> str:
-        return self._variant
-
-    @variant.setter
-    def variant(self, val: str) -> None:
-        self.set_variant(val)
-
-    def set_variant(self, variant: str) -> None:
-        self._variant = str(variant)
-        self.render()
+        super().__init__(
+            master=master,
+            width=width,
+            height=height,
+            bg=parent_bg,
+            tag_name="badge",
+            class_name=f".badge-{eff_variant}" if eff_variant else "",
+            **kwargs,
+        )
+        self._text = text
+        self._variant = eff_variant
 
     def render(self) -> None:
-        if self._widget_w <= 1 or self._widget_h <= 1:
+        s = self.begin_render()
+        if s <= 0.0:
             return
         try:
-            self._surface.clear(self._parent_bg)
-            s = self._scale
             pad = 1.5 * s
             w = max(1.0, self._widget_w - pad * 2.0)
             h = max(1.0, self._widget_h - pad * 2.0)
-            r = h / 2.0
 
-            style = self._get_style(self._variant)
-            bg_col = self._explicit_color or style["bg"]
-            if self._explicit_color and len(bg_col) == 7 and bg_col.startswith("#"):
-                bg_col = f"{bg_col}26"
-            border_col = self._explicit_border_color or self._explicit_color or style["border"]
-            fg_col = self._explicit_text_color or self._explicit_color or style["fg"]
+            cls_sel = f".badge-{self._variant}" if self._variant and not self._variant.startswith(".") else self._variant
+            style = self.get_computed_style("badge", cls_sel)
+            style.border_radius = float(h / 2.0)
+            style.font_size = float(11.0 * s)
 
-            self._surface.fill_rounded_rect(pad, pad, w, h, r, r, bg_col)
-            self._surface.stroke_rounded_rect(pad, pad, w, h, r, r, border_col, 1.0 * s)
-
-            font_sz = 11.0 * s
             if self._dot:
+                self._handle.render_box(float(pad), float(pad), float(w), float(h), style, "", 1)
                 dot_cx = pad + 10.0 * s
                 dot_cy = self._widget_h / 2.0
-                self._surface.fill_circle(dot_cx, dot_cy, 3.0 * s, fg_col)
+                self._handle.fill_circle(dot_cx, dot_cy, 3.0 * s, style.fg_color)
                 text_x = dot_cx + 8.0 * s + (w - 18.0 * s) / 2.0
+                font_sz = float(style.font_size)
+                self._handle.draw_text(
+                    str(self._text),
+                    text_x,
+                    self._widget_h / 2.0 + (font_sz * 0.35),
+                    font_size=font_sz,
+                    font_family=style.font_family,
+                    color=style.fg_color,
+                    align="center",
+                )
             else:
-                text_x = self._widget_w / 2.0
-
-            self._surface.draw_text(
-                self._text,
-                text_x,
-                self._widget_h / 2.0 + (font_sz * 0.35),
-                font_size=font_sz,
-                font_family="sans-serif",
-                color=fg_col,
-                align="center",
-            )
-            self._surface.blit(self._photo)
+                self._handle.render_box(
+                    float(pad), float(pad), float(w), float(h),
+                    style,
+                    str(self._text),
+                    1,
+                )
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in Badge: %s", e, exc_info=True)
 
@@ -168,15 +129,13 @@ class Avatar(Widget):
         super().__init__(master=master, width=size, height=size, bg=parent_bg, **kwargs)
 
     def render(self) -> None:
-        if self._widget_w <= 1 or self._widget_h <= 1:
+        s = self.begin_render()
+        if s <= 0.0:
             return
         try:
-            self._surface.clear(self._parent_bg)
-            s = self._scale
             cx = self._widget_w / 2.0
             cy = self._widget_h / 2.0
             r = min(cx, cy) - 3.0 * s
-
             if r <= 0:
                 return
 
@@ -209,11 +168,9 @@ class Avatar(Widget):
                 self._surface.fill_circle(dot_cx, dot_cy, dot_r + 1.5 * s, self._parent_bg)
                 self._surface.fill_circle(dot_cx, dot_cy, dot_r, dot_color)
 
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in Avatar: %s", e, exc_info=True)
-
-
 
 
 class Label(Widget):
@@ -236,18 +193,23 @@ class Label(Widget):
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
-        self._text = str(text)
-        self._font_family = font or "sans-serif"
-        self._font_size = font_size
-        self._fg = fg or color
         self._align = align
         self._auto_w = (width is None)
         self._auto_h = (height is None)
+        calc_w = width if width is not None else self._calc_width(str(text), font_size)
+        calc_h = height if height is not None else max(24, int(font_size * 1.8))
         
-        calc_w = width if width is not None else self._calc_width(self._text, self._font_size)
-        calc_h = height if height is not None else max(24, int(self._font_size * 1.8))
-        
-        super().__init__(master=master, width=calc_w, height=calc_h, bg=parent_bg, **kwargs)
+        super().__init__(
+            master=master,
+            width=calc_w,
+            height=calc_h,
+            bg=parent_bg,
+            font=font,
+            font_size=font_size,
+            **kwargs,
+        )
+        self._text = str(text)
+        self._explicit_fg = fg or color
 
     @staticmethod
     def _calc_width(text: str, font_size: int) -> int:
@@ -255,19 +217,12 @@ class Label(Widget):
         max_len = max(len(l) for l in lines)
         return max(20, int(max_len * font_size * 0.65 + 12))
 
-    @property
-    def text(self) -> str:
-        return self._text
-
-    @text.setter
-    def text(self, val: str) -> None:
-        self.set_text(val)
-
     def set_text(self, val: str) -> None:
         self._text = str(val)
         if self._auto_w or self._auto_h:
-            new_w = self._calc_width(self._text, self._font_size) if self._auto_w else self._logical_w
-            new_h = max(24, int(self._font_size * 1.8)) if self._auto_h else self._logical_h
+            fsz = int(self._font_config.size)
+            new_w = self._calc_width(self._text, fsz) if self._auto_w else self._logical_w
+            new_h = max(24, int(fsz * 1.8)) if self._auto_h else self._logical_h
             if new_w != self._logical_w or new_h != self._logical_h:
                 self._logical_w = new_w
                 self._logical_h = new_h
@@ -279,20 +234,18 @@ class Label(Widget):
         self.render()
 
     def set_color(self, col: ColorLike) -> None:
-        self._fg = col
-        self.render()
+        self.fg_color = col
 
     def render(self) -> None:
-        if self._widget_w <= 1 or self._widget_h <= 1:
+        s = self.begin_render()
+        if s <= 0.0:
             return
         try:
-            self._surface.clear(self._parent_bg)
-            s = self._scale
             w = float(self._widget_w)
             h = float(self._widget_h)
             pal = get_theme()
-            txt_col = self._fg or pal.fg
-            fsz = self._font_size * s
+            txt_col = self._explicit_fg or pal.fg
+            fsz = self._font_config.size * s
 
             lines = self._text.splitlines() or [""]
             line_height = fsz * 1.3
@@ -313,11 +266,11 @@ class Label(Widget):
                     x,
                     y,
                     font_size=fsz,
-                    font_family=self._font_family,
+                    font_family=self._font_config.family,
                     color=txt_col,
                     align=self._align,
                 )
 
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in Label: %s", e, exc_info=True)

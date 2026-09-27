@@ -1,13 +1,14 @@
 """
-Modern Button widget with support for variants, micro-elevation, and antialiased typography.
+Modern Button widget with declarative CSS-like style resolution and zero-copy Blend2D rendering.
 """
 
 from __future__ import annotations
 import logging
 import tkinter as tk
-from typing import Optional, Callable, Dict
+from typing import Optional, Callable
 
-from tkblend.theme import get_theme, adjust_brightness
+from tkblend.surface import ColorLike
+from tkblend.theme import get_theme
 from tkblend.widgets.base import Widget, ScalingTracker
 
 logger = logging.getLogger(__name__)
@@ -15,13 +16,12 @@ logger = logging.getLogger(__name__)
 
 class Button(Widget):
     """
-    Modern Button supporting variants ('primary', 'secondary', 'accent', 'destructive', 'outline'),
-    micro-elevation on hover, pressed drop-depth animation, keyboard focus ring, and antialiased typography.
+    Modern Button widget supporting CSS-driven styling, variants ('primary', 'secondary',
+    'accent', 'destructive', 'outline'), hover/active micro-elevation, and antialiased typography.
     """
 
     @classmethod
-    @classmethod
-    def _get_variant_colors(cls, variant: str) -> Dict[str, str]:
+    def _get_variant_colors(cls, variant: str) -> dict[str, str]:
         pal = get_theme()
         v = (variant or "primary").lower()
         if v == "secondary":
@@ -35,60 +35,51 @@ class Button(Widget):
         elif v in ("accent", "info"):
             return {
                 "bg": pal.accent,
-                "hover": adjust_brightness(pal.accent, 1.12),
-                "press": adjust_brightness(pal.accent, 0.88),
-                "fg": "#ffffff" if not pal.dark_mode else "#381e72",
-                "border": "#ffffff22" if pal.dark_mode else "#00000015",
+                "hover": pal.primary_hover,
+                "press": pal.primary_active,
+                "fg": pal.fg if not pal.dark_mode else "#100e14",
+                "border": "#00000000",
             }
         elif v in ("destructive", "danger"):
             return {
                 "bg": pal.destructive,
-                "hover": adjust_brightness(pal.destructive, 1.12),
-                "press": adjust_brightness(pal.destructive, 0.88),
+                "hover": pal.destructive,
+                "press": pal.destructive,
                 "fg": "#ffffff" if not pal.dark_mode else "#410002",
-                "border": "#ffffff22" if pal.dark_mode else "#00000015",
+                "border": "#00000000",
             }
         elif v == "success":
             return {
                 "bg": pal.success,
-                "hover": adjust_brightness(pal.success, 1.12),
-                "press": adjust_brightness(pal.success, 0.88),
+                "hover": pal.success,
+                "press": pal.success,
                 "fg": "#ffffff" if not pal.dark_mode else "#003912",
-                "border": "#ffffff22" if pal.dark_mode else "#00000015",
+                "border": "#00000000",
             }
         elif v == "warning":
             return {
                 "bg": pal.warning,
-                "hover": adjust_brightness(pal.warning, 1.12),
-                "press": adjust_brightness(pal.warning, 0.88),
-                "fg": "#000000" if pal.dark_mode else "#ffffff",
-                "border": "#ffffff22" if pal.dark_mode else "#00000015",
+                "hover": pal.warning,
+                "press": pal.warning,
+                "fg": "#ffffff" if not pal.dark_mode else "#100e14",
+                "border": "#00000000",
             }
         elif v.startswith("outline"):
-            out_col = pal.primary
-            if "secondary" in v:
-                out_col = pal.secondary_fg or pal.fg
-            elif "danger" in v or "destructive" in v:
-                out_col = pal.destructive
-            elif "success" in v:
-                out_col = pal.success
             return {
                 "bg": "#00000000",
-                "hover": f"{out_col[:7]}22" if out_col.startswith("#") else "#4a445866",
-                "press": f"{out_col[:7]}44" if out_col.startswith("#") else "#332d4188",
-                "fg": out_col,
-                "border": out_col,
+                "hover": pal.primary_hover,
+                "press": pal.primary_active,
+                "fg": pal.primary,
+                "border": pal.primary,
             }
-        else:  # primary
+        else:
             return {
                 "bg": pal.primary,
                 "hover": pal.primary_hover,
                 "press": pal.primary_active,
                 "fg": pal.primary_fg,
-                "border": "#ffffff22" if pal.dark_mode else "#00000015",
+                "border": "#00000000",
             }
-
-    VARIANT_COLORS = property(lambda self: {v: Button._get_variant_colors(v) for v in ("primary", "secondary", "accent", "destructive", "outline")})
 
     def __init__(
         self,
@@ -99,23 +90,18 @@ class Button(Widget):
         bootstyle: Optional[str] = None,
         width: int = 120,
         height: int = 38,
-        rx: float = 19.0,
-        ry: float = 19.0,
+        rx: Optional[float] = None,
+        ry: Optional[float] = None,
         font_size: Optional[float] = None,
         elevation: float = 0.0,
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
-        self._text = text
-        self._command = command
-        self._variant = bootstyle or variant
         scale = ScalingTracker.get_scaling_factor(master)
-        self._rx = rx * scale
-        self._ry = ry * scale
-        eff_size = font_size if font_size is not None else 13.0
-        self._font_size = eff_size * scale
+        self._custom_rx = (rx * scale) if rx is not None else None
+        self._custom_ry = (ry * scale) if ry is not None else None
         self._elevation = elevation * scale
-        self._explicit_bg: Optional[str] = None
+        eff_variant = bootstyle or variant
 
         kwargs.setdefault("takefocus", True)
         super().__init__(
@@ -124,33 +110,16 @@ class Button(Widget):
             height=height,
             bg=parent_bg,
             font_size=font_size,
+            tag_name="button",
+            class_name=f".btn-{eff_variant}" if eff_variant else "",
             **kwargs,
         )
+        self._text = text
+        self._command = command
+        self._variant = eff_variant
 
         self.bind("<space>", self._on_key_activate)
         self.bind("<Return>", self._on_key_activate)
-
-    def set_bootstyle(self, style: str) -> None:
-        self._variant = str(style)
-        self.render()
-
-    def set_variant(self, variant: str) -> None:
-        self._variant = str(variant)
-        self.render()
-
-    def set_corner_radius(self, radius: float) -> None:
-        s = self._scale
-        self._rx = float(radius) * s
-        self._ry = float(radius) * s
-        self.render()
-
-    def set_bg_color(self, color: str) -> None:
-        self._explicit_bg = color
-        self.render()
-
-    def set_state(self, state: str) -> None:
-        self._is_disabled = (str(state).lower() == "disabled")
-        self.render()
 
     def _on_key_activate(self, event) -> None:
         if not self._is_disabled:
@@ -165,74 +134,25 @@ class Button(Widget):
 
             self.after(100, _reset_and_invoke)
 
-    def _handle_click(self, event) -> None:
-        if not self._is_disabled and self._command:
-            self._command()
-
-    def set_text(self, text: str) -> None:
-        self._text = text
-        self.render()
-
     def render(self) -> None:
-        if self._widget_w <= 1 or self._widget_h <= 1:
-            return
         try:
-            self._surface.clear(self._parent_bg)
-            colors = self._get_variant_colors(self._variant)
-            pal = get_theme()
+            s = self.begin_render()
+            if s <= 0:
+                return
+            cls_sel = f".btn-{self._variant}" if self._variant and not self._variant.startswith(".") else self._variant
+            style = self.get_computed_style("button", cls_sel)
 
-            cur_bg = colors["bg"]
-            cur_elev = self._elevation
-            offset_y = 1.5 * self._scale
-
-            if self._is_pressed:
-                cur_bg = colors["press"]
-                cur_elev = 0.0
-                offset_y = 0.0
-            elif self._is_hovered:
-                cur_bg = colors["hover"]
-                cur_elev = max(2.0 * self._scale, self._elevation * 1.5)
-                offset_y = 2.0 * self._scale
-
-            pad = 2.5 * self._scale
+            pad = 2.0 * s
             btn_w = max(1.0, self._widget_w - pad * 2.0)
             btn_h = max(1.0, self._widget_h - pad * 2.0)
 
-            safe_blur = 0.0
-            safe_offset_y = 0.0
-            shadow_col = "#00000000"
-            if self._variant != "outline" and cur_elev > 0:
-                safe_blur = min(cur_elev * 1.0, pad * 0.8)
-                safe_offset_y = min(offset_y, pad * 0.3)
-                if self._is_hovered:
-                    shadow_col = "#00000015" if not pal.dark_mode else "#00000038"
-                else:
-                    shadow_col = pal.shadow_color
-
-            focus_col = pal.input_focus if self._has_focus else "#00000000"
-            focus_width = 1.5 * self._scale if self._has_focus else 0.0
-            f_size = self._font_config.size * self._scale
-
-            self._surface.draw_button(
-                x=pad,
-                y=pad,
-                w=btn_w,
-                h=btn_h,
-                rx=self._rx,
-                ry=self._ry,
-                bg_color=cur_bg,
-                border_color=colors["border"],
-                border_width=1.0 * self._scale,
-                fg_color=colors["fg"],
-                text=self._text,
-                font=self._font_config.copy_with(size=f_size),
-                shadow_blur=safe_blur,
-                shadow_offset_y=safe_offset_y,
-                shadow_color=shadow_col,
-                focus_ring_color=focus_col,
-                focus_ring_width=focus_width,
-                is_pressed=self._is_pressed,
+            self._handle.render_box(
+                float(pad), float(pad),
+                float(btn_w), float(btn_h),
+                style,
+                str(self._text),
+                1,  # center
             )
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in Button: %s", e, exc_info=True)

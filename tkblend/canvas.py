@@ -14,6 +14,8 @@ from tkblend.surface import Surface, ColorLike, GradientLike, Path
 from tkblend.theme import (
     resolve_theme_color,
     bind_theme_changed,
+    add_theme_listener,
+    remove_theme_listener,
     is_ttkbootstrap_installed,
     is_inside_card,
 )
@@ -81,7 +83,8 @@ class BlendCanvas(tk.Label):
         self.bind("<Destroy>", self._on_destroy_event, add="+")
 
         if self._auto_theme_redraw:
-            bind_theme_changed(self, self._on_theme_changed)
+            self._tkblend_theme_cb = lambda pal=None: self._on_theme_changed() if self.winfo_exists() else None
+            add_theme_listener(self._tkblend_theme_cb)
 
         self.after_idle(self.redraw)
 
@@ -181,8 +184,10 @@ class BlendCanvas(tk.Label):
 
     def _on_destroy_event(self, event=None) -> None:
         """Proactively release native Surface and Photo when Tk destroys the widget."""
-        if event is not None and getattr(event, "widget", None) != self:
-            return
+        if event is not None:
+            w = getattr(event, "widget", None)
+            if w is not None and w != self and str(w) != str(self):
+                return
         self._on_draw = None
 
         # Clean up theme listener

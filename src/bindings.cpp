@@ -1,4 +1,6 @@
 #include "tkblend.hpp"
+#include "style_engine.hpp"
+#include "surface_registry.hpp"
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
@@ -515,6 +517,17 @@ void bind_surface(nb::module_& m) {
              nb::arg("max_lines") = 0)
 
         // Shadows & Cards
+        .def("render_box", [](Surface& s,
+                              double x, double y, double w, double h,
+                              const ComputedStyle& style,
+                              const std::string& text,
+                              int text_align) {
+            s.render_box(x, y, w, h, style, text, text_align);
+        },
+             nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"),
+             nb::arg("style"), nb::arg("text") = "", nb::arg("text_align") = 1,
+             nb::call_guard<nb::gil_scoped_release>())
+
         .def("draw_shadow_rounded_rect", [](Surface& s,
                                             double x, double y, double w, double h,
                                             double rx, double ry,
@@ -758,6 +771,189 @@ void bind_window_shape(nb::module_& m) {
           "Reset native window region to default rectangle.");
 }
 
+void bind_style_engine(nb::module_& m) {
+    nb::enum_<PseudoState>(m, "PseudoState", nb::is_arithmetic())
+        .value("Normal", PseudoState::Normal)
+        .value("Hover", PseudoState::Hover)
+        .value("Active", PseudoState::Active)
+        .value("Focused", PseudoState::Focused)
+        .value("Disabled", PseudoState::Disabled)
+        .value("Checked", PseudoState::Checked)
+        .export_values();
+
+    nb::class_<ComputedStyle>(m, "ComputedStyle")
+        .def(nb::init<>())
+        .def_rw("bg_color", &ComputedStyle::bg_color)
+        .def_rw("fg_color", &ComputedStyle::fg_color)
+        .def_rw("border_color", &ComputedStyle::border_color)
+        .def_rw("border_width", &ComputedStyle::border_width)
+        .def_rw("border_radius", &ComputedStyle::border_radius)
+        .def_rw("shadow_blur", &ComputedStyle::shadow_blur)
+        .def_rw("shadow_offset_x", &ComputedStyle::shadow_offset_x)
+        .def_rw("shadow_offset_y", &ComputedStyle::shadow_offset_y)
+        .def_rw("shadow_color", &ComputedStyle::shadow_color)
+        .def_rw("font_size", &ComputedStyle::font_size)
+        .def_rw("font_weight", &ComputedStyle::font_weight)
+        .def_rw("font_family", &ComputedStyle::font_family)
+        .def("__repr__", [](const ComputedStyle& cs) {
+            std::ostringstream ss;
+            ss << "ComputedStyle(bg_color=" << cs.bg_color.to_u32()
+               << ", border_radius=" << cs.border_radius
+               << ", border_width=" << cs.border_width
+               << ", shadow_blur=" << cs.shadow_blur
+               << ", font_size=" << cs.font_size << ")";
+            return ss.str();
+        });
+
+    nb::class_<StyleEngine>(m, "StyleEngine")
+        .def_static("get", &StyleEngine::instance, nb::rv_policy::reference)
+        .def_static("load_stylesheet", [](const std::string& css) {
+            StyleEngine::instance().load_stylesheet(css);
+        }, nb::arg("css_text"))
+        .def_static("set_theme", [](const std::string& theme_name) {
+            StyleEngine::instance().set_theme(theme_name);
+        }, nb::arg("theme_name"))
+        .def_static("get_theme", []() {
+            return StyleEngine::instance().get_theme();
+        })
+        .def_static("get_available_themes", []() {
+            return StyleEngine::instance().get_available_themes();
+        })
+        .def_static("register_theme", [](const std::string& theme, const std::string& css) {
+            StyleEngine::instance().register_theme(theme, css);
+        }, nb::arg("theme_name"), nb::arg("css_text"))
+        .def_static("resolve", [](const std::string& element, const std::string& class_name, uint16_t states) {
+            return StyleEngine::instance().resolve(element, class_name, states);
+        }, nb::arg("element") = "", nb::arg("class_name") = "", nb::arg("states") = 0)
+        .def_static("resolve_color", [](const std::string& color_str) {
+            return StyleEngine::instance().resolve_color(color_str);
+        }, nb::arg("color_str"))
+        .def_static("set_variable", [](const std::string& key, const std::string& val, const std::string& theme_name) {
+            StyleEngine::instance().set_variable(key, val, theme_name);
+        }, nb::arg("key"), nb::arg("val"), nb::arg("theme_name") = "")
+        .def_static("get_variable", [](const std::string& key, const std::string& theme_name) {
+            return StyleEngine::instance().get_variable(key, theme_name);
+        }, nb::arg("key"), nb::arg("theme_name") = "")
+        .def_static("clear_cache", []() {
+            StyleEngine::instance().clear_cache();
+        });
+}
+
+void bind_surface_handle(nb::module_& m) {
+    nb::class_<SurfaceHandle>(m, "SurfaceHandle")
+        .def(nb::init<int, int>(), nb::arg("width") = 1, nb::arg("height") = 1)
+        .def_prop_ro("surface_id", &SurfaceHandle::surface_id)
+        .def_prop_ro("width", &SurfaceHandle::width)
+        .def_prop_ro("height", &SurfaceHandle::height)
+        .def_prop_ro("is_closed", &SurfaceHandle::is_closed)
+        .def("resize", &SurfaceHandle::resize, nb::arg("width"), nb::arg("height"), nb::call_guard<nb::gil_scoped_release>())
+        .def("clear", &SurfaceHandle::clear, nb::arg("color"), nb::call_guard<nb::gil_scoped_release>())
+        .def("clear_rect", &SurfaceHandle::clear_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::call_guard<nb::gil_scoped_release>())
+        .def("render_box", &SurfaceHandle::render_box,
+             nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"),
+             nb::arg("style"), nb::arg("text") = "", nb::arg("text_align") = 1,
+             nb::call_guard<nb::gil_scoped_release>())
+        .def("blit_to_photo", &SurfaceHandle::blit_to_photo,
+             nb::arg("interp_addr"), nb::arg("photo_name"), nb::arg("dst_x") = 0, nb::arg("dst_y") = 0)
+        .def("close", &SurfaceHandle::close)
+        .def("flush", &SurfaceHandle::flush, nb::call_guard<nb::gil_scoped_release>())
+        .def("stride", &SurfaceHandle::stride)
+        .def("size_in_bytes", &SurfaceHandle::size_in_bytes)
+        .def("active_buffers", &SurfaceHandle::active_buffers)
+        .def("get_buffer", [](nb::handle self) -> nb::object {
+            SurfaceHandle& h = nb::cast<SurfaceHandle&>(self);
+            if (h.is_closed()) {
+                throw std::runtime_error("Cannot get buffer from a closed SurfaceHandle");
+            }
+            Surface& s = h.surface();
+            init_surface_buffer_type();
+            auto* obj = PyObject_GC_New(SurfaceBufferObject, &SurfaceBufferType);
+            if (!obj) {
+                throw std::runtime_error("Failed to allocate SurfaceBufferObject");
+            }
+            obj->surface = &s;
+            obj->surface_py = self.ptr();
+            Py_INCREF(self.ptr());
+
+            auto info = h.acquire_buffer_view();
+            obj->data = info.data;
+            obj->size = info.size;
+            obj->shape[0] = static_cast<Py_ssize_t>(info.size);
+            obj->strides[0] = 1;
+
+            PyObject_GC_Track(reinterpret_cast<PyObject*>(obj));
+
+            PyObject* mem = PyMemoryView_FromObject(reinterpret_cast<PyObject*>(obj));
+            Py_DECREF(reinterpret_cast<PyObject*>(obj));
+            if (!mem) {
+                throw std::runtime_error("Failed to create memoryview from surface buffer");
+            }
+            return nb::steal(mem);
+        })
+        .def("execute_batch", &SurfaceHandle::execute_batch, nb::arg("batch"), nb::call_guard<nb::gil_scoped_release>())
+        .def("save", &SurfaceHandle::save)
+        .def("restore", &SurfaceHandle::restore)
+        .def("reset_transform", &SurfaceHandle::reset_transform)
+        .def("translate", &SurfaceHandle::translate, nb::arg("tx"), nb::arg("ty"))
+        .def("scale", &SurfaceHandle::scale, nb::arg("sx"), nb::arg("sy"))
+        .def("rotate", &SurfaceHandle::rotate, nb::arg("angle_rad"))
+        .def("clip_rect", &SurfaceHandle::clip_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"))
+        .def("clip_rounded_rect", &SurfaceHandle::clip_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"))
+        .def("reset_clip", &SurfaceHandle::reset_clip)
+        .def("set_comp_op", &SurfaceHandle::set_comp_op, nb::arg("comp_op"))
+        .def("set_global_alpha", &SurfaceHandle::set_global_alpha, nb::arg("alpha"))
+        .def("fill_rect", &SurfaceHandle::fill_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("color"))
+        .def("fill_rect_gradient", &SurfaceHandle::fill_rect_gradient, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("gradient"))
+        .def("stroke_rect", &SurfaceHandle::stroke_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("fill_rounded_rect", &SurfaceHandle::fill_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"))
+        .def("fill_rounded_rect_gradient", &SurfaceHandle::fill_rounded_rect_gradient, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("gradient"))
+        .def("stroke_rounded_rect", &SurfaceHandle::stroke_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("fill_circle", &SurfaceHandle::fill_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("color"))
+        .def("fill_circle_gradient", &SurfaceHandle::fill_circle_gradient, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("gradient"))
+        .def("stroke_circle", &SurfaceHandle::stroke_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("fill_ellipse", &SurfaceHandle::fill_ellipse, nb::arg("cx"), nb::arg("cy"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"))
+        .def("stroke_ellipse", &SurfaceHandle::stroke_ellipse, nb::arg("cx"), nb::arg("cy"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("draw_line", &SurfaceHandle::draw_line, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("fill_path", &SurfaceHandle::fill_path, nb::arg("path"), nb::arg("color"))
+        .def("fill_path_gradient", &SurfaceHandle::fill_path_gradient, nb::arg("path"), nb::arg("gradient"))
+        .def("stroke_path", &SurfaceHandle::stroke_path, nb::arg("path"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("draw_text", [](SurfaceHandle& h, const std::string& text, double x, double y, float font_size, const std::string& font_family, std::optional<Color> color, int align, int weight, bool italic, bool bold) {
+            Color col = color.value_or(Color(255, 255, 255, 255));
+            int eff_weight = weight;
+            if (bold && eff_weight <= 400) eff_weight = 700;
+            h.draw_text(text, x, y, font_size, font_family, col, align, eff_weight, italic);
+        }, nb::arg("text"), nb::arg("x"), nb::arg("y"), nb::arg("font_size") = 14.0f, nb::arg("font_family") = "default", nb::arg("color") = nb::none(), nb::arg("align") = 0, nb::arg("weight") = 400, nb::arg("italic") = false, nb::arg("bold") = false)
+        .def("draw_shadow_rounded_rect", [](SurfaceHandle& h, double x, double y, double w, double h_dim, double rx, double ry, double blur_radius, double spread, double offset_x, double offset_y, std::optional<Color> shadow_color) {
+            Color sc = shadow_color.value_or(Color(0, 0, 0, 128));
+            h.draw_shadow_rounded_rect(x, y, w, h_dim, rx, ry, blur_radius, spread, offset_x, offset_y, sc);
+        }, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("blur_radius"), nb::arg("spread") = 0.0, nb::arg("offset_x") = 0.0, nb::arg("offset_y") = 0.0, nb::arg("shadow_color") = nb::none(), nb::call_guard<nb::gil_scoped_release>())
+        .def("draw_card", [](SurfaceHandle& h, double x, double y, double w, double h_dim, double rx, double ry, const Color& bg_color, std::optional<Color> border_color, double border_width, double shadow_blur, double shadow_spread, double shadow_offset_x, double shadow_offset_y, std::optional<Color> shadow_color) {
+            Color bc = border_color.value_or(Color(0, 0, 0, 0));
+            Color sc = shadow_color.value_or(Color(0, 0, 0, 0));
+            h.draw_card(x, y, w, h_dim, rx, ry, bg_color, bc, border_width, shadow_blur, shadow_spread, shadow_offset_x, shadow_offset_y, sc);
+        }, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("bg_color"), nb::arg("border_color") = nb::none(), nb::arg("border_width") = 0.0, nb::arg("shadow_blur") = 0.0, nb::arg("shadow_spread") = 0.0, nb::arg("shadow_offset_x") = 0.0, nb::arg("shadow_offset_y") = 0.0, nb::arg("shadow_color") = nb::none(), nb::call_guard<nb::gil_scoped_release>())
+        .def("draw_button", [](SurfaceHandle& h, double x, double y, double w, double h_dim, double rx, double ry, const Color& bg_color, std::optional<Color> border_color, double border_width, std::optional<Color> fg_color, const std::string& text, float font_size, const std::string& font_family, int weight, bool italic, bool bold, double shadow_blur, double shadow_offset_y, std::optional<Color> shadow_color, std::optional<Color> focus_ring_color, double focus_ring_width, bool is_pressed) {
+            Color bc = border_color.value_or(Color(0, 0, 0, 0));
+            Color fgc = fg_color.value_or(Color(255, 255, 255, 255));
+            Color sc = shadow_color.value_or(Color(0, 0, 0, 0));
+            Color frc = focus_ring_color.value_or(Color(0, 0, 0, 0));
+            int eff_weight = weight;
+            if (bold && eff_weight <= 400) eff_weight = 700;
+            h.draw_button(x, y, w, h_dim, rx, ry, bg_color, bc, border_width, fgc, text, font_size, font_family, eff_weight, italic, shadow_blur, shadow_offset_y, sc, frc, focus_ring_width, is_pressed);
+        }, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("bg_color"), nb::arg("border_color") = nb::none(), nb::arg("border_width") = 0.0, nb::arg("fg_color") = nb::none(), nb::arg("text") = "", nb::arg("font_size") = 13.0f, nb::arg("font_family") = "default", nb::arg("weight") = 400, nb::arg("italic") = false, nb::arg("bold") = false, nb::arg("shadow_blur") = 0.0, nb::arg("shadow_offset_y") = 0.0, nb::arg("shadow_color") = nb::none(), nb::arg("focus_ring_color") = nb::none(), nb::arg("focus_ring_width") = 0.0, nb::arg("is_pressed") = false, nb::call_guard<nb::gil_scoped_release>())
+        .def("draw_switch", &SurfaceHandle::draw_switch, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("track_color"), nb::arg("thumb_color"), nb::arg("thumb_border_color"), nb::arg("progress_t"), nb::arg("is_hovered") = false, nb::arg("focus_ring_color") = Color(0,0,0,0), nb::arg("focus_ring_width") = 0.0, nb::call_guard<nb::gil_scoped_release>())
+        .def("draw_slider", &SurfaceHandle::draw_slider, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("track_bg"), nb::arg("active_bg"), nb::arg("thumb_color"), nb::arg("thumb_border_color"), nb::arg("value_t"), nb::arg("track_thickness") = 4.0, nb::arg("thumb_radius") = 8.0, nb::arg("is_hovered") = false, nb::arg("is_dragging") = false, nb::arg("focus_ring_color") = Color(0,0,0,0), nb::arg("focus_ring_width") = 0.0, nb::call_guard<nb::gil_scoped_release>())
+        .def("draw_progress_bar", &SurfaceHandle::draw_progress_bar, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("track_bg"), nb::arg("bar_bg"), nb::arg("progress_t"), nb::arg("is_indeterminate") = false, nb::arg("phase_offset") = 0.0, nb::call_guard<nb::gil_scoped_release>())
+        .def("draw_checkbox", &SurfaceHandle::draw_checkbox, nb::arg("x"), nb::arg("y"), nb::arg("size"), nb::arg("rx"), nb::arg("ry"), nb::arg("box_bg"), nb::arg("border_color"), nb::arg("border_width"), nb::arg("check_color"), nb::arg("is_checked"), nb::arg("is_hovered") = false, nb::arg("focus_ring_color") = Color(0,0,0,0), nb::arg("focus_ring_width") = 0.0, nb::call_guard<nb::gil_scoped_release>());
+}
+
+void bind_surface_registry(nb::module_& m) {
+    nb::class_<SurfaceRegistry>(m, "SurfaceRegistry")
+        .def_static("instance", &SurfaceRegistry::instance, nb::rv_policy::reference)
+        .def("active_surface_count", &SurfaceRegistry::active_surface_count)
+        .def("clear_all", &SurfaceRegistry::clear_all);
+}
+
 } // anonymous namespace
 
 } // namespace tkblend
@@ -776,5 +972,9 @@ NB_MODULE(_tkblend, m) {
     tkblend::bind_font_manager(m);
     tkblend::bind_surface(m);
     tkblend::bind_window_shape(m);
+    tkblend::bind_style_engine(m);
+    tkblend::bind_surface_handle(m);
+    tkblend::bind_surface_registry(m);
 }
+
 

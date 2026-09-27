@@ -1,4 +1,5 @@
 #include "surface.hpp"
+#include "style_engine.hpp"
 #include <algorithm>
 #include <cmath>
 #include <sstream>
@@ -435,6 +436,64 @@ void Surface::draw_shadow_rounded_rect(
     double dst_x = x + offset_x - pad_x;
     double dst_y = y + offset_y - pad_y;
     ctx_.blit_image(BLPoint(dst_x, dst_y), shadow_img);
+}
+
+void Surface::render_box(
+    double x, double y, double w, double h,
+    const ComputedStyle& style,
+    const std::string& text,
+    int text_align
+) {
+    if (w <= 0.0 || h <= 0.0) return;
+
+    // 1. Box drop-shadow rendering using ShadowEngine if shadow_color.a > 0 && shadow_blur > 0.0f
+    if (style.shadow_color.a > 0 && style.shadow_blur > 0.0f) {
+        draw_shadow_rounded_rect(
+            x, y, w, h,
+            style.border_radius, style.border_radius,
+            style.shadow_blur, 0.0,
+            style.shadow_offset_x, style.shadow_offset_y,
+            style.shadow_color
+        );
+    }
+
+    // 2. Background container fill (fill_rounded_rect)
+    // 3. Border stroke (stroke_rounded_rect) inset by half stroke-width to avoid edge clipping
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (style.bg_color.a > 0) {
+            ctx_.set_fill_style(style.bg_color.to_bl_rgba32());
+            ctx_.fill_round_rect(BLRoundRect(x, y, w, h, style.border_radius, style.border_radius));
+        }
+
+        if (style.border_color.a > 0 && style.border_width > 0.0f) {
+            ctx_.set_stroke_style(style.border_color.to_bl_rgba32());
+            ctx_.set_stroke_width(style.border_width);
+            double half_bw = style.border_width * 0.5;
+            ctx_.stroke_round_rect(BLRoundRect(
+                x + half_bw,
+                y + half_bw,
+                std::max(0.0, w - style.border_width),
+                std::max(0.0, h - style.border_width),
+                std::max(0.0, static_cast<double>(style.border_radius) - half_bw),
+                std::max(0.0, static_cast<double>(style.border_radius) - half_bw)
+            ));
+        }
+    }
+
+    // 4. Antialiased text rendering with vertical centering
+    if (!text.empty() && style.fg_color.a > 0) {
+        double text_x = x;
+        if (text_align == 1) { // center
+            text_x = x + w / 2.0;
+        } else if (text_align == 2) { // right
+            text_x = x + w - 8.0;
+        } else { // left
+            text_x = x + 8.0;
+        }
+        double text_y = y + h / 2.0 + static_cast<double>(style.font_size) * 0.35;
+        draw_text(text, text_x, text_y, style.font_size, style.font_family, style.fg_color, text_align, style.font_weight, false);
+    }
 }
 
 void Surface::draw_card(

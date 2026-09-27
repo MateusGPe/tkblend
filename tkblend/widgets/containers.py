@@ -264,7 +264,7 @@ class Accordion(tk.Frame):
             self.configure(bg=self._parent_bg)
             if hasattr(self, "_content") and self._content.winfo_exists():
                 self._content.configure(bg=palette.surface)
-                cascade_bg_to_children(self._content, palette.surface, render=False)
+                cascade_bg_to_children(self._content, palette.surface, render=False, palette=palette)
         except Exception as e:
             logger.debug("Failed updating Accordion background during theme change: %s", e)
         self._render_header()
