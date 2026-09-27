@@ -140,6 +140,51 @@ def resolve_theme_color(c: str, alpha: Optional[Union[float, int]] = None) -> st
     return resolve_color_failsafe(c, alpha=alpha)
 
 
+def to_tk_hex(color: Any, fallback: str = "#000000") -> str:
+    """Convert any color (including 8-digit hex #rrggbbaa, rgba, named color, or palette token) to a Tkinter-safe 6-digit hex string (#rrggbb)."""
+    if color is None:
+        return fallback
+    if not isinstance(color, str):
+        return fallback
+    c = color.strip()
+    if not c:
+        return fallback
+    if c.startswith("#"):
+        hex_part = c.lstrip("#")
+        if len(hex_part) == 6:
+            return f"#{hex_part.lower()}"
+        if len(hex_part) == 8:
+            return f"#{hex_part[:6].lower()}"
+        if len(hex_part) == 3:
+            return f"#{hex_part[0]*2}{hex_part[1]*2}{hex_part[2]*2}".lower()
+        if len(hex_part) == 4:
+            return f"#{hex_part[0]*2}{hex_part[1]*2}{hex_part[2]*2}".lower()
+
+    if c.startswith("rgb"):
+        try:
+            inside = c[c.find("(") + 1 : c.find(")")]
+            parts = [p.strip() for p in inside.split(",")]
+            if len(parts) >= 3:
+                r = int(float(parts[0]))
+                g = int(float(parts[1]))
+                b = int(float(parts[2]))
+                return f"#{max(0, min(255, r)):02x}{max(0, min(255, g)):02x}{max(0, min(255, b)):02x}"
+        except Exception:
+            pass
+
+    resolved = resolve_color_failsafe(c, fallback=fallback)
+    if resolved.startswith("#"):
+        hex_part = resolved.lstrip("#")
+        if len(hex_part) >= 6:
+            return f"#{hex_part[:6].lower()}"
+        if len(hex_part) == 3:
+            return f"#{hex_part[0]*2}{hex_part[1]*2}{hex_part[2]*2}".lower()
+    return fallback
+
+
+to_tk_color = to_tk_hex
+
+
 def blend_color_hex(c1: str, c2: str, t: float) -> Optional[str]:
     """Linearly interpolate between two hex color strings at factor t (0.0 to 1.0)."""
     if c1 is None or c2 is None or not isinstance(c1, str) or not isinstance(c2, str):

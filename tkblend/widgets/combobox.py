@@ -15,6 +15,7 @@ from tkblend.theme import (
     add_theme_listener,
     remove_theme_listener,
     blend_color_hex,
+    to_tk_hex,
 )
 from tkblend.widgets.base import Widget, ScalingTracker, VariableSync
 from tkblend.widgets.dropdown import Dropdown, DropdownItem
@@ -156,10 +157,10 @@ class OptionMenu(Widget):
         pw = max(rw, int(140 * s))
 
         pal = get_theme()
-        popup.configure(background=pal.card_border)
+        popup.configure(background=to_tk_hex(pal.card_border))
 
         # Popup frame container
-        frame = tk.Frame(popup, background=pal.card_bg, highlightthickness=1, highlightbackground=pal.card_border)
+        frame = tk.Frame(popup, background=to_tk_hex(pal.card_bg), highlightthickness=1, highlightbackground=to_tk_hex(pal.card_border))
         frame.pack(fill="both", expand=True)
 
         for val in self._values:
@@ -340,7 +341,7 @@ class Combobox(tk.Frame):
             master,
             width=max(1, int(width * self._scale)),
             height=max(1, int(height * self._scale)),
-            background=self._parent_bg,
+            background=to_tk_hex(self._parent_bg),
             borderwidth=0,
             highlightthickness=0,
             **kwargs,
@@ -350,10 +351,10 @@ class Combobox(tk.Frame):
         # Card container with crisp border
         self._card = tk.Frame(
             self,
-            background=pal.input_bg,
+            background=to_tk_hex(pal.input_bg),
             highlightthickness=1,
-            highlightbackground=pal.input_border,
-            highlightcolor=pal.primary,
+            highlightbackground=to_tk_hex(pal.input_border),
+            highlightcolor=to_tk_hex(pal.primary),
         )
         self._card.pack(fill="both", expand=True)
 
@@ -372,12 +373,12 @@ class Combobox(tk.Frame):
         font_sz = max(9, int(11 * self._scale))
         self._entry = tk.Entry(
             self._card,
-            background=pal.input_bg,
-            foreground=pal.fg,
+            background=to_tk_hex(pal.input_bg),
+            foreground=to_tk_hex(pal.fg),
             font=("sans-serif", font_sz),
             borderwidth=0,
             highlightthickness=0,
-            insertbackground=pal.primary,
+            insertbackground=to_tk_hex(pal.primary),
             textvariable=self._variable,
             state="readonly" if self._state == "readonly" else "normal",
         )
@@ -454,9 +455,9 @@ class Combobox(tk.Frame):
         pw = max(rw, int(140 * s))
 
         pal = get_theme()
-        popup.configure(background=pal.card_border)
+        popup.configure(background=to_tk_hex(pal.card_border))
 
-        frame = tk.Frame(popup, background=pal.card_bg, highlightthickness=1, highlightbackground=pal.card_border)
+        frame = tk.Frame(popup, background=to_tk_hex(pal.card_bg), highlightthickness=1, highlightbackground=to_tk_hex(pal.card_border))
         frame.pack(fill="both", expand=True)
 
         for val in self._values:
@@ -567,18 +568,18 @@ class Combobox(tk.Frame):
             return
         resolved_bg = self._explicit_parent_bg or Widget._resolve_default_bg(self.master, palette)
         self._parent_bg = resolved_bg
-        self.configure(background=self._parent_bg)
+        self.configure(background=to_tk_hex(self._parent_bg))
         self._card.configure(
-            background=palette.input_bg,
-            highlightbackground=palette.input_border,
-            highlightcolor=palette.primary,
+            background=to_tk_hex(palette.input_bg),
+            highlightbackground=to_tk_hex(palette.input_border),
+            highlightcolor=to_tk_hex(palette.primary),
         )
         self._entry.configure(
-            background=palette.input_bg,
-            foreground=palette.fg,
-            insertbackground=palette.primary,
-            selectbackground=palette.primary,
-            selectforeground=palette.primary_fg,
+            background=to_tk_hex(palette.input_bg),
+            foreground=to_tk_hex(palette.fg),
+            insertbackground=to_tk_hex(palette.primary),
+            selectbackground=to_tk_hex(palette.primary),
+            selectforeground=to_tk_hex(palette.primary_fg),
         )
         self._btn.set_parent_bg(palette.input_bg)
 

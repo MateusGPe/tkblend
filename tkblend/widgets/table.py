@@ -25,6 +25,7 @@ from tkblend.theme import (
     add_theme_listener,
     remove_theme_listener,
     blend_color_hex,
+    to_tk_hex,
 )
 from tkblend.widgets.base import Widget, ScalingTracker
 from tkblend.widgets.containers import Frame
@@ -57,15 +58,15 @@ class _FloatingCellEditor(tk.Entry):
         super().__init__(
             master,
             font=("sans-serif", max(9, int(11 * table._scale))),
-            bg=pal.surface,
-            fg=pal.fg,
-            insertbackground=pal.fg,
-            selectbackground=pal.primary,
+            bg=to_tk_hex(pal.surface),
+            fg=to_tk_hex(pal.fg),
+            insertbackground=to_tk_hex(pal.fg),
+            selectbackground=to_tk_hex(pal.primary),
             selectforeground="#ffffff",
             relief="solid",
             highlightthickness=1,
-            highlightbackground=pal.primary,
-            highlightcolor=pal.primary,
+            highlightbackground=to_tk_hex(pal.primary),
+            highlightcolor=to_tk_hex(pal.primary),
             borderwidth=1,
         )
         self._table = table

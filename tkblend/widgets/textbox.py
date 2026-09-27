@@ -13,6 +13,7 @@ from tkblend.theme import (
     add_theme_listener,
     remove_theme_listener,
     resolve_color_failsafe,
+    to_tk_hex,
 )
 from tkblend.widgets.base import Widget, ScalingTracker
 from tkblend.widgets.containers import Frame
@@ -95,15 +96,15 @@ class Text(tk.Frame):
         # Underpinning Tkinter Text
         self._text = tk.Text(
             self._card,
-            background=inner_bg,
-            foreground=txt_fg,
+            background=to_tk_hex(inner_bg),
+            foreground=to_tk_hex(txt_fg),
             font=self._font,
             wrap=wrap,
             borderwidth=0,
             highlightthickness=0,
-            insertbackground=pal.primary,
-            selectbackground=pal.primary,
-            selectforeground=pal.primary_fg,
+            insertbackground=to_tk_hex(pal.primary),
+            selectbackground=to_tk_hex(pal.primary),
+            selectforeground=to_tk_hex(pal.primary_fg),
         )
 
         # Vector Scrollbar
@@ -210,11 +211,11 @@ class Text(tk.Frame):
         inner_bg = self._card.bg_color
         txt_fg = self._explicit_text_color or palette.fg
         self._text.configure(
-            background=inner_bg,
-            foreground=palette.secondary_fg if self._is_showing_placeholder else txt_fg,
-            insertbackground=palette.primary,
-            selectbackground=palette.primary,
-            selectforeground=palette.primary_fg,
+            background=to_tk_hex(inner_bg),
+            foreground=to_tk_hex(palette.secondary_fg if self._is_showing_placeholder else txt_fg),
+            insertbackground=to_tk_hex(palette.primary),
+            selectbackground=to_tk_hex(palette.primary),
+            selectforeground=to_tk_hex(palette.primary_fg),
         )
         self._scrollbar.set_parent_bg(inner_bg)
 

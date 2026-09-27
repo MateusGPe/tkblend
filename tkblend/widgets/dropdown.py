@@ -8,7 +8,7 @@ import sys
 import tkinter as tk
 from typing import Optional, Callable, List
 
-from tkblend.theme import get_theme, blend_color_hex
+from tkblend.theme import get_theme, blend_color_hex, to_tk_hex
 from tkblend.widgets.base import Widget
 from tkblend.widgets.scrollbar import VectorScrollbar
 from tkblend.widgets.drawing import draw_vector_checkmark, draw_vector_chevron, truncate_text
@@ -328,13 +328,13 @@ class Dropdown(Widget):
             self._popup_win.transient(toplevel)
         except Exception as e:
             logger.debug("Failed setting transient on Dropdown popup window: %s", e)
-        self._popup_win.configure(bg=border_col)
+        self._popup_win.configure(bg=to_tk_hex(border_col))
 
         # Border container frame for crisp 1.5px border
-        border_frame = tk.Frame(self._popup_win, bg=border_col, padx=1, pady=1)
+        border_frame = tk.Frame(self._popup_win, bg=to_tk_hex(border_col), padx=1, pady=1)
         border_frame.pack(fill="both", expand=True)
 
-        inner_frame = tk.Frame(border_frame, bg=popup_bg)
+        inner_frame = tk.Frame(border_frame, bg=to_tk_hex(popup_bg))
         inner_frame.pack(fill="both", expand=True)
 
         self._item_widgets = []
@@ -346,7 +346,7 @@ class Dropdown(Widget):
 
             canvas = tk.Canvas(
                 inner_frame,
-                bg=popup_bg,
+                bg=to_tk_hex(popup_bg),
                 highlightthickness=0,
                 bd=0,
                 width=content_w,
@@ -367,7 +367,7 @@ class Dropdown(Widget):
             self._scroll_canvas = canvas
             self._scrollbar = scrollbar
 
-            scroll_frame = tk.Frame(canvas, bg=popup_bg)
+            scroll_frame = tk.Frame(canvas, bg=to_tk_hex(popup_bg))
             canvas.create_window((0, 0), window=scroll_frame, anchor="nw", width=content_w)
 
             def _on_frame_configure(e):

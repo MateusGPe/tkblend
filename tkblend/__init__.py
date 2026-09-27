@@ -125,6 +125,8 @@ from tkblend.theme import (
     stop_auto_theme,
     blend_color_hex,
     adjust_brightness,
+    to_tk_hex,
+    to_tk_color,
     is_inside_card,
     is_ttkbootstrap_installed,
 )
@@ -250,6 +252,8 @@ __all__ = [
     "remove_theme_listener",
     "blend_color_hex",
     "adjust_brightness",
+    "to_tk_hex",
+    "to_tk_color",
     "resolve_theme_color",
     "resolve_color",
     "resolve_color_failsafe",

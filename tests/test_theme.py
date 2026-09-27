@@ -364,3 +364,26 @@ def test_apply_theme_context_aware_card_and_accordion(root):
     set_theme("dark")
     card.destroy()
 
+
+def test_to_tk_hex():
+    from tkblend.theme import to_tk_hex, to_tk_color
+    assert to_tk_hex("#ff007f88") == "#ff007f"
+    assert to_tk_hex("#aabbcc") == "#aabbcc"
+    assert to_tk_hex("#fff") == "#ffffff"
+    assert to_tk_hex("#ffff") == "#ffffff"
+    assert to_tk_hex("rgba(255, 0, 127, 0.5)") == "#ff007f"
+    assert to_tk_hex("rgb(10, 20, 30)") == "#0a141e"
+    assert to_tk_color("#12345678") == "#123456"
+
+
+def test_combobox_with_all_theme_presets(root):
+    from tkblend.widgets.combobox import Combobox, ComboBox
+    from tkblend.theme import get_available_themes, set_theme
+
+    for theme_name in get_available_themes():
+        set_theme(theme_name)
+        cb = Combobox(root, values=["Alpha", "Beta", "Gamma"], width=150, height=32)
+        cb.pack()
+        root.update_idletasks()
+        cb.destroy()
+
