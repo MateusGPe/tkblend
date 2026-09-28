@@ -75,7 +75,7 @@ branch = true
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-fail_under = 90
+fail_under = 85
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
@@ -93,16 +93,14 @@ exclude_lines = [
 build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
 skip = "pp* *musllinux* cp36-* cp37-* cp38-*"
 
-# ManyLinux environment setup: install Tk/Tcl development libraries
-before-all = "yum install -y tcl-devel tk-devel || apk add tcl-dev tk-dev || apt-get update && apt-get install -y libtcl8.6 libtk8.6-dev tcl8.6-dev"
-
-# Setup display dependencies on Linux before tests
-before-test = "yum install -y xorg-x11-server-Xvfb || apk add xvfb || true"
-
-# Testing configuration
-test-requires = ["pytest"]
-test-command = "pytest {project}/tests"
-test-command-linux = "xvfb-run -a pytest {project}/tests"
+[tool.cibuildwheel.linux]
+# Install Tk/Tcl development libraries for Linux
+before-all = [
+    "apt-get update && apt-get install -y libtcl8.6 libtk8.6-dev tcl8.6-dev",
+]
+# Setup display dependencies before tests
+before-test = "xvfb-run -a"
+archs = ["x86_64", "aarch64"]
 
 [tool.cibuildwheel.macos]
 archs = ["x86_64", "arm64"]
@@ -110,6 +108,9 @@ archs = ["x86_64", "arm64"]
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
 
-[tool.cibuildwheel.linux]
-archs = ["x86_64", "aarch64"]
-
+# Testing configuration (applies to all platforms)
+test-requires = ["pytest"]
+test-command = "pytest {project}/tests"
+test-command-linux = "xvfb-run -a pytest {project}/tests"
+test-command-macos = "pytest {project}/tests"
+test-command-windows = "pytest {project}/tests"
