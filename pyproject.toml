@@ -95,6 +95,8 @@ skip = "pp* *musllinux* cp36-* cp37-* cp38-*"
 
 [tool.cibuildwheel.linux]
 # Install Tk/Tcl and virtual-display dependencies in the manylinux image
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
 before-all = [
     "yum install -y tcl-devel tk-devel xorg-x11-server-Xvfb xorg-x11-xinit",
 ]
