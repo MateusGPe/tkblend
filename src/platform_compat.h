@@ -128,6 +128,7 @@
   #include <windows.h>
   #include <tkPlatDecls.h>
 #elif defined(__APPLE__)
+  #undef panic
   #include <CoreGraphics/CoreGraphics.h>
   #include <tkMacOSX.h>
 #endif
