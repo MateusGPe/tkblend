@@ -96,7 +96,7 @@ skip = "pp* *musllinux* cp36-* cp37-* cp38-*"
 [tool.cibuildwheel.linux]
 # Install Tk/Tcl development libraries for Linux
 before-all = [
-    "apt-get update && apt-get install -y libtcl8.6 libtk8.6-dev tcl8.6-dev",
+    "apt update && apt install -y libtcl8.6 libtk8.6-dev tcl8.6-dev",
 ]
 # Setup display dependencies before tests
 before-test = "xvfb-run -a"
