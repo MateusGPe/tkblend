@@ -94,10 +94,10 @@ build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
 skip = "pp* *musllinux* cp36-* cp37-* cp38-*"
 
 # ManyLinux environment setup: install Tk/Tcl development libraries
-before-all-linux = "yum install -y tcl-devel tk-devel || apk add tcl-dev tk-dev || apt-get update && apt-get install -y libtcl8.6 libtk8.6-dev tcl8.6-dev"
+before-all = "yum install -y tcl-devel tk-devel || apk add tcl-dev tk-dev || apt-get update && apt-get install -y libtcl8.6 libtk8.6-dev tcl8.6-dev"
 
 # Setup display dependencies on Linux before tests
-before-test-linux = "yum install -y xorg-x11-server-Xvfb || apk add xvfb || true"
+before-test = "yum install -y xorg-x11-server-Xvfb || apk add xvfb || true"
 
 # Testing configuration
 test-requires = ["pytest"]
