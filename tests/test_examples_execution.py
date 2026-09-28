@@ -10,8 +10,11 @@ import sys
 import tkinter as tk
 import pytest
 
-# Ensure examples directory is importable
-examples_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
+# Ensure the project root and examples directory are importable
+project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_dir not in sys.path:
+    sys.path.insert(0, project_dir)
+examples_dir = os.path.join(project_dir, "examples")
 if examples_dir not in sys.path:
     sys.path.insert(0, examples_dir)
 

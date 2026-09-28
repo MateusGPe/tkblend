@@ -92,6 +92,8 @@ exclude_lines = [
 # Build CPython 3.9 through 3.13
 build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
 skip = "pp* *musllinux* cp36-* cp37-* cp38-*"
+test-requires = ["pytest", "Pillow", "customtkinter"]
+test-command = "pytest {project}/tests"
 
 [tool.cibuildwheel.linux]
 # Install Tk/Tcl and virtual-display dependencies in the manylinux image
@@ -108,7 +110,3 @@ archs = ["x86_64", "arm64"]
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
-
-# Testing configuration (Linux overrides this to provide a virtual display)
-test-requires = ["pytest"]
-test-command = "pytest {project}/tests"

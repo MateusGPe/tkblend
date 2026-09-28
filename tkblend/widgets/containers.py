@@ -4,6 +4,7 @@ Modern container widgets: Frame, Card, and Accordion with Blend2D vector styling
 
 from __future__ import annotations
 import logging
+import math
 import tkinter as tk
 from typing import Optional
 
@@ -92,12 +93,12 @@ class Card(Frame):
         """Return (left, top, right, bottom) safe inner margins in scaled pixels for Card."""
         s = self._scale
         pad = self._current_pad if self._current_pad > 0 else (self._padding if self._padding is not None else max(8.0 * s, self._elevation * 0.8))
-        inset_x = int(pad + max(self._border_width + (self._rx * 0.35), 14.0 * s))
-        bottom_inset = int(pad + max(self._border_width + (self._ry * 0.35) + 4.0 * s, 14.0 * s))
+        inset_x = math.ceil(pad + max(self._border_width + (self._rx * 0.35), 14.0 * s))
+        bottom_inset = math.ceil(pad + max(self._border_width + (self._ry * 0.35) + 4.0 * s, 14.0 * s))
         if self._title:
-            top_inset = int(pad + 44.0 * s)
+            top_inset = math.ceil(pad + 44.0 * s)
         else:
-            top_inset = int(pad + max(self._border_width + (self._ry * 0.35) + 4.0 * s, 14.0 * s))
+            top_inset = math.ceil(pad + max(self._border_width + (self._ry * 0.35) + 4.0 * s, 14.0 * s))
         return (inset_x, top_inset, inset_x, bottom_inset)
 
     @property

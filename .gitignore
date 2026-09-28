@@ -39,3 +39,7 @@ REFERENCE ONLY/
 tests/visual_baselines/
 CustomTkinter-6.0.0/
 snapshots/
+
+
+*.whl
+*.tar.*

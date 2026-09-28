@@ -30,6 +30,11 @@ def root():
         pytest.skip("Tkinter display not available")
 
 
+def assert_scaled_font_size(widget, requested_size):
+    actual_size = tkfont.Font(root=widget, font=widget._entry.cget("font")).cget("size")
+    assert actual_size == round(requested_size * widget._scale)
+
+
 def test_extract_font_family():
     # Test simple families
     assert extract_font_family("Helvetica") == "Helvetica"
@@ -172,12 +177,12 @@ def test_text_input_and_spinbox_custom_font_properties(root):
     assert inp.font.size == 16.0
     assert inp.font.bold is True
     assert "Arial" in str(inp._entry.cget("font"))
-    assert "16" in str(inp._entry.cget("font"))
+    assert_scaled_font_size(inp, 16)
 
     # Property mutation on TextInput
     inp.font_size = 18.0
     assert inp.font_size == 18.0
-    assert "18" in str(inp._entry.cget("font"))
+    assert_scaled_font_size(inp, 18)
 
     inp.font_family = "Courier"
     assert inp.font_family == "Courier"
@@ -191,7 +196,7 @@ def test_text_input_and_spinbox_custom_font_properties(root):
     # Property mutation on SpinBox
     spin.font_size = 20.0
     assert spin.font_size == 20.0
-    assert "20" in str(spin._entry.cget("font"))
+    assert_scaled_font_size(spin, 20)
 
     spin.font_family = "Georgia"
     assert spin.font_family == "Georgia"
@@ -219,7 +224,7 @@ def test_sync_tk_fonts_with_text_input_and_spinbox(root):
 
     # Custom widgets preserved
     assert "Courier" in str(inp_custom._entry.cget("font"))
-    assert "15" in str(inp_custom._entry.cget("font"))
+    assert_scaled_font_size(inp_custom, 15)
     assert "Georgia" in str(spin_custom._entry.cget("font"))
-    assert "18" in str(spin_custom._entry.cget("font"))
+    assert_scaled_font_size(spin_custom, 18)
 

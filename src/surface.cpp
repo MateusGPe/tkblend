@@ -1083,6 +1083,15 @@ void Surface::blit_to_photo(
         throw std::invalid_argument("Invalid Tcl_Interp address");
     }
 
+#if defined(USE_TCL_STUBS) && defined(USE_TK_STUBS)
+    if (!Tcl_InitStubs(interp, "8.6", 0)) {
+        throw std::runtime_error("Failed to initialize Tcl stubs");
+    }
+    if (!Tk_InitStubs(interp, "8.6", 0)) {
+        throw std::runtime_error("Failed to initialize Tk stubs");
+    }
+#endif
+
     Tk_PhotoHandle photoHandle = Tk_FindPhoto(interp, photo_name.c_str());
     if (!photoHandle) {
         throw std::invalid_argument("Tk_FindPhoto failed: PhotoImage '" + photo_name + "' not found");
