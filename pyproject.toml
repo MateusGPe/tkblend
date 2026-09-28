@@ -94,12 +94,11 @@ build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
 skip = "pp* *musllinux* cp36-* cp37-* cp38-*"
 
 [tool.cibuildwheel.linux]
-# Install Tk/Tcl development libraries for Linux
+# Install Tk/Tcl and virtual-display dependencies in the manylinux image
 before-all = [
-    "yum update && yum install -y tcl tcl-devel tk tk-devel",
+    "yum install -y tcl-devel tk-devel xorg-x11-server-Xvfb xorg-x11-xinit",
 ]
-# Setup display dependencies before tests
-before-test = "xvfb-run -a"
+test-command = "xvfb-run -a pytest {project}/tests"
 archs = ["x86_64", "aarch64"]
 
 [tool.cibuildwheel.macos]
@@ -108,9 +107,6 @@ archs = ["x86_64", "arm64"]
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
 
-# Testing configuration (applies to all platforms)
+# Testing configuration (Linux overrides this to provide a virtual display)
 test-requires = ["pytest"]
 test-command = "pytest {project}/tests"
-test-command-linux = "xvfb-run -a pytest {project}/tests"
-test-command-macos = "pytest {project}/tests"
-test-command-windows = "pytest {project}/tests"
