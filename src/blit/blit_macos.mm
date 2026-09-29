@@ -4,9 +4,20 @@
 
 #import <Cocoa/Cocoa.h>
 #import <CoreGraphics/CoreGraphics.h>
+#include <dlfcn.h>
 
-extern "C" {
-    CGContextRef TkMacOSXGetCGContextForDrawable(Drawable drawable) __attribute__((weak_import));
+namespace {
+typedef CGContextRef (*TkMacOSXGetCGContextForDrawableFunc)(Drawable);
+
+static TkMacOSXGetCGContextForDrawableFunc GetTkMacOSXGetCGContextForDrawableFn() {
+    static TkMacOSXGetCGContextForDrawableFunc fn = nullptr;
+    static bool resolved = false;
+    if (!resolved) {
+        fn = (TkMacOSXGetCGContextForDrawableFunc)dlsym(RTLD_DEFAULT, "TkMacOSXGetCGContextForDrawable");
+        resolved = true;
+    }
+    return fn;
+}
 }
 
 namespace tkblend {
@@ -27,11 +38,12 @@ bool NativeBlit(
         return false;
     }
 
-    if (!TkMacOSXGetCGContextForDrawable) {
+    auto tk_cgcontext_fn = GetTkMacOSXGetCGContextForDrawableFn();
+    if (!tk_cgcontext_fn) {
         return false;
     }
 
-    CGContextRef context = TkMacOSXGetCGContextForDrawable(drawable);
+    CGContextRef context = tk_cgcontext_fn(drawable);
     if (!context) {
         return false;
     }
