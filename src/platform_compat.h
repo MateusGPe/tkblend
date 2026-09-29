@@ -130,5 +130,6 @@
 #elif defined(__APPLE__)
   #undef panic
   #include <CoreGraphics/CoreGraphics.h>
+  typedef struct TkRegion_ *TkRegion;
   #include <tkMacOSX.h>
 #endif
