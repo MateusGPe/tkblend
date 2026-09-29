@@ -61,13 +61,13 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install cmake ninja nanobind scikit-build-core pytest
+          python -m pip install cmake ninja nanobind scikit-build-core pytest Pillow customtkinter ttkbootstrap darkdetect
 
       - name: Install Windows build tools & dependencies
         if: runner.os == 'Windows'
         run: |
           micromamba run -n tkblend-tcltk python -m pip install --upgrade pip setuptools wheel
-          micromamba run -n tkblend-tcltk python -m pip install cmake ninja nanobind scikit-build-core pytest
+          micromamba run -n tkblend-tcltk python -m pip install cmake ninja nanobind scikit-build-core pytest Pillow customtkinter ttkbootstrap darkdetect
 
       - name: Verify Windows tkinter
         if: runner.os == 'Windows'
@@ -121,7 +121,7 @@ jobs:
       - name: Install build tools & test dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install cmake ninja nanobind scikit-build-core pytest
+          python -m pip install cmake ninja nanobind scikit-build-core pytest Pillow customtkinter ttkbootstrap darkdetect
 
       - name: Run ASan & UBSan Sanitizer Test Suite
         run: |
@@ -150,7 +150,7 @@ jobs:
       - name: Install build tools & coverage dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install cmake ninja nanobind scikit-build-core pytest pytest-cov coverage gcovr
+          python -m pip install cmake ninja nanobind scikit-build-core pytest pytest-cov coverage gcovr Pillow customtkinter ttkbootstrap darkdetect
 
       - name: Run Dual Coverage Suite (Python + C++)
         run: |

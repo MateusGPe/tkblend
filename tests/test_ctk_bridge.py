@@ -4,7 +4,8 @@ Unit and integration tests for tkblend.ctk Blend2D vector rendering bridge for C
 
 import pytest
 import tkinter as tk
-import customtkinter
+
+customtkinter = pytest.importorskip("customtkinter")
 import tkblend.ctk as ctk
 from tkblend.ctk.draw_engine import TkBlendDrawEngine
 from tkblend.ctk.canvas import TkBlendCanvas

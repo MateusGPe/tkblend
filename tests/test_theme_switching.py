@@ -6,6 +6,8 @@ foregrounds, and borders without color bleed or locked-in ancestor backgrounds.
 
 import pytest
 import tkinter as tk
+
+pytest.importorskip("PIL")
 from PIL import Image, ImageGrab, ImageStat
 import tkblend as tb
 from tkblend import (
