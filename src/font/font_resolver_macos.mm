@@ -78,17 +78,19 @@ public:
             if (!match.empty()) return match;
             match = resolve_coretext("Times New Roman", weight, italic);
             if (!match.empty()) return match;
+            return "";
         } else if (lower == "monospace") {
             std::string match = resolve_coretext("Menlo", weight, italic);
             if (!match.empty()) return match;
             match = resolve_coretext("Courier New", weight, italic);
             if (!match.empty()) return match;
+            return "";
         }
 
         std::string path = resolve_coretext(family, weight, italic);
         if (!path.empty()) return path;
 
-        return fallback_scan();
+        return "";
     }
 
     std::vector<std::string> get_system_fonts() {
@@ -172,8 +174,29 @@ private:
         CFRelease(cf_name);
         if (!descriptor) return "";
 
-        CFURLRef url = (CFURLRef)CTFontDescriptorCopyAttribute(descriptor, kCTFontURLAttribute);
+        // Query matching font descriptor from installed fonts
+        CTFontDescriptorRef matched = CTFontDescriptorCreateMatchingFontDescriptor(descriptor, nullptr);
         CFRelease(descriptor);
+        if (!matched) return "";
+
+        // Verify that the matched font family actually matches the requested family
+        // (CoreText fallback may match a default font if family does not exist)
+        CFStringRef matched_fam = (CFStringRef)CTFontDescriptorCopyAttribute(matched, kCTFontFamilyNameAttribute);
+        if (matched_fam) {
+            std::string matched_str = cfstring_to_utf8(matched_fam);
+            CFRelease(matched_fam);
+            std::string lower_req = family_name;
+            std::string lower_matched = matched_str;
+            std::transform(lower_req.begin(), lower_req.end(), lower_req.begin(), ::tolower);
+            std::transform(lower_matched.begin(), lower_matched.end(), lower_matched.begin(), ::tolower);
+            if (lower_matched != lower_req && lower_matched.find(lower_req) == std::string::npos && lower_req.find(lower_matched) == std::string::npos) {
+                CFRelease(matched);
+                return "";
+            }
+        }
+
+        CFURLRef url = (CFURLRef)CTFontDescriptorCopyAttribute(matched, kCTFontURLAttribute);
+        CFRelease(matched);
         if (!url) return "";
 
         char buffer[PATH_MAX] = {0};

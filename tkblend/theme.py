@@ -21,6 +21,22 @@ from tkblend._tkblend import (
 logger = logging.getLogger(__name__)
 
 
+def is_default_tk_bg(color: Any) -> bool:
+    """Check if color matches default Tkinter unstyled system backgrounds across Linux, macOS, and Windows."""
+    if color is None:
+        return True
+    if not isinstance(color, str):
+        return False
+    c = color.strip().lower()
+    if not c:
+        return True
+    if c.startswith("system"):
+        return True
+    if c in ("#d9d9d9", "#2c2c2c", "#f0f0f0", "gray85", "gray", "systembuttonface", "systemwindowbackgroundcolor"):
+        return True
+    return False
+
+
 def _format_alpha(alpha: Optional[Union[float, int]]) -> str:
     if alpha is None:
         return ""
@@ -454,7 +470,7 @@ class ThemeManager:
             if r is not None and hasattr(r, "winfo_exists") and r.winfo_exists():
                 cur_bg = str(r.cget("background")).lower()
                 known_bgs = [preset.bg.lower() for preset in THEME_PRESETS.values()]
-                if cur_bg in ("#d9d9d9", "#2c2c2c", "#f0f0f0", "gray85", "systembuttonface") or cur_bg in known_bgs or getattr(r, "_tkblend_theme_bg", None) is not None:
+                if is_default_tk_bg(cur_bg) or cur_bg in known_bgs or getattr(r, "_tkblend_theme_bg", None) is not None:
                     r.configure(background=self._current_palette.bg)
                     r._tkblend_theme_bg = self._current_palette.bg
         except Exception:
@@ -614,7 +630,7 @@ def resolve_ancestor_bg(widget: Optional[tk.Misc], palette: Optional[Palette] = 
                                 return active_pal.card_bg
                             if bg == p_pal.surface.lower():
                                 return active_pal.surface
-                    if bg not in ("#d9d9d9", "#2c2c2c", "#f0f0f0", "gray85", "systembuttonface"):
+                    if not is_default_tk_bg(bg):
                         return resolve_color_failsafe(bg, master=curr, palette=active_pal)
             except Exception:
                 pass
@@ -714,14 +730,14 @@ def apply_theme(
                     cur = str(w.cget("background")).lower()
                     last_set = getattr(w, "_tkblend_theme_bg", None)
                     known_bgs = [preset.bg.lower() for preset in THEME_PRESETS.values()]
-                    if last_set is not None or cur in ("#d9d9d9", "#2c2c2c", "#f0f0f0", "gray85", "systembuttonface") or not preserve_overrides or cur in known_bgs:
+                    if last_set is not None or is_default_tk_bg(cur) or not preserve_overrides or cur in known_bgs:
                         w.configure(background=eff_bg)
                         w._tkblend_theme_bg = eff_bg
                 elif isinstance(w, (tk.Label, tk.Canvas)):
                     cur = str(w.cget("background")).lower()
                     last_set = getattr(w, "_tkblend_theme_bg", None)
                     known_bgs = [preset.bg.lower() for preset in THEME_PRESETS.values()]
-                    if last_set is not None or cur in ("#d9d9d9", "#2c2c2c", "#f0f0f0", "gray85", "systembuttonface") or not preserve_overrides or cur in known_bgs:
+                    if last_set is not None or is_default_tk_bg(cur) or not preserve_overrides or cur in known_bgs:
                         w.configure(background=eff_bg)
                         w._tkblend_theme_bg = eff_bg
         except Exception:
