@@ -552,12 +552,15 @@ class AnalyticsDashboard(tk.Frame):
             v2 = max(5.0, min(85.0, self._chart._series2[-1] + random.uniform(-6.0, 6.0)))
             self._chart.push_data(v1, v2)
 
-        self._timer_id = self.after(1000, self._start_data_stream)
+        if self._is_streaming:
+            self._timer_id = self.after(1000, self._start_data_stream)
 
     def destroy(self) -> None:
+        self._is_streaming = False
         if self._timer_id:
             try:
                 self.after_cancel(self._timer_id)
+                self._timer_id = None
             except Exception:
                 pass
         super().destroy()

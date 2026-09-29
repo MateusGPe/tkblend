@@ -188,7 +188,7 @@ class ShowcaseHub(tk.Frame):
         self._viewport.pack(side="right", fill="both", expand=True)
 
         from tkblend.theme import add_theme_listener
-        add_theme_listener(lambda p: self._on_global_theme_changed(p))
+        add_theme_listener(self._on_global_theme_changed)
 
     def _load_view(self, app_id: str) -> None:
         self._current_app_id = app_id
@@ -238,6 +238,20 @@ class ShowcaseHub(tk.Frame):
             cascade_bg_to_children(self, pal.bg)
         except Exception as e:
             print(e)
+
+    def destroy(self) -> None:
+        if self._active_widget is not None:
+            try:
+                self._active_widget.destroy()
+            except Exception:
+                pass
+            self._active_widget = None
+        try:
+            from tkblend.theme import remove_theme_listener
+            remove_theme_listener(self._on_global_theme_changed)
+        except Exception:
+            pass
+        super().destroy()
 
 
 def main():

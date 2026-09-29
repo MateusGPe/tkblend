@@ -236,7 +236,8 @@ class RealtimeVisualizer(tk.Frame):
                 self._ms_badge.set_text(f"Render: {self._render_time_ms:.2f} ms")
 
         # Target ~60 FPS (16ms interval)
-        self._timer_id = self.after(16, self._start_animation_loop)
+        if self._is_running:
+            self._timer_id = self.after(16, self._start_animation_loop)
 
     def _render_frame(self) -> None:
         surf = self._canvas.surface
@@ -390,9 +391,11 @@ class RealtimeVisualizer(tk.Frame):
         cascade_bg_to_children(self, pal.bg)
 
     def destroy(self) -> None:
+        self._is_running = False
         if self._timer_id:
             try:
                 self.after_cancel(self._timer_id)
+                self._timer_id = None
             except Exception:
                 pass
         super().destroy()

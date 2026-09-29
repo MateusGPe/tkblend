@@ -803,6 +803,10 @@ class Spinbox(Widget):
         except Exception as e:
             logger.debug("Render failed in SpinBox: %s", e, exc_info=True)
 
+    def destroy(self) -> None:
+        self._cancel_repeat()
+        super().destroy()
+
 
 TextInput = Entry
 SpinBox = Spinbox
