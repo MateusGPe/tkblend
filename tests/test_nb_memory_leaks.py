@@ -934,6 +934,8 @@ def _threadpool_torture_pattern(n_workers: int, tasks_per_worker: int):
 
 def test_multithreaded_threadpool_torture_no_leak():
     """16 worker threads executing 20 full render pipelines each must not leak."""
+    # Warm up ThreadPoolExecutor thread creation and internal Python pools
+    _threadpool_torture_pattern(16, 1)
     diff = _tracemalloc_diff_kb(_threadpool_torture_pattern, 16, 20)
     assert diff < _SAFE_THRESHOLD_KB * 2, (
         f"ThreadPool torture leaked {diff:.1f} KB (threshold {_SAFE_THRESHOLD_KB * 2} KB)"
@@ -943,6 +945,7 @@ def test_multithreaded_threadpool_torture_no_leak():
 @pytest.mark.slow
 def test_multithreaded_threadpool_torture_stress_no_leak():
     """Heavy stress: 16 worker threads executing 100 full render pipelines each."""
+    _threadpool_torture_pattern(16, 1)
     diff = _tracemalloc_diff_kb(_threadpool_torture_pattern, 16, 100)
     assert diff < _SAFE_THRESHOLD_KB * 4, (
         f"Stress ThreadPool torture leaked {diff:.1f} KB"
