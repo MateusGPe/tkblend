@@ -101,6 +101,8 @@ jobs:
         run: python -m cibuildwheel --output-dir wheelhouse
         env:
           CIBW_ARCHS: ${{ matrix.cibw_archs }}
+          CMAKE_PREFIX_PATH: ${{ steps.tcltk.outputs.environment-path && format('{0}/Library', steps.tcltk.outputs.environment-path) || '' }}
+          CIBW_ENVIRONMENT_WINDOWS: "CMAKE_PREFIX_PATH='${{ steps.tcltk.outputs.environment-path }}/Library'"
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4

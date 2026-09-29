@@ -84,8 +84,20 @@ set(CMAKE_CXX_FLAGS "${_PRE_BLEND2D_CXX_FLAGS}")
 # ------------------------------------------------------------------------------
 # FreeType Detection & Fallback (for Color Emojis)
 # ------------------------------------------------------------------------------
-find_package(Freetype QUIET)
-if(NOT Freetype_FOUND AND NOT FREETYPE_FOUND)
+option(TKBLEND_FETCH_FREETYPE "Force FetchContent for FreeType" OFF)
+
+if(APPLE OR TKBLEND_FETCH_FREETYPE)
+    set(_FETCH_FREETYPE TRUE)
+else()
+    find_package(Freetype QUIET)
+    if(NOT Freetype_FOUND AND NOT FREETYPE_FOUND)
+        set(_FETCH_FREETYPE TRUE)
+    else()
+        set(_FETCH_FREETYPE FALSE)
+    endif()
+endif()
+
+if(_FETCH_FREETYPE)
     include(FetchContent)
     FetchContent_Declare(
         freetype
@@ -98,6 +110,7 @@ if(NOT Freetype_FOUND AND NOT FREETYPE_FOUND)
     set(FT_DISABLE_PNG TRUE CACHE BOOL "Disable PNG" FORCE)
     set(FT_DISABLE_HARFBUZZ TRUE CACHE BOOL "Disable HARFBUZZ" FORCE)
     set(FT_DISABLE_BROTLI TRUE CACHE BOOL "Disable BROTLI" FORCE)
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
     set(SKIP_INSTALL_ALL TRUE CACHE BOOL "Disable FreeType install" FORCE)
     set(SKIP_INSTALL_LIBRARIES TRUE CACHE BOOL "Disable FreeType install" FORCE)
     set(SKIP_INSTALL_HEADERS TRUE CACHE BOOL "Disable FreeType install" FORCE)
