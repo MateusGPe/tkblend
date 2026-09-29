@@ -147,6 +147,187 @@ public:
         surface().render_box(x, y, w, h, style, text, text_align);
     }
 
+    void render_styled_box(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        const std::string& text = "",
+        int text_align = 1,
+        std::optional<double> custom_rx = std::nullopt,
+        std::optional<double> custom_ry = std::nullopt,
+        double elevation = 0.0,
+        std::optional<Color> explicit_bg = std::nullopt,
+        std::optional<Color> explicit_fg = std::nullopt,
+        std::optional<Color> explicit_border = std::nullopt,
+        const std::string& font_family = "",
+        float font_size = 0.0f,
+        int font_weight = 0
+    ) {
+        surface().render_styled_box(
+            element, class_name, state, scale, parent_bg, text, text_align,
+            custom_rx, custom_ry, elevation,
+            explicit_bg, explicit_fg, explicit_border,
+            font_family, font_size, font_weight
+        );
+    }
+
+    void render_styled_badge(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        const std::string& text = "",
+        bool dot = false,
+        std::optional<Color> dot_color = std::nullopt,
+        std::optional<double> custom_rx = std::nullopt,
+        std::optional<double> custom_ry = std::nullopt,
+        std::optional<Color> explicit_bg = std::nullopt,
+        std::optional<Color> explicit_fg = std::nullopt,
+        std::optional<Color> explicit_border = std::nullopt,
+        const std::string& font_family = "",
+        float font_size = 0.0f,
+        int font_weight = 0
+    ) {
+        surface().render_styled_badge(
+            element, class_name, state, scale, parent_bg, text, dot, dot_color,
+            custom_rx, custom_ry, explicit_bg, explicit_fg, explicit_border,
+            font_family, font_size, font_weight
+        );
+    }
+
+    void render_styled_checkbox(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        const std::string& text = "",
+        bool is_checked = false,
+        double box_size = 18.0,
+        std::optional<double> custom_rx = std::nullopt,
+        std::optional<double> custom_ry = std::nullopt,
+        std::optional<Color> explicit_box_bg = std::nullopt,
+        std::optional<Color> explicit_border = std::nullopt,
+        std::optional<Color> explicit_check_color = std::nullopt,
+        std::optional<Color> explicit_fg = std::nullopt,
+        const std::string& font_family = "",
+        float font_size = 0.0f,
+        int font_weight = 0
+    ) {
+        surface().render_styled_checkbox(
+            element, class_name, state, scale, parent_bg, text, is_checked, box_size,
+            custom_rx, custom_ry, explicit_box_bg, explicit_border, explicit_check_color, explicit_fg,
+            font_family, font_size, font_weight
+        );
+    }
+
+    void render_styled_radio(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        const std::string& text = "",
+        bool is_selected = false,
+        double circle_size = 18.0,
+        std::optional<Color> explicit_bg = std::nullopt,
+        std::optional<Color> explicit_border = std::nullopt,
+        std::optional<Color> explicit_dot_color = std::nullopt,
+        std::optional<Color> explicit_fg = std::nullopt,
+        const std::string& font_family = "",
+        float font_size = 0.0f,
+        int font_weight = 0
+    ) {
+        surface().render_styled_radio(
+            element, class_name, state, scale, parent_bg, text, is_selected, circle_size,
+            explicit_bg, explicit_border, explicit_dot_color, explicit_fg,
+            font_family, font_size, font_weight
+        );
+    }
+
+    void render_styled_switch(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        const std::string& text = "",
+        double progress_t = 0.0,
+        double switch_w = 44.0,
+        double switch_h = 24.0,
+        std::optional<Color> explicit_track_on = std::nullopt,
+        std::optional<Color> explicit_track_off = std::nullopt,
+        std::optional<Color> explicit_thumb = std::nullopt,
+        std::optional<Color> explicit_fg = std::nullopt,
+        const std::string& font_family = "",
+        float font_size = 0.0f,
+        int font_weight = 0
+    ) {
+        surface().render_styled_switch(
+            element, class_name, state, scale, parent_bg, text, progress_t, switch_w, switch_h,
+            explicit_track_on, explicit_track_off, explicit_thumb, explicit_fg,
+            font_family, font_size, font_weight
+        );
+    }
+
+    void render_styled_slider(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        double value_t = 0.0,
+        double track_thickness = 4.0,
+        double thumb_radius = 8.0,
+        bool is_dragging = false,
+        std::optional<Color> explicit_track_bg = std::nullopt,
+        std::optional<Color> explicit_active_bg = std::nullopt,
+        std::optional<Color> explicit_thumb_color = std::nullopt,
+        std::optional<Color> explicit_border_color = std::nullopt
+    ) {
+        surface().render_styled_slider(
+            element, class_name, state, scale, parent_bg, value_t, track_thickness, thumb_radius, is_dragging,
+            explicit_track_bg, explicit_active_bg, explicit_thumb_color, explicit_border_color
+        );
+    }
+
+    void render_styled_progress(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        double progress_t = 0.0,
+        bool is_indeterminate = false,
+        double phase_offset = 0.0,
+        std::optional<double> custom_rx = std::nullopt,
+        std::optional<double> custom_ry = std::nullopt,
+        std::optional<Color> explicit_track_bg = std::nullopt,
+        std::optional<Color> explicit_fill_color = std::nullopt
+    ) {
+        surface().render_styled_progress(
+            element, class_name, state, scale, parent_bg, progress_t, is_indeterminate, phase_offset,
+            custom_rx, custom_ry, explicit_track_bg, explicit_fill_color
+        );
+    }
+
+    void render_styled_separator(
+        const std::string& element,
+        const std::string& class_name,
+        double scale,
+        const Color& parent_bg,
+        const std::string& orientation = "horizontal",
+        double thickness = 1.0,
+        std::optional<Color> explicit_color = std::nullopt
+    ) {
+        surface().render_styled_separator(
+            element, class_name, scale, parent_bg, orientation, thickness, explicit_color
+        );
+    }
+
     void blit_to_photo(
         uintptr_t interp_addr,
         const std::string& photo_name,

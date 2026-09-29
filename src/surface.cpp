@@ -528,6 +528,498 @@ void Surface::render_box(
     }
 }
 
+void Surface::render_styled_box(
+    const std::string& element,
+    const std::string& class_name,
+    uint16_t state,
+    double scale,
+    const Color& parent_bg,
+    const std::string& text,
+    int text_align,
+    std::optional<double> custom_rx,
+    std::optional<double> custom_ry,
+    double elevation,
+    std::optional<Color> explicit_bg,
+    std::optional<Color> explicit_fg,
+    std::optional<Color> explicit_border,
+    const std::string& font_family,
+    float font_size,
+    int font_weight
+) {
+    if (width_ <= 0 || height_ <= 0) return;
+
+    // 1. Clear background to parent bg
+    clear(parent_bg);
+
+    if (scale <= 0.0) scale = 1.0;
+
+    // 2. Resolve CSS style
+    ComputedStyle style = StyleEngine::instance().resolve(element, class_name, state);
+
+    // 3. Apply font configuration & scaling
+    if (font_size > 0.0f) {
+        style.font_size = font_size * static_cast<float>(scale);
+    } else {
+        style.font_size = static_cast<float>(style.font_size * scale);
+    }
+
+    if (!font_family.empty() && font_family != "default") {
+        style.font_family = font_family;
+    }
+    if (font_weight > 0) {
+        style.font_weight = font_weight;
+    }
+
+    // 4. Scale geometry
+    if (custom_rx.has_value()) {
+        style.border_radius = static_cast<float>(*custom_rx);
+    } else {
+        style.border_radius = static_cast<float>(style.border_radius * scale);
+    }
+
+    style.border_width = static_cast<float>(style.border_width * scale);
+    style.shadow_blur = static_cast<float>(style.shadow_blur * scale);
+    style.shadow_offset_x = static_cast<float>(style.shadow_offset_x * scale);
+    style.shadow_offset_y = static_cast<float>(style.shadow_offset_y * scale);
+
+    // 5. Apply explicit color overrides
+    if (explicit_bg.has_value()) {
+        style.bg_color = *explicit_bg;
+    }
+    if (explicit_fg.has_value()) {
+        style.fg_color = *explicit_fg;
+    }
+    if (explicit_border.has_value()) {
+        style.border_color = *explicit_border;
+    }
+
+    // 6. Calculate box bounds and pad budget
+    double pad = 2.0 * scale;
+    double w = static_cast<double>(width_);
+    double h = static_cast<double>(height_);
+    double box_w = std::max(1.0, w - pad * 2.0);
+    double box_h = std::max(1.0, h - pad * 2.0);
+
+    // 7. Elevation / Shadow bounding
+    if (elevation > 0.0) {
+        style.shadow_blur = static_cast<float>(std::min(elevation * scale * 0.8, pad * 0.8));
+        style.shadow_offset_y = static_cast<float>(std::min(elevation * scale * 0.3, pad * 0.3));
+    } else if (style.shadow_blur > 0.0f) {
+        style.shadow_blur = static_cast<float>(std::min(static_cast<double>(style.shadow_blur), pad * 0.8));
+        style.shadow_offset_y = static_cast<float>(std::min(static_cast<double>(style.shadow_offset_y), pad * 0.3));
+    }
+
+    // 8. Render box
+    render_box(pad, pad, box_w, box_h, style, text, text_align);
+}
+
+void Surface::render_styled_badge(
+    const std::string& element,
+    const std::string& class_name,
+    uint16_t state,
+    double scale,
+    const Color& parent_bg,
+    const std::string& text,
+    bool dot,
+    std::optional<Color> dot_color,
+    std::optional<double> custom_rx,
+    std::optional<double> custom_ry,
+    std::optional<Color> explicit_bg,
+    std::optional<Color> explicit_fg,
+    std::optional<Color> explicit_border,
+    const std::string& font_family,
+    float font_size,
+    int font_weight
+) {
+    if (width_ <= 0 || height_ <= 0) return;
+    clear(parent_bg);
+    if (scale <= 0.0) scale = 1.0;
+
+    ComputedStyle style = StyleEngine::instance().resolve(element, class_name, state);
+
+    if (font_size > 0.0f) {
+        style.font_size = font_size * static_cast<float>(scale);
+    } else {
+        style.font_size = static_cast<float>(11.0f * scale);
+    }
+    if (!font_family.empty() && font_family != "default") {
+        style.font_family = font_family;
+    }
+    if (font_weight > 0) {
+        style.font_weight = font_weight;
+    }
+
+    double pad = 1.5 * scale;
+    double w = static_cast<double>(width_);
+    double h = static_cast<double>(height_);
+    double box_w = std::max(1.0, w - pad * 2.0);
+    double box_h = std::max(1.0, h - pad * 2.0);
+
+    if (custom_rx.has_value()) {
+        style.border_radius = static_cast<float>(*custom_rx);
+    } else {
+        style.border_radius = static_cast<float>(box_h / 2.0);
+    }
+    style.border_width = static_cast<float>(style.border_width * scale);
+
+    if (explicit_bg.has_value()) style.bg_color = *explicit_bg;
+    if (explicit_fg.has_value()) style.fg_color = *explicit_fg;
+    if (explicit_border.has_value()) style.border_color = *explicit_border;
+
+    if (dot) {
+        render_box(pad, pad, box_w, box_h, style, "", 1);
+        double dot_cx = pad + 10.0 * scale;
+        double dot_cy = h / 2.0;
+        Color d_col = dot_color.value_or(style.fg_color);
+        fill_circle(dot_cx, dot_cy, 3.0 * scale, d_col);
+
+        double text_x = dot_cx + 8.0 * scale + (box_w - 18.0 * scale) / 2.0;
+        double text_y = h / 2.0 + static_cast<double>(style.font_size) * 0.35;
+        draw_text(text, text_x, text_y, style.font_size, style.font_family, style.fg_color, 1, style.font_weight, false);
+    } else {
+        render_box(pad, pad, box_w, box_h, style, text, 1);
+    }
+}
+
+void Surface::render_styled_checkbox(
+    const std::string& element,
+    const std::string& class_name,
+    uint16_t state,
+    double scale,
+    const Color& parent_bg,
+    const std::string& text,
+    bool is_checked,
+    double box_size,
+    std::optional<double> custom_rx,
+    std::optional<double> custom_ry,
+    std::optional<Color> explicit_box_bg,
+    std::optional<Color> explicit_border,
+    std::optional<Color> explicit_check_color,
+    std::optional<Color> explicit_fg,
+    const std::string& font_family,
+    float font_size,
+    int font_weight
+) {
+    if (width_ <= 0 || height_ <= 0) return;
+    clear(parent_bg);
+    if (scale <= 0.0) scale = 1.0;
+
+    ComputedStyle style = StyleEngine::instance().resolve(element, class_name, state);
+
+    if (font_size > 0.0f) {
+        style.font_size = font_size * static_cast<float>(scale);
+    } else {
+        style.font_size = static_cast<float>(style.font_size * scale);
+    }
+    if (!font_family.empty() && font_family != "default") {
+        style.font_family = font_family;
+    }
+    if (font_weight > 0) {
+        style.font_weight = font_weight;
+    }
+
+    double h = static_cast<double>(height_);
+    double box_sz = box_size * scale;
+    double box_x = 2.0 * scale;
+    double box_y = (h - box_sz) / 2.0;
+    double rx = custom_rx.value_or(4.0 * scale);
+    double ry = custom_ry.value_or(rx);
+
+    Color bg_col = explicit_box_bg.value_or(is_checked ? style.bg_color : Color(0, 0, 0, 0));
+    Color border_col = explicit_border.value_or(is_checked ? style.bg_color : style.border_color);
+    Color check_col = explicit_check_color.value_or(is_checked ? style.fg_color : Color(0, 0, 0, 0));
+    Color text_col = explicit_fg.value_or(style.fg_color);
+
+    bool is_hovered = (state & static_cast<uint16_t>(PseudoState::Hover)) != 0;
+    bool has_focus = (state & static_cast<uint16_t>(PseudoState::Focused)) != 0;
+    Color focus_ring_color = has_focus ? style.border_color : Color(0, 0, 0, 0);
+    double focus_ring_width = has_focus ? (2.0 * scale) : 0.0;
+
+    draw_checkbox(
+        box_x, box_y, box_sz,
+        rx, ry,
+        bg_col,
+        border_col,
+        std::max(1.0, 1.5 * scale),
+        check_col,
+        is_checked,
+        is_hovered,
+        focus_ring_color,
+        focus_ring_width
+    );
+
+    if (!text.empty()) {
+        double text_x = box_x + box_sz + 8.0 * scale;
+        double text_y = h / 2.0 + static_cast<double>(style.font_size) * 0.35;
+        draw_text(text, text_x, text_y, style.font_size, style.font_family, text_col, 0 /* left */, style.font_weight, false);
+    }
+}
+
+void Surface::render_styled_radio(
+    const std::string& element,
+    const std::string& class_name,
+    uint16_t state,
+    double scale,
+    const Color& parent_bg,
+    const std::string& text,
+    bool is_selected,
+    double circle_size,
+    std::optional<Color> explicit_bg,
+    std::optional<Color> explicit_border,
+    std::optional<Color> explicit_dot_color,
+    std::optional<Color> explicit_fg,
+    const std::string& font_family,
+    float font_size,
+    int font_weight
+) {
+    if (width_ <= 0 || height_ <= 0) return;
+    clear(parent_bg);
+    if (scale <= 0.0) scale = 1.0;
+
+    ComputedStyle style = StyleEngine::instance().resolve(element, class_name, state);
+
+    if (font_size > 0.0f) {
+        style.font_size = font_size * static_cast<float>(scale);
+    } else {
+        style.font_size = static_cast<float>(style.font_size * scale);
+    }
+    if (!font_family.empty() && font_family != "default") {
+        style.font_family = font_family;
+    }
+    if (font_weight > 0) {
+        style.font_weight = font_weight;
+    }
+
+    double h = static_cast<double>(height_);
+    double d = circle_size * scale;
+    double r = d / 2.0;
+    double cx = 2.0 * scale + r;
+    double cy = h / 2.0;
+
+    Color bg_col = explicit_bg.value_or(is_selected ? style.bg_color : Color(0, 0, 0, 0));
+    Color border_col = explicit_border.value_or(is_selected ? style.bg_color : style.border_color);
+    Color dot_col = explicit_dot_color.value_or(style.fg_color);
+    Color text_col = explicit_fg.value_or(style.fg_color);
+
+    bool has_focus = (state & static_cast<uint16_t>(PseudoState::Focused)) != 0;
+    if (has_focus) {
+        stroke_circle(cx, cy, r + 2.0 * scale, border_col, 2.0 * scale);
+    }
+
+    if (bg_col.a > 0) {
+        fill_circle(cx, cy, r, bg_col);
+    }
+    if (border_col.a > 0) {
+        stroke_circle(cx, cy, r - 0.75 * scale, border_col, std::max(1.0, 1.5 * scale));
+    }
+
+    if (is_selected && dot_col.a > 0) {
+        fill_circle(cx, cy, r * 0.45, dot_col);
+    }
+
+    if (!text.empty()) {
+        double text_x = cx + r + 8.0 * scale;
+        double text_y = h / 2.0 + static_cast<double>(style.font_size) * 0.35;
+        draw_text(text, text_x, text_y, style.font_size, style.font_family, text_col, 0 /* left */, style.font_weight, false);
+    }
+}
+
+void Surface::render_styled_switch(
+    const std::string& element,
+    const std::string& class_name,
+    uint16_t state,
+    double scale,
+    const Color& parent_bg,
+    const std::string& text,
+    double progress_t,
+    double switch_w,
+    double switch_h,
+    std::optional<Color> explicit_track_on,
+    std::optional<Color> explicit_track_off,
+    std::optional<Color> explicit_thumb,
+    std::optional<Color> explicit_fg,
+    const std::string& font_family,
+    float font_size,
+    int font_weight
+) {
+    if (width_ <= 0 || height_ <= 0) return;
+    clear(parent_bg);
+    if (scale <= 0.0) scale = 1.0;
+
+    ComputedStyle style_off = StyleEngine::instance().resolve(element, class_name, state & ~static_cast<uint16_t>(PseudoState::Checked));
+    ComputedStyle style_on = StyleEngine::instance().resolve(element, class_name, state | static_cast<uint16_t>(PseudoState::Checked));
+
+    double clamped_t = std::clamp(progress_t, 0.0, 1.0);
+    double h = static_cast<double>(height_);
+    double sw = switch_w * scale;
+    double sh = switch_h * scale;
+    double sx = 2.0 * scale;
+    double sy = (h - sh) / 2.0;
+
+    Color track_on = explicit_track_on.value_or(style_on.bg_color);
+    Color track_off = explicit_track_off.value_or(style_off.bg_color);
+
+    uint8_t tr_r = static_cast<uint8_t>(track_off.r + clamped_t * (static_cast<double>(track_on.r) - track_off.r));
+    uint8_t tr_g = static_cast<uint8_t>(track_off.g + clamped_t * (static_cast<double>(track_on.g) - track_off.g));
+    uint8_t tr_b = static_cast<uint8_t>(track_off.b + clamped_t * (static_cast<double>(track_on.b) - track_off.b));
+    uint8_t tr_a = static_cast<uint8_t>(track_off.a + clamped_t * (static_cast<double>(track_on.a) - track_off.a));
+    Color active_track(tr_r, tr_g, tr_b, tr_a);
+
+    Color thumb_col = explicit_thumb.value_or(Color(255, 255, 255, 255));
+    bool has_focus = (state & static_cast<uint16_t>(PseudoState::Focused)) != 0;
+    Color focus_ring_color = has_focus ? style_on.bg_color : Color(0, 0, 0, 0);
+    double focus_ring_width = has_focus ? (2.0 * scale) : 0.0;
+
+    draw_switch(
+        sx, sy, sw, sh,
+        active_track,
+        thumb_col,
+        Color(0, 0, 0, 30),
+        clamped_t,
+        (state & static_cast<uint16_t>(PseudoState::Hover)) != 0,
+        focus_ring_color,
+        focus_ring_width
+    );
+
+    if (!text.empty()) {
+        float fsz = (font_size > 0.0f) ? (font_size * static_cast<float>(scale)) : static_cast<float>(style_off.font_size * scale);
+        std::string ff = (!font_family.empty() && font_family != "default") ? font_family : style_off.font_family;
+        int fw = (font_weight > 0) ? font_weight : style_off.font_weight;
+        Color text_col = explicit_fg.value_or(style_off.fg_color);
+
+        double text_x = sx + sw + 8.0 * scale;
+        double text_y = h / 2.0 + static_cast<double>(fsz) * 0.35;
+        draw_text(text, text_x, text_y, fsz, ff, text_col, 0 /* left */, fw, false);
+    }
+}
+
+void Surface::render_styled_slider(
+    const std::string& element,
+    const std::string& class_name,
+    uint16_t state,
+    double scale,
+    const Color& parent_bg,
+    double value_t,
+    double track_thickness,
+    double thumb_radius,
+    bool is_dragging,
+    std::optional<Color> explicit_track_bg,
+    std::optional<Color> explicit_active_bg,
+    std::optional<Color> explicit_thumb_color,
+    std::optional<Color> explicit_border_color
+) {
+    if (width_ <= 0 || height_ <= 0) return;
+    clear(parent_bg);
+    if (scale <= 0.0) scale = 1.0;
+
+    ComputedStyle style = StyleEngine::instance().resolve(element, class_name, state);
+
+    double pad_x = thumb_radius * scale + 2.0 * scale;
+    double w = static_cast<double>(width_);
+    double h = static_cast<double>(height_);
+    double slider_w = std::max(1.0, w - pad_x * 2.0);
+
+    Color track_bg = explicit_track_bg.value_or(style.bg_color);
+    Color active_bg = explicit_active_bg.value_or(style.fg_color.a > 0 ? style.fg_color : style.border_color);
+    if (active_bg.a == 0) active_bg = style.bg_color;
+    Color thumb_col = explicit_thumb_color.value_or(Color(255, 255, 255, 255));
+    Color border_col = explicit_border_color.value_or(style.border_color);
+
+    bool has_focus = (state & static_cast<uint16_t>(PseudoState::Focused)) != 0;
+    Color focus_ring_color = has_focus ? active_bg : Color(0, 0, 0, 0);
+    double focus_ring_width = has_focus ? (2.0 * scale) : 0.0;
+
+    draw_slider(
+        pad_x, 0.0, slider_w, h,
+        track_bg,
+        active_bg,
+        thumb_col,
+        border_col,
+        value_t,
+        track_thickness * scale,
+        thumb_radius * scale,
+        (state & static_cast<uint16_t>(PseudoState::Hover)) != 0,
+        is_dragging,
+        focus_ring_color,
+        focus_ring_width
+    );
+}
+
+void Surface::render_styled_progress(
+    const std::string& element,
+    const std::string& class_name,
+    uint16_t state,
+    double scale,
+    const Color& parent_bg,
+    double progress_t,
+    bool is_indeterminate,
+    double phase_offset,
+    std::optional<double> custom_rx,
+    std::optional<double> custom_ry,
+    std::optional<Color> explicit_track_bg,
+    std::optional<Color> explicit_fill_color
+) {
+    if (width_ <= 0 || height_ <= 0) return;
+    clear(parent_bg);
+    if (scale <= 0.0) scale = 1.0;
+
+    ComputedStyle style = StyleEngine::instance().resolve(element, class_name, state);
+
+    double pad = 2.0 * scale;
+    double w = static_cast<double>(width_);
+    double h = static_cast<double>(height_);
+    double bar_w = std::max(1.0, w - pad * 2.0);
+    double bar_h = std::max(1.0, h - pad * 2.0);
+
+    double rx = custom_rx.value_or(bar_h / 2.0);
+    double ry = custom_ry.value_or(rx);
+
+    Color track_bg = explicit_track_bg.value_or(style.bg_color);
+    Color fill_bg = explicit_fill_color.value_or(style.fg_color.a > 0 ? style.fg_color : style.border_color);
+    if (fill_bg.a == 0) fill_bg = Color(99, 102, 241, 255);
+
+    draw_progress_bar(
+        pad, pad, bar_w, bar_h,
+        rx, ry,
+        track_bg,
+        fill_bg,
+        progress_t,
+        is_indeterminate,
+        phase_offset
+    );
+}
+
+void Surface::render_styled_separator(
+    const std::string& element,
+    const std::string& class_name,
+    double scale,
+    const Color& parent_bg,
+    const std::string& orientation,
+    double thickness,
+    std::optional<Color> explicit_color
+) {
+    if (width_ <= 0 || height_ <= 0) return;
+    clear(parent_bg);
+    if (scale <= 0.0) scale = 1.0;
+
+    ComputedStyle style = StyleEngine::instance().resolve(element, class_name, 0);
+
+    Color line_col = explicit_color.value_or(style.border_color.a > 0 ? style.border_color : style.fg_color);
+    if (line_col.a == 0) line_col = Color(128, 128, 128, 100);
+
+    double w = static_cast<double>(width_);
+    double h = static_cast<double>(height_);
+    double th = std::max(1.0, thickness * scale);
+
+    if (orientation == "vertical") {
+        double mid_x = w / 2.0;
+        draw_line(mid_x, 0.0, mid_x, h, line_col, th);
+    } else {
+        double mid_y = h / 2.0;
+        draw_line(0.0, mid_y, w, mid_y, line_col, th);
+    }
+}
+
 void Surface::draw_card(
     double x, double y, double w, double h,
     double rx, double ry,

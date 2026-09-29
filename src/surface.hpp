@@ -17,6 +17,7 @@
 #include <vector>
 #include <mutex>
 #include <atomic>
+#include <optional>
 
 namespace tkblend {
 
@@ -161,6 +162,142 @@ public:
         const ComputedStyle& style,
         const std::string& text = "",
         int text_align = 1 // 0=left, 1=center, 2=right
+    );
+
+    void render_styled_box(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        const std::string& text = "",
+        int text_align = 1,
+        std::optional<double> custom_rx = std::nullopt,
+        std::optional<double> custom_ry = std::nullopt,
+        double elevation = 0.0,
+        std::optional<Color> explicit_bg = std::nullopt,
+        std::optional<Color> explicit_fg = std::nullopt,
+        std::optional<Color> explicit_border = std::nullopt,
+        const std::string& font_family = "",
+        float font_size = 0.0f,
+        int font_weight = 0
+    );
+
+    void render_styled_badge(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        const std::string& text = "",
+        bool dot = false,
+        std::optional<Color> dot_color = std::nullopt,
+        std::optional<double> custom_rx = std::nullopt,
+        std::optional<double> custom_ry = std::nullopt,
+        std::optional<Color> explicit_bg = std::nullopt,
+        std::optional<Color> explicit_fg = std::nullopt,
+        std::optional<Color> explicit_border = std::nullopt,
+        const std::string& font_family = "",
+        float font_size = 0.0f,
+        int font_weight = 0
+    );
+
+    void render_styled_checkbox(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        const std::string& text = "",
+        bool is_checked = false,
+        double box_size = 18.0,
+        std::optional<double> custom_rx = std::nullopt,
+        std::optional<double> custom_ry = std::nullopt,
+        std::optional<Color> explicit_box_bg = std::nullopt,
+        std::optional<Color> explicit_border = std::nullopt,
+        std::optional<Color> explicit_check_color = std::nullopt,
+        std::optional<Color> explicit_fg = std::nullopt,
+        const std::string& font_family = "",
+        float font_size = 0.0f,
+        int font_weight = 0
+    );
+
+    void render_styled_radio(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        const std::string& text = "",
+        bool is_selected = false,
+        double circle_size = 18.0,
+        std::optional<Color> explicit_bg = std::nullopt,
+        std::optional<Color> explicit_border = std::nullopt,
+        std::optional<Color> explicit_dot_color = std::nullopt,
+        std::optional<Color> explicit_fg = std::nullopt,
+        const std::string& font_family = "",
+        float font_size = 0.0f,
+        int font_weight = 0
+    );
+
+    void render_styled_switch(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        const std::string& text = "",
+        double progress_t = 0.0,
+        double switch_w = 44.0,
+        double switch_h = 24.0,
+        std::optional<Color> explicit_track_on = std::nullopt,
+        std::optional<Color> explicit_track_off = std::nullopt,
+        std::optional<Color> explicit_thumb = std::nullopt,
+        std::optional<Color> explicit_fg = std::nullopt,
+        const std::string& font_family = "",
+        float font_size = 0.0f,
+        int font_weight = 0
+    );
+
+    void render_styled_slider(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        double value_t = 0.0,
+        double track_thickness = 4.0,
+        double thumb_radius = 8.0,
+        bool is_dragging = false,
+        std::optional<Color> explicit_track_bg = std::nullopt,
+        std::optional<Color> explicit_active_bg = std::nullopt,
+        std::optional<Color> explicit_thumb_color = std::nullopt,
+        std::optional<Color> explicit_border_color = std::nullopt
+    );
+
+    void render_styled_progress(
+        const std::string& element,
+        const std::string& class_name,
+        uint16_t state,
+        double scale,
+        const Color& parent_bg,
+        double progress_t = 0.0,
+        bool is_indeterminate = false,
+        double phase_offset = 0.0,
+        std::optional<double> custom_rx = std::nullopt,
+        std::optional<double> custom_ry = std::nullopt,
+        std::optional<Color> explicit_track_bg = std::nullopt,
+        std::optional<Color> explicit_fill_color = std::nullopt
+    );
+
+    void render_styled_separator(
+        const std::string& element,
+        const std::string& class_name,
+        double scale,
+        const Color& parent_bg,
+        const std::string& orientation = "horizontal",
+        double thickness = 1.0,
+        std::optional<Color> explicit_color = std::nullopt
     );
 
     void draw_card(
