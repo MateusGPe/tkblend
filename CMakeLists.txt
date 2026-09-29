@@ -131,14 +131,15 @@ find_path(TK_INCLUDE_PATH
     HINTS
         ${TK_PKG_INCLUDE_DIRS}
         ${Python_INCLUDE_DIRS}
+        /opt/homebrew/opt/tcl-tk/include
+        /usr/local/opt/tcl-tk/include
+        /opt/homebrew/include
+        /usr/local/include
         /usr/include/tcl8.6
         /usr/include/tk8.6
         /usr/local/include/tcl8.6
         /usr/local/include/tk8.6
         /usr/include
-        /usr/local/include
-        /opt/homebrew/include
-        /opt/homebrew/opt/tcl-tk/include
         "C:/Program Files/Tcl"
         "C:/Program Files/Tcl/include"
         "C:/msys64/ucrt64/include"
@@ -152,12 +153,13 @@ find_path(TCL_INCLUDE_PATH
     HINTS
         ${TCL_PKG_INCLUDE_DIRS}
         ${Python_INCLUDE_DIRS}
+        /opt/homebrew/opt/tcl-tk/include
+        /usr/local/opt/tcl-tk/include
+        /opt/homebrew/include
+        /usr/local/include
         /usr/include/tcl8.6
         /usr/local/include/tcl8.6
         /usr/include
-        /usr/local/include
-        /opt/homebrew/include
-        /opt/homebrew/opt/tcl-tk/include
         "C:/Program Files/Tcl"
         "C:/Program Files/Tcl/include"
         "C:/msys64/ucrt64/include"
@@ -171,12 +173,13 @@ find_library(TK_LIBRARY
     HINTS
         ${TK_PKG_LIBRARY_DIRS}
         ${Python_LIBRARY_DIRS}
+        /opt/homebrew/opt/tcl-tk/lib
+        /usr/local/opt/tcl-tk/lib
+        /opt/homebrew/lib
+        /usr/local/lib
         /usr/lib
         /usr/lib/x86_64-linux-gnu
         /usr/lib/aarch64-linux-gnu
-        /usr/local/lib
-        /opt/homebrew/lib
-        /opt/homebrew/opt/tcl-tk/lib
         "C:/Program Files/Tcl/lib"
         "C:/msys64/ucrt64/lib"
         "C:/msys64/mingw64/lib"
@@ -188,12 +191,13 @@ find_library(TCL_LIBRARY
     HINTS
         ${TCL_PKG_LIBRARY_DIRS}
         ${Python_LIBRARY_DIRS}
+        /opt/homebrew/opt/tcl-tk/lib
+        /usr/local/opt/tcl-tk/lib
+        /opt/homebrew/lib
+        /usr/local/lib
         /usr/lib
         /usr/lib/x86_64-linux-gnu
         /usr/lib/aarch64-linux-gnu
-        /usr/local/lib
-        /opt/homebrew/lib
-        /opt/homebrew/opt/tcl-tk/lib
         "C:/Program Files/Tcl/lib"
         "C:/msys64/ucrt64/lib"
         "C:/msys64/mingw64/lib"
@@ -205,12 +209,13 @@ find_library(TK_STUB_LIBRARY
     HINTS
         ${TK_PKG_LIBRARY_DIRS}
         ${Python_LIBRARY_DIRS}
+        /opt/homebrew/opt/tcl-tk/lib
+        /usr/local/opt/tcl-tk/lib
+        /opt/homebrew/lib
+        /usr/local/lib
         /usr/lib
         /usr/lib/x86_64-linux-gnu
         /usr/lib/aarch64-linux-gnu
-        /usr/local/lib
-        /opt/homebrew/lib
-        /opt/homebrew/opt/tcl-tk/lib
         "C:/Program Files/Tcl/lib"
         "C:/msys64/ucrt64/lib"
         "C:/msys64/mingw64/lib"
@@ -222,12 +227,13 @@ find_library(TCL_STUB_LIBRARY
     HINTS
         ${TCL_PKG_LIBRARY_DIRS}
         ${Python_LIBRARY_DIRS}
+        /opt/homebrew/opt/tcl-tk/lib
+        /usr/local/opt/tcl-tk/lib
+        /opt/homebrew/lib
+        /usr/local/lib
         /usr/lib
         /usr/lib/x86_64-linux-gnu
         /usr/lib/aarch64-linux-gnu
-        /usr/local/lib
-        /opt/homebrew/lib
-        /opt/homebrew/opt/tcl-tk/lib
         "C:/Program Files/Tcl/lib"
         "C:/msys64/ucrt64/lib"
         "C:/msys64/mingw64/lib"
@@ -409,13 +415,14 @@ elseif(WIN32)
         ${TCL_LIBRARY}
     )
 else()
+    if(NOT TK_STUB_LIBRARY OR NOT TCL_STUB_LIBRARY)
+        message(FATAL_ERROR
+            "Tcl/Tk stub libraries (libtclstub8.6.a, libtkstub8.6.a) are required on macOS. "
+            "Install them via 'brew install tcl-tk' and set CMAKE_PREFIX_PATH."
+        )
+    endif()
     target_compile_definitions(_tkblend PRIVATE USE_TCL_STUBS USE_TK_STUBS)
-    if(TK_STUB_LIBRARY)
-        target_link_libraries(_tkblend PRIVATE ${TK_STUB_LIBRARY})
-    endif()
-    if(TCL_STUB_LIBRARY)
-        target_link_libraries(_tkblend PRIVATE ${TCL_STUB_LIBRARY})
-    endif()
+    target_link_libraries(_tkblend PRIVATE ${TK_STUB_LIBRARY} ${TCL_STUB_LIBRARY})
 endif()
 
 
@@ -445,5 +452,5 @@ if(MINGW)
 endif()
 
 # Install target for packaging
-install(TARGETS _tkblend LIBRARY DESTINATION tkblend)
+install(TARGETS _tkblend LIBRARY DESTINATION tkblend RUNTIME DESTINATION tkblend ARCHIVE DESTINATION tkblend)
 

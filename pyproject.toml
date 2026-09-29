@@ -112,4 +112,4 @@ environment = { MACOSX_DEPLOYMENT_TARGET = "10.15" }
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
 repair-wheel-command = "delvewheel repair --exclude tcl86t.dll --exclude tk86t.dll -w {dest_dir} {wheel}"
-test-command = "python -c \"import _tkblend; print('C++ extension loaded successfully')\""
+test-command = "python -c \"from tkblend import _tkblend; print('C++ extension loaded successfully')\""

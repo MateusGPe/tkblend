@@ -39,6 +39,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y tcl8.6-dev tk8.6-dev xvfb libx11-dev
 
+      - name: Install macOS Tcl/Tk development files
+        if: runner.os == 'macOS'
+        run: |
+          brew install tcl-tk
+          echo "CMAKE_PREFIX_PATH=$(brew --prefix tcl-tk)" >> $GITHUB_ENV
+
       - name: Install Windows Tcl/Tk development files
         if: runner.os == 'Windows'
         id: tcltk
