@@ -328,7 +328,7 @@ class WidgetGallery(tk.Frame):
         ProgressBar(pb_box, value=90, bootstyle="accent", width=480, height=12).pack(fill="x", pady=4)
 
     def _setup_containers_tab(self) -> None:
-        tab = self._tabview.add("Containers & Accordion")
+        tab = self._tabview.add("Containers")
         body = tab.body
         pal = get_theme()
 
@@ -386,7 +386,7 @@ class WidgetGallery(tk.Frame):
             {"id": "status", "name": "Status", "width": 100, "align": "center"},
         ]
         data = [
-            {"id": "01", "name": "tkblend", "version": "0.3.0", "license": "MIT", "status": "Stable"},
+            {"id": "01", "name": "tkblend", "version": "0.3.0", "license": "BSL 1.1", "status": "Stable"},
             {"id": "02", "name": "blend2d", "version": "0.11.4", "license": "Zlib", "status": "Optimized"},
             {"id": "03", "name": "nanobind", "version": "2.4.0", "license": "BSD-3", "status": "Active"},
             {"id": "04", "name": "tkinter", "version": "8.6.14", "license": "Tcl/Tk", "status": "Builtin"},

@@ -4,18 +4,17 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "tkblend"
-version = "0.2.0"
+version = "0.3.0"
 description = "High-performance Blend2D vector graphics addon for ttkbootstrap and Tkinter via zero-copy Tk_PhotoPutBlock blitting"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
-    { name = "tkblend authors" }
+    { name = "Mateus GP" }
 ]
-license = { text = "MIT" }
+license = { file = "LICENSE" }
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",

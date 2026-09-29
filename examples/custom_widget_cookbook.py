@@ -73,7 +73,7 @@ class RadarChartWidget(Widget):
         h = float(self._widget_h)
         cx = w / 2.0
         cy = h / 2.0
-        max_r = min(cx, cy) - 32.0 * s
+        max_r = min(cx, cy) - 44.0 * s
 
         self._surface.clear(self._parent_bg)
 
@@ -105,7 +105,7 @@ class RadarChartWidget(Widget):
             self._surface.draw_line(cx, cy, px, py, pal.surface_border, stroke_width=1.0 * s)
 
             # Draw Label
-            lbl_r = max_r + 16.0 * s
+            lbl_r = max_r + 14.0 * s
             lx = cx + lbl_r * math.cos(ang)
             ly = cy + lbl_r * math.sin(ang)
             align = "center"
@@ -113,7 +113,7 @@ class RadarChartWidget(Widget):
                 align = "left"
             elif math.cos(ang) < -0.3:
                 align = "right"
-            self._surface.draw_text(cat, lx, ly + 4.0 * s, font_size=9.0 * s, color=pal.fg_subtle, align=align)
+            self._surface.draw_text(cat, lx, ly + 3.0 * s, font_size=8.5 * s, color=pal.fg_subtle, align=align)
 
         # 3. Value Polygon Fill & Stroke
         val_path = Path()

@@ -127,14 +127,15 @@ class RealtimeVisualizer(tk.Frame):
         mode_bar = tk.Frame(self, background=pal.bg)
         mode_bar.pack(fill="x", padx=20, pady=6)
 
-        SegmentedButton(
+        self._mode_seg = SegmentedButton(
             mode_bar,
             values=["Particle Swarm", "Audio Spectrum", "Harmonic Lissajous"],
             default_value="Particle Swarm",
             command=self._set_mode,
             width=480,
             height=32,
-        ).pack(side="left")
+        )
+        self._mode_seg.pack(side="left")
 
         self._play_btn = Button(mode_bar, text="Pause Animation", width=140, height=32, command=self._toggle_running)
         self._play_btn.pack(side="right")
@@ -192,6 +193,18 @@ class RealtimeVisualizer(tk.Frame):
 
     def _set_mode(self, mode: str) -> None:
         self._mode = mode
+        if hasattr(self, "_mode_seg"):
+            self._mode_seg.set(mode)
+
+    def destroy(self) -> None:
+        self._is_running = False
+        if self._timer_id:
+            try:
+                self.after_cancel(self._timer_id)
+                self._timer_id = None
+            except Exception:
+                pass
+        super().destroy()
 
     def _toggle_running(self) -> None:
         self._is_running = not self._is_running
