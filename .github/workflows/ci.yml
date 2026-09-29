@@ -38,12 +38,30 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y tcl8.6-dev tk8.6-dev xvfb libx11-dev
 
+      - name: Install Windows Tcl/Tk development files
+        if: runner.os == 'Windows'
+        id: tcltk
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-name: tkblend-tcltk
+          create-args: >-
+            --channel conda-forge
+            tk=8.6.13
+          init-shell: none
+
       - name: Install build tools & dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install cmake ninja nanobind scikit-build-core pytest
 
-      - name: Build and install tkblend (editable/dev)
+      - name: Build and install tkblend (Windows)
+        if: runner.os == 'Windows'
+        run: python -m pip install -e . --no-build-isolation -v
+        env:
+          CMAKE_PREFIX_PATH: ${{ steps.tcltk.outputs.environment-path }}/Library
+
+      - name: Build and install tkblend (macOS / Linux)
+        if: runner.os != 'Windows'
         run: |
           python -m pip install -e . --no-build-isolation -v
 

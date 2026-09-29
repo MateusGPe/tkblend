@@ -164,7 +164,7 @@ find_path(TCL_INCLUDE_PATH
 )
 
 find_library(TK_LIBRARY
-    NAMES tk8.6 tk86 tk
+    NAMES tk86t tk8.6 tk86 tk
     HINTS
         ${TK_PKG_LIBRARY_DIRS}
         ${Python_LIBRARY_DIRS}
@@ -181,7 +181,7 @@ find_library(TK_LIBRARY
 )
 
 find_library(TCL_LIBRARY
-    NAMES tcl8.6 tcl86 tcl
+    NAMES tcl86t tcl8.6 tcl86 tcl
     HINTS
         ${TCL_PKG_LIBRARY_DIRS}
         ${Python_LIBRARY_DIRS}
@@ -237,6 +237,25 @@ message(STATUS "TK_LIBRARY: ${TK_LIBRARY}")
 message(STATUS "TCL_LIBRARY: ${TCL_LIBRARY}")
 message(STATUS "TK_STUB_LIBRARY: ${TK_STUB_LIBRARY}")
 message(STATUS "TCL_STUB_LIBRARY: ${TCL_STUB_LIBRARY}")
+
+if(WIN32)
+    if(NOT TK_INCLUDE_PATH OR NOT TCL_INCLUDE_PATH
+        OR NOT EXISTS "${TK_INCLUDE_PATH}/tkPlatDecls.h")
+        message(FATAL_ERROR
+            "Windows builds require Tcl/Tk 8.6 development headers. "
+            "Install the tk=8.6.13 conda-forge package and set "
+            "CMAKE_PREFIX_PATH to its Library directory."
+        )
+    endif()
+    if(NOT TK_LIBRARY OR NOT TCL_LIBRARY
+        OR NOT TK_STUB_LIBRARY OR NOT TCL_STUB_LIBRARY)
+        message(FATAL_ERROR
+            "Windows builds require Tcl/Tk 8.6 import and stub libraries. "
+            "Install the tk=8.6.13 conda-forge package and set "
+            "CMAKE_PREFIX_PATH to its Library directory."
+        )
+    endif()
+endif()
 
 # ------------------------------------------------------------------------------
 # Sanitizers & Coverage Options
@@ -324,6 +343,17 @@ nanobind_add_module(
     ${TKBLEND_SOURCES}
 )
 
+set(TKBLEND_TCLTK_INCLUDE_DIRS
+    ${TK_INCLUDE_PATH}
+    ${TCL_INCLUDE_PATH}
+)
+if(NOT WIN32)
+    list(APPEND TKBLEND_TCLTK_INCLUDE_DIRS
+        ${TK_INCLUDE_PATH}/tk-private/generic
+        ${TK_INCLUDE_PATH}/tk-private/unix
+    )
+endif()
+
 target_include_directories(_tkblend PRIVATE
     src
     src/blit
@@ -331,10 +361,7 @@ target_include_directories(_tkblend PRIVATE
     ${PLATFORM_INCLUDES}
     ${blend2d_SOURCE_DIR}
     ${blend2d_SOURCE_DIR}/blend2d
-    ${TK_INCLUDE_PATH}
-    ${TK_INCLUDE_PATH}/tk-private/generic
-    ${TK_INCLUDE_PATH}/tk-private/unix
-    ${TCL_INCLUDE_PATH}
+    ${TKBLEND_TCLTK_INCLUDE_DIRS}
 )
 
 if(FREETYPE_INCLUDE_DIRS)
@@ -366,6 +393,14 @@ if(UNIX AND NOT APPLE)
     endif()
     target_compile_definitions(_tkblend PRIVATE USE_TCL_STUBS USE_TK_STUBS)
     target_link_libraries(_tkblend PRIVATE ${TK_STUB_LIBRARY} ${TCL_STUB_LIBRARY})
+elseif(WIN32)
+    target_compile_definitions(_tkblend PRIVATE USE_TCL_STUBS USE_TK_STUBS)
+    target_link_libraries(_tkblend PRIVATE
+        ${TK_STUB_LIBRARY}
+        ${TCL_STUB_LIBRARY}
+        ${TK_LIBRARY}
+        ${TCL_LIBRARY}
+    )
 else()
     if(TK_STUB_LIBRARY)
         target_link_libraries(_tkblend PRIVATE ${TK_STUB_LIBRARY})

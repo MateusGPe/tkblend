@@ -24,6 +24,17 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install Windows Tcl/Tk development files
+        if: runner.os == 'Windows'
+        id: tcltk
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-name: tkblend-tcltk
+          create-args: >-
+            --channel conda-forge
+            tk=8.6.13
+          init-shell: none
+
       - name: Install build
         run: python -m pip install --upgrade build
 
@@ -79,6 +90,7 @@ jobs:
         run: python -m cibuildwheel --output-dir wheelhouse
         env:
           CIBW_ARCHS: ${{ matrix.cibw_archs }}
+          CMAKE_PREFIX_PATH: ${{ steps.tcltk.outputs.environment-path && format('{0}/Library', steps.tcltk.outputs.environment-path) || '' }}
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4

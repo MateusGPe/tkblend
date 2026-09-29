@@ -6,6 +6,16 @@
 #include <tkPlatDecls.h>
 #include <cstring>
 
+struct TkWinDCState {
+    HPALETTE palette;
+    int bkmode;
+};
+
+extern "C" {
+EXTERN HDC TkWinGetDrawableDC(Display* display, Drawable drawable, TkWinDCState* state);
+EXTERN void TkWinReleaseDrawableDC(Drawable drawable, HDC dc, TkWinDCState* state);
+}
+
 namespace tkblend {
 
 bool NativeBlit(
