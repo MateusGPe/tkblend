@@ -6,7 +6,7 @@
 #import <CoreGraphics/CoreGraphics.h>
 
 extern "C" {
-    CGContextRef TkMacOSXGetCGContextForDrawable(Drawable drawable);
+    CGContextRef TkMacOSXGetCGContextForDrawable(Drawable drawable) __attribute__((weak_import));
 }
 
 namespace tkblend {
@@ -24,6 +24,10 @@ bool NativeBlit(
         return false;
     }
     if (width <= 0 || height <= 0 || box.width <= 0 || box.height <= 0) {
+        return false;
+    }
+
+    if (!TkMacOSXGetCGContextForDrawable) {
         return false;
     }
 
