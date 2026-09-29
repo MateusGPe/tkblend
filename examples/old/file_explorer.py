@@ -1208,6 +1208,23 @@ class FileExplorerApp:
         except Exception as err:
             self.status_var.set(f"Open terminal failed: {err}")
 
+    def destroy(self):
+        """Clean up theme listeners and widgets."""
+        try:
+            tb.remove_theme_listener(self._on_theme_changed)
+        except Exception:
+            pass
+        if hasattr(self, "toolbar_card") and self.toolbar_card.winfo_exists():
+            self.toolbar_card.destroy()
+        if hasattr(self, "panes_container") and self.panes_container.winfo_exists():
+            self.panes_container.destroy()
+        if hasattr(self, "status_card") and self.status_card.winfo_exists():
+            self.status_card.destroy()
+        if hasattr(self, "context_menu") and self.context_menu.winfo_exists():
+            self.context_menu.destroy()
+        if self._owns_root and self.root.winfo_exists():
+            self.root.destroy()
+
     def mainloop(self):
         self.root.mainloop()
 

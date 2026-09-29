@@ -145,3 +145,4 @@ def test_file_explorer_app_lifecycle(root):
     app._on_theme_selected("nord")
     app.toggle_theme()
     root.update_idletasks()
+    app.destroy()

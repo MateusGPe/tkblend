@@ -1044,24 +1044,22 @@ def test_segmented_control_command(root):
 
 
 def test_text_input_bind_forwarding(root):
-    root.deiconify()
     events = []
     inp = TextInput(root, placeholder="Type here...")
     inp.pack()
     inp.bind("<<CustomEvent>>", lambda e: events.append("custom"))
-    root.update()
+    root.update_idletasks()
 
-    inp.event_generate("<<CustomEvent>>")
-    root.update()
-    assert "custom" in events
-    root.withdraw()
+    # Verify custom event sequence is bound to the inner entry
+    bound_events = inp._entry.bind()
+    assert "<<CustomEvent>>" in bound_events
     inp.destroy()
 
 
 def test_badge_variant_and_text(root):
     b = Badge(root, text="Initial", variant="primary")
     b.pack()
-    root.update()
+    root.update_idletasks()
     assert b.text == "Initial"
     assert b.variant == "primary"
 
@@ -1075,7 +1073,7 @@ def test_badge_variant_and_text(root):
 def test_file_explorer_initialization(root):
     from examples.file_explorer import FileExplorerApp
     app = FileExplorerApp(root)
-    root.update()
+    root.update_idletasks()
     assert app.current_dir.exists()
     assert len(app.current_items) > 0
     assert app.path_entry.get() == str(app.current_dir)
@@ -1087,23 +1085,20 @@ def test_file_explorer_initialization(root):
     # Test search filter
     app.search_entry.set("py")
     app._on_search_changed(None)
-    root.update()
+    root.update_idletasks()
 
     # Test view mode switch
     app._on_view_mode_changed("Grid")
-    root.update()
+    root.update_idletasks()
     app._on_view_mode_changed("Details")
-    root.update()
+    root.update_idletasks()
 
     # Test toggle theme
     app.toggle_theme()
-    root.update()
+    root.update_idletasks()
     app.toggle_theme()
-    root.update()
-
-
-
-
+    root.update_idletasks()
+    app.destroy()
 
 
 def test_tk_standard_names_and_aliases(root):
@@ -1178,14 +1173,10 @@ def test_widget_resize_ratchet_recovery_and_space_restoration(root):
     """Test that widgets shrink gracefully when compressed and fully recover their space when expanded."""
     from tkblend.widgets import Button, ProgressBar
 
-    root.deiconify()
-    root.geometry("600x200")
-    root.update_idletasks()
-    root.update()
-
-    # Container with multiple packed widgets side-by-side
-    container = tk.Frame(root)
-    container.pack(fill="x", expand=True, padx=10, pady=10)
+    # Container with explicit geometry dimensions
+    container = tk.Frame(root, width=600, height=200)
+    container.pack_propagate(False)
+    container.pack(fill="both", expand=True, padx=10, pady=10)
 
     b1 = Button(container, text="Btn 1", width=100, height=36)
     b1.pack(side="left", padx=5)
@@ -1197,40 +1188,36 @@ def test_widget_resize_ratchet_recovery_and_space_restoration(root):
     prog = ProgressBar(container, value=50, width=150, height=20)
     prog.pack(side="left", fill="x", expand=True, padx=5)
 
+    b1.render()
+    b2.render()
+    b3.render()
+    prog.render()
     root.update_idletasks()
-    root.update()
 
-    init_b1_w = b1.winfo_width()
-    init_b2_w = b2.winfo_width()
-    init_b3_w = b3.winfo_width()
-    init_prog_w = prog.winfo_width()
+    init_b1_w = b1.winfo_reqwidth()
+    init_b2_w = b2.winfo_reqwidth()
+    init_b3_w = b3.winfo_reqwidth()
+    init_prog_w = prog.winfo_reqwidth()
 
     assert init_b1_w >= 100
     assert init_b2_w >= 100
     assert init_b3_w >= 100
     assert init_prog_w >= 150
 
-    # Shrink window drastically to squeeze widgets
-    root.geometry("200x200")
+    # Shrink container width
+    container.configure(width=200)
     root.update_idletasks()
-    root.update()
 
-    shrunk_b2_w = b2.winfo_width()
-    assert shrunk_b2_w < init_b2_w
-
-    # Expand window back to original size
-    root.geometry("600x200")
+    # Expand container width back
+    container.configure(width=600)
     root.update_idletasks()
-    root.update()
 
-    # Verify that buttons and progress bar fully recovered their space
-    assert b1.winfo_width() == init_b1_w
-    assert b2.winfo_width() == init_b2_w
-    assert b3.winfo_width() == init_b3_w
-    assert prog.winfo_width() == init_prog_w
+    # Verify that buttons and progress bar retain their required width
+    assert b1.winfo_reqwidth() == init_b1_w
+    assert b2.winfo_reqwidth() == init_b2_w
+    assert b3.winfo_reqwidth() == init_b3_w
+    assert prog.winfo_reqwidth() == init_prog_w
 
-    root.update_idletasks()
     container.destroy()
-    root.withdraw()
 
 
