@@ -183,46 +183,24 @@ bool clear_window_shape(uint64_t window_id) {
 } // namespace tkblend
 
 #elif defined(__APPLE__)
-#import <Cocoa/Cocoa.h>
 
-// Note: Under ARC builds (-fobjc-arc), __bridge is a non-retaining borrowed reference cast.
-// The caller (Tk/Tkinter) manages the lifetime of the native NSView window hierarchy.
-// @autoreleasepool ensures any transient ObjC allocations during property access are released.
+// On macOS Aqua/Cocoa Tk, Tk widgets do not have individual NSView instances; all child
+// widgets share the toplevel NSView (TKContentView), and Tk's winfo_id() returns a pointer
+// to an internal MacDrawable struct (not an NSView*). Attempting to send ObjC messages
+// to this pointer causes a segmentation fault (EXC_BAD_ACCESS).
+// Therefore, native OS window shaping is safely disabled on macOS.
 namespace tkblend {
 
 bool is_window_shaping_supported() {
-    return true;
+    return false;
 }
 
-bool apply_round_rect_shape(uint64_t window_id, int width, int height, double rx, double ry) {
-    if (window_id == 0) {
-        return false;
-    }
-    @autoreleasepool {
-        NSView* view = (__bridge NSView*)(void*)(uintptr_t)window_id;
-        if (!view || ![view isKindOfClass:[NSView class]]) {
-            return false;
-        }
-        view.wantsLayer = YES;
-        view.layer.masksToBounds = YES;
-        view.layer.cornerRadius = static_cast<CGFloat>(rx);
-        return true;
-    }
+bool apply_round_rect_shape(uint64_t /*window_id*/, int /*width*/, int /*height*/, double /*rx*/, double /*ry*/) {
+    return false;
 }
 
-bool clear_window_shape(uint64_t window_id) {
-    if (window_id == 0) {
-        return false;
-    }
-    @autoreleasepool {
-        NSView* view = (__bridge NSView*)(void*)(uintptr_t)window_id;
-        if (!view || ![view isKindOfClass:[NSView class]]) {
-            return false;
-        }
-        view.layer.masksToBounds = NO;
-        view.layer.cornerRadius = 0.0;
-        return true;
-    }
+bool clear_window_shape(uint64_t /*window_id*/) {
+    return false;
 }
 
 } // namespace tkblend
