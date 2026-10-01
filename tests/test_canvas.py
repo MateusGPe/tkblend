@@ -24,7 +24,7 @@ class TestBlendCanvas(unittest.TestCase):
         self.assertEqual(canvas.canvas_width, 400)
         self.assertEqual(canvas.canvas_height, 300)
         self.assertIsInstance(canvas.surface, Surface)
-        self.assertIsInstance(canvas.photo, tk.PhotoImage)
+        self.assertIsNone(canvas.photo)
 
     def test_canvas_bootstyle_and_bg_options(self):
         # bootstyle used as background

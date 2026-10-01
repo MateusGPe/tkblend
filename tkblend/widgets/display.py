@@ -227,10 +227,7 @@ class Label(Widget):
                 self._logical_w = new_w
                 self._logical_h = new_h
                 self._widget_w = max(1, int(new_w * self._scale))
-                self._widget_h = max(1, int(new_h * self._scale))
-                if self._photo and self._surface:
-                    self._photo.configure(width=self._widget_w, height=self._widget_h)
-                    self._surface.resize(self._widget_w, self._widget_h)
+                self.configure(width=self._widget_w, height=self._widget_h)
         self.render()
 
     def set_color(self, col: ColorLike) -> None:

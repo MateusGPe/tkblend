@@ -90,7 +90,7 @@ class VectorIcon(Widget):
             else:
                 self._surface.fill_circle(cx, cy, 4.0 * icon_scale, col)
 
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in VectorIcon: %s", e, exc_info=True)
 
@@ -137,9 +137,7 @@ class IconLabel(Widget):
             if new_w != self._logical_w:
                 self._logical_w = new_w
                 self._widget_w = max(1, int(new_w * self._scale))
-                if self._photo and self._surface:
-                    self._photo.configure(width=self._widget_w, height=self._widget_h)
-                    self._surface.resize(self._widget_w, self._widget_h)
+                self.configure(width=self._widget_w)
         self.render()
 
     def set_icon(self, icon: str) -> None:
@@ -188,7 +186,7 @@ class IconLabel(Widget):
                 align="left",
             )
 
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in IconLabel: %s", e, exc_info=True)
 
@@ -230,7 +228,7 @@ class VectorImage(Widget):
             if self._image is not None:
                 self._surface.blit_image(self._image, 0, 0, w, h)
 
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in VectorImage: %s", e, exc_info=True)
 

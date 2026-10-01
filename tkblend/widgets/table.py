@@ -132,6 +132,7 @@ class _TableViewSurface(Widget):
             bg=parent_bg,
             **kwargs,
         )
+        self._active_cursor = ""
         # Mouse event bindings
         self.bind("<Motion>", self._on_mouse_move)
         self.bind("<Leave>", self._on_mouse_leave)
@@ -139,6 +140,14 @@ class _TableViewSurface(Widget):
         self.bind("<B1-Motion>", self._on_drag)
         self.bind("<ButtonRelease-1>", self._on_release)
         self.bind("<Double-Button-1>", self._on_double_click)
+
+    def _set_cursor(self, cursor: str) -> None:
+        if getattr(self, "_active_cursor", None) != cursor:
+            self._active_cursor = cursor
+            try:
+                super().configure(cursor=cursor)
+            except Exception:
+                pass
 
     def _get_divider_at_x(self, x: float, tolerance: float = 5.0) -> Optional[int]:
         """Return the column index if x is near the right divider edge of that column."""
@@ -161,35 +170,37 @@ class _TableViewSurface(Widget):
         if event.y < hdr_h:
             divider_col = self._get_divider_at_x(event.x)
             if divider_col is not None and divider_col < len(self._table._columns):
-                self.configure(cursor="sb_h_double_arrow")
+                self._set_cursor("sb_h_double_arrow")
             else:
-                self.configure(cursor="")
+                self._set_cursor("")
 
             col_idx = self._table._get_col_at_x(event.x + self._table._scroll_x)
-            if col_idx != self._table._hovered_col:
+            if col_idx != self._table._hovered_col or self._table._hovered_row is not None:
                 self._table._hovered_col = col_idx
                 self._table._hovered_row = None
                 self.render()
         else:
-            self.configure(cursor="")
+            self._set_cursor("")
             content_y = event.y - hdr_h + self._table._scroll_y
             row_idx = int(content_y // row_h)
             visible_rows = self._table._get_visible_data()
             if 0 <= row_idx < len(visible_rows):
-                if row_idx != self._table._hovered_row:
+                if row_idx != self._table._hovered_row or self._table._hovered_col is not None:
                     self._table._hovered_row = row_idx
                     self._table._hovered_col = None
                     self.render()
             else:
-                if self._table._hovered_row is not None:
+                if self._table._hovered_row is not None or self._table._hovered_col is not None:
                     self._table._hovered_row = None
+                    self._table._hovered_col = None
                     self.render()
 
     def _on_mouse_leave(self, event) -> None:
-        self.configure(cursor="")
-        self._table._hovered_row = None
-        self._table._hovered_col = None
-        self.render()
+        self._set_cursor("")
+        if self._table._hovered_row is not None or self._table._hovered_col is not None:
+            self._table._hovered_row = None
+            self._table._hovered_col = None
+            self.render()
 
     def _on_press(self, event) -> None:
         self.focus_set()
@@ -577,7 +588,7 @@ class _TableViewSurface(Widget):
 
                 curr_x += cw
 
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in _TableViewSurface: %s", e, exc_info=True)
 

@@ -255,7 +255,7 @@ class ColorPicker(Widget):
     # -------------------------------------------------------------------------
 
     def render(self) -> None:
-        if self._surface is None or self._photo is None:
+        if self._surface is None:
             return
 
         w = float(self._widget_w)
@@ -374,7 +374,7 @@ class ColorPicker(Widget):
                 self._surface.fill_rounded_rect(col_x, row_y, size, size, 3.0 * s, 3.0 * s, hex_col)
                 self._surface.stroke_rounded_rect(col_x, row_y, size, size, 3.0 * s, 3.0 * s, border_col, stroke_width=0.8 * s)
 
-        self._surface.blit(self._photo)
+        self.end_render()
 
 
 class ColorWell(Widget):
@@ -514,7 +514,7 @@ class ColorWell(Widget):
             self._root_bind_id = top.bind("<ButtonPress-1>", self._on_root_click, add="+")
 
     def render(self) -> None:
-        if self._surface is None or self._photo is None:
+        if self._surface is None:
             return
 
         w = float(self._widget_w)
@@ -537,7 +537,7 @@ class ColorWell(Widget):
         self._surface.fill_rounded_rect(pad, pad, sw_w, sw_h, 4.0 * s, 4.0 * s, self._color)
         self._surface.stroke_rounded_rect(pad, pad, sw_w, sw_h, 4.0 * s, 4.0 * s, "#00000033", stroke_width=1.0 * s)
 
-        self._surface.blit(self._photo)
+        self.end_render()
 
 
 def ask_color(

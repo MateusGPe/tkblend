@@ -167,7 +167,7 @@ class VolumeControl(Widget):
     # -------------------------------------------------------------------------
 
     def render(self) -> None:
-        if self._surface is None or self._photo is None:
+        if self._surface is None:
             return
 
         w = float(self._widget_w)
@@ -220,7 +220,7 @@ class VolumeControl(Widget):
                 align="center",
             )
 
-        self._surface.blit(self._photo)
+        self.end_render()
 
     def _render_speaker_icon(self, s: float, h: float, pal: Palette) -> None:
         cx = 16.0 * s
@@ -326,7 +326,7 @@ class VUMeter(Widget):
         self.render()
 
     def render(self) -> None:
-        if self._surface is None or self._photo is None:
+        if self._surface is None:
             return
 
         w = float(self._widget_w)
@@ -359,7 +359,7 @@ class VUMeter(Widget):
             y_right = y_left + ch_h + ch_gap
             self._render_channel_bar(pad_x, y_right, meter_w, ch_h, self._right_level, self._peak_right, s, pal)
 
-        self._surface.blit(self._photo)
+        self.end_render()
 
     def _render_db_labels(self, pad_x: float, meter_w: float, s: float, pal: Palette) -> None:
         # Tick marks at: -40dB (10%), -20dB (35%), -6dB (70%), 0dB (88%), +3dB (100%)

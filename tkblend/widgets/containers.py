@@ -153,7 +153,7 @@ class Card(Frame):
                         stroke=pal.card_border,
                         stroke_width=1.0,
                     )
-                self._surface.blit(self._photo)
+                self.end_render()
             except Exception as e:
                 logger.debug("Render failed in Card title overlay: %s", e, exc_info=True)
 
@@ -328,7 +328,7 @@ class Accordion(tk.Frame):
                 color=pal.fg,
                 align="left",
             )
-            surf.blit(self._header.photo)
+            self._header.end_render()
         except Exception as e:
             logger.debug("Render failed in Accordion header: %s", e, exc_info=True)
 

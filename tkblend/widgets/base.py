@@ -12,6 +12,7 @@ from typing import Optional, Union, List, Tuple, Any
 
 logger = logging.getLogger(__name__)
 
+from tkblend.frame import BlendFrame
 from tkblend.surface import (
     Surface,
     ColorLike,
@@ -121,11 +122,10 @@ class ScalingTracker:
 ScalingTracker.activate_high_dpi_awareness()
 
 
-class Widget(tk.Label):
+class Widget(BlendFrame):
     """
-    Base vector widget rendering on a Blend2D SurfaceHandle with zero-copy blit
-    to a backing Tkinter PhotoImage. Handles DPI scaling, resize, CSS-like pseudo states,
-    and declarative style resolution.
+    Base vector widget rendering on a Blend2D SurfaceHandle with native OS window blitting.
+    Handles DPI scaling, resize, CSS-like pseudo states, and declarative style resolution.
     """
 
     @classmethod
@@ -154,9 +154,7 @@ class Widget(tk.Label):
         self._explicit_bg = eff_bg
         self._parent_bg = eff_bg if eff_bg is not None else self._resolve_default_bg(master, get_theme())
 
-        self._photo = tk.PhotoImage(master=master, width=self._widget_w, height=self._widget_h)
-        self._handle = SurfaceHandle(self._widget_w, self._widget_h)
-        self._surface = Surface(self._handle)
+        self._photo = None
 
         self._state: int = int(PseudoState.Normal)
         self._tag_name: str = tag_name
@@ -206,15 +204,55 @@ class Widget(tk.Label):
             default_size=12.0,
         )
 
-        super().__init__(
-            master,
-            image=self._photo,
-            borderwidth=0,
-            highlightthickness=0,
-            padx=0,
-            pady=0,
-            background=self._parent_bg,
-            **kwargs,
+        if "variant" in kwargs:
+            self._variant = str(kwargs.pop("variant"))
+        if "bootstyle" in kwargs:
+            self._variant = str(kwargs.pop("bootstyle"))
+        if "corner_radius" in kwargs:
+            cr = kwargs.pop("corner_radius")
+            s = self._scale
+            self._custom_rx = float(cr) * s if cr is not None else None
+            self._custom_ry = float(cr) * s if cr is not None else None
+        if "rx" in kwargs:
+            self._custom_rx = (float(kwargs.pop("rx")) * self._scale)
+        if "ry" in kwargs:
+            self._custom_ry = (float(kwargs.pop("ry")) * self._scale)
+        if "bg_color" in kwargs:
+            self._explicit_bg = kwargs.pop("bg_color")
+        if "fg_color" in kwargs:
+            self._explicit_fg = kwargs.pop("fg_color")
+        if "text_color" in kwargs:
+            self._explicit_fg = kwargs.pop("text_color")
+        if "border_color" in kwargs:
+            self._explicit_border_color = kwargs.pop("border_color")
+        if "value" in kwargs:
+            kwargs.pop("value")
+        if "values" in kwargs:
+            kwargs.pop("values")
+        if "checked" in kwargs:
+            kwargs.pop("checked")
+        if "selected" in kwargs:
+            kwargs.pop("selected")
+        if "on_change" in kwargs:
+            kwargs.pop("on_change")
+        if "variable" in kwargs:
+            kwargs.pop("variable")
+
+        FRAME_VALID_KEYS = {
+            "background", "bd", "bg", "border", "borderwidth", "class", "colormap",
+            "container", "cursor", "height", "highlightbackground", "highlightcolor",
+            "highlightthickness", "padx", "pady", "relief", "takefocus", "visual", "width"
+        }
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in FRAME_VALID_KEYS}
+
+        BlendFrame.__init__(
+            self,
+            master=master,
+            width=self._widget_w,
+            height=self._widget_h,
+            bg=self._parent_bg,
+            auto_theme_redraw=False,
+            **filtered_kwargs,
         )
 
         self.bind("<Configure>", self._on_configure)
@@ -436,9 +474,9 @@ class Widget(tk.Label):
         return self._scale
 
     def end_render(self) -> None:
-        """Blit native surface directly to backing Tkinter PhotoImage."""
-        if self.winfo_exists() and hasattr(self, "_photo") and self._photo is not None:
-            self._handle.blit_to_photo(int(self.tk.interpaddr()), str(self._photo.name))
+        """Present native surface directly to widget window."""
+        if self.winfo_exists() and hasattr(self, "_surface") and self._surface is not None:
+            self._surface.present()
 
     def configure(self, **kwargs) -> Any:
         """Configure widget options dynamically with automatic re-render."""
@@ -559,8 +597,8 @@ class Widget(tk.Label):
             self._state &= ~int(PseudoState.Checked)
 
     @property
-    def photo(self) -> tk.PhotoImage:
-        return self._photo
+    def photo(self) -> Optional[Any]:
+        return None
 
     def get_effective_tk_font(self) -> Any:
         """Return the effective Tkinter font tuple/Font object scaled for current display DPI."""
@@ -640,16 +678,6 @@ class Widget(tk.Label):
             except Exception:
                 pass
             self._handle = None  # type: ignore
-        if hasattr(self, "_photo") and self._photo is not None:
-            try:
-                photo_name = str(self._photo.name)
-                if self.winfo_exists():
-                    self.configure(image="")
-                if hasattr(self, "tk") and self.tk is not None:
-                    self.tk.call("image", "delete", photo_name)
-            except Exception:
-                pass
-            self._photo = None  # type: ignore
 
     def destroy(self) -> None:
         try:
@@ -714,8 +742,12 @@ class Widget(tk.Label):
         ThemeManager().queue_render(self)
 
     def _on_configure(self, event) -> None:
+        if event is not None:
+            w = getattr(event, "widget", None)
+            if w is not None and w != self and str(w) != str(self):
+                return
         # Ignore unmapped / transient <= 1px geometry events during container layout recalculations
-        if event.width <= 1 or event.height <= 1:
+        if event is not None and (event.width <= 1 or event.height <= 1):
             return
 
         pref_w = max(1, int(self._logical_w * self._scale))
@@ -728,20 +760,9 @@ class Widget(tk.Label):
             else pref_h
         )
 
-        # Retain PhotoImage geometry requisition at >= preferred size so Tk
-        # geometry managers (pack/grid) can recover full allocated space when parent containers expand.
-        photo_w = max(pref_w, new_w)
-        photo_h = max(pref_h, new_h)
-
-        if (
-            new_w != self._widget_w
-            or new_h != self._widget_h
-            or self._photo.cget("width") != photo_w
-            or self._photo.cget("height") != photo_h
-        ):
+        if new_w != self._widget_w or new_h != self._widget_h:
             self._widget_w = new_w
             self._widget_h = new_h
-            self._photo.configure(width=photo_w, height=photo_h)
             if self._handle is not None:
                 self._handle.resize(self._widget_w, self._widget_h)
             elif self._surface is not None:
@@ -970,17 +991,16 @@ class ContainerBase(tk.Frame):
         self._padding = (padding * self._scale) if padding is not None else None
         self._current_pad = (padding * self._scale) if padding is not None else max(8.0 * self._scale, self._elevation * 0.8)
 
-        self._photo = tk.PhotoImage(master=self, width=self._widget_w, height=self._widget_h)
-        self._handle = SurfaceHandle(self._widget_w, self._widget_h)
-        self._surface = Surface(self._handle)
-
-        self._bg_label = tk.Label(
+        self._photo = None
+        self._bg_label = BlendFrame(
             self,
-            image=self._photo,
-            borderwidth=0,
-            highlightthickness=0,
-            background=self._parent_bg,
+            width=self._widget_w,
+            height=self._widget_h,
+            bg=self._parent_bg,
+            auto_theme_redraw=False,
         )
+        self._surface = self._bg_label.surface
+        self._handle = self._bg_label._handle
         self._bg_label.place(x=0, y=0, relwidth=1.0, relheight=1.0)
         self._bg_label.lower()
 
@@ -1180,22 +1200,12 @@ class ContainerBase(tk.Frame):
     def _on_configure(self, event) -> None:
         if event.width <= 1 or event.height <= 1:
             return
-        pref_w = max(1, int(self._logical_w * self._scale))
-        pref_h = max(1, int(self._logical_h * self._scale))
         new_w = max(1, event.width)
         new_h = max(1, event.height)
-        photo_w = max(pref_w, new_w)
-        photo_h = max(pref_h, new_h)
-        if (
-            new_w != self._widget_w
-            or new_h != self._widget_h
-            or (self._photo is not None and (self._photo.cget("width") != photo_w or self._photo.cget("height") != photo_h))
-        ):
+        if new_w != self._widget_w or new_h != self._widget_h:
             self._widget_w = new_w
             self._widget_h = new_h
             try:
-                if self._photo is not None:
-                    self._photo.configure(width=photo_w, height=photo_h)
                 if self._surface is not None:
                     self._surface.resize(self._widget_w, self._widget_h)
             except Exception as e:
@@ -1247,7 +1257,7 @@ class ContainerBase(tk.Frame):
             draw_h = max(1.0, self._widget_h - pad * 2.0)
 
             if draw_w <= 1.0 or draw_h <= 1.0:
-                self._handle.blit_to_photo(int(self.tk.interpaddr()), str(self._photo.name))
+                self._handle.present()
                 return
 
             style = StyleEngine.resolve("card", "", 0)
@@ -1285,7 +1295,7 @@ class ContainerBase(tk.Frame):
                 "",
                 1,
             )
-            self._handle.blit_to_photo(int(self.tk.interpaddr()), str(self._photo.name))
+            self._handle.present()
         except Exception as e:
             logger.debug("Render failed in ContainerBase: %s", e, exc_info=True)
 

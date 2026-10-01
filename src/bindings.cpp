@@ -789,6 +789,10 @@ void bind_surface(nb::module_& m) {
              nb::call_guard<nb::gil_scoped_release>())
 
         // Tkinter Blit & Buffer
+        .def("attach_to_widget", &Surface::attach_to_widget,
+             nb::arg("interp_addr"), nb::arg("widget_path"))
+        .def("detach_widget", &Surface::detach_widget)
+        .def("present", &Surface::present)
         .def("flush", &Surface::flush, nb::call_guard<nb::gil_scoped_release>())
         .def("blit_to_photo", &Surface::blit_to_photo,
              nb::arg("interp_addr"), nb::arg("photo_name"),
@@ -1026,6 +1030,10 @@ void bind_surface_handle(nb::module_& m) {
              nb::arg("thickness") = 1.0,
              nb::arg("explicit_color") = nb::none(),
              nb::call_guard<nb::gil_scoped_release>())
+        .def("attach_to_widget", &SurfaceHandle::attach_to_widget,
+             nb::arg("interp_addr"), nb::arg("widget_path"))
+        .def("detach_widget", &SurfaceHandle::detach_widget)
+        .def("present", &SurfaceHandle::present)
         .def("blit_to_photo", &SurfaceHandle::blit_to_photo,
              nb::arg("interp_addr"), nb::arg("photo_name"), nb::arg("dst_x") = 0, nb::arg("dst_y") = 0)
         .def("close", &SurfaceHandle::close)
@@ -1148,6 +1156,10 @@ NB_MODULE(_tkblend, m) {
     tkblend::bind_style_engine(m);
     tkblend::bind_surface_handle(m);
     tkblend::bind_surface_registry(m);
+
+    m.def("attach_widget", [](uintptr_t interp_addr, const std::string& widget_path) -> tkblend::SurfaceHandle {
+        return tkblend::SurfaceHandle(tkblend::SurfaceRegistry::instance().create_surface_for_widget(interp_addr, widget_path));
+    }, nb::arg("interp_addr"), nb::arg("widget_path"), "Attach a native Blend2D rendering surface to a Tk widget window");
 }
 
 

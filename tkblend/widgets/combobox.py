@@ -289,7 +289,7 @@ class OptionMenu(Widget):
             chev_dir = "up" if self._is_open else "down"
             draw_vector_chevron(self._surface, chev_x, chev_y, scale=1.0 * s, direction=chev_dir, color=pal.secondary_fg, stroke_width=1.8 * s)
 
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in OptionMenu: %s", e, exc_info=True)
 
@@ -416,7 +416,7 @@ class Combobox(tk.Frame):
                 color=pal.fg,
                 stroke_width=1.6 * s,
             )
-            self._btn._surface.blit(self._btn._photo)
+            self._btn.end_render()
         except Exception as e:
             logger.debug("Render failed in ComboBox button: %s", e, exc_info=True)
 

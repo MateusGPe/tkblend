@@ -113,7 +113,7 @@ class DropdownItem(Widget):
                 chk_y = h / 2.0
                 draw_vector_checkmark(self._surface, chk_x, chk_y, s, chk_color, stroke_width=2.2 * s)
 
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in DropdownItem: %s", e, exc_info=True)
 
@@ -620,7 +620,7 @@ class Dropdown(Widget):
             chev_color = pal.primary if (self._is_open or self._is_hovered or self._is_focused) else ("#bac2de" if pal.dark_mode else "#64748b")
             draw_vector_chevron(self._surface, chev_x, chev_y, s, "up" if self._is_open else "down", chev_color, stroke_width=2.0 * s)
 
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in Dropdown: %s", e, exc_info=True)
 

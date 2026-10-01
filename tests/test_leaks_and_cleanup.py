@@ -282,10 +282,10 @@ def test_surface_get_buffer_multithreaded_concurrency():
 
 
 def test_tcl_photoimage_registry_cleanup(root):
-    """Verify that widget destruction immediately purges PhotoImage names from Tcl interpreter registry."""
+    """Verify that widgets use native window blitting and do not leak or allocate PhotoImages in Tcl interpreter registry."""
     initial_images = set(root.tk.call("image", "names"))
 
-    # Create multiple widgets with backing photo images
+    # Create multiple widgets with native rendering
     btn = tb.Button(root, text="Click")
     card = tb.Card(root, title="Card")
     sw = tb.Switch(root)
@@ -293,7 +293,8 @@ def test_tcl_photoimage_registry_cleanup(root):
     root.update_idletasks()
 
     created_images = set(root.tk.call("image", "names"))
-    assert len(created_images) > len(initial_images)
+    # Zero PhotoImages allocated in Tcl image registry for native widgets
+    assert created_images == initial_images
 
     # Destroy all widgets
     btn.destroy()
@@ -303,7 +304,6 @@ def test_tcl_photoimage_registry_cleanup(root):
     root.update_idletasks()
 
     final_images = set(root.tk.call("image", "names"))
-    # Every PhotoImage registered by these widgets must be deleted from Tcl registry
     assert final_images == initial_images
 
 

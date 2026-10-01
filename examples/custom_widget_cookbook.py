@@ -64,7 +64,7 @@ class RadarChartWidget(Widget):
         self.render()
 
     def render(self) -> None:
-        if self._surface is None or self._photo is None:
+        if self._surface is None:
             return
 
         pal = get_theme()
@@ -145,7 +145,7 @@ class RadarChartWidget(Widget):
             self._surface.fill_circle(px, py, 4.0 * s, col)
             self._surface.stroke_circle(px, py, 4.0 * s, "#ffffff", stroke_width=1.5 * s)
 
-        self._surface.blit(self._photo)
+        self.end_render()
 
 
 # ==============================================================================
@@ -176,7 +176,7 @@ class SpeedometerGauge(Widget):
         self.render()
 
     def render(self) -> None:
-        if self._surface is None or self._photo is None:
+        if self._surface is None:
             return
 
         pal = get_theme()
@@ -240,7 +240,7 @@ class SpeedometerGauge(Widget):
         self._surface.draw_text(f"{int(self._value)}", cx, cy - 24.0 * s, font_size=16.0 * s, color=pal.fg, align="center")
         self._surface.draw_text(self._unit, cx, cy - 10.0 * s, font_size=8.0 * s, color=pal.fg_subtle, align="center")
 
-        self._surface.blit(self._photo)
+        self.end_render()
 
 
 # ==============================================================================
@@ -268,7 +268,7 @@ class StepProgressBar(Widget):
         self.render()
 
     def render(self) -> None:
-        if self._surface is None or self._photo is None:
+        if self._surface is None:
             return
 
         pal = get_theme()
@@ -314,7 +314,7 @@ class StepProgressBar(Widget):
             lbl_col = pal.fg if i <= self._current_step else pal.fg_subtle
             self._surface.draw_text(step_name, nx, cy + 22.0 * s, font_size=8.5 * s, color=lbl_col, align="center")
 
-        self._surface.blit(self._photo)
+        self.end_render()
 
 
 # ==============================================================================
@@ -363,7 +363,7 @@ class ColorWheelPicker(Widget):
         return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
 
     def render(self) -> None:
-        if self._surface is None or self._photo is None:
+        if self._surface is None:
             return
 
         pal = get_theme()
@@ -407,7 +407,7 @@ class ColorWheelPicker(Widget):
         self._surface.fill_circle(tx, ty, 8.0 * s, self.get_hex())
         self._surface.stroke_circle(tx, ty, 8.0 * s, "#ffffff", stroke_width=2.5 * s)
 
-        self._surface.blit(self._photo)
+        self.end_render()
 
 
 # ==============================================================================

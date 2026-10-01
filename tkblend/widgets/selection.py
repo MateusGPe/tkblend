@@ -40,9 +40,12 @@ class Switch(Widget):
         parent_bg: Optional[str] = None,
         **kwargs,
     ):
+        init_val = is_on
+        if "value" in kwargs:
+            init_val = bool(kwargs.pop("value"))
         self._var_sync = VariableSync(
-            variable=variable,
-            initial_value=is_on,
+            variable=variable or kwargs.pop("variable", None),
+            initial_value=init_val,
             on_change=self._on_var_changed,
             type_caster=bool,
         )
@@ -71,6 +74,14 @@ class Switch(Widget):
         self._is_on = bool(val)
         self._var_sync.set(self._is_on)
         self.render()
+
+    def get(self) -> bool:
+        """Get current switch state (Tkinter compatible)."""
+        return self._is_on
+
+    def set(self, val: bool) -> None:
+        """Set switch state (Tkinter compatible)."""
+        self.is_on = val
 
     def toggle(self) -> None:
         self._is_on = not self._is_on
@@ -157,6 +168,8 @@ class Checkbutton(Widget):
     ):
         self._text = text
         init_val = checked if is_checked is None else bool(is_checked)
+        if "value" in kwargs:
+            init_val = bool(kwargs.pop("value"))
         self._var_sync = VariableSync(
             variable=variable or kwargs.pop("variable", None),
             initial_value=init_val,

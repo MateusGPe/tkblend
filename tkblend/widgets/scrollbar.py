@@ -177,7 +177,7 @@ class Scrollbar(Widget):
                 thumb_col = "#6c7086" if pal.dark_mode else "#94a3b8"
 
             self._surface.fill_rounded_rect(tx, ty, tw, th, thumb_r, thumb_r, thumb_col)
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in VectorScrollbar: %s", e, exc_info=True)
 

@@ -105,8 +105,6 @@ class SparklineCanvas(BlendCanvas):
 
         self._surface.stroke_path(path_stroke, self._line_color, stroke_width=2.0)
         self._surface.fill_circle(pts[-1][0], pts[-1][1], 3.0, self._line_color)
-        if self._photo is not None:
-            self._surface.blit(self._photo)
 
 
 class TelemetryChart(BlendCanvas):
@@ -225,9 +223,6 @@ class TelemetryChart(BlendCanvas):
             self._surface.stroke_rounded_rect(tt_x, tt_y, tt_w, tt_h, 6.0, 6.0, pal.card_border, stroke_width=1.0)
             self._surface.draw_text(f"In:  {self._series1[self._hover_idx]:.1f} MB/s", tt_x + 8.0, tt_y + 16.0, font_size=10.0, color=pal.primary)
             self._surface.draw_text(f"Out: {self._series2[self._hover_idx]:.1f} MB/s", tt_x + 8.0, tt_y + 32.0, font_size=10.0, color=pal.secondary)
-
-        if self._photo is not None:
-            self._surface.blit(self._photo)
 
     def _draw_area_and_curve(self, pts: List[tuple[float, float]], color: str, bottom_y: float) -> None:
         if len(pts) < 2:

@@ -28,6 +28,15 @@ public:
         return id;
     }
 
+    uint64_t create_surface_for_widget(uintptr_t interp_addr, const std::string& widget_path) {
+        uint64_t id = next_id_.fetch_add(1, std::memory_order_relaxed);
+        auto surf = std::make_unique<Surface>(1, 1);
+        surf->attach_to_widget(interp_addr, widget_path);
+        std::lock_guard<std::mutex> lock(mutex_);
+        surfaces_[id] = std::move(surf);
+        return id;
+    }
+
     Surface* get_surface(uint64_t id) {
         std::lock_guard<std::mutex> lock(mutex_);
         auto it = surfaces_.find(id);
@@ -80,6 +89,9 @@ class SurfaceHandle {
 public:
     SurfaceHandle(int width, int height)
         : surface_id_(SurfaceRegistry::instance().create_surface(width, height)) {}
+
+    explicit SurfaceHandle(uint64_t surface_id)
+        : surface_id_(surface_id) {}
 
     ~SurfaceHandle() {
         if (surface_id_ != 0) {
@@ -573,6 +585,18 @@ public:
     ) {
         surface().draw_checkbox(x, y, size, rx, ry, box_bg, border_color, border_width,
                                 check_color, is_checked, is_hovered, focus_ring_color, focus_ring_width);
+    }
+
+    void attach_to_widget(uintptr_t interp_addr, const std::string& widget_path) {
+        surface().attach_to_widget(interp_addr, widget_path);
+    }
+
+    void detach_widget() {
+        surface().detach_widget();
+    }
+
+    void present() {
+        surface().present();
     }
 
     void execute_batch(const DrawBatch& batch) { surface().execute_batch(batch); }

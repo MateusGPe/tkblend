@@ -178,7 +178,7 @@ class LineChart(BaseChart):
         self.render()
 
     def render(self) -> None:
-        if self._surface is None or self._photo is None:
+        if self._surface is None:
             return
 
         w = float(self._widget_w)
@@ -209,7 +209,7 @@ class LineChart(BaseChart):
             max_n = max(max_n, len(s_data["data"]))
 
         if not all_vals or max_n < 2:
-            self._surface.blit(self._photo)
+            self.end_render()
             return
 
         min_v = min(all_vals)
@@ -321,10 +321,10 @@ class LineChart(BaseChart):
                 self._surface.fill_circle(px, py, 4.5 * s, col)
                 self._surface.stroke_circle(px, py, 6.5 * s, pal.bg, stroke_width=1.5 * s)
 
-            # Floating Tooltip Badge
+        # Floating Tooltip Badge
             self._render_tooltip_box(w, h, s, hx, pad_t, tooltip_items, pal)
 
-        self._surface.blit(self._photo)
+        self.end_render()
 
     def _render_tooltip_box(
         self,
@@ -421,7 +421,7 @@ class BarChart(BaseChart):
         self.render()
 
     def render(self) -> None:
-        if self._surface is None or self._photo is None:
+        if self._surface is None:
             return
 
         w = float(self._widget_w)
@@ -449,7 +449,7 @@ class BarChart(BaseChart):
             num_cats = max(num_cats, len(s_data["data"]))
 
         if not all_vals or num_cats == 0:
-            self._surface.blit(self._photo)
+            self.end_render()
             return
 
         min_v = min(0.0, min(all_vals))
@@ -532,7 +532,7 @@ class BarChart(BaseChart):
                         align="center",
                     )
 
-        self._surface.blit(self._photo)
+        self.end_render()
 
 
 class PieChart(BaseChart):
@@ -572,7 +572,7 @@ class PieChart(BaseChart):
         self.render()
 
     def render(self) -> None:
-        if self._surface is None or self._photo is None:
+        if self._surface is None:
             return
 
         w = float(self._widget_w)
@@ -587,7 +587,7 @@ class PieChart(BaseChart):
 
         total = sum(self._data.values())
         if total <= 0:
-            self._surface.blit(self._photo)
+            self.end_render()
             return
 
         # Chart center and outer radius
@@ -680,7 +680,7 @@ class PieChart(BaseChart):
                 self._surface.draw_text(label, leg_x + 14.0 * s, iy + 1.0 * s, font_size=9.0 * s, color=pal.fg)
                 self._surface.draw_text(f"{pct:.0f}%", leg_x + legend_w - 14.0 * s, iy + 1.0 * s, font_size=8.5 * s, color=pal.secondary, align="right")
 
-        self._surface.blit(self._photo)
+        self.end_render()
 
 
 class DonutChart(PieChart):

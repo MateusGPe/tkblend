@@ -18,6 +18,7 @@
 #include <mutex>
 #include <atomic>
 #include <optional>
+#include <memory>
 
 namespace tkblend {
 
@@ -386,7 +387,14 @@ public:
     // Display List Execution
     void execute_batch(const DrawBatch& batch);
 
-    // Tcl/Tk Blitting Bridge
+    // Native Tk Window Blitting Bridge
+    void attach_to_widget(uintptr_t interp_addr, const std::string& widget_path);
+    void detach_widget();
+    void set_blend_widget(class BlendWidget* widget);
+    void present();
+    bool get_image_data(BLImageData* outData) const;
+
+    // Tcl/Tk Blitting Bridge (Legacy)
     void blit_to_photo(
         uintptr_t interp_addr,
         const std::string& photo_name,
@@ -420,9 +428,11 @@ private:
     int height_ = 1;
     BLImage image_;
     BLContext ctx_;
-    mutable std::mutex mutex_;
+    mutable std::recursive_mutex mutex_;
     std::atomic<int> active_buffers_{0};
     bool is_closed_{false};
+    std::shared_ptr<class BlendWidget> blend_widget_{nullptr};
+    class BlendWidget* raw_widget_{nullptr};
 };
 
 } // namespace tkblend

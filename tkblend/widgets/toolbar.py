@@ -10,12 +10,12 @@ from typing import Optional, Callable, List, Union, Any
 
 from tkblend.surface import Surface, ColorLike
 from tkblend.theme import get_theme, Palette, add_theme_listener, remove_theme_listener, resolve_ancestor_bg
-from tkblend.widgets.base import ScalingTracker, cascade_bg_to_children
+from tkblend.widgets.base import Widget, ScalingTracker, cascade_bg_to_children
 from tkblend.widgets.button import Button
 from tkblend.widgets.selection import Switch, Checkbutton
 
 
-class ToolbarSeparator(tk.Label):
+class ToolbarSeparator(Widget):
     """Sleek vertical or horizontal vector divider line for toolbars."""
 
     def __init__(
@@ -30,48 +30,32 @@ class ToolbarSeparator(tk.Label):
     ):
         self._orientation = orientation.lower()
         self._explicit_color = color
-        self._scale = ScalingTracker.get_scaling_factor(master)
-        self._parent_bg = bg or resolve_ancestor_bg(master, get_theme())
+        self._thickness = thickness
+        s = ScalingTracker.get_scaling_factor(master)
 
         if self._orientation == "vertical":
-            w = max(4, int(8 * self._scale))
-            h = max(1, int(length * self._scale))
+            w = max(4, int(8 * s))
+            h = max(1, int(length * s))
         else:
-            w = max(1, int(length * self._scale))
-            h = max(4, int(8 * self._scale))
-
-        self._photo = tk.PhotoImage(master=master, width=w, height=h)
-        self._surface = Surface(w, h)
+            w = max(1, int(length * s))
+            h = max(4, int(8 * s))
 
         super().__init__(
-            master,
-            image=self._photo,
-            borderwidth=0,
-            highlightthickness=0,
-            padx=0,
-            pady=0,
-            background=self._parent_bg,
+            master=master,
+            width=w,
+            height=h,
+            bg=bg,
+            resizable_width=(self._orientation != "vertical"),
+            resizable_height=(self._orientation == "vertical"),
             **kwargs,
         )
 
-        add_theme_listener(self._on_theme_changed)
-        self.render()
-
-    def _on_theme_changed(self, pal: Palette) -> None:
-        self._parent_bg = resolve_ancestor_bg(self.master, pal)
-        self.configure(background=self._parent_bg)
-        self.render()
-
-    def destroy(self) -> None:
-        remove_theme_listener(self._on_theme_changed)
-        super().destroy()
-
     def render(self) -> None:
-        if self._surface is None or self._photo is None:
+        if self._surface is None:
             return
 
-        w = self._surface.width
-        h = self._surface.height
+        w = float(self._widget_w)
+        h = float(self._widget_h)
         s = self._scale
         pal = get_theme()
 
@@ -80,12 +64,12 @@ class ToolbarSeparator(tk.Label):
 
         if self._orientation == "vertical":
             cx = w / 2.0
-            self._surface.draw_line(cx, 2.0 * s, cx, h - 2.0 * s, sep_col, stroke_width=1.0 * s)
+            self._surface.draw_line(cx, 2.0 * s, cx, h - 2.0 * s, sep_col, stroke_width=float(self._thickness) * s)
         else:
             cy = h / 2.0
-            self._surface.draw_line(2.0 * s, cy, w - 2.0 * s, cy, sep_col, stroke_width=1.0 * s)
+            self._surface.draw_line(2.0 * s, cy, w - 2.0 * s, cy, sep_col, stroke_width=float(self._thickness) * s)
 
-        self._surface.blit(self._photo)
+        self.end_render()
 
 
 class Toolbar(tk.Frame):

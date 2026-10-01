@@ -409,7 +409,7 @@ class Entry(tk.Frame):
                 self._bg_widget.handle.draw_line(cx - cr, cy - cr, cx + cr, cy + cr, parse_color(pal.fg), 1.2 * s)
                 self._bg_widget.handle.draw_line(cx + cr, cy - cr, cx - cr, cy + cr, parse_color(pal.fg), 1.2 * s)
 
-            self._bg_widget.handle.blit_to_photo(int(self.tk.interpaddr()), str(self._bg_widget.photo.name))
+            self._bg_widget.end_render()
         except Exception as e:
             logger.debug("Render failed in Entry _render_bg: %s", e, exc_info=True)
 

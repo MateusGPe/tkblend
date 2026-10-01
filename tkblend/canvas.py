@@ -1,5 +1,6 @@
 """
 BlendCanvas widget - High-performance Blend2D drawing surface for Tkinter & ttkbootstrap.
+Renders directly to native OS window without tk.Canvas or tk.PhotoImage.
 """
 
 from __future__ import annotations
@@ -10,20 +11,19 @@ from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
+from tkblend.frame import BlendFrame
 from tkblend.surface import Surface, ColorLike, GradientLike, Path
 from tkblend.theme import (
     resolve_theme_color,
-    bind_theme_changed,
     add_theme_listener,
     remove_theme_listener,
-    is_ttkbootstrap_installed,
     is_inside_card,
 )
 
 
-class BlendCanvas(tk.Label):
+class BlendCanvas(BlendFrame):
     """
-    High-performance 2D vector drawing canvas powered by Blend2D and direct Tk_PhotoPutBlock blitting.
+    High-performance 2D vector drawing canvas powered by Blend2D with native OS window blitting.
     Seamlessly integrates with ttkbootstrap themes and bootstyles.
     """
 
@@ -38,244 +38,90 @@ class BlendCanvas(tk.Label):
         auto_theme_redraw: bool = True,
         **kwargs,
     ):
-        self._logical_w = max(1, int(width))
-        self._logical_h = max(1, int(height))
-        self._canvas_width = self._logical_w
-        self._canvas_height = self._logical_h
-        self._on_draw = on_draw
-        self._bootstyle = bootstyle
-        self._auto_theme_redraw = auto_theme_redraw
-
-        # Resolve initial background color
-        if bg is not None:
-            self._bg_color = bg
-        elif bootstyle is not None:
-            self._bg_color = bootstyle
-        else:
-            self._bg_color = "bg"
-
-        # Check if nested inside card for initial bg
-        bg_token = self._bg_color
-        if bg_token in ("bg", "card_bg") and is_inside_card(master if master is not None else self):
-            bg_token = "card_bg"
-
-        resolved_bg = resolve_theme_color(bg_token)
-        if resolved_bg.startswith("#") and len(resolved_bg) == 9:
-            # Tkinter Label background requires 6-digit hex (#rrggbb)
-            resolved_bg = resolved_bg[:7]
-
-        # Backing PhotoImage and Blend2D Surface
-        self._photo = tk.PhotoImage(master=master, width=self._canvas_width, height=self._canvas_height)
-        self._surface = Surface(self._canvas_width, self._canvas_height)
-
         super().__init__(
-            master,
-            image=self._photo,
-            borderwidth=0,
-            highlightthickness=0,
-            padx=0,
-            pady=0,
-            background=resolved_bg,
+            master=master,
+            width=width,
+            height=height,
+            bg=bg,
+            bootstyle=bootstyle,
+            on_draw=on_draw,
+            auto_theme_redraw=auto_theme_redraw,
             **kwargs,
         )
 
-        self.bind("<Configure>", self._on_configure)
-        self.bind("<Destroy>", self._on_destroy_event, add="+")
-
-        if self._auto_theme_redraw:
-            self._tkblend_theme_cb = lambda pal=None: self._on_theme_changed() if self.winfo_exists() else None
-            add_theme_listener(self._tkblend_theme_cb)
-
-        self.after_idle(self.redraw)
-
     @property
-    def surface(self) -> Optional[Surface]:
-        """Access the underlying Blend2D Surface object."""
-        return self._surface
-
-    @property
-    def photo(self) -> Optional[tk.PhotoImage]:
-        """Access the backing Tkinter PhotoImage."""
-        return self._photo
-
-    @property
-    def canvas_width(self) -> int:
-        return self._canvas_width
-
-    @property
-    def canvas_height(self) -> int:
-        return self._canvas_height
-
-    def set_draw_callback(self, callback: Optional[Callable[[Surface], None]], redraw_now: bool = True) -> None:
-        """Set or update the custom rendering callback function."""
-        self._on_draw = callback
-        if redraw_now:
-            self.redraw()
+    def photo(self) -> Optional[Any]:
+        """Legacy photo property (now None since native blitting is used directly)."""
+        return None
 
     @contextmanager
-    def render(self, auto_blit: bool = True):
+    def render(self, auto_blit: bool = True, auto_present: Optional[bool] = None):
         """
         Context manager for custom rendering blocks.
-        Automatically blits changes upon block exit if auto_blit is True.
+        Automatically presents changes upon block exit.
         """
-        if self._surface is None:
+        if self._surface is None or self._is_destroyed:
             raise RuntimeError("Cannot render on a destroyed BlendCanvas")
         yield self._surface
-        if auto_blit and self._photo is not None and self._surface is not None:
-            self._surface.blit(self._photo)
+        should_present = auto_present if auto_present is not None else auto_blit
+        if should_present and self._surface is not None:
+            self._surface.present()
 
-    def redraw(self) -> None:
-        """Execute the draw callback or subclass _redraw and blit the result to the screen."""
-        if not self.winfo_exists():
-            return
-        if self._on_draw is not None and self._surface is not None and self._photo is not None:
-            self._on_draw(self._surface)
-            self._surface.blit(self._photo)
-        elif hasattr(self, "_redraw") and callable(getattr(self, "_redraw")):
-            # Delegate to specialized subclass redraw (e.g. Badge, ToggleSwitch)
-            self._redraw()
-            if self._surface is not None and self._photo is not None:
-                self._surface.blit(self._photo)
-        elif self._surface is not None and self._photo is not None:
-            self._surface.blit(self._photo)
-
-    def _on_configure(self, event) -> None:
-        # Ignore unmapped / transient 1x1 geometry events from hidden notebook tabs
-        if event.width <= 1 or event.height <= 1:
-            return
-        if self._surface is None or self._photo is None:
-            return
-
-        min_w = getattr(self, "_preferred_width", getattr(self, "_logical_w", 1))
-        min_h = getattr(self, "_preferred_height", getattr(self, "_logical_h", 1))
-
-        target_w = max(1, event.width)
-        target_h = max(1, event.height)
-        photo_w = max(min_w, target_w)
-        photo_h = max(min_h, target_h)
-
-        if (
-            target_w != self._canvas_width
-            or target_h != self._canvas_height
-            or self._photo.cget("width") != photo_w
-            or self._photo.cget("height") != photo_h
-        ):
-            self._canvas_width = target_w
-            self._canvas_height = target_h
-            self._photo.configure(width=photo_w, height=photo_h)
-            self._surface.resize(self._canvas_width, self._canvas_height)
-            self.redraw()
-
-    def _on_theme_changed(self) -> None:
-        """Handle ttkbootstrap theme change event."""
-        if not self.winfo_exists():
-            return
-        bg_token = self._bg_color
-        if bg_token in ("bg", "card_bg"):
-            bg_token = "card_bg" if is_inside_card(self) else "bg"
-        resolved_bg = resolve_theme_color(bg_token)
-        if resolved_bg.startswith("#") and len(resolved_bg) == 9:
-            resolved_bg = resolved_bg[:7]
-        try:
-            self.configure(background=resolved_bg)
-        except Exception as e:
-            logger.debug("Failed configuring canvas background: %s", e)
-        self.redraw()
-
-    def _on_destroy_event(self, event=None) -> None:
-        """Proactively release native Surface and Photo when Tk destroys the widget."""
-        if event is not None:
-            w = getattr(event, "widget", None)
-            if w is not None and w != self and str(w) != str(self):
-                return
-        self._on_draw = None
-
-        # Clean up theme listener
-        cb = getattr(self, "_tkblend_theme_cb", None)
-        if cb is not None:
-            try:
-                from tkblend.theme import remove_theme_listener
-                remove_theme_listener(cb)
-            except Exception:
-                pass
-            self._tkblend_theme_cb = None
-
-        # Explicitly close Surface backing Blend2D context and buffer
-        if hasattr(self, "_surface") and self._surface is not None:
-            try:
-                self._surface.close()
-            except Exception:
-                pass
-            self._surface = None
-
-        # Explicitly delete PhotoImage from Tcl/Tk image registry
-        if hasattr(self, "_photo") and self._photo is not None:
-            try:
-                photo_name = str(self._photo.name)
-                if self.winfo_exists():
-                    self.configure(image="")
-                if hasattr(self, "tk") and self.tk is not None:
-                    self.tk.call("image", "delete", photo_name)
-            except Exception:
-                pass
-            self._photo = None
-
-    def destroy(self) -> None:
-        """Clean up surface, backing photo, and callbacks cleanly on widget destruction."""
-        self._on_destroy_event()
-        super().destroy()
-
-    # -------------------------------------------------------------------------
-    # High-level Drawing Convenience Methods
-    # -------------------------------------------------------------------------
-
-    def clear(self, color: ColorLike = "#00000000", blit: bool = False) -> BlendCanvas:
-        """Clear canvas with solid color or theme token."""
-        self._surface.clear(color)
-        if blit:
-            self._surface.blit(self._photo)
+    # Convenience direct drawing delegation to self._surface with chaining support
+    def clear(self, color: ColorLike = "#00000000", blit: bool = False, present: bool = False) -> BlendCanvas:
+        if self._surface is not None:
+            self._surface.clear(color)
+            if blit or present:
+                self._surface.present()
         return self
 
-    def fill_rect(self, x: float, y: float, w: float, h: float, fill: Union[ColorLike, GradientLike], blit: bool = False) -> BlendCanvas:
-        self._surface.fill_rect(x, y, w, h, fill)
-        if blit:
-            self._surface.blit(self._photo)
+    def fill_rect(self, x: float, y: float, w: float, h: float, color: ColorLike, blit: bool = False, present: bool = False) -> BlendCanvas:
+        if self._surface is not None:
+            self._surface.fill_rect(x, y, w, h, color)
+            if blit or present:
+                self._surface.present()
         return self
 
-    def stroke_rect(self, x: float, y: float, w: float, h: float, stroke: ColorLike, stroke_width: float = 1.0, blit: bool = False) -> BlendCanvas:
-        self._surface.stroke_rect(x, y, w, h, stroke, stroke_width)
-        if blit:
-            self._surface.blit(self._photo)
+    def stroke_rect(self, x: float, y: float, w: float, h: float, color: ColorLike, stroke_width: float = 1.0, blit: bool = False, present: bool = False) -> BlendCanvas:
+        if self._surface is not None:
+            self._surface.stroke_rect(x, y, w, h, color, stroke_width)
+            if blit or present:
+                self._surface.present()
         return self
 
-    def fill_rounded_rect(self, x: float, y: float, w: float, h: float, rx: float, ry: float, fill: Union[ColorLike, GradientLike], blit: bool = False) -> BlendCanvas:
-        self._surface.fill_rounded_rect(x, y, w, h, rx, ry, fill)
-        if blit:
-            self._surface.blit(self._photo)
+    def fill_rounded_rect(self, x: float, y: float, w: float, h: float, rx: float, ry: float, color: ColorLike, blit: bool = False, present: bool = False) -> BlendCanvas:
+        if self._surface is not None:
+            self._surface.fill_rounded_rect(x, y, w, h, rx, ry, color)
+            if blit or present:
+                self._surface.present()
         return self
 
-    def stroke_rounded_rect(self, x: float, y: float, w: float, h: float, rx: float, ry: float, stroke: ColorLike, stroke_width: float = 1.0, blit: bool = False) -> BlendCanvas:
-        self._surface.stroke_rounded_rect(x, y, w, h, rx, ry, stroke, stroke_width)
-        if blit:
-            self._surface.blit(self._photo)
+    def stroke_rounded_rect(self, x: float, y: float, w: float, h: float, rx: float, ry: float, color: ColorLike, stroke_width: float = 1.0, blit: bool = False, present: bool = False) -> BlendCanvas:
+        if self._surface is not None:
+            self._surface.stroke_rounded_rect(x, y, w, h, rx, ry, color, stroke_width)
+            if blit or present:
+                self._surface.present()
         return self
 
-    def fill_circle(self, cx: float, cy: float, r: float, fill: Union[ColorLike, GradientLike], blit: bool = False) -> BlendCanvas:
-        self._surface.fill_circle(cx, cy, r, fill)
-        if blit:
-            self._surface.blit(self._photo)
+    def fill_circle(self, cx: float, cy: float, r: float, color: ColorLike, blit: bool = False, present: bool = False) -> BlendCanvas:
+        if self._surface is not None:
+            self._surface.fill_circle(cx, cy, r, color)
+            if blit or present:
+                self._surface.present()
         return self
 
-    def stroke_circle(self, cx: float, cy: float, r: float, stroke: ColorLike, stroke_width: float = 1.0, blit: bool = False) -> BlendCanvas:
-        self._surface.stroke_circle(cx, cy, r, stroke, stroke_width)
-        if blit:
-            self._surface.blit(self._photo)
+    def stroke_circle(self, cx: float, cy: float, r: float, color: ColorLike, stroke_width: float = 1.0, blit: bool = False, present: bool = False) -> BlendCanvas:
+        if self._surface is not None:
+            self._surface.stroke_circle(cx, cy, r, color, stroke_width)
+            if blit or present:
+                self._surface.present()
         return self
 
-    def draw_line(self, x1: float, y1: float, x2: float, y2: float, stroke: ColorLike, stroke_width: float = 1.0, blit: bool = False) -> BlendCanvas:
-        self._surface.draw_line(x1, y1, x2, y2, stroke, stroke_width)
-        if blit:
-            self._surface.blit(self._photo)
+    def draw_line(self, x1: float, y1: float, x2: float, y2: float, color: ColorLike, stroke_width: float = 1.0, blit: bool = False, present: bool = False) -> BlendCanvas:
+        if self._surface is not None:
+            self._surface.draw_line(x1, y1, x2, y2, color, stroke_width)
+            if blit or present:
+                self._surface.present()
         return self
 
     def draw_text(
@@ -283,31 +129,31 @@ class BlendCanvas(tk.Label):
         text: str,
         x: float,
         y: float,
-        font_size: Optional[float] = None,
-        font_family: Optional[str] = None,
-        color: ColorLike = "#ffffff",
-        align: str = "left",
-        font: Any = None,
-        bold: Optional[bool] = None,
-        italic: Optional[bool] = None,
-        weight: Optional[Union[int, str]] = None,
+        font_size: float = 14.0,
+        font_family: str = "default",
+        color: Optional[ColorLike] = None,
+        align: int = 0,
+        weight: int = 400,
+        italic: bool = False,
+        bold: bool = False,
         blit: bool = False,
+        present: bool = False,
     ) -> BlendCanvas:
-        self._surface.draw_text(
-            text=text,
-            x=x,
-            y=y,
-            font_size=font_size,
-            font_family=font_family,
-            color=color,
-            align=align,
-            font=font,
-            bold=bold,
-            italic=italic,
-            weight=weight,
-        )
-        if blit:
-            self._surface.blit(self._photo)
+        if self._surface is not None:
+            self._surface.draw_text(
+                text=text,
+                x=x,
+                y=y,
+                font_size=font_size,
+                font_family=font_family,
+                color=color,
+                align=align,
+                weight=weight,
+                italic=italic,
+                bold=bold,
+            )
+            if blit or present:
+                self._surface.present()
         return self
 
     def draw_shadow(
@@ -316,18 +162,32 @@ class BlendCanvas(tk.Label):
         y: float,
         w: float,
         h: float,
-        rx: float,
-        ry: float,
+        rx: float = 0.0,
+        ry: float = 0.0,
         blur_radius: float = 10.0,
         spread: float = 0.0,
         offset_x: float = 0.0,
-        offset_y: float = 0.0,
-        shadow_color: ColorLike = "#00000066",
+        offset_y: float = 4.0,
+        shadow_color: Optional[ColorLike] = None,
         blit: bool = False,
+        present: bool = False,
     ) -> BlendCanvas:
-        self._surface.draw_shadow(x, y, w, h, rx, ry, blur_radius, spread, offset_x, offset_y, shadow_color)
-        if blit:
-            self._surface.blit(self._photo)
+        if self._surface is not None:
+            self._surface.draw_shadow_rounded_rect(
+                x=x,
+                y=y,
+                w=w,
+                h=h,
+                rx=rx,
+                ry=ry,
+                blur_radius=blur_radius,
+                spread=spread,
+                offset_x=offset_x,
+                offset_y=offset_y,
+                shadow_color=shadow_color,
+            )
+            if blit or present:
+                self._surface.present()
         return self
 
     def draw_card(
@@ -336,23 +196,92 @@ class BlendCanvas(tk.Label):
         y: float,
         w: float,
         h: float,
-        rx: float = 12.0,
-        ry: float = 12.0,
-        bg_color: ColorLike = "bg",
-        border_color: ColorLike = "#00000000",
+        rx: float = 0.0,
+        ry: float = 0.0,
+        bg_color: ColorLike = "#ffffff",
+        border_color: Optional[ColorLike] = None,
         border_width: float = 0.0,
-        shadow_blur: float = 12.0,
+        shadow_blur: float = 0.0,
         shadow_spread: float = 0.0,
         shadow_offset_x: float = 0.0,
-        shadow_offset_y: float = 4.0,
-        shadow_color: ColorLike = "#00000044",
+        shadow_offset_y: float = 0.0,
+        shadow_color: Optional[ColorLike] = None,
         blit: bool = False,
+        present: bool = False,
     ) -> BlendCanvas:
-        self._surface.draw_card(
-            x, y, w, h, rx, ry,
-            bg_color, border_color, border_width,
-            shadow_blur, shadow_spread, shadow_offset_x, shadow_offset_y, shadow_color
-        )
-        if blit:
-            self._surface.blit(self._photo)
+        if self._surface is not None:
+            self._surface.draw_card(
+                x=x,
+                y=y,
+                w=w,
+                h=h,
+                rx=rx,
+                ry=ry,
+                bg_color=bg_color,
+                border_color=border_color,
+                border_width=border_width,
+                shadow_blur=shadow_blur,
+                shadow_spread=shadow_spread,
+                shadow_offset_x=shadow_offset_x,
+                shadow_offset_y=shadow_offset_y,
+                shadow_color=shadow_color,
+            )
+            if blit or present:
+                self._surface.present()
+        return self
+
+    def draw_button(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        rx: float = 0.0,
+        ry: float = 0.0,
+        bg_color: ColorLike = "#3b82f6",
+        border_color: Optional[ColorLike] = None,
+        border_width: float = 0.0,
+        fg_color: Optional[ColorLike] = None,
+        text: str = "",
+        font_size: float = 13.0,
+        font_family: str = "default",
+        weight: int = 400,
+        italic: bool = False,
+        bold: bool = False,
+        shadow_blur: float = 0.0,
+        shadow_offset_y: float = 0.0,
+        shadow_color: Optional[ColorLike] = None,
+        focus_ring_color: Optional[ColorLike] = None,
+        focus_ring_width: float = 0.0,
+        is_pressed: bool = False,
+        blit: bool = False,
+        present: bool = False,
+    ) -> BlendCanvas:
+        if self._surface is not None:
+            self._surface.draw_button(
+                x=x,
+                y=y,
+                w=w,
+                h=h,
+                rx=rx,
+                ry=ry,
+                bg_color=bg_color,
+                border_color=border_color,
+                border_width=border_width,
+                fg_color=fg_color,
+                text=text,
+                font_size=font_size,
+                font_family=font_family,
+                weight=weight,
+                italic=italic,
+                bold=bold,
+                shadow_blur=shadow_blur,
+                shadow_offset_y=shadow_offset_y,
+                shadow_color=shadow_color,
+                focus_ring_color=focus_ring_color,
+                focus_ring_width=focus_ring_width,
+                is_pressed=is_pressed,
+            )
+            if blit or present:
+                self._surface.present()
         return self

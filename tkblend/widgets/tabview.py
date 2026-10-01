@@ -17,6 +17,7 @@ from tkblend.theme import (
 )
 from tkblend.widgets.base import Widget, ScalingTracker, cascade_bg_to_children
 from tkblend.widgets.containers import Frame
+from tkblend.widgets.drawing import truncate_text
 
 logger = logging.getLogger(__name__)
 
@@ -163,20 +164,21 @@ class _TabHeaderBar(Widget):
                     )
 
                 # Tab text labels
-                font_sz = max(9.0, 12.0 * s)
+                font_sz = max(9.0, 10.5 * s)
                 for i, tab_name in enumerate(self._tabs):
                     tx = pad + (i + 0.5) * tab_w
                     ty = pad + h / 2.0 + (font_sz * 0.35)
                     col = active_fg if tab_name == self._active_tab else fg_col
+                    display_name = truncate_text(tab_name, max(8.0, tab_w - 6.0 * s), font_sz)
                     self._surface.draw_text(
-                        tab_name, tx, ty,
+                        display_name, tx, ty,
                         font_size=font_sz,
                         font_family="sans-serif",
                         color=col,
                         align="center"
                     )
 
-            self._surface.blit(self._photo)
+            self.end_render()
         except Exception as e:
             logger.debug("Render failed in _TabHeaderBar: %s", e, exc_info=True)
 

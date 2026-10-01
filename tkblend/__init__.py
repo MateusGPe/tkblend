@@ -67,6 +67,7 @@ try:
         GradientLike,
     )
 
+    from tkblend.frame import BlendFrame
     from tkblend.canvas import BlendCanvas
     from tkblend.icons import Icons, parse_icon_markup, FA_SOLID, FA_REGULAR, FA_BRANDS, LUCIDE
     from tkblend.font import (
@@ -211,6 +212,7 @@ __version__ = "0.3.0"
 __all__ = [
     # Core Graphics
     "Surface",
+    "BlendFrame",
     "BlendCanvas",
     "LinearGradient",
     "RadialGradient",

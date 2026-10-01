@@ -23,13 +23,13 @@ This skill provides the architectural foundation, development workflow, and widg
    - Auto-activates process-level high-DPI awareness on Windows and detects scaling factors on macOS / Linux.
 
 3. **ModernWidget Lifecycle (`tkblend.widgets.Widget`)**:
-   - Subclass `Widget` (or `ModernWidget`), which wraps `tk.Label` with a backing `tk.PhotoImage` and `Surface`.
+   - Subclass `Widget` (or `ModernWidget`), which directly hooks native OS window presentation powered by Blend2D C++ rendering.
    - Implement `render(self) -> None`:
      1. Clear the surface with background (`self._surface.clear(self._parent_bg)`).
      2. Draw vector shapes, paths, gradients, text, or drop shadows (`self._surface.fill_rounded_rect(...)`, `self._surface.draw_text(...)`, etc.).
-     3. Blit to the backing photo image: `self._surface.blit(self._photo)`.
+     3. Present to native OS window: `self.end_render()`.
    - Event bindings (`<Enter>`, `<Leave>`, `<ButtonPress-1>`, `<ButtonRelease-1>`) manage hover/press states and call `self.render()`.
-   - Window resize (`<Configure>`) resizes both the backing `tk.PhotoImage` and `Surface`.
+   - Window resize (`<Configure>`) automatically synchronizes the backing `Surface` and triggers `self.render()`.
 
 4. **Dynamic Theming with `tkblend.theme`**:
    - Query `get_theme()` for semantic colors: `bg`, `fg`, `primary`, `secondary`, `accent`, `card_bg`, `card_border`, `track_bg`, `thumb_color`.
@@ -72,6 +72,8 @@ class CustomGauge(Widget):
         self.render()
 
     def render(self) -> None:
+        if self._surface is None:
+            return
         self._surface.clear(self._parent_bg)
         s = self._scale
         cx = self._widget_w / 2.0
@@ -83,8 +85,8 @@ class CustomGauge(Widget):
         self._surface.stroke_circle(cx, cy, r, pal.track_bg, stroke_width=6.0 * s)
         self._surface.fill_circle(cx, cy, r * (self._value / 100.0), self._color)
         
-        # Zero-copy blit to PhotoImage
-        self._surface.blit(self._photo)
+        # Present directly to OS window
+        self.end_render()
 ```
 
 ## C++ Native Extension Concurrency & Memory Safety

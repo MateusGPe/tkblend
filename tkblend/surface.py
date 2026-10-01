@@ -199,6 +199,18 @@ class Surface:
         """Render declarative box (shadow + fill + border + text) using computed style."""
         self._surface.render_box(float(x), float(y), float(w), float(h), style, str(text), int(text_align))
 
+    def attach_to_widget(self, interp_addr: int, widget_path: str) -> None:
+        """Attach surface directly to a Tk widget window for native blitting."""
+        self._surface.attach_to_widget(int(interp_addr), str(widget_path))
+
+    def detach_widget(self) -> None:
+        """Detach surface from Tk widget window."""
+        self._surface.detach_widget()
+
+    def present(self) -> None:
+        """Present current surface buffer directly to the attached native Tk widget window."""
+        self._surface.present()
+
     def blit_to_photo(self, interp_addr: int, photo_name: str, dst_x: int = 0, dst_y: int = 0) -> None:
         """Blit surface to Tkinter PhotoImage directly with interpreter pointer and image name."""
         self._surface.blit_to_photo(int(interp_addr), str(photo_name), int(dst_x), int(dst_y))
@@ -560,15 +572,16 @@ class Surface:
         spread: float = 0.0,
         offset_x: float = 0.0,
         offset_y: float = 0.0,
-        shadow_color: ColorLike = "#00000066",
+        shadow_color: Optional[ColorLike] = None,
     ) -> None:
         """
         Draw high-performance $O(1)$ soft drop shadow for rounded rectangle geometry.
         """
+        sc = shadow_color if shadow_color is not None else "#00000066"
         self._surface.draw_shadow_rounded_rect(
             float(x), float(y), float(w), float(h), float(rx), float(ry),
             float(blur_radius), float(spread), float(offset_x), float(offset_y),
-            parse_color(shadow_color)
+            parse_color(sc)
         )
 
     draw_shadow_rounded_rect = draw_shadow
@@ -582,27 +595,29 @@ class Surface:
         rx: float = 12.0,
         ry: float = 12.0,
         bg_color: ColorLike = "#1e1e2e",
-        border_color: ColorLike = "#00000000",
+        border_color: Optional[ColorLike] = None,
         border_width: float = 0.0,
         shadow_blur: float = 12.0,
         shadow_spread: float = 0.0,
         shadow_offset_x: float = 0.0,
         shadow_offset_y: float = 4.0,
-        shadow_color: ColorLike = "#00000055",
+        shadow_color: Optional[ColorLike] = None,
     ) -> None:
         """
         Draw a modern card with soft drop shadow, rounded background, and border in one call.
         """
+        bc = border_color if border_color is not None else "#00000000"
+        sc = shadow_color if shadow_color is not None else "#00000055"
         self._surface.draw_card(
             float(x), float(y), float(w), float(h), float(rx), float(ry),
             parse_color(bg_color),
-            parse_color(border_color),
+            parse_color(bc),
             float(border_width),
             float(shadow_blur),
             float(shadow_spread),
             float(shadow_offset_x),
             float(shadow_offset_y),
-            parse_color(shadow_color),
+            parse_color(sc),
         )
 
     def fill_shadowed_rounded_rect(
@@ -822,14 +837,18 @@ class Surface:
         """Synchronize and flush all queued Blend2D rendering operations."""
         self._surface.flush()
 
-    def blit(self, photo: tk.PhotoImage, dst_x: int = 0, dst_y: int = 0) -> None:
+    def blit(self, photo: Optional[Any] = None, dst_x: int = 0, dst_y: int = 0) -> None:
         """
-        Directly blit the surface pixel buffer to a Tkinter PhotoImage using Tk_PhotoPutBlock.
-        Zero Python copies, zero allocations.
+        Present the surface buffer to the attached native window, or blit to a PhotoImage if provided.
         """
-        interp_addr = int(photo.tk.interpaddr())
-        photo_name = str(photo.name)
-        self._surface.blit_to_photo(interp_addr, photo_name, int(dst_x), int(dst_y))
+        if photo is None:
+            self._surface.present()
+        elif hasattr(photo, "tk") and hasattr(photo, "name"):
+            interp_addr = int(photo.tk.interpaddr())
+            photo_name = str(photo.name)
+            self._surface.blit_to_photo(interp_addr, photo_name, int(dst_x), int(dst_y))
+        else:
+            self._surface.present()
 
     def get_buffer(self) -> Any:
         """Return a direct zero-copy ndarray/buffer of raw PRGB32 pixels."""

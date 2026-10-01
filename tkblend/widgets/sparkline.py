@@ -119,7 +119,7 @@ class Sparkline(Widget):
     # -------------------------------------------------------------------------
 
     def render(self) -> None:
-        if self._surface is None or self._photo is None:
+        if self._surface is None:
             return
 
         w = float(self._widget_w)
@@ -131,7 +131,7 @@ class Sparkline(Widget):
         self._surface.clear(self._parent_bg)
 
         if not self._data:
-            self._surface.blit(self._photo)
+            self.end_render()
             return
 
         pad_x = 4.0 * s
@@ -148,7 +148,7 @@ class Sparkline(Widget):
         elif self._kind == "winloss":
             self._render_winloss(w, h, s, pad_x, pad_y, plot_w, plot_h, accent, pal)
 
-        self._surface.blit(self._photo)
+        self.end_render()
 
     def _render_line_or_area(
         self,

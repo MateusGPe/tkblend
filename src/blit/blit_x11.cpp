@@ -90,6 +90,8 @@ bool NativeBlit(
         static_cast<unsigned int>(clip.req_h)
     );
 
+    XFlush(display);
+
     Tk_FreeGC(display, gc);
 
     // CRITICAL: Detach pointer so XDestroyImage does NOT free Blend2D internal buffer

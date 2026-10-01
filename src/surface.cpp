@@ -1,5 +1,7 @@
 #include "surface.hpp"
 #include "style_engine.hpp"
+#include "blend_widget.hpp"
+#include "tk_compat.h"
 #include <algorithm>
 #include <cmath>
 #include <sstream>
@@ -13,8 +15,13 @@ Surface::Surface(int width, int height)
 }
 
 Surface::~Surface() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (!is_closed_) {
+        if (blend_widget_) {
+            blend_widget_->detach();
+            blend_widget_.reset();
+        }
+        raw_widget_ = nullptr;
         ctx_.end();
         image_.reset();
         is_closed_ = true;
@@ -22,11 +29,16 @@ Surface::~Surface() {
 }
 
 void Surface::close() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (is_closed_) return;
     if (active_buffers_.load(std::memory_order_relaxed) > 0) {
         throw std::runtime_error("Cannot close Surface while active buffer views exist");
     }
+    if (blend_widget_) {
+        blend_widget_->detach();
+        blend_widget_.reset();
+    }
+    raw_widget_ = nullptr;
     ctx_.end();
     image_.reset();
     is_closed_ = true;
@@ -47,7 +59,7 @@ void Surface::resize(int width, int height) {
     int h = std::max(1, height);
     if (w == width_ && h == height_) return;
 
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (is_closed_) {
         throw std::runtime_error("Cannot resize a closed Surface");
     }
@@ -60,7 +72,7 @@ void Surface::resize(int width, int height) {
 }
 
 void Surface::clear(const Color& color) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (is_closed_) {
         throw std::runtime_error("Cannot operate on a closed Surface");
     }
@@ -73,7 +85,7 @@ void Surface::clear(const Color& color) {
 }
 
 void Surface::clear_rect(double x, double y, double w, double h) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (is_closed_) {
         throw std::runtime_error("Cannot operate on a closed Surface");
     }
@@ -81,7 +93,7 @@ void Surface::clear_rect(double x, double y, double w, double h) {
 }
 
 void Surface::save() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (is_closed_) {
         throw std::runtime_error("Cannot operate on a closed Surface");
     }
@@ -89,7 +101,7 @@ void Surface::save() {
 }
 
 void Surface::restore() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (is_closed_) {
         throw std::runtime_error("Cannot operate on a closed Surface");
     }
@@ -97,7 +109,7 @@ void Surface::restore() {
 }
 
 void Surface::reset_transform() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (is_closed_) {
         throw std::runtime_error("Cannot operate on a closed Surface");
     }
@@ -105,27 +117,27 @@ void Surface::reset_transform() {
 }
 
 void Surface::translate(double tx, double ty) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.translate(tx, ty);
 }
 
 void Surface::scale(double sx, double sy) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.scale(sx, sy);
 }
 
 void Surface::rotate(double angle_rad) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.rotate(angle_rad);
 }
 
 void Surface::clip_rect(double x, double y, double w, double h) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.clip_to_rect(BLRect(x, y, w, h));
 }
 
 void Surface::clip_rounded_rect(double x, double y, double w, double h, double rx, double ry) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     // Blend2D BLContext currently only supports axis-aligned rectangular clipping natively.
     // We clip to the bounding rectangle of the rounded rect.
     (void)rx;
@@ -134,7 +146,7 @@ void Surface::clip_rounded_rect(double x, double y, double w, double h, double r
 }
 
 void Surface::reset_clip() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.restore_clipping();
 }
 
@@ -145,106 +157,106 @@ void Surface::set_comp_op(int comp_op) {
             " is out of valid BLCompOp range [0, " +
             std::to_string(static_cast<int>(BL_COMP_OP_MAX_VALUE) - 1) + "]");
     }
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_comp_op(static_cast<BLCompOp>(comp_op));
 }
 
 void Surface::set_global_alpha(double alpha) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_global_alpha(std::clamp(alpha, 0.0, 1.0));
 }
 
 void Surface::fill_rect(double x, double y, double w, double h, const Color& color) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_fill_style(color.to_bl_rgba32());
     ctx_.fill_rect(BLRect(x, y, w, h));
 }
 
 void Surface::fill_rect_gradient(double x, double y, double w, double h, const Gradient& gradient) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_fill_style(gradient.to_bl_gradient());
     ctx_.fill_rect(BLRect(x, y, w, h));
 }
 
 void Surface::stroke_rect(double x, double y, double w, double h, const Color& color, double stroke_width) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_stroke_style(color.to_bl_rgba32());
     ctx_.set_stroke_width(stroke_width);
     ctx_.stroke_rect(BLRect(x, y, w, h));
 }
 
 void Surface::fill_rounded_rect(double x, double y, double w, double h, double rx, double ry, const Color& color) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_fill_style(color.to_bl_rgba32());
     ctx_.fill_round_rect(BLRoundRect(x, y, w, h, rx, ry));
 }
 
 void Surface::fill_rounded_rect_gradient(double x, double y, double w, double h, double rx, double ry, const Gradient& gradient) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_fill_style(gradient.to_bl_gradient());
     ctx_.fill_round_rect(BLRoundRect(x, y, w, h, rx, ry));
 }
 
 void Surface::stroke_rounded_rect(double x, double y, double w, double h, double rx, double ry, const Color& color, double stroke_width) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_stroke_style(color.to_bl_rgba32());
     ctx_.set_stroke_width(stroke_width);
     ctx_.stroke_round_rect(BLRoundRect(x, y, w, h, rx, ry));
 }
 
 void Surface::fill_circle(double cx, double cy, double r, const Color& color) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_fill_style(color.to_bl_rgba32());
     ctx_.fill_circle(BLCircle(cx, cy, r));
 }
 
 void Surface::fill_circle_gradient(double cx, double cy, double r, const Gradient& gradient) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_fill_style(gradient.to_bl_gradient());
     ctx_.fill_circle(BLCircle(cx, cy, r));
 }
 
 void Surface::stroke_circle(double cx, double cy, double r, const Color& color, double stroke_width) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_stroke_style(color.to_bl_rgba32());
     ctx_.set_stroke_width(stroke_width);
     ctx_.stroke_circle(BLCircle(cx, cy, r));
 }
 
 void Surface::fill_ellipse(double cx, double cy, double rx, double ry, const Color& color) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_fill_style(color.to_bl_rgba32());
     ctx_.fill_ellipse(BLEllipse(cx, cy, rx, ry));
 }
 
 void Surface::stroke_ellipse(double cx, double cy, double rx, double ry, const Color& color, double stroke_width) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_stroke_style(color.to_bl_rgba32());
     ctx_.set_stroke_width(stroke_width);
     ctx_.stroke_ellipse(BLEllipse(cx, cy, rx, ry));
 }
 
 void Surface::draw_line(double x1, double y1, double x2, double y2, const Color& color, double stroke_width) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_stroke_style(color.to_bl_rgba32());
     ctx_.set_stroke_width(stroke_width);
     ctx_.stroke_line(BLLine(x1, y1, x2, y2));
 }
 
 void Surface::fill_path(const Path& path, const Color& color) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_fill_style(color.to_bl_rgba32());
     ctx_.fill_path(path.path);
 }
 
 void Surface::fill_path_gradient(const Path& path, const Gradient& gradient) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_fill_style(gradient.to_bl_gradient());
     ctx_.fill_path(path.path);
 }
 
 void Surface::stroke_path(const Path& path, const Color& color, double stroke_width) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.set_stroke_style(color.to_bl_rgba32());
     ctx_.set_stroke_width(stroke_width);
     ctx_.stroke_path(path.path);
@@ -289,7 +301,7 @@ void Surface::draw_text(
     bool italic
 ) {
     if (text.empty()) return;
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     BLFont font = FontManager::instance().create_font(font_family, font_size, weight, italic);
     if (font.is_empty()) return;
 
@@ -464,7 +476,7 @@ void Surface::draw_shadow_rounded_rect(
 
     if (shadow_img.is_empty()) return;
 
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     double dst_x = x + offset_x - pad_x;
     double dst_y = y + offset_y - pad_y;
     ctx_.blit_image(BLPoint(dst_x, dst_y), shadow_img);
@@ -492,7 +504,7 @@ void Surface::render_box(
     // 2. Background container fill (fill_rounded_rect)
     // 3. Border stroke (stroke_rounded_rect) inset by half stroke-width to avoid edge clipping
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         if (style.bg_color.a > 0) {
             ctx_.set_fill_style(style.bg_color.to_bl_rgba32());
             ctx_.fill_round_rect(BLRoundRect(x, y, w, h, style.border_radius, style.border_radius));
@@ -1037,7 +1049,7 @@ void Surface::draw_card(
         draw_shadow_rounded_rect(x, y, w, h, rx, ry, shadow_blur, shadow_spread, shadow_offset_x, shadow_offset_y, shadow_color);
     }
 
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     // 2. Draw card background
     if (bg_color.a > 0) {
@@ -1231,7 +1243,7 @@ void Surface::draw_button(
 
     // 2. Button container & border
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         if (bg_color.a > 0) {
             ctx_.set_fill_style(bg_color.to_bl_rgba32());
             ctx_.fill_round_rect(BLRoundRect(x, y + press_offset, w, h, rx, ry));
@@ -1290,7 +1302,7 @@ void Surface::draw_switch(
 
     // Track
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         if (track_color.a > 0) {
             ctx_.set_fill_style(track_color.to_bl_rgba32());
             ctx_.fill_round_rect(BLRoundRect(x, y, w, h, r, r));
@@ -1316,7 +1328,7 @@ void Surface::draw_switch(
     draw_shadow_rounded_rect(thumb_cx - tr, thumb_cy - tr + 1.0, thumb_d, thumb_d, tr, tr, 2.5, 0.0, 0.0, 1.0, Color(0, 0, 0, 45));
 
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         ctx_.set_fill_style(thumb_color.to_bl_rgba32());
         ctx_.fill_circle(BLCircle(thumb_cx, thumb_cy, tr));
 
@@ -1350,7 +1362,7 @@ void Surface::draw_slider(
     double track_rx = th / 2.0;
 
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         // Inactive track
         if (track_bg.a > 0) {
             ctx_.set_fill_style(track_bg.to_bl_rgba32());
@@ -1374,7 +1386,7 @@ void Surface::draw_slider(
     draw_shadow_rounded_rect(thumb_cx - tr, thumb_cy - tr + 1.0, tr * 2.0, tr * 2.0, tr, tr, 3.0, 0.0, 0.0, 1.0, Color(0, 0, 0, 40));
 
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         ctx_.set_fill_style(thumb_color.to_bl_rgba32());
         ctx_.fill_circle(BLCircle(thumb_cx, thumb_cy, tr));
 
@@ -1401,7 +1413,7 @@ void Surface::draw_progress_bar(
     bool is_indeterminate,
     double phase_offset
 ) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     // Track
     if (track_bg.a > 0) {
         ctx_.set_fill_style(track_bg.to_bl_rgba32());
@@ -1442,7 +1454,7 @@ void Surface::draw_checkbox(
 ) {
     (void)is_hovered;
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         // Box fill
         if (box_bg.a > 0) {
             ctx_.set_fill_style(box_bg.to_bl_rgba32());
@@ -1554,7 +1566,7 @@ void Surface::execute_batch(const DrawBatch& batch) {
 }
 
 void Surface::flush() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     ctx_.flush(BL_CONTEXT_FLUSH_SYNC);
 }
 
@@ -1564,7 +1576,7 @@ void Surface::blit_to_photo(
     int dst_x,
     int dst_y
 ) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (is_closed_) {
         throw std::runtime_error("Cannot blit from a closed Surface");
     }
@@ -1615,7 +1627,7 @@ void Surface::blit_to_photo(
 }
 
 Surface::BufferViewInfo Surface::acquire_buffer_view() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (is_closed_) {
         throw std::runtime_error("Cannot acquire buffer view from a closed Surface");
     }
@@ -1630,29 +1642,80 @@ Surface::BufferViewInfo Surface::acquire_buffer_view() {
 }
 
 void Surface::release_buffer_view() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     active_buffers_.fetch_sub(1, std::memory_order_relaxed);
 }
 
 uint8_t* Surface::data_ptr() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     BLImageData imgData;
     image_.get_data(&imgData);
     return static_cast<uint8_t*>(imgData.pixel_data);
 }
 
 size_t Surface::stride() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     BLImageData imgData;
     image_.get_data(&imgData);
     return static_cast<size_t>(imgData.stride);
 }
 
 size_t Surface::size_in_bytes() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     BLImageData imgData;
     image_.get_data(&imgData);
     return static_cast<size_t>(imgData.stride * imgData.size.h);
+}
+
+void Surface::attach_to_widget(uintptr_t interp_addr, const std::string& widget_path) {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (is_closed_) {
+        throw std::runtime_error("Cannot attach a closed Surface");
+    }
+    Tcl_Interp* interp = reinterpret_cast<Tcl_Interp*>(interp_addr);
+    blend_widget_ = BlendWidget::attach(interp, widget_path, this);
+    raw_widget_ = blend_widget_.get();
+}
+
+void Surface::detach_widget() {
+    std::shared_ptr<BlendWidget> widget_to_detach;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        widget_to_detach = std::move(blend_widget_);
+        raw_widget_ = nullptr;
+    }
+    if (widget_to_detach) {
+        widget_to_detach->detach();
+    }
+}
+
+void Surface::set_blend_widget(BlendWidget* widget) {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    raw_widget_ = widget;
+}
+
+void Surface::present() {
+    std::shared_ptr<BlendWidget> bw;
+    BlendWidget* rw = nullptr;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        if (is_closed_) return;
+        bw = blend_widget_;
+        rw = raw_widget_;
+    }
+    if (bw) {
+        bw->present();
+    } else if (rw) {
+        rw->present();
+    }
+}
+
+bool Surface::get_image_data(BLImageData* outData) const {
+    if (!outData) return false;
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (is_closed_) return false;
+    image_.get_data(outData);
+    return true;
 }
 
 } // namespace tkblend
