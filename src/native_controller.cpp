@@ -405,12 +405,12 @@ void NativeWidgetController::paint_and_blit() {
         }
         surf = get_active_surface();
         if (surf && bound_surface_id_ == 0 && external_surface_ == nullptr) {
-            if (win_w > 1 && win_h > 1 && (surf->width() != win_w || surf->height() != win_h)) {
+            if (win_w > 0 && win_h > 0 && (surf->width() != win_w || surf->height() != win_h)) {
                 surf->resize(win_w, win_h);
             }
         }
     }
-    if (!surf || surf->width() <= 1 || surf->height() <= 1) {
+    if (!surf || surf->width() <= 0 || surf->height() <= 0) {
         return;
     }
 
@@ -440,7 +440,7 @@ void NativeWidgetController::blit_active_surface() {
 
     int win_w = Tk_Width(tkwin_);
     int win_h = Tk_Height(tkwin_);
-    if (win_w <= 1 || win_h <= 1) return;
+    if (win_w <= 0 || win_h <= 0) return;
 
     Surface* surf = get_active_surface();
     if (!surf) return;
