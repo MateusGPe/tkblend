@@ -12,7 +12,6 @@ import os
 import sys
 import tkinter as tk
 
-from tkblend.widgets.containers import Card, Frame
 from tkblend.utils.window_shape import (
     apply_round_rect_shape,
     clear_window_shape,
@@ -80,35 +79,33 @@ def benchmark_widget_churn(root: tk.Tk, count: int = 50):
     print(f" 2. WIDGET CHURN BENCHMARK: Instantiating {count} Cards")
     print("=" * 70)
 
-    # A. With shape clipping enabled (clip_children=True)
+    # A. With shape clipping enabled
     t0 = time.perf_counter()
-    cards_clipped = []
+    frames_clipped = []
     for i in range(count):
-        c = Card(root, width=250, height=120, rx=16, ry=16, clip_children=True)
-        c.place(x=(i % 5) * 50, y=(i // 5) * 30)
-        # Access body to force creation & shaping
-        _ = c.body
-        cards_clipped.append(c)
+        f = tk.Frame(root, width=250, height=120, bg="#202020")
+        f.place(x=(i % 5) * 50, y=(i // 5) * 30)
+        apply_round_rect_shape(f, 250, 120, 16, 16)
+        frames_clipped.append(f)
     root.update()
     t_clipped = time.perf_counter() - t0
 
-    for c in cards_clipped:
-        c.destroy()
+    for f in frames_clipped:
+        f.destroy()
     root.update()
 
-    # B. Without shape clipping (clip_children=False)
+    # B. Without shape clipping
     t0 = time.perf_counter()
-    cards_unclipped = []
+    frames_unclipped = []
     for i in range(count):
-        c = Card(root, width=250, height=120, rx=16, ry=16, clip_children=False)
-        c.place(x=(i % 5) * 50, y=(i // 5) * 30)
-        _ = c.body
-        cards_unclipped.append(c)
+        f = tk.Frame(root, width=250, height=120, bg="#202020")
+        f.place(x=(i % 5) * 50, y=(i // 5) * 30)
+        frames_unclipped.append(f)
     root.update()
     t_unclipped = time.perf_counter() - t0
 
-    for c in cards_unclipped:
-        c.destroy()
+    for f in frames_unclipped:
+        f.destroy()
     root.update()
 
     diff_ms = (t_clipped - t_unclipped) * 1000

@@ -19,8 +19,7 @@ from tkblend import (
     load_theme_dir,
     THEME_PRESETS,
     Palette,
-    Card,
-    Button,
+    BlendDecorator,
 )
 
 
@@ -142,16 +141,10 @@ def test_custom_theme_dir_loading(tmp_path):
 
 
 def test_soft_shadow_rendering(tk_root):
-    """Verify Card and Button render with soft Gaussian elevation shadows without clipping."""
+    """Verify BlendDecorator renders with soft Gaussian elevation shadows without clipping."""
     set_theme("dark")
-    card = Card(tk_root, width=300, height=200, elevation=12.0)
-    card.render()
+    card = BlendDecorator(tk_root, width=300, height=200, shadow_blur=12.0, shadow_enabled=True)
+    card.update_idletasks()
     assert card.winfo_reqwidth() > 0
     assert card.winfo_reqheight() > 0
-
-    btn = Button(tk_root, text="Elevated Button", elevation=6.0, variant="primary")
-    btn.render()
-    assert btn.winfo_reqwidth() > 0
-
     card.destroy()
-    btn.destroy()

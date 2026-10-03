@@ -26,29 +26,21 @@ def root():
 
 
 def test_widget_lifecycle_leak_prevention(root):
-    """Verify that repeatedly creating and destroying widgets leaves zero lingering surfaces or colors."""
+    """Verify that repeatedly creating and destroying decorators leaves zero lingering surfaces or colors."""
     gc.collect()
 
     for _ in range(10):
-        btn = tb.Button(root, text="Test")
-        card = tb.Card(root, title="Card")
-        badge = tb.Badge(root, text="Badge")
-        inp = tb.TextInput(root, placeholder="Input")
-        sw = tb.Switch(root)
-        spin = tb.SpinBox(root)
-        acc = tb.Accordion(root, title="Section")
+        dec = tb.BlendDecorator(root, width=100, height=40)
+        cvs = tb.BlendCanvas(root, width=100, height=40)
+        surf = tb.Surface(100, 40)
 
         root.update_idletasks()
 
-        btn.destroy()
-        card.destroy()
-        badge.destroy()
-        inp.destroy()
-        sw.destroy()
-        spin.destroy()
-        acc.destroy()
+        dec.destroy()
+        cvs.destroy()
+        surf.close()
 
-    del btn, card, badge, inp, sw, spin, acc
+    del dec, cvs, surf
     gc.collect()
 
     surfaces_alive = [obj for obj in gc.get_objects() if isinstance(obj, NativeSurface)]
@@ -78,18 +70,18 @@ def test_surface_buffer_memoryview_lifetime(root):
 
 
 def test_theme_manager_weak_listener_pruning(root):
-    """Verify that ThemeManager does not retain destroyed or unreferenced widget callbacks."""
+    """Verify that ThemeManager does not retain destroyed or unreferenced decorator callbacks."""
     tm = ThemeManager()
     initial_listeners_count = len(tm._listeners)
 
     def create_and_discard():
-        btn = tb.Button(root, text="Transient")
+        dec = tb.BlendDecorator(root, width=100, height=40)
         root.update_idletasks()
-        return btn
+        return dec
 
-    btn = create_and_discard()
-    btn.destroy()
-    del btn
+    dec = create_and_discard()
+    dec.destroy()
+    del dec
     gc.collect()
 
     # Trigger notify to prune dead weak references
@@ -99,18 +91,18 @@ def test_theme_manager_weak_listener_pruning(root):
     assert len(tm._listeners) <= initial_listeners_count
 
 
-def test_file_explorer_complete_teardown_zero_leaks():
-    """Verify headless FileExplorerApp initialization and destruction leaves zero memory leaks."""
+def test_decorator_showcase_complete_teardown_zero_leaks():
+    """Verify headless DecoratorShowcase initialization and destruction leaves zero memory leaks."""
     gc.collect()
 
     r = tk.Tk()
     r.withdraw()
 
-    from examples.file_explorer import FileExplorerApp
-    app = FileExplorerApp(r)
+    from decorator_showcase import DecoratorShowcase
+    app = DecoratorShowcase(r)
     r.update_idletasks()
 
-    app.toggle_theme()
+    app._on_change_theme("light")
     r.update_idletasks()
 
     r.destroy()
@@ -285,25 +277,16 @@ def test_tcl_photoimage_registry_cleanup(root):
     """Verify that widget destruction immediately purges PhotoImage names from Tcl interpreter registry."""
     initial_images = set(root.tk.call("image", "names"))
 
-    # Create multiple widgets with backing photo images
-    btn = tb.Button(root, text="Click")
-    card = tb.Card(root, title="Card")
-    sw = tb.Switch(root)
     canvas = tb.BlendCanvas(root, width=100, height=100)
     root.update_idletasks()
 
     created_images = set(root.tk.call("image", "names"))
     assert len(created_images) > len(initial_images)
 
-    # Destroy all widgets
-    btn.destroy()
-    card.destroy()
-    sw.destroy()
     canvas.destroy()
     root.update_idletasks()
 
     final_images = set(root.tk.call("image", "names"))
-    # Every PhotoImage registered by these widgets must be deleted from Tcl registry
     assert final_images == initial_images
 
 
@@ -372,13 +355,11 @@ def test_tracemalloc_stress_lifecycle_bounded_memory(root):
     snapshot1 = tracemalloc.take_snapshot()
 
     for _ in range(50):
-        b = tb.Button(root, text="Stress")
-        c = tb.Card(root, title="Stress Card")
-        s = tb.Switch(root)
+        dec = tb.BlendDecorator(root, width=120, height=40)
+        cvs = tb.BlendCanvas(root, width=64, height=64)
         root.update_idletasks()
-        b.destroy()
-        c.destroy()
-        s.destroy()
+        dec.destroy()
+        cvs.destroy()
 
     root.update_idletasks()
     gc.collect()

@@ -7,11 +7,11 @@ focus rings, and passive state monitoring around standard Tk/TTK child widgets.
 from __future__ import annotations
 
 import tkinter as tk
+from tkinter import ttk
 from typing import Optional, List, Tuple
 
 import tkblend as tb
 from tkblend import BlendDecorator
-from tkblend.widgets import Button, Label, Slider, Card, Switch
 
 
 class DecoratorShowcase(tk.Frame):
@@ -36,9 +36,9 @@ class DecoratorShowcase(tk.Frame):
 
         # Registry for dynamic theme tracking
         self._bg_frames: List[tk.Frame] = []
-        self._card_frames: List[tk.Frame] = []
-        self._primary_labels: List[Label] = []
-        self._muted_labels: List[Label] = []
+        self._card_frames: List[tk.Widget] = []
+        self._primary_labels: List[tk.Label] = []
+        self._muted_labels: List[tk.Label] = []
         self._entries: List[tk.Widget] = []
         self._decorators: List[BlendDecorator] = []
         self._slider_controls: List[dict] = []
@@ -57,11 +57,12 @@ class DecoratorShowcase(tk.Frame):
         self.header.pack(fill="x", padx=20, pady=(12, 6))
         self._bg_frames.append(self.header)
 
-        title_lbl = Label(
+        title_lbl = tk.Label(
             self.header,
             text="BlendDecorator Surface Showcase",
-            font=("Inter", 18, "bold"),
+            font=("Segoe UI", 16, "bold"),
             fg=pal.fg,
+            bg=pal.bg,
         )
         title_lbl.pack(side="left")
         self._primary_labels.append(title_lbl)
@@ -71,20 +72,26 @@ class DecoratorShowcase(tk.Frame):
         self.theme_bar.pack(side="right")
         self._bg_frames.append(self.theme_bar)
 
-        theme_lbl = Label(self.theme_bar, text="Theme:", font_size=11, fg=pal.text_muted)
+        theme_lbl = tk.Label(self.theme_bar, text="Theme:", font=("Segoe UI", 10), fg=pal.text_muted, bg=pal.bg)
         theme_lbl.pack(side="left", padx=(0, 6))
         self._muted_labels.append(theme_lbl)
 
         for theme_name in ("dark", "light", "tokyo-night", "dracula", "nord"):
-            btn = Button(
+            btn = tk.Button(
                 self.theme_bar,
                 text=theme_name.capitalize(),
-                width=72,
-                height=26,
-                font_size=10,
+                font=("Segoe UI", 9),
+                bg=pal.card_bg,
+                fg=pal.fg,
+                activebackground=pal.primary,
+                activeforeground="#ffffff",
+                relief="flat",
+                padx=6,
+                pady=2,
                 command=lambda t=theme_name: self._on_change_theme(t),
             )
             btn.pack(side="left", padx=2)
+            self._card_frames.append(btn)
 
         # ----------------------------------------------------------------------
         # Main content container (2 columns: Practical Demos & Live Studio)
@@ -100,31 +107,33 @@ class DecoratorShowcase(tk.Frame):
         # ======================================================================
         # Left Column: Practical UI Components & State Demos
         # ======================================================================
-        self.left_col = Card(self.body, rx=14, ry=14, elevation=6.0)
+        self.left_col = BlendDecorator(self.body, radius=14, shadow_blur=10, bg_color=pal.card_bg)
         self.left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=0)
+        self._decorators.append(self.left_col)
 
-        self.left_inner = tk.Frame(self.left_col, bg=self.left_col.bg_color)
+        self.left_inner = tk.Frame(self.left_col, bg=pal.card_bg)
         self.left_inner.pack(fill="both", expand=True, padx=16, pady=14)
         self._card_frames.append(self.left_inner)
 
-        col1_title = Label(
+        col1_title = tk.Label(
             self.left_inner,
             text="Practical Components & State Triggers",
-            font=("Inter", 14, "bold"),
+            font=("Segoe UI", 13, "bold"),
             fg=pal.fg,
+            bg=pal.card_bg,
         )
         col1_title.pack(anchor="w", pady=(0, 8))
         self._primary_labels.append(col1_title)
 
         # 1. Pill Search Input with Action Button
-        p1_lbl = Label(self.left_inner, text="1. Pill Search Input with Action Button", font=("Inter", 11, "bold"), fg=pal.fg)
+        p1_lbl = tk.Label(self.left_inner, text="1. Pill Search Input with Action Button", font=("Segoe UI", 10, "bold"), fg=pal.fg, bg=pal.card_bg)
         p1_lbl.pack(anchor="w", pady=(0, 3))
         self._primary_labels.append(p1_lbl)
 
         self.search_dec = BlendDecorator(
             self.left_inner,
             width=320,
-            height=50,
+            height=46,
             radius=20.0,
             border_width=1.2,
             shadow_blur=8.0,
@@ -134,35 +143,35 @@ class DecoratorShowcase(tk.Frame):
         self.search_dec.pack(fill="x", pady=(0, 8))
         self._decorators.append(self.search_dec)
 
-        # Embedded frame inside search decorator
         search_box = tk.Frame(self.search_dec, bg=self.search_dec.bg_color)
-        self.search_entry = tk.Entry(search_box, font=("Inter", 10), bg=self.search_dec.bg_color, fg=pal.fg, relief="flat", bd=0, highlightthickness=0)
+        self.search_entry = tk.Entry(search_box, font=("Segoe UI", 10), bg=self.search_dec.bg_color, fg=pal.fg, relief="flat", bd=0, highlightthickness=0)
         self.search_entry.insert(0, "Search documents, commands, and assets...")
-        self.search_entry.pack(side="left", fill="both", expand=True, padx=(4, 6))
+        self.search_entry.pack(side="left", fill="both", expand=True, padx=(8, 6))
         self._entries.append(self.search_entry)
 
-        search_btn = Button(
+        search_btn = tk.Button(
             search_box,
             text="Search",
-            width=60,
-            height=24,
-            font_size=10,
-            rx=12.0,
-            ry=12.0,
+            font=("Segoe UI", 9),
+            bg=pal.primary,
+            fg="#ffffff",
+            relief="flat",
+            padx=8,
+            pady=2,
             command=lambda: self.search_entry.delete(0, tk.END),
         )
-        search_btn.pack(side="right")
-        self.search_dec.decorate(search_box, padding=(12, 4, 8, 4))
+        search_btn.pack(side="right", padx=(0, 4))
+        self.search_dec.decorate(search_box, padding=(4, 4, 4, 4))
 
         # 2. Credentials & Interactive Focus Hooking
-        p2_lbl = Label(self.left_inner, text="2. Floating Credentials (Passive Focus Hooking)", font=("Inter", 11, "bold"), fg=pal.fg)
+        p2_lbl = tk.Label(self.left_inner, text="2. Floating Credentials (Passive Focus Hooking)", font=("Segoe UI", 10, "bold"), fg=pal.fg, bg=pal.card_bg)
         p2_lbl.pack(anchor="w", pady=(0, 3))
         self._primary_labels.append(p2_lbl)
 
         self.user_dec = BlendDecorator(
             self.left_inner,
             width=320,
-            height=42,
+            height=38,
             radius=9.0,
             border_width=1.0,
             shadow_blur=6.0,
@@ -171,7 +180,7 @@ class DecoratorShowcase(tk.Frame):
         self.user_dec.pack(fill="x", pady=(0, 6))
         self._decorators.append(self.user_dec)
 
-        self.user_entry = tk.Entry(self.user_dec, font=("Inter", 10))
+        self.user_entry = tk.Entry(self.user_dec, font=("Segoe UI", 10), bg=self.user_dec.bg_color, fg=pal.fg, relief="flat", bd=0)
         self.user_entry.insert(0, "developer@antigravity.io")
         self.user_dec.decorate(self.user_entry, padding=(10, 4, 10, 4))
         self._entries.append(self.user_entry)
@@ -179,7 +188,7 @@ class DecoratorShowcase(tk.Frame):
         self.pass_dec = BlendDecorator(
             self.left_inner,
             width=320,
-            height=42,
+            height=38,
             radius=9.0,
             border_width=1.0,
             shadow_blur=6.0,
@@ -188,33 +197,38 @@ class DecoratorShowcase(tk.Frame):
         self.pass_dec.pack(fill="x", pady=(0, 6))
         self._decorators.append(self.pass_dec)
 
-        self.pass_entry = tk.Entry(self.pass_dec, font=("Inter", 10), show="•")
+        self.pass_entry = tk.Entry(self.pass_dec, font=("Segoe UI", 10), show="•", bg=self.pass_dec.bg_color, fg=pal.fg, relief="flat", bd=0)
         self.pass_entry.insert(0, "SecretPassword123!")
         self.pass_dec.decorate(self.pass_entry, padding=(10, 4, 10, 4))
         self._entries.append(self.pass_entry)
 
         # Focus hook control bar
-        focus_bar = tk.Frame(self.left_inner, bg=self.left_col.bg_color)
+        focus_bar = tk.Frame(self.left_inner, bg=pal.card_bg)
         focus_bar.pack(fill="x", pady=(0, 8))
         self._card_frames.append(focus_bar)
 
-        Button(focus_bar, text="Focus User", width=86, height=24, font_size=10, command=self.user_entry.focus_set).pack(side="left", padx=(0, 4))
-        Button(focus_bar, text="Focus Password", width=98, height=24, font_size=10, command=self.pass_entry.focus_set).pack(side="left", padx=4)
-        Button(focus_bar, text="Unfocus All", width=86, height=24, font_size=10, command=self.focus_set).pack(side="left", padx=4)
+        for text, cmd in [
+            ("Focus User", self.user_entry.focus_set),
+            ("Focus Password", self.pass_entry.focus_set),
+            ("Unfocus All", self.focus_set),
+        ]:
+            b = tk.Button(focus_bar, text=text, font=("Segoe UI", 9), bg=pal.input_bg, fg=pal.fg, relief="flat", padx=6, pady=2, command=cmd)
+            b.pack(side="left", padx=2)
+            self._card_frames.append(b)
 
         # 3. Dynamic Validation & Error State Trigger
-        p3_lbl = Label(self.left_inner, text="3. Dynamic Validation / Error State", font=("Inter", 11, "bold"), fg=pal.fg)
+        p3_lbl = tk.Label(self.left_inner, text="3. Dynamic Validation / Error State", font=("Segoe UI", 10, "bold"), fg=pal.fg, bg=pal.card_bg)
         p3_lbl.pack(anchor="w", pady=(0, 3))
         self._primary_labels.append(p3_lbl)
 
-        val_row = tk.Frame(self.left_inner, bg=self.left_col.bg_color)
+        val_row = tk.Frame(self.left_inner, bg=pal.card_bg)
         val_row.pack(fill="x", pady=(0, 6))
         self._card_frames.append(val_row)
 
         self.val_dec = BlendDecorator(
             val_row,
             width=230,
-            height=42,
+            height=38,
             radius=9.0,
             border_width=1.0,
             shadow_blur=6.0,
@@ -223,23 +237,29 @@ class DecoratorShowcase(tk.Frame):
         self.val_dec.pack(side="left", fill="x", expand=True, padx=(0, 8))
         self._decorators.append(self.val_dec)
 
-        self.val_entry = tk.Entry(self.val_dec, font=("Inter", 10))
+        self.val_entry = tk.Entry(self.val_dec, font=("Segoe UI", 10), bg=self.val_dec.bg_color, fg=pal.fg, relief="flat", bd=0)
         self.val_entry.insert(0, "BLND-8941-XJ92 (Valid)")
         self.val_dec.decorate(self.val_entry, padding=(10, 4, 10, 4))
         self._entries.append(self.val_entry)
 
-        self.val_switch = Switch(val_row, is_on=False, command=self._on_toggle_error_state)
+        self._err_var = tk.BooleanVar(value=False)
+        self.val_switch = ttk.Checkbutton(
+            val_row,
+            text="Simulate Error",
+            variable=self._err_var,
+            command=self._on_toggle_error_state,
+        )
         self.val_switch.pack(side="right")
 
         # 4. Multiline Borderless Text Snippet
-        p4_lbl = Label(self.left_inner, text="4. Borderless Code / Note Decorator", font=("Inter", 11, "bold"), fg=pal.fg)
+        p4_lbl = tk.Label(self.left_inner, text="4. Borderless Code / Note Decorator", font=("Segoe UI", 10, "bold"), fg=pal.fg, bg=pal.card_bg)
         p4_lbl.pack(anchor="w", pady=(0, 3))
         self._primary_labels.append(p4_lbl)
 
         self.text_dec = BlendDecorator(
             self.left_inner,
             width=320,
-            height=90,
+            height=80,
             radius=10.0,
             border_width=1.0,
             shadow_blur=8.0,
@@ -248,7 +268,7 @@ class DecoratorShowcase(tk.Frame):
         self.text_dec.pack(fill="both", expand=True, pady=(0, 2))
         self._decorators.append(self.text_dec)
 
-        self.text_widget = tk.Text(self.text_dec, font=("Consolas", 9), height=3)
+        self.text_widget = tk.Text(self.text_dec, font=("Consolas", 9), height=3, bg=self.text_dec.bg_color, fg=pal.fg, relief="flat", bd=0)
         self.text_widget.insert("1.0", "# Pure Blend2D Surface Decorator\nimport tkblend as tb\ndec = tb.BlendDecorator(root, radius=12)\ndec.decorate(entry)")
         self.text_dec.decorate(self.text_widget, padding=(10, 6, 10, 6))
         self._entries.append(self.text_widget)
@@ -256,31 +276,33 @@ class DecoratorShowcase(tk.Frame):
         # ======================================================================
         # Right Column: Live Style Studio & Inset Inspector
         # ======================================================================
-        self.right_col = Card(self.body, rx=14, ry=14, elevation=6.0)
+        self.right_col = BlendDecorator(self.body, radius=14, shadow_blur=10, bg_color=pal.card_bg)
         self.right_col.grid(row=0, column=1, sticky="nsew", padx=(8, 0), pady=0)
+        self._decorators.append(self.right_col)
 
-        self.right_inner = tk.Frame(self.right_col, bg=self.right_col.bg_color)
+        self.right_inner = tk.Frame(self.right_col, bg=pal.card_bg)
         self.right_inner.pack(fill="both", expand=True, padx=16, pady=14)
         self._card_frames.append(self.right_inner)
 
-        col2_title = Label(
+        col2_title = tk.Label(
             self.right_inner,
             text="Live Style Studio & Inset Inspector",
-            font=("Inter", 14, "bold"),
+            font=("Segoe UI", 13, "bold"),
             fg=pal.fg,
+            bg=pal.card_bg,
         )
         col2_title.pack(anchor="w", pady=(0, 6))
         self._primary_labels.append(col2_title)
 
         # Target Live Preview Box
-        self.preview_box = tk.Frame(self.right_inner, bg=self.right_col.bg_color)
+        self.preview_box = tk.Frame(self.right_inner, bg=pal.card_bg)
         self.preview_box.pack(fill="x", pady=(0, 4))
         self._card_frames.append(self.preview_box)
 
         self.live_dec = BlendDecorator(
             self.preview_box,
             width=340,
-            height=74,
+            height=68,
             radius=self._current_radius,
             border_width=self._current_border_w,
             shadow_blur=self._current_blur,
@@ -292,43 +314,50 @@ class DecoratorShowcase(tk.Frame):
         self.live_dec.pack(fill="x", padx=4, pady=2)
         self._decorators.append(self.live_dec)
 
-        self.live_entry = tk.Entry(self.live_dec, font=("Inter", 11, "bold"))
+        self.live_entry = tk.Entry(self.live_dec, font=("Segoe UI", 11, "bold"), bg=self.live_dec.bg_color, fg=pal.fg, relief="flat", bd=0)
         self.live_entry.insert(0, "Live Decorated Entry Box")
         self.live_dec.decorate(self.live_entry, padding=(12, 4, 12, 4))
         self._entries.append(self.live_entry)
 
         # Simulation state buttons
-        sim_bar = tk.Frame(self.right_inner, bg=self.right_col.bg_color)
+        sim_bar = tk.Frame(self.right_inner, bg=pal.card_bg)
         sim_bar.pack(fill="x", pady=(0, 6))
         self._card_frames.append(sim_bar)
 
-        sim_lbl = Label(sim_bar, text="Preview State:", font_size=10, fg=pal.text_muted)
+        sim_lbl = tk.Label(sim_bar, text="Preview State:", font=("Segoe UI", 9), fg=pal.text_muted, bg=pal.card_bg)
         sim_lbl.pack(side="left", padx=(0, 6))
         self._muted_labels.append(sim_lbl)
 
-        self.hover_btn = Button(sim_bar, text="Hover", width=62, height=22, font_size=10, command=self._toggle_sim_hover)
+        self.hover_btn = tk.Button(sim_bar, text="Hover", font=("Segoe UI", 9), bg=pal.input_bg, fg=pal.fg, relief="flat", padx=6, pady=2, command=self._toggle_sim_hover)
         self.hover_btn.pack(side="left", padx=2)
-        self.focus_btn = Button(sim_bar, text="Focus", width=62, height=22, font_size=10, command=self._toggle_sim_focus)
+        self._card_frames.append(self.hover_btn)
+
+        self.focus_btn = tk.Button(sim_bar, text="Focus", font=("Segoe UI", 9), bg=pal.input_bg, fg=pal.fg, relief="flat", padx=6, pady=2, command=self._toggle_sim_focus)
         self.focus_btn.pack(side="left", padx=2)
-        Button(sim_bar, text="Reset", width=60, height=22, font_size=10, command=self._reset_sim_states).pack(side="left", padx=2)
+        self._card_frames.append(self.focus_btn)
+
+        reset_btn = tk.Button(sim_bar, text="Reset", font=("Segoe UI", 9), bg=pal.input_bg, fg=pal.fg, relief="flat", padx=6, pady=2, command=self._reset_sim_states)
+        reset_btn.pack(side="left", padx=2)
+        self._card_frames.append(reset_btn)
 
         # Inset Readout
         insets = self.live_dec.insets
-        self.insets_lbl = Label(
+        self.insets_lbl = tk.Label(
             self.right_inner,
             text=f"Active Insets: L={insets[0]:.1f}px, T={insets[1]:.1f}px, R={insets[2]:.1f}px, B={insets[3]:.1f}px",
-            font_size=10,
+            font=("Segoe UI", 9),
             fg=pal.text_muted,
+            bg=pal.card_bg,
         )
         self.insets_lbl.pack(anchor="w", pady=(0, 6))
         self._muted_labels.append(self.insets_lbl)
 
         # Style Presets Bar
-        presets_box = tk.Frame(self.right_inner, bg=self.right_col.bg_color)
+        presets_box = tk.Frame(self.right_inner, bg=pal.card_bg)
         presets_box.pack(fill="x", pady=(0, 6))
         self._card_frames.append(presets_box)
 
-        presets_lbl = Label(presets_box, text="Quick Presets:", font_size=10, fg=pal.text_muted)
+        presets_lbl = tk.Label(presets_box, text="Quick Presets:", font=("Segoe UI", 9), fg=pal.text_muted, bg=pal.card_bg)
         presets_lbl.pack(side="left", padx=(0, 6))
         self._muted_labels.append(presets_lbl)
 
@@ -339,17 +368,22 @@ class DecoratorShowcase(tk.Frame):
             ("Flat", 6.0, 1.5, 0.0, 0.0, 2.0),
         ]
         for name, r, bw, blur, off_y, ring_w in presets:
-            Button(
+            pb = tk.Button(
                 presets_box,
                 text=name,
-                width=68,
-                height=22,
-                font_size=10,
+                font=("Segoe UI", 8),
+                bg=pal.input_bg,
+                fg=pal.fg,
+                relief="flat",
+                padx=4,
+                pady=1,
                 command=lambda r=r, bw=bw, bl=blur, oy=off_y, rw=ring_w: self._apply_preset(r, bw, bl, oy, rw),
-            ).pack(side="left", padx=2)
+            )
+            pb.pack(side="left", padx=2)
+            self._card_frames.append(pb)
 
         # Sliders Controls
-        self.controls = tk.Frame(self.right_inner, bg=self.right_col.bg_color)
+        self.controls = tk.Frame(self.right_inner, bg=pal.card_bg)
         self.controls.pack(fill="both", expand=True)
         self._card_frames.append(self.controls)
 
@@ -361,41 +395,39 @@ class DecoratorShowcase(tk.Frame):
         self.sl_ring_w = self._create_slider(self.controls, "Focus Ring Width", 0.0, 6.0, self._current_focus_ring_w, self._on_focus_ring_w_changed)
 
         # Shadow toggle switch
-        self.switch_row = tk.Frame(self.controls, bg=self.right_col.bg_color)
+        self.switch_row = tk.Frame(self.controls, bg=pal.card_bg)
         self.switch_row.pack(fill="x", pady=(4, 0))
         self._card_frames.append(self.switch_row)
 
-        sw_lbl = Label(self.switch_row, text="Enable Soft Drop Shadow:", font_size=11, fg=pal.fg)
-        sw_lbl.pack(side="left")
-        self._primary_labels.append(sw_lbl)
-
-        self.shadow_sw = Switch(
+        self._shadow_var = tk.BooleanVar(value=True)
+        self.shadow_sw = ttk.Checkbutton(
             self.switch_row,
-            is_on=True,
-            command=self._on_toggle_shadows,
+            text="Enable Soft Drop Shadow",
+            variable=self._shadow_var,
+            command=lambda: self._on_toggle_shadows(self._shadow_var.get()),
         )
-        self.shadow_sw.pack(side="right")
+        self.shadow_sw.pack(side="left")
 
     def _create_slider(self, parent, label_text, min_val, max_val, init_val, callback) -> dict:
         pal = tb.get_theme()
-        row = tk.Frame(parent, bg=parent.cget("bg"))
+        row = tk.Frame(parent, bg=pal.card_bg)
         row.pack(fill="x", pady=1)
         self._card_frames.append(row)
 
-        val_lbl = Label(row, text=f"{label_text}: {init_val:.1f}px", font_size=10, fg=pal.fg)
+        val_lbl = tk.Label(row, text=f"{label_text}: {init_val:.1f}px", font=("Segoe UI", 9), fg=pal.fg, bg=pal.card_bg)
         val_lbl.pack(anchor="w")
         self._primary_labels.append(val_lbl)
 
-        def on_val(v):
-            val_lbl.set_text(f"{label_text}: {v:.1f}px")
+        def on_val(v_str):
+            v = float(v_str)
+            val_lbl.config(text=f"{label_text}: {v:.1f}px")
             callback(v)
 
-        sl = Slider(
+        sl = ttk.Scale(
             row,
             from_=min_val,
             to=max_val,
             value=init_val,
-            height=16,
             command=on_val,
         )
         sl.pack(fill="x", pady=(1, 2))
@@ -405,7 +437,7 @@ class DecoratorShowcase(tk.Frame):
             "row": row,
             "label": val_lbl,
             "slider": sl,
-            "set_fn": lambda v: (val_lbl.set_text(f"{label_text}: {v:.1f}px"), sl.set(v)),
+            "set_fn": lambda v: (val_lbl.config(text=f"{label_text}: {v:.1f}px"), sl.set(v)),
         }
         self._slider_controls.append(ctrl)
         return ctrl
@@ -457,51 +489,57 @@ class DecoratorShowcase(tk.Frame):
         self.live_dec.configure(focus_ring_width=val)
         self._update_insets_display()
 
-    def _on_toggle_shadows(self, checked: bool):
-        self._shadows_enabled = checked
-        self.live_dec.configure(shadow_enabled=checked)
+    def _on_toggle_shadows(self, enabled: bool):
+        self._shadows_enabled = enabled
+        self.live_dec.configure(shadow_enabled=enabled)
         self._update_insets_display()
+
+    def _on_toggle_error_state(self):
+        is_err = self._err_var.get()
+        self._is_error_state = is_err
+        pal = tb.get_theme()
+        if is_err:
+            self.val_dec.configure(
+                border_color="#ef4444",
+                border_hover_color="#f87171",
+                focus_ring_color="#ef4444",
+                shadow_color="#ef444455",
+            )
+            self.val_entry.delete(0, tk.END)
+            self.val_entry.insert(0, "Error: Invalid License Key Format")
+            self.val_entry.configure(fg="#ef4444")
+        else:
+            self.val_dec.configure(
+                border_color=pal.border,
+                border_hover_color=pal.primary,
+                focus_ring_color=pal.primary,
+                shadow_color="#00000033",
+            )
+            self.val_entry.delete(0, tk.END)
+            self.val_entry.insert(0, "BLND-8941-XJ92 (Valid)")
+            self.val_entry.configure(fg=pal.fg)
 
     def _toggle_sim_hover(self):
         self._is_simulated_hover = not self._is_simulated_hover
         self.live_dec.native.set_hovered(self._is_simulated_hover)
+        self.live_dec.redraw()
 
     def _toggle_sim_focus(self):
         self._is_simulated_focus = not self._is_simulated_focus
         self.live_dec.native.set_focused(self._is_simulated_focus)
+        self.live_dec.redraw()
 
     def _reset_sim_states(self):
         self._is_simulated_hover = False
         self._is_simulated_focus = False
         self.live_dec.native.set_hovered(False)
         self.live_dec.native.set_focused(False)
-
-    def _on_toggle_error_state(self, is_on: bool):
-        self._is_error_state = is_on
-        pal = tb.get_theme()
-        if is_on:
-            self.val_dec.configure(
-                border_color="#ef4444",
-                focus_ring_color="#ef4444",
-                shadow_color="#ef444433",
-            )
-            self.val_entry.delete(0, tk.END)
-            self.val_entry.insert(0, "BLND-INVALID-KEY (Error)")
-            self.val_entry.configure(fg="#ef4444")
-        else:
-            self.val_dec.configure(
-                border_color=pal.card_border,
-                focus_ring_color=pal.primary,
-                shadow_color=pal.shadow_color,
-            )
-            self.val_entry.delete(0, tk.END)
-            self.val_entry.insert(0, "BLND-8941-XJ92 (Valid)")
-            self.val_entry.configure(fg=pal.fg)
+        self.live_dec.redraw()
 
     def _update_insets_display(self):
         insets = self.live_dec.insets
-        self.insets_lbl.set_text(
-            f"Active Insets: L={insets[0]:.1f}px, T={insets[1]:.1f}px, R={insets[2]:.1f}px, B={insets[3]:.1f}px"
+        self.insets_lbl.config(
+            text=f"Active Insets: L={insets[0]:.1f}px, T={insets[1]:.1f}px, R={insets[2]:.1f}px, B={insets[3]:.1f}px"
         )
 
     def _on_change_theme(self, theme_name: str):
@@ -525,13 +563,13 @@ class DecoratorShowcase(tk.Frame):
         # Update labels with active theme palette
         for lbl in self._primary_labels:
             try:
-                lbl.configure(fg_color=pal.fg, text_color=pal.fg, fg=pal.fg)
+                lbl.configure(fg=pal.fg, bg=pal.card_bg)
             except Exception:
                 pass
 
         for lbl in self._muted_labels:
             try:
-                lbl.configure(fg_color=pal.text_muted, text_color=pal.text_muted, fg=pal.text_muted)
+                lbl.configure(fg=pal.text_muted, bg=pal.card_bg)
             except Exception:
                 pass
 
@@ -542,7 +580,6 @@ class DecoratorShowcase(tk.Frame):
             except Exception:
                 pass
 
-        # If in error state, keep error styling; otherwise refresh validation entry
         if not self._is_error_state:
             try:
                 self.val_entry.configure(fg=pal.fg)

@@ -673,10 +673,10 @@ def cascade_bg_to_children(container: tk.Misc, bg_color: str, preserve_overrides
 
 
 def is_inside_card(widget: Optional[tk.Misc]) -> bool:
-    """Return True if widget is nested within a Card container."""
+    """Return True if widget is nested within a Card or BlendDecorator container."""
     curr = widget
     while curr is not None:
-        if getattr(curr, "__class__", None).__name__ == "Card":
+        if getattr(curr, "__class__", None).__name__ in ("Card", "BlendDecorator"):
             return True
         curr = getattr(curr, "master", None)
     return False

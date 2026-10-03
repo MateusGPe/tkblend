@@ -17,6 +17,7 @@ import random
 import tkinter as tk
 from typing import Optional, List, Tuple
 
+from tkinter import ttk
 import tkblend as tb
 from tkblend import (
     BlendCanvas,
@@ -24,13 +25,7 @@ from tkblend import (
     LinearGradient,
     RadialGradient,
     Path,
-    Card,
-    Button,
-    Slider,
-    SegmentedButton,
-    OptionMenu,
-    Switch,
-    Badge,
+    BlendDecorator,
     COMP_OP_SRC_OVER,
     COMP_OP_MULTIPLY,
     COMP_OP_SCREEN,
@@ -46,7 +41,6 @@ from tkblend import (
     set_theme,
     get_available_themes,
     cascade_bg_to_children,
-    ScalingTracker,
 )
 
 
@@ -85,39 +79,46 @@ class CanvasStudio(tk.Frame):
         cbox.pack(side="right")
 
         tk.Label(cbox, text="Theme:", font=("Segoe UI", 10), fg=pal.fg_subtle, bg=pal.bg).pack(side="left", padx=(8, 4))
-        OptionMenu(
+        self._theme_combo = ttk.Combobox(
             cbox,
             values=list(get_available_themes()),
-            default_value="dark",
-            command=self._on_theme_changed,
-            width=140,
-            height=32,
-        ).pack(side="left", padx=6)
+            state="readonly",
+            width=14,
+        )
+        self._theme_combo.set("dark")
+        self._theme_combo.bind("<<ComboboxSelected>>", lambda e: self._on_theme_changed(self._theme_combo.get()))
+        self._theme_combo.pack(side="left", padx=6)
 
         # Mode Selection Bar
         mode_bar = tk.Frame(self, background=pal.bg)
         mode_bar.pack(fill="x", padx=20, pady=6)
 
-        self._mode_seg = SegmentedButton(
-            mode_bar,
-            values=["Paths & Curves", "Gradients & Extends", "Composition Modes", "Shadows & Glow", "Freehand Scratchpad"],
-            default_value="Paths & Curves",
-            command=self._set_mode,
-            width=760,
-            height=32,
-        )
-        self._mode_seg.pack(side="left")
+        modes = ["Paths & Curves", "Gradients & Extends", "Composition Modes", "Shadows & Glow", "Freehand Scratchpad"]
+        for m in modes:
+            b = tk.Button(
+                mode_bar,
+                text=m,
+                font=("Segoe UI", 9),
+                bg=pal.card_bg,
+                fg=pal.fg,
+                activebackground=pal.primary,
+                activeforeground="#ffffff",
+                relief="flat",
+                padx=8,
+                pady=4,
+                command=lambda mode=m: self._set_mode(mode),
+            )
+            b.pack(side="left", padx=3)
 
         # Main Workspace: Left Main BlendCanvas + Right Param Controls
         workspace = tk.Frame(self, background=pal.bg)
         workspace.pack(fill="both", expand=True, padx=20, pady=(6, 16))
 
         # Main Vector Canvas Card
-        canvas_card = Card(workspace, width=640, height=540, rx=14, ry=14, elevation=6)
+        canvas_card = BlendDecorator(workspace, radius=14, shadow_blur=10, bg_color=pal.surface)
         canvas_card.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
-        c_body = canvas_card.body
-        self._canvas = BlendCanvas(c_body, width=620, height=520, bg="surface", on_draw=self._draw_canvas)
+        self._canvas = BlendCanvas(canvas_card, width=620, height=520, bg="surface", on_draw=self._draw_canvas)
         self._canvas.pack(fill="both", expand=True, padx=6, pady=6)
 
         # Mouse bindings for scratchpad
@@ -126,16 +127,16 @@ class CanvasStudio(tk.Frame):
         self._canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
 
         # Right Control Panel Card
-        self._param_card = Card(workspace, title="Studio Controls", width=290, height=540, rx=14, ry=14, elevation=6)
+        self._param_card = BlendDecorator(workspace, radius=14, shadow_blur=10, bg_color=pal.card_bg)
         self._param_card.pack(side="right", fill="y", padx=(6, 0))
-        self._setup_param_panel(self._param_card.body)
+        self._setup_param_panel(self._param_card)
 
         from tkblend.theme import add_theme_listener
         add_theme_listener(lambda p: self._on_global_theme_changed(p))
 
         cascade_bg_to_children(self, pal.bg)
 
-    def _setup_param_panel(self, container: tk.Frame) -> None:
+    def _setup_param_panel(self, container: tk.Widget) -> None:
         pal = get_theme()
 
         self._ctrl_frame = tk.Frame(container, background=pal.card_bg)
@@ -153,43 +154,39 @@ class CanvasStudio(tk.Frame):
         if self._active_mode == "Paths & Curves":
             tk.Label(self._ctrl_frame, text="Geometry & Curve Demos", font=("Segoe UI", 10, "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(0, 4))
             tk.Label(self._ctrl_frame, text="Features demonstrated:\n• Anti-aliased cubic Bezier\n• Smooth quadratic arcs\n• Rotated multi-star polygon\n• SVG-like path icons", font=("Segoe UI", 9), fg=pal.fg_subtle, bg=pal.card_bg, justify="left").pack(anchor="w", pady=4)
-            Button(self._ctrl_frame, text="Re-seed Curve Points", width=220, height=32, command=self._canvas.redraw).pack(pady=12)
+            tk.Button(self._ctrl_frame, text="Re-seed Curve Points", font=("Segoe UI", 9), bg=pal.primary, fg="#ffffff", relief="flat", padx=10, pady=4, command=self._canvas.redraw).pack(pady=12)
 
         elif self._active_mode == "Gradients & Extends":
             tk.Label(self._ctrl_frame, text="Gradient Matrix", font=("Segoe UI", 10, "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(0, 4))
             tk.Label(self._ctrl_frame, text="Demonstrating:\n• Linear multi-stop gradients\n• Radial focal gradients\n• EXTEND_PAD\n• EXTEND_REPEAT\n• EXTEND_REFLECT", font=("Segoe UI", 9), fg=pal.fg_subtle, bg=pal.card_bg, justify="left").pack(anchor="w", pady=4)
-            Button(self._ctrl_frame, text="Invert Gradient Stops", width=220, height=32, command=self._canvas.redraw).pack(pady=12)
+            tk.Button(self._ctrl_frame, text="Invert Gradient Stops", font=("Segoe UI", 9), bg=pal.primary, fg="#ffffff", relief="flat", padx=10, pady=4, command=self._canvas.redraw).pack(pady=12)
 
         elif self._active_mode == "Composition Modes":
             tk.Label(self._ctrl_frame, text="Blend Composition Operator", font=("Segoe UI", 10, "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(0, 4))
             modes = ["SRC_OVER", "MULTIPLY", "SCREEN", "OVERLAY", "XOR", "PLUS", "DARKEN", "LIGHTEN"]
-            OptionMenu(
-                self._ctrl_frame,
-                values=modes,
-                default_value=self._comp_mode,
-                command=self._set_comp_mode,
-                width=220,
-                height=32,
-            ).pack(pady=6)
+            comp_combo = ttk.Combobox(self._ctrl_frame, values=modes, state="readonly", width=22)
+            comp_combo.set(self._comp_mode)
+            comp_combo.bind("<<ComboboxSelected>>", lambda e: self._set_comp_mode(comp_combo.get()))
+            comp_combo.pack(pady=6)
             tk.Label(self._ctrl_frame, text="Blends RGB channel math between layered vector shapes natively at JIT speed.", font=("Segoe UI", 9), fg=pal.fg_subtle, bg=pal.card_bg, justify="left").pack(anchor="w", pady=8)
 
         elif self._active_mode == "Shadows & Glow":
             tk.Label(self._ctrl_frame, text="Drop Shadow Parameters", font=("Segoe UI", 10, "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(0, 4))
 
             tk.Label(self._ctrl_frame, text="Blur Radius:", font=("Segoe UI", 9), fg=pal.fg_subtle, bg=pal.card_bg).pack(anchor="w")
-            Slider(self._ctrl_frame, from_=0, to=40, value=self._shadow_blur, width=220, height=22, command=self._set_blur).pack(fill="x", pady=2)
+            ttk.Scale(self._ctrl_frame, from_=0, to=40, value=self._shadow_blur, command=lambda v: self._set_blur(float(v))).pack(fill="x", pady=2)
 
             tk.Label(self._ctrl_frame, text="Offset Y:", font=("Segoe UI", 9), fg=pal.fg_subtle, bg=pal.card_bg).pack(anchor="w", pady=(6, 0))
-            Slider(self._ctrl_frame, from_=-20, to=40, value=self._shadow_offset_y, width=220, height=22, command=self._set_offset_y).pack(fill="x", pady=2)
+            ttk.Scale(self._ctrl_frame, from_=-20, to=40, value=self._shadow_offset_y, command=lambda v: self._set_offset_y(float(v))).pack(fill="x", pady=2)
 
             tk.Label(self._ctrl_frame, text="Spread:", font=("Segoe UI", 9), fg=pal.fg_subtle, bg=pal.card_bg).pack(anchor="w", pady=(6, 0))
-            Slider(self._ctrl_frame, from_=-10, to=20, value=self._shadow_spread, width=220, height=22, command=self._set_spread).pack(fill="x", pady=2)
+            ttk.Scale(self._ctrl_frame, from_=-10, to=20, value=self._shadow_spread, command=lambda v: self._set_spread(float(v))).pack(fill="x", pady=2)
 
         elif self._active_mode == "Freehand Scratchpad":
             tk.Label(self._ctrl_frame, text="Brush Properties", font=("Segoe UI", 10, "bold"), fg=pal.fg, bg=pal.card_bg).pack(anchor="w", pady=(0, 4))
 
             tk.Label(self._ctrl_frame, text="Brush Size:", font=("Segoe UI", 9), fg=pal.fg_subtle, bg=pal.card_bg).pack(anchor="w")
-            Slider(self._ctrl_frame, from_=1, to=30, value=self._brush_size, width=220, height=22, command=self._set_brush_size).pack(fill="x", pady=2)
+            ttk.Scale(self._ctrl_frame, from_=1, to=30, value=self._brush_size, command=lambda v: self._set_brush_size(float(v))).pack(fill="x", pady=2)
 
             tk.Label(self._ctrl_frame, text="Color Palette:", font=("Segoe UI", 9), fg=pal.fg_subtle, bg=pal.card_bg).pack(anchor="w", pady=(8, 4))
             pal_row = tk.Frame(self._ctrl_frame, background=pal.card_bg)
@@ -200,7 +197,7 @@ class CanvasStudio(tk.Frame):
                 btn = tk.Button(pal_row, bg=col, activebackground=col, width=2, height=1, relief="flat", command=lambda c=col: self._set_brush_color(c))
                 btn.pack(side="left", padx=2)
 
-            Button(self._ctrl_frame, text="Clear Scratchpad", width=220, height=32, bootstyle="danger", command=self._clear_scratchpad).pack(pady=16)
+            tk.Button(self._ctrl_frame, text="Clear Scratchpad", font=("Segoe UI", 9), bg="#ef4444", fg="#ffffff", relief="flat", padx=10, pady=4, command=self._clear_scratchpad).pack(pady=16)
 
     def _set_mode(self, mode_name: str) -> None:
         self._active_mode = mode_name
@@ -470,7 +467,6 @@ def main():
     root.geometry("1020x720")
     root.minsize(900, 600)
 
-    ScalingTracker.activate_high_dpi_awareness()
     set_theme("dark")
 
     studio = CanvasStudio(root)

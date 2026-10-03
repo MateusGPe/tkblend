@@ -415,19 +415,15 @@ def _photoimage_registry_pattern(root, n: int):
     and the image data is never freed.
     """
     for _ in range(n):
-        btn = tb.Button(root, text="Leak?")
-        card = tb.Card(root, title="Leak?")
-        sw = tb.Switch(root)
+        dec = tb.BlendDecorator(root, width=64, height=64)
         canvas = tb.BlendCanvas(root, width=64, height=64)
         root.update_idletasks()
 
-        btn.destroy()
-        card.destroy()
-        sw.destroy()
+        dec.destroy()
         canvas.destroy()
         root.update_idletasks()
 
-    del btn, card, sw, canvas
+    del dec, canvas
     gc.collect()
 
 
@@ -436,9 +432,9 @@ def test_photoimage_registry_teardown_no_leak(root):
     initial = set(root.tk.call("image", "names"))
 
     for _ in range(50):
-        btn = tb.Button(root, text="X")
+        canvas = tb.BlendCanvas(root, width=32, height=32)
         root.update_idletasks()
-        btn.destroy()
+        canvas.destroy()
         root.update_idletasks()
 
     final = set(root.tk.call("image", "names"))
@@ -798,28 +794,12 @@ def test_buffer_slicing_and_resize_stress_no_leak():
 # ===========================================================================
 
 def _widget_swarm_pattern(root, n: int):
-    """Instantiate and destroy the full suite of tkblend vector widgets."""
+    """Instantiate and destroy BlendDecorator and BlendCanvas instances."""
     for _ in range(n):
-        f = tb.Frame(root)
-        card = tb.Card(f, title="Card")
-        btn = tb.Button(card, text="Button")
-        pbar = tb.ProgressBar(card)
-        cp = tb.CircularProgress(card)
-        slider = tb.Slider(card)
-        rslider = tb.RangeSlider(card)
-        sw = tb.Switch(card)
-        cb = tb.Checkbox(card, text="Check")
-        rg = tb.RadioGroup(card)
-        r1 = tb.Radio(card, text="R1", group=rg)
-        r2 = tb.Radio(card, text="R2", group=rg)
-        seg = tb.SegmentedControl(card, values=["A", "B", "C"])
-        ti = tb.TextInput(card, placeholder="Text")
-        vs = tb.VectorScrollbar(card)
-        dd = tb.Dropdown(card, options=["1", "2", "3"])
-        sb = tb.SpinBox(card)
-        badge = tb.Badge(card, text="99+")
-        avatar = tb.Avatar(card, text="AG")
-        acc = tb.Accordion(card)
+        f = tk.Frame(root)
+        card = tb.BlendDecorator(f, width=200, height=100)
+        btn = tk.Button(card, text="Button")
+        lbl = tk.Label(card, text="Label")
         canvas = tb.BlendCanvas(card, width=64, height=64)
 
         root.update_idletasks()
@@ -828,12 +808,12 @@ def _widget_swarm_pattern(root, n: int):
         f.destroy()
         root.update_idletasks()
 
-        del f, card, btn, pbar, cp, slider, rslider, sw, cb, rg, r1, r2, seg, ti, vs, dd, sb, badge, avatar, acc, canvas
+        del f, card, btn, lbl, canvas
     gc.collect()
 
 
 def test_widget_swarm_lifecycle_no_leak(root):
-    """Lifecycle churn of all 20+ widget types leaves zero residual Tk PhotoImages or memory."""
+    """Lifecycle churn leaves zero residual Tk PhotoImages or memory."""
     initial_images = set(root.tk.call("image", "names"))
     diff = _tracemalloc_diff_kb(_widget_swarm_pattern, root, 10)
     final_images = set(root.tk.call("image", "names"))
@@ -847,12 +827,10 @@ def test_widget_swarm_lifecycle_no_leak(root):
 
 
 def _theme_storm_pattern(root, n: int):
-    """Rapid theme switching with an active widget hierarchy."""
-    f = tb.Frame(root)
-    card = tb.Card(f, title="Theme Test")
-    btn = tb.Button(card, text="Button")
-    sw = tb.Switch(card)
-    slider = tb.Slider(card)
+    """Rapid theme switching with an active decorator hierarchy."""
+    f = tk.Frame(root)
+    card = tb.BlendDecorator(f, width=200, height=100)
+    btn = tk.Button(card, text="Button")
     root.update_idletasks()
 
     themes = [
@@ -865,7 +843,7 @@ def _theme_storm_pattern(root, n: int):
 
     f.destroy()
     root.update_idletasks()
-    del f, card, btn, sw, slider
+    del f, card, btn
     gc.collect()
 
 

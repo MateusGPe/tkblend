@@ -25,7 +25,7 @@ from tkblend.theme import (
     is_inside_card,
     is_ttkbootstrap_installed,
 )
-from tkblend.widgets import Button, Card, Frame, TextInput
+from tkblend import BlendDecorator
 
 
 @pytest.fixture
@@ -161,11 +161,11 @@ def test_resolve_ancestor_bg(root):
     # None master returns palette.bg
     assert resolve_ancestor_bg(None) == DARK_PALETTE.bg
 
-    # Inside a Card container
-    card = Card(root, title="Resolver Test", bg_color="#332244")
+    # Inside a BlendDecorator card container
+    card = BlendDecorator(root, bg_color="#332244")
     assert resolve_ancestor_bg(card) == "#332244"
 
-    # Inside a tk.Frame that is inside the Card
+    # Inside a tk.Frame that is inside the BlendDecorator
     subframe = tk.Frame(card)
     assert resolve_ancestor_bg(subframe) == "#332244"
 
@@ -189,7 +189,7 @@ def test_apply_theme_and_dynamic_injection(root):
     f = tk.Frame(root)
     lbl = tk.Label(root, text="Hello")
     cvs = tk.Canvas(root)
-    btn = Button(root, text="Vector Btn")
+    dec = BlendDecorator(root)
 
     cleanup = apply_theme(root, "dark")
     root.update_idletasks()
@@ -197,7 +197,6 @@ def test_apply_theme_and_dynamic_injection(root):
     assert f.cget("background") == DARK_PALETTE.bg
     assert lbl.cget("background") == DARK_PALETTE.bg
     assert cvs.cget("background") == DARK_PALETTE.bg
-    assert btn._parent_bg == DARK_PALETTE.bg
 
     # Switch theme to light and verify all standard Tk and tkblend widgets auto-sync
     set_theme("light")
@@ -206,7 +205,6 @@ def test_apply_theme_and_dynamic_injection(root):
     assert f.cget("background") == LIGHT_PALETTE.bg
     assert lbl.cget("background") == LIGHT_PALETTE.bg
     assert cvs.cget("background") == LIGHT_PALETTE.bg
-    assert btn._parent_bg == LIGHT_PALETTE.bg
 
     # Cleanup listener
     cleanup()
@@ -216,7 +214,7 @@ def test_apply_theme_and_dynamic_injection(root):
     f.destroy()
     lbl.destroy()
     cvs.destroy()
-    btn.destroy()
+    dec.destroy()
 
 
 def test_apply_theme_preserve_overrides(root):
@@ -253,33 +251,14 @@ def test_apply_theme_preserve_overrides(root):
 
 def test_dynamic_container_bg_cascade(root):
     set_theme("dark")
-    card = Card(root, title="Dynamic Cascade")
+    card = BlendDecorator(root, bg_color="#112233")
     subframe = tk.Frame(card)
-    btn = Button(subframe, text="Click")
-    inp = TextInput(subframe, placeholder="Type")
+    lbl = tk.Label(subframe, text="Inside Decorator")
 
     root.update_idletasks()
-    assert btn._parent_bg == card._bg_color
-    assert inp._parent_bg == card._bg_color
+    assert resolve_ancestor_bg(subframe) == "#112233"
+    assert resolve_ancestor_bg(lbl) == "#112233"
 
-    # Dynamically change card's surface background
-    card.set_background("#112233")
-    root.update_idletasks()
-
-    assert btn._parent_bg == "#112233"
-    assert inp._parent_bg == "#112233"
-
-    # Switch theme to light
-    set_theme("light")
-    root.update_idletasks()
-
-    assert btn._parent_bg == "#ffffff"
-    assert inp._parent_bg == "#ffffff"
-
-    set_theme("dark")
-    inp.destroy()
-    btn.destroy()
-    subframe.destroy()
     card.destroy()
 
 
@@ -326,45 +305,6 @@ def test_resolve_ancestor_bg_previous_palette_translation(root):
     f_card.destroy()
 
 
-def test_apply_theme_context_aware_card_and_accordion(root):
-    from tkblend.widgets.containers import Accordion
-    set_theme("dark")
-
-    # Hierarchy: root -> card -> inner_frame -> acc -> acc_inner_label
-    card = Card(root, title="Card")
-    inner_frame = tk.Frame(card)
-    inner_frame.pack()
-    acc = Accordion(inner_frame, title="Acc")
-    acc.pack()
-    lbl = tk.Label(acc.content_frame, text="Inside Acc")
-    lbl.pack()
-
-    cleanup = apply_theme(root, recursive=True)
-    root.update_idletasks()
-
-    assert card._bg_label.cget("background") == DARK_PALETTE.bg
-    assert card._bg_color == DARK_PALETTE.card_bg
-    assert inner_frame.cget("background") == DARK_PALETTE.card_bg
-    assert acc._parent_bg == DARK_PALETTE.card_bg
-    assert acc.content_frame.cget("background") == DARK_PALETTE.surface
-    assert lbl.cget("background") == DARK_PALETTE.surface
-
-    # Switch to light
-    set_theme("light")
-    root.update_idletasks()
-
-    assert card._bg_label.cget("background") == LIGHT_PALETTE.bg
-    assert card._bg_color == LIGHT_PALETTE.card_bg
-    assert inner_frame.cget("background") == LIGHT_PALETTE.card_bg
-    assert acc._parent_bg == LIGHT_PALETTE.card_bg
-    assert acc.content_frame.cget("background") == LIGHT_PALETTE.surface
-    assert lbl.cget("background") == LIGHT_PALETTE.surface
-
-    cleanup()
-    set_theme("dark")
-    card.destroy()
-
-
 def test_to_tk_hex():
     from tkblend.theme import to_tk_hex, to_tk_color
     assert to_tk_hex("#ff007f88") == "#ff007f"
@@ -374,16 +314,4 @@ def test_to_tk_hex():
     assert to_tk_hex("rgba(255, 0, 127, 0.5)") == "#ff007f"
     assert to_tk_hex("rgb(10, 20, 30)") == "#0a141e"
     assert to_tk_color("#12345678") == "#123456"
-
-
-def test_combobox_with_all_theme_presets(root):
-    from tkblend.widgets.combobox import Combobox, ComboBox
-    from tkblend.theme import get_available_themes, set_theme
-
-    for theme_name in get_available_themes():
-        set_theme(theme_name)
-        cb = Combobox(root, values=["Alpha", "Beta", "Gamma"], width=150, height=32)
-        cb.pack()
-        root.update_idletasks()
-        cb.destroy()
 

@@ -15,7 +15,6 @@ from tkblend import (
     apply_theme,
     set_theme,
     get_theme,
-    Button,
 )
 
 
@@ -145,86 +144,5 @@ def test_apply_theme_with_font_sync(root):
     cleanup()
 
 
-def test_text_input_and_spinbox_font_resolution(root):
-    from tkblend import TextInput, SpinBox
-    
-    # Default font matches tkblend default family
-    inp = TextInput(root, placeholder="Test")
-    spin = SpinBox(root)
-    inp.pack()
-    spin.pack()
 
-    default_fam = extract_font_family("default")
-    assert inp.font_family == "default"
-    assert inp.font_size == 12.0
-    
-    inp_tk_font = str(inp._entry.cget("font"))
-    assert default_fam.lower() in inp_tk_font.lower()
-
-    spin_tk_font = str(spin._entry.cget("font"))
-    assert default_fam.lower() in spin_tk_font.lower()
-
-
-def test_text_input_and_spinbox_custom_font_properties(root):
-    from tkblend import TextInput, SpinBox
-
-    inp = TextInput(root, font=("Arial", 16, "bold"))
-    spin = SpinBox(root, font=("Times", 14, "italic"))
-    inp.pack()
-    spin.pack()
-
-    assert inp.font.family == "Arial"
-    assert inp.font.size == 16.0
-    assert inp.font.bold is True
-    assert "Arial" in str(inp._entry.cget("font"))
-    assert_scaled_font_size(inp, 16)
-
-    # Property mutation on TextInput
-    inp.font_size = 18.0
-    assert inp.font_size == 18.0
-    assert_scaled_font_size(inp, 18)
-
-    inp.font_family = "Courier"
-    assert inp.font_family == "Courier"
-    assert "Courier" in str(inp._entry.cget("font"))
-
-    inp.configure(font=("Helvetica", 13))
-    assert inp.font_family == "Helvetica"
-    assert inp.font_size == 13.0
-    assert "Helvetica" in str(inp._entry.cget("font"))
-
-    # Property mutation on SpinBox
-    spin.font_size = 20.0
-    assert spin.font_size == 20.0
-    assert_scaled_font_size(spin, 20)
-
-    spin.font_family = "Georgia"
-    assert spin.font_family == "Georgia"
-    assert "Georgia" in str(spin._entry.cget("font"))
-
-
-def test_sync_tk_fonts_with_text_input_and_spinbox(root):
-    from tkblend import TextInput, SpinBox
-
-    inp_auto = TextInput(root)
-    inp_custom = TextInput(root, font=("Courier", 15))
-    spin_auto = SpinBox(root)
-    spin_custom = SpinBox(root, font=("Georgia", 18))
-
-    inp_auto.pack()
-    inp_custom.pack()
-    spin_auto.pack()
-    spin_custom.pack()
-
-    sync_tk_fonts(root, font=("Helvetica", 14, "bold"), preserve_overrides=True)
-
-    # Auto widgets updated
-    assert "Helvetica" in str(inp_auto._entry.cget("font"))
-    assert "Helvetica" in str(spin_auto._entry.cget("font"))
-
-    # Custom widgets preserved
-    assert "Courier" in str(inp_custom._entry.cget("font"))
-    assert_scaled_font_size(inp_custom, 15)
-    assert "Georgia" in str(spin_custom._entry.cget("font"))
-    assert_scaled_font_size(spin_custom, 18)
 

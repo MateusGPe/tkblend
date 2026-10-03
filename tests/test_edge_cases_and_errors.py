@@ -50,38 +50,19 @@ class TestEdgeCasesAndErrors(unittest.TestCase):
         s.draw_shadow(-100, -100, 200, 200, 10, 10, blur_radius=20.0)
         s.flush()
 
-    def test_badge_resize_preservation(self):
+    def test_decorator_class_hierarchy_and_panedwindow(self):
         import tkinter as tk
-        from tkblend import Badge
+        from tkblend import BlendDecorator, is_inside_card
         root = tk.Tk()
         try:
-            badge = Badge(root, text="Production Ready", variant="success", dot=True)
-            initial_w = badge._widget_w
-            self.assertGreaterEqual(initial_w, 80)
-
-            # Enlarge event
-            class LargeEvent:
-                width = 200
-                height = 30
-            badge._on_configure(LargeEvent())
-            self.assertEqual(badge._widget_w, 200)
-            self.assertEqual(badge._widget_h, 30)
-        finally:
-            root.destroy()
-
-    def test_card_class_hierarchy_and_panedwindow(self):
-        import tkinter as tk
-        from tkblend import Card, is_inside_card
-        root = tk.Tk()
-        try:
-            card = Card(root)
-            self.assertIsInstance(card, Card)
-            lbl = tk.Label(card, text="Inside Card")
+            dec = BlendDecorator(root)
+            self.assertIsInstance(dec, BlendDecorator)
+            lbl = tk.Label(dec, text="Inside Decorator")
             self.assertTrue(is_inside_card(lbl))
 
             paned = tk.PanedWindow(root, orient="horizontal")
-            pane_card = Card(paned)
-            btn = tk.Button(pane_card, text="Test")
+            pane_dec = BlendDecorator(paned)
+            btn = tk.Button(pane_dec, text="Test")
             self.assertTrue(is_inside_card(btn))
         finally:
             root.destroy()

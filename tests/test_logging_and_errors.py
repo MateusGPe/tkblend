@@ -15,15 +15,9 @@ from tkblend.theme import (
     resolve_color_failsafe,
     add_theme_listener,
     remove_theme_listener,
-)
-from tkblend.font import parse_font, extract_font_family, sync_tk_fonts
-from tkblend.widgets import (
-    Button,
-    Slider,
-    Dropdown,
-    Switch,
     cascade_bg_to_children,
 )
+from tkblend.font import parse_font, extract_font_family, sync_tk_fonts
 
 
 @pytest.fixture
@@ -84,36 +78,6 @@ def test_color_functions_warning_logging(caplog):
     assert any("Failed adjusting brightness" in m for m in warning_messages)
 
 
-def test_dropdown_callback_error_logging(root, caplog):
-    """Verify that a failing Dropdown on_select callback is logged at ERROR level."""
-    def failing_callback(val):
-        raise ValueError("Invalid option chosen")
-
-    dd = Dropdown(root, options=["Option A", "Option B"], on_select=failing_callback)
-    with caplog.at_level(logging.ERROR, logger="tkblend.widgets.dropdown"):
-        dd._select_option("Option B", notify=True, close=True)
-
-    assert any("Error executing Dropdown on_select callback" in r.message for r in caplog.records)
-    assert any(r.levelno == logging.ERROR for r in caplog.records)
-
-
-def test_widget_debug_logging_on_render_failure(root, caplog):
-    """Verify that render exceptions in widgets log at DEBUG level."""
-    btn = Button(root, text="Test Button")
-
-    # Simulate render failure by forcing invalid surface state
-    original_surface = btn._surface
-    btn._surface = None  # type: ignore
-
-    with caplog.at_level(logging.DEBUG, logger="tkblend.widgets.button"):
-        btn.render()
-
-    btn._surface = original_surface
-
-    debug_messages = [r.message for r in caplog.records if r.levelno == logging.DEBUG]
-    assert any("Render failed in Button" in m for m in debug_messages)
-
-
 def test_font_parse_debug_logging(caplog):
     """Verify font parsing errors are logged cleanly at DEBUG level."""
     with caplog.at_level(logging.DEBUG, logger="tkblend.font"):
@@ -125,11 +89,10 @@ def test_font_parse_debug_logging(caplog):
     assert any("Failed parsing font size" in m for m in debug_messages)
 
 
-def test_cascade_bg_error_handling(root, caplog):
+def test_cascade_bg_error_handling(root):
     """Verify cascade_bg_to_children handles child background updates cleanly."""
     f = tk.Frame(root)
-    b = Button(f, text="Child")
+    lbl = tk.Label(f, text="Child")
     f.pack()
-
-    with caplog.at_level(logging.DEBUG, logger="tkblend.widgets.base"):
-        cascade_bg_to_children(f, "#123456")
+    cascade_bg_to_children(f, "#123456")
+    f.destroy()

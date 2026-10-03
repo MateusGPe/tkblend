@@ -218,33 +218,6 @@ class TestTextAndFonts(unittest.TestCase):
         s.draw_text("Tuple Font", 150, 40, font=("DejaVu Sans", 14, "bold"))
         s.flush()
 
-    def test_widget_font_property_and_caching(self):
-        import tkinter as tk
-        from tkblend.widgets import Button
-
-        root = tk.Tk()
-        root.withdraw()
-        try:
-            btn = Button(root, text="Click Me", font=("Helvetica", 14, "bold"))
-            self.assertEqual(btn.font.family, "Helvetica")
-            self.assertEqual(btn.font.size, 14.0)
-            self.assertTrue(btn.font.bold)
-
-            # Update font property dynamically
-            btn.font = ("Arial", 16, "italic")
-            self.assertEqual(btn.font.family, "Arial")
-            self.assertEqual(btn.font.size, 16.0)
-            self.assertTrue(btn.font.italic)
-
-            # Test font_size and font_family setters
-            btn.font_size = 18
-            self.assertEqual(btn.font_size, 18.0)
-            btn.font_family = "sans-serif"
-            self.assertEqual(btn.font_family, "sans-serif")
-        finally:
-            root.destroy()
-
-
 if __name__ == "__main__":
     unittest.main()
 

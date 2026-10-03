@@ -15,13 +15,9 @@ from typing import Optional
 
 import tkblend as tb
 from tkblend import (
-    Card,
-    Button,
-    Badge,
+    BlendDecorator,
     get_theme,
     set_theme,
-    cascade_bg_to_children,
-    ScalingTracker,
 )
 
 # Attempt to load customtkinter with tkblend.ctk vector patch
@@ -36,7 +32,7 @@ except ImportError:
 
 
 class CTKBridgeInfoFrame(tk.Frame):
-    """Pure tkblend fallback frame displayed when customtkinter package is not installed."""
+    """Fallback frame displayed when customtkinter package is not installed."""
 
     def __init__(self, master: Optional[tk.Misc] = None, **kwargs):
         super().__init__(master, **kwargs)
@@ -46,17 +42,20 @@ class CTKBridgeInfoFrame(tk.Frame):
         pal = get_theme()
         self.configure(background=pal.bg)
 
-        card = Card(self, title="tkblend.ctk Vector Acceleration Bridge", width=720, height=480, rx=16, ry=16, elevation=8)
+        card = BlendDecorator(self, radius=16, bg_color=pal.card_bg, shadow_blur=8, shadow_enabled=True)
         card.pack(fill="both", expand=True, padx=24, pady=24)
 
-        body = card.body
+        body = tk.Frame(card, bg=pal.card_bg)
+        body.pack(fill="both", expand=True, padx=16, pady=16)
 
         # Header info
-        h_row = tk.Frame(body, background=card.bg_color)
+        h_row = tk.Frame(body, background=pal.card_bg)
         h_row.pack(fill="x", padx=16, pady=(12, 6))
 
-        Badge(h_row, text="ZERO-COPY BRIDGE", color=pal.primary, height=22).pack(side="left")
-        Badge(h_row, text="SUBPIXEL ANTIALIASING", color=pal.accent, height=22).pack(side="left", padx=6)
+        tag1 = tk.Label(h_row, text="ZERO-COPY BRIDGE", fg=pal.primary, bg=pal.card_bg, font=("Segoe UI", 9, "bold"))
+        tag1.pack(side="left")
+        tag2 = tk.Label(h_row, text="SUBPIXEL ANTIALIASING", fg=pal.accent, bg=pal.card_bg, font=("Segoe UI", 9, "bold"))
+        tag2.pack(side="left", padx=12)
 
         info_lbl = tk.Label(
             body,
@@ -71,14 +70,14 @@ class CTKBridgeInfoFrame(tk.Frame):
             ),
             font=("Segoe UI", 10),
             fg=pal.fg,
-            bg=card.bg_color,
+            bg=pal.card_bg,
             justify="left",
         )
         info_lbl.pack(anchor="w", padx=16, pady=12)
 
         # Code snippet display
-        code_box = Card(body, title="How to use in your CustomTkinter projects:", width=660, height=130, rx=10, ry=10, elevation=2)
-        code_box.pack(fill="both", expand=True, padx=16, pady=8)
+        code_card = BlendDecorator(body, radius=10, bg_color=pal.input_bg, shadow_blur=4, shadow_enabled=True)
+        code_card.pack(fill="both", expand=True, padx=16, pady=8)
 
         code_text = (
             "import customtkinter as ctk\n"
@@ -88,7 +87,7 @@ class CTKBridgeInfoFrame(tk.Frame):
             "btn = ctk.CTkButton(app, text='Vector Smooth Button')\n"
             "btn.pack(padx=20, pady=20)"
         )
-        tk.Label(code_box.body, text=code_text, font=("Consolas", 9), fg=pal.fg, bg=code_box.bg_color, justify="left").pack(anchor="w", padx=12, pady=6)
+        tk.Label(code_card, text=code_text, font=("Consolas", 9), fg=pal.fg, bg=pal.input_bg, justify="left").pack(anchor="w", padx=12, pady=6)
 
 
 class CTKShowcaseApp:
