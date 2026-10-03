@@ -26,6 +26,7 @@ from realtime_visualizer import RealtimeVisualizer
 from widget_gallery import WidgetGallery
 from hub import ShowcaseHub
 from file_explorer import FileExplorerApp
+from decorator_showcase import DecoratorShowcase
 
 
 @pytest.fixture
@@ -146,3 +147,20 @@ def test_file_explorer_app_lifecycle(root):
     app.toggle_theme()
     root.update_idletasks()
     app.destroy()
+
+
+def test_decorator_showcase_lifecycle(root):
+    app = DecoratorShowcase(root)
+    root.update_idletasks()
+    app._on_radius_changed(16.0)
+    app._on_border_w_changed(2.0)
+    app._on_blur_changed(14.0)
+    app._on_offset_y_changed(4.0)
+    app._on_focus_ring_w_changed(3.0)
+    app._on_toggle_shadows(False)
+    app._on_toggle_shadows(True)
+    app._on_change_theme("nord")
+    app._on_change_theme("tokyo-night")
+    root.update_idletasks()
+    app.destroy()
+

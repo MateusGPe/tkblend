@@ -30,6 +30,7 @@ from tkblend.widgets.containers import (
     Accordion,
     _AccordionHeader,
 )
+from tkblend.decorator import BlendDecorator
 from tkblend.widgets.button import (
     Button,
 )
@@ -163,6 +164,7 @@ __all__ = [
     "Table",
     "VectorScrollbar",
     # Modern Vector Extended Components
+    "BlendDecorator",
     "Card",
     "Switch",
     "ToggleSwitch",

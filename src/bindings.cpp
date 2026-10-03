@@ -1,11 +1,13 @@
 #include "tkblend.hpp"
 #include "style_engine.hpp"
 #include "surface_registry.hpp"
+#include "native_decorator.hpp"
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/pair.h>
+#include <nanobind/stl/tuple.h>
 #include <nanobind/stl/optional.h>
 
 #include <sstream>
@@ -1127,6 +1129,68 @@ void bind_surface_registry(nb::module_& m) {
         .def("clear_all", &SurfaceRegistry::clear_all);
 }
 
+void bind_native_decorator(nb::module_& m) {
+    nb::class_<NativeDecorator>(m, "NativeDecorator")
+        .def(nb::init<uintptr_t, const std::string&, const std::string&, int, int>(),
+             nb::arg("interp_addr"),
+             nb::arg("parent_path"),
+             nb::arg("widget_name"),
+             nb::arg("width") = 200,
+             nb::arg("height") = 45)
+        .def_prop_ro("path", &NativeDecorator::path)
+        .def_prop_ro("is_attached", &NativeDecorator::is_attached)
+        .def_prop_ro("child_path", &NativeDecorator::child_path)
+        .def_prop_rw("is_focused", &NativeDecorator::is_focused, &NativeDecorator::set_focused)
+        .def("set_focused", &NativeDecorator::set_focused, nb::arg("focused"))
+        .def_prop_rw("is_hovered", &NativeDecorator::is_hovered, &NativeDecorator::set_hovered)
+        .def("set_hovered", &NativeDecorator::set_hovered, nb::arg("hovered"))
+        .def("attach_child", &NativeDecorator::attach_child, nb::arg("child_path"))
+        .def("detach_child", &NativeDecorator::detach_child)
+        .def("set_geometry_request", &NativeDecorator::set_geometry_request, nb::arg("width"), nb::arg("height"))
+        .def("request_redraw", &NativeDecorator::request_redraw)
+        .def("get_insets", &NativeDecorator::get_insets)
+        .def("set_style", &NativeDecorator::set_style,
+             nb::arg("bg_color") = nb::none(),
+             nb::arg("hover_bg_color") = nb::none(),
+             nb::arg("focus_bg_color") = nb::none(),
+             nb::arg("parent_bg") = nb::none(),
+             nb::arg("border_color") = nb::none(),
+             nb::arg("border_hover_color") = nb::none(),
+             nb::arg("border_focus_color") = nb::none(),
+             nb::arg("border_width") = nb::none(),
+             nb::arg("rx") = nb::none(),
+             nb::arg("ry") = nb::none(),
+             nb::arg("shadow_color") = nb::none(),
+             nb::arg("shadow_blur") = nb::none(),
+             nb::arg("shadow_spread") = nb::none(),
+             nb::arg("shadow_offset_x") = nb::none(),
+             nb::arg("shadow_offset_y") = nb::none(),
+             nb::arg("shadow_enabled") = nb::none(),
+             nb::arg("focus_ring_color") = nb::none(),
+             nb::arg("focus_ring_width") = nb::none(),
+             nb::arg("focus_ring_offset") = nb::none()
+        )
+        .def_prop_rw("bg_color", &NativeDecorator::bg_color, &NativeDecorator::set_bg_color)
+        .def_prop_rw("hover_bg_color", &NativeDecorator::hover_bg_color, &NativeDecorator::set_hover_bg_color)
+        .def_prop_rw("focus_bg_color", &NativeDecorator::focus_bg_color, &NativeDecorator::set_focus_bg_color)
+        .def_prop_rw("parent_bg", &NativeDecorator::parent_bg, &NativeDecorator::set_parent_bg)
+        .def_prop_rw("border_color", &NativeDecorator::border_color, &NativeDecorator::set_border_color)
+        .def_prop_rw("border_hover_color", &NativeDecorator::border_hover_color, &NativeDecorator::set_border_hover_color)
+        .def_prop_rw("border_focus_color", &NativeDecorator::border_focus_color, &NativeDecorator::set_border_focus_color)
+        .def_prop_rw("border_width", &NativeDecorator::border_width, &NativeDecorator::set_border_width)
+        .def_prop_rw("rx", &NativeDecorator::rx, &NativeDecorator::set_rx)
+        .def_prop_rw("ry", &NativeDecorator::ry, &NativeDecorator::set_ry)
+        .def_prop_rw("shadow_color", &NativeDecorator::shadow_color, &NativeDecorator::set_shadow_color)
+        .def_prop_rw("shadow_blur", &NativeDecorator::shadow_blur, &NativeDecorator::set_shadow_blur)
+        .def_prop_rw("shadow_spread", &NativeDecorator::shadow_spread, &NativeDecorator::set_shadow_spread)
+        .def_prop_rw("shadow_offset_x", &NativeDecorator::shadow_offset_x, &NativeDecorator::set_shadow_offset_x)
+        .def_prop_rw("shadow_offset_y", &NativeDecorator::shadow_offset_y, &NativeDecorator::set_shadow_offset_y)
+        .def_prop_rw("shadow_enabled", &NativeDecorator::shadow_enabled, &NativeDecorator::set_shadow_enabled)
+        .def_prop_rw("focus_ring_color", &NativeDecorator::focus_ring_color, &NativeDecorator::set_focus_ring_color)
+        .def_prop_rw("focus_ring_width", &NativeDecorator::focus_ring_width, &NativeDecorator::set_focus_ring_width)
+        .def_prop_rw("focus_ring_offset", &NativeDecorator::focus_ring_offset, &NativeDecorator::set_focus_ring_offset);
+}
+
 } // anonymous namespace
 
 } // namespace tkblend
@@ -1148,6 +1212,8 @@ NB_MODULE(_tkblend, m) {
     tkblend::bind_style_engine(m);
     tkblend::bind_surface_handle(m);
     tkblend::bind_surface_registry(m);
+    tkblend::bind_native_decorator(m);
 }
+
 
 

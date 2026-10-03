@@ -134,11 +134,13 @@ try:
 
     resolve_color = resolve_theme_color
 
+    from tkblend.decorator import BlendDecorator
     from tkblend.widgets import (
         ScalingTracker,
         Widget,
         Frame,
         Card,
+        BlendDecorator,
         LabelFrame,
         Labelframe,
         Button,
@@ -275,6 +277,7 @@ __all__ = [
     "ScalingTracker",
     # Vector Widgets
     "Widget",
+    "BlendDecorator",
     "Frame",
     "Card",
     "Button",

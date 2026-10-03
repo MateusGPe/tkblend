@@ -471,6 +471,12 @@ class Widget(tk.Label):
         if "text_color" in kwargs:
             self._explicit_fg = kwargs.pop("text_color")
             render_needed = True
+        if "fg" in kwargs:
+            self._explicit_fg = kwargs.pop("fg")
+            render_needed = True
+        if "foreground" in kwargs:
+            self._explicit_fg = kwargs.pop("foreground")
+            render_needed = True
         if "border_color" in kwargs:
             self._explicit_border_color = kwargs.pop("border_color")
             render_needed = True
