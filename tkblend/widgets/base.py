@@ -33,8 +33,13 @@ from tkblend.font import FontConfig, parse_font
 class ScalingTracker:
     """Detects and tracks system/window scaling factors across OS platforms."""
 
-    @staticmethod
-    def get_scaling_factor(widget: Optional[tk.Misc] = None) -> float:
+    _cached_factor: Optional[float] = None
+
+    @classmethod
+    def get_scaling_factor(cls, widget: Optional[tk.Misc] = None) -> float:
+        if cls._cached_factor is not None:
+            return cls._cached_factor
+
         if widget is None:
             try:
                 widget = getattr(tk, "_default_root", None)
@@ -47,6 +52,7 @@ class ScalingTracker:
                 scale = float(widget.tk.call("tk", "scaling"))
                 factor = scale / 1.3333333333333333
                 if factor > 0.1:
+                    cls._cached_factor = factor
                     return factor
             except Exception:
                 pass
@@ -78,6 +84,8 @@ class BaseControl(tk.Frame):
         self._takefocus = takefocus
         self._cursor_pref = cursor
         self._active_animations: Dict[str, Tuple[int, Any]] = {}
+        self._scale_factor = ScalingTracker.get_scaling_factor(master)
+        self._idle_redraw_id: Optional[str] = None
 
         # Resolve initial theme palette & background
         self._palette = get_theme()
@@ -90,7 +98,7 @@ class BaseControl(tk.Frame):
         tk_bg = to_tk_hex(resolved_bg, fallback="#100e14" if self._palette.dark_mode else "#ffffff")
 
         # Compute initial scaled geometry
-        scale = ScalingTracker.get_scaling_factor(master)
+        scale = self._scale_factor
         init_w = max(1, int(self._logical_w * scale))
         init_h = max(1, int(self._logical_h * scale))
 
@@ -98,7 +106,7 @@ class BaseControl(tk.Frame):
             master=master,
             width=init_w,
             height=init_h,
-            background=tk_bg,
+            background="",
             takefocus=1 if takefocus else 0,
             cursor=cursor or "",
             **kwargs,
@@ -111,13 +119,9 @@ class BaseControl(tk.Frame):
         # Attach NativeController
         self._controller = NativeController(
             widget=self,
-            on_paint=self._on_controller_paint,
-            on_state_changed=self._on_controller_state_changed,
-            on_click=self._on_controller_click,
-            on_resize=self._on_controller_resize,
-            auto_hover=True,
-            auto_press=True,
-            auto_focus=True,
+            auto_hover=False,
+            auto_press=False,
+            auto_focus=False,
             parent_bg=self._resolved_parent_bg,
         )
         self._controller.set_geometry_request(init_w, init_h)
@@ -128,11 +132,17 @@ class BaseControl(tk.Frame):
         # Register dynamic theme updates
         add_theme_listener(self._on_theme_changed)
 
-        # Key & focus event bindings
+        # Event bindings
+        self.bind("<Enter>", self._on_tk_enter, add="+")
+        self.bind("<Leave>", self._on_tk_leave, add="+")
+        self.bind("<ButtonPress-1>", self._on_tk_button_press, add="+")
+        self.bind("<ButtonRelease-1>", self._on_tk_button_release, add="+")
         self.bind("<FocusIn>", self._on_tk_focus_in, add="+")
         self.bind("<FocusOut>", self._on_tk_focus_out, add="+")
         self.bind("<KeyPress>", self._on_key_press, add="+")
         self.bind("<KeyRelease>", self._on_key_release, add="+")
+        self.bind("<Configure>", self._on_tk_configure, add="+")
+        self.bind("<Map>", self._on_tk_map, add="+")
         self.bind("<Destroy>", self._on_tk_destroy, add="+")
 
     @property
@@ -145,7 +155,7 @@ class BaseControl(tk.Frame):
 
     @property
     def scale_factor(self) -> float:
-        return ScalingTracker.get_scaling_factor(self)
+        return self._scale_factor
 
     @property
     def is_disabled(self) -> bool:
@@ -190,10 +200,6 @@ class BaseControl(tk.Frame):
         resolved = resolve_color_failsafe(color, palette=self._palette)
         self._resolved_parent_bg = resolved
         self._controller.parent_bg = resolved
-        try:
-            self.configure(background=to_tk_hex(resolved))
-        except Exception:
-            pass
         if render:
             self.request_redraw()
 
@@ -206,20 +212,38 @@ class BaseControl(tk.Frame):
         ph = max(1, int(self._logical_h * scale))
         self._controller.set_geometry_request(pw, ph)
         try:
-            self.configure(width=pw, height=ph)
+            super().configure(width=pw, height=ph)
         except Exception:
             pass
         self.request_redraw()
 
     def request_redraw(self) -> None:
         """Request idle redraw of widget surface."""
-        if self._controller.is_attached:
-            self._controller.request_redraw()
+        if self._idle_redraw_id is not None:
+            return
+        try:
+            self._idle_redraw_id = self.after_idle(self._execute_idle_redraw)
+        except Exception:
+            self._idle_redraw_id = None
+            self.paint_and_blit()
+
+    def _execute_idle_redraw(self) -> None:
+        self._idle_redraw_id = None
+        self.paint_and_blit()
 
     def paint_and_blit(self) -> None:
         """Synchronously render and blit to widget."""
-        if self._controller.is_attached:
-            self._controller.paint_and_blit()
+        if not hasattr(self, "_controller") or not self._controller.is_attached:
+            return
+        surf = self._controller.surface
+        w = surf.width
+        h = surf.height
+        if w <= 1 or h <= 1:
+            return
+        surf.clear(self._resolved_parent_bg)
+        scale = self.scale_factor
+        self.render(surf, self._palette, w, h, scale)
+        self._controller.blit_surface(surf)
 
     # Controller Callbacks
     def _on_controller_paint(self, surf: Surface) -> None:
@@ -237,6 +261,7 @@ class BaseControl(tk.Frame):
 
     def _on_controller_state_changed(self, new_state: int, old_state: int) -> None:
         self.on_state_changed(new_state, old_state)
+        self.request_redraw()
 
     def on_state_changed(self, new_state: int, old_state: int) -> None:
         """Hook called when hover, active, or focused state changes."""
@@ -252,6 +277,7 @@ class BaseControl(tk.Frame):
 
     def _on_controller_resize(self, width: int, height: int) -> None:
         self.on_resize(width, height)
+        self.request_redraw()
 
     def on_resize(self, width: int, height: int) -> None:
         """Hook called on widget geometry resize."""
@@ -263,10 +289,6 @@ class BaseControl(tk.Frame):
         if self._explicit_parent_bg is None:
             self._resolved_parent_bg = resolve_ancestor_bg(self.master, pal)
             self._controller.parent_bg = self._resolved_parent_bg
-            try:
-                self.configure(background=to_tk_hex(self._resolved_parent_bg))
-            except Exception:
-                pass
         self.on_theme_update(pal)
         self.request_redraw()
 
@@ -274,13 +296,45 @@ class BaseControl(tk.Frame):
         """Subclasses can override to update color caches on theme change."""
         pass
 
-    # Focus & Keys
+    # Mouse, Focus & Key Interaction Callbacks
+    def _on_tk_enter(self, event: tk.Event) -> None:
+        if not self.is_disabled:
+            self._controller.is_hovered = True
+            self.on_state_changed(self._controller.state, self._controller.state)
+            self.request_redraw()
+
+    def _on_tk_leave(self, event: tk.Event) -> None:
+        if not self.is_disabled:
+            self._controller.is_hovered = False
+            self._controller.is_pressed = False
+            self.on_state_changed(self._controller.state, self._controller.state)
+            self.request_redraw()
+
+    def _on_tk_button_press(self, event: tk.Event) -> None:
+        if not self.is_disabled and event.num == 1:
+            self._controller.is_pressed = True
+            self.on_state_changed(self._controller.state, self._controller.state)
+            self.request_redraw()
+
+    def _on_tk_button_release(self, event: tk.Event) -> None:
+        if not self.is_disabled and event.num == 1:
+            was_pressed = self._controller.is_pressed
+            self._controller.is_pressed = False
+            self.on_state_changed(self._controller.state, self._controller.state)
+            self.request_redraw()
+            if was_pressed:
+                self.on_click(event.x, event.y, event.num)
+
     def _on_tk_focus_in(self, event: tk.Event) -> None:
         if not self.is_disabled:
             self._controller.is_focused = True
+            self.on_state_changed(self._controller.state, self._controller.state)
+            self.request_redraw()
 
     def _on_tk_focus_out(self, event: tk.Event) -> None:
         self._controller.is_focused = False
+        self.on_state_changed(self._controller.state, self._controller.state)
+        self.request_redraw()
 
     def _on_key_press(self, event: tk.Event) -> None:
         if not self.is_disabled:
@@ -297,11 +351,31 @@ class BaseControl(tk.Frame):
     def on_key_release(self, event: tk.Event) -> None:
         pass
 
+    def _on_tk_configure(self, event: tk.Event) -> None:
+        if event.widget is self:
+            self.request_redraw()
+
+    def _on_tk_map(self, event: tk.Event) -> None:
+        if event.widget is self:
+            self.request_redraw()
+
     def _on_tk_destroy(self, event: tk.Event) -> None:
-        remove_theme_listener(self._on_theme_changed)
-        self._cancel_all_animations()
-        if self._controller.is_attached:
-            self._controller.detach()
+        if event.widget is self:
+            if self._idle_redraw_id is not None:
+                try:
+                    self.after_cancel(self._idle_redraw_id)
+                except Exception:
+                    pass
+                self._idle_redraw_id = None
+            remove_theme_listener(self._on_theme_changed)
+            self._cancel_all_animations()
+            if hasattr(self, "_controller"):
+                self._controller.clear_on_paint()
+                self._controller.clear_on_state_changed()
+                self._controller.clear_on_click()
+                self._controller.clear_on_resize()
+                if self._controller.is_attached:
+                    self._controller.detach()
 
     def _update_cursor(self) -> None:
         if self.is_disabled:

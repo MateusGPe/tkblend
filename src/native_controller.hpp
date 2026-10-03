@@ -125,7 +125,7 @@ private:
     std::unique_ptr<Surface> internal_surface_;
     Surface* external_surface_{nullptr};
     uint64_t bound_surface_id_{0};
-    mutable std::mutex mutex_;
+    mutable std::recursive_mutex mutex_;
 
     bool idle_scheduled_{false};
     bool auto_hover_{true};

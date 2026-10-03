@@ -140,10 +140,11 @@ class Label(BaseControl):
             else:
                 start_x = 4.0 * s
 
+            icon_y = center_y + icon_sz * 0.35
             surf.draw_icon(
                 self._icon,
                 start_x,
-                center_y - icon_sz / 2.0,
+                icon_y,
                 size=icon_sz,
                 color=fg_col,
                 family=self._icon_family,
@@ -164,11 +165,12 @@ class Label(BaseControl):
                 align="left",
             )
         elif has_icon:
-            icon_sz = (self._icon_size or (min(w, h) * 0.6))
+            icon_sz = (self._icon_size or (min(w, h) * 0.55)) * s
+            icon_y = center_y + icon_sz * 0.35
             surf.draw_icon(
                 self._icon,
                 w / 2.0 if self._align == "center" else (4.0 * s if self._align == "left" else w - 4.0 * s),
-                center_y - icon_sz / 2.0,
+                icon_y,
                 size=icon_sz,
                 color=fg_col,
                 family=self._icon_family,

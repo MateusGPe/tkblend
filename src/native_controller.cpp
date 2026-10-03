@@ -50,11 +50,12 @@ bool NativeWidgetController::attach(uintptr_t interp_addr, const std::string& wi
     int w = Tk_Width(tkwin_);
     int h = Tk_Height(tkwin_);
     if (w > 0 && h > 0) {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         internal_surface_->resize(w, h);
     }
 
-    const long mask = ExposureMask | StructureNotifyMask | EnterWindowMask | LeaveWindowMask |
+    const long mask = ExposureMask | StructureNotifyMask | VisibilityChangeMask |
+                      EnterWindowMask | LeaveWindowMask |
                       FocusChangeMask | ButtonPressMask | ButtonReleaseMask;
     Tk_CreateEventHandler(tkwin_, mask, HandleTkEvent, this);
 
@@ -69,7 +70,8 @@ void NativeWidgetController::detach() {
     }
 
     if (tkwin_ && interp_) {
-        const long mask = ExposureMask | StructureNotifyMask | EnterWindowMask | LeaveWindowMask |
+        const long mask = ExposureMask | StructureNotifyMask | VisibilityChangeMask |
+                          EnterWindowMask | LeaveWindowMask |
                           FocusChangeMask | ButtonPressMask | ButtonReleaseMask;
         Tk_DeleteEventHandler(tkwin_, mask, HandleTkEvent, this);
     }
@@ -89,6 +91,8 @@ void NativeWidgetController::on_window_destroyed() {
     tkwin_ = nullptr;
     interp_ = nullptr;
     widget_path_.clear();
+    bound_surface_id_ = 0;
+    external_surface_ = nullptr;
 }
 
 void NativeWidgetController::set_geometry_request(int req_w, int req_h) {
@@ -98,7 +102,7 @@ void NativeWidgetController::set_geometry_request(int req_w, int req_h) {
 }
 
 int NativeWidgetController::width() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (tkwin_) {
         int w = Tk_Width(tkwin_);
         if (w > 0) return w;
@@ -107,7 +111,7 @@ int NativeWidgetController::width() const {
 }
 
 int NativeWidgetController::height() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (tkwin_) {
         int h = Tk_Height(tkwin_);
         if (h > 0) return h;
@@ -116,13 +120,13 @@ int NativeWidgetController::height() const {
 }
 
 Surface& NativeWidgetController::surface() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     return *internal_surface_;
 }
 
 void NativeWidgetController::bind_surface(Surface& surf) {
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         external_surface_ = &surf;
         bound_surface_id_ = 0;
     }
@@ -131,7 +135,7 @@ void NativeWidgetController::bind_surface(Surface& surf) {
 
 void NativeWidgetController::bind_surface_handle(SurfaceHandle& handle) {
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         external_surface_ = nullptr;
         bound_surface_id_ = handle.surface_id();
     }
@@ -140,7 +144,7 @@ void NativeWidgetController::bind_surface_handle(SurfaceHandle& handle) {
 
 void NativeWidgetController::bind_surface_id(uint64_t id) {
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         external_surface_ = nullptr;
         bound_surface_id_ = id;
     }
@@ -149,7 +153,7 @@ void NativeWidgetController::bind_surface_id(uint64_t id) {
 
 void NativeWidgetController::unbind_surface() {
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         external_surface_ = nullptr;
         bound_surface_id_ = 0;
     }
@@ -157,7 +161,7 @@ void NativeWidgetController::unbind_surface() {
 }
 
 void NativeWidgetController::blit_surface(Surface& surf) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (!tkwin_ || !interp_) return;
 
     if (Tk_WindowId(tkwin_) == None) {
@@ -190,7 +194,7 @@ void NativeWidgetController::set_state(uint16_t s) {
     bool changed = false;
     uint16_t old_state = 0;
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
         if (state_ != s) {
             old_state = state_;
             state_ = s;
@@ -282,16 +286,14 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
         case ConfigureNotify: {
             int new_w = eventPtr->xconfigure.width;
             int new_h = eventPtr->xconfigure.height;
-            bool resized = false;
             {
-                std::lock_guard<std::mutex> lock(mutex_);
+                std::lock_guard<std::recursive_mutex> lock(mutex_);
                 if (new_w > 0 && new_h > 0 &&
                     (internal_surface_->width() != new_w || internal_surface_->height() != new_h)) {
                     internal_surface_->resize(new_w, new_h);
-                    resized = true;
                 }
             }
-            if (resized && on_resize_.is_valid() && !on_resize_.is_none()) {
+            if (on_resize_.is_valid() && !on_resize_.is_none()) {
                 nb::gil_scoped_acquire gil;
                 try {
                     on_resize_(new_w, new_h);
@@ -305,6 +307,13 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
 
         case MapNotify: {
             request_redraw();
+            break;
+        }
+
+        case VisibilityNotify: {
+            if (eventPtr->xvisibility.state != VisibilityFullyObscured) {
+                request_redraw();
+            }
             break;
         }
 
@@ -331,14 +340,14 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
         }
 
         case FocusIn: {
-            if (auto_focus_) {
+            if (auto_focus_ && eventPtr->xfocus.detail != NotifyInferior) {
                 set_focused(true);
             }
             break;
         }
 
         case FocusOut: {
-            if (auto_focus_) {
+            if (auto_focus_ && eventPtr->xfocus.detail != NotifyInferior) {
                 set_focused(false);
             }
             break;
@@ -352,19 +361,17 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
         }
 
         case ButtonRelease: {
-            if (eventPtr->xbutton.button == 1) {
-                bool was_pressed = is_pressed();
-                if (auto_press_) {
-                    set_pressed(false);
-                }
-                if (was_pressed && on_click_.is_valid() && !on_click_.is_none()) {
-                    nb::gil_scoped_acquire gil;
-                    try {
-                        on_click_(eventPtr->xbutton.x, eventPtr->xbutton.y, eventPtr->xbutton.button);
-                    } catch (const nb::python_error&) {
-                        PyErr_Print();
-                    } catch (...) {}
-                }
+            bool was_pressed = is_pressed();
+            if (auto_press_ && eventPtr->xbutton.button == 1) {
+                set_pressed(false);
+            }
+            if ((was_pressed || !auto_press_) && on_click_.is_valid() && !on_click_.is_none()) {
+                nb::gil_scoped_acquire gil;
+                try {
+                    on_click_(eventPtr->xbutton.x, eventPtr->xbutton.y, eventPtr->xbutton.button);
+                } catch (const nb::python_error&) {
+                    PyErr_Print();
+                } catch (...) {}
             }
             break;
         }
@@ -387,11 +394,25 @@ Surface* NativeWidgetController::get_active_surface() {
 
 void NativeWidgetController::paint_and_blit() {
     Surface* surf = nullptr;
+    int win_w = 0;
+    int win_h = 0;
+
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        if (tkwin_) {
+            win_w = Tk_Width(tkwin_);
+            win_h = Tk_Height(tkwin_);
+        }
         surf = get_active_surface();
+        if (surf && bound_surface_id_ == 0 && external_surface_ == nullptr) {
+            if (win_w > 1 && win_h > 1 && (surf->width() != win_w || surf->height() != win_h)) {
+                surf->resize(win_w, win_h);
+            }
+        }
     }
-    if (!surf) return;
+    if (!surf || surf->width() <= 1 || surf->height() <= 1) {
+        return;
+    }
 
     if (on_paint_.is_valid() && !on_paint_.is_none()) {
         nb::gil_scoped_acquire gil;
@@ -406,7 +427,7 @@ void NativeWidgetController::paint_and_blit() {
 }
 
 void NativeWidgetController::blit_active_surface() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (!tkwin_ || !interp_) return;
 
     if (Tk_WindowId(tkwin_) == None) {
@@ -426,7 +447,7 @@ void NativeWidgetController::blit_active_surface() {
 
     if (bound_surface_id_ == 0 && external_surface_ == nullptr) {
         if (surf->width() != win_w || surf->height() != win_h) {
-            surf->resize(win_w, win_h);
+            return;
         }
     }
 
@@ -438,42 +459,34 @@ void NativeWidgetController::blit_active_surface() {
 }
 
 void NativeWidgetController::set_on_paint(nb::object callback) {
-    nb::gil_scoped_acquire gil;
     on_paint_ = callback;
 }
 
 void NativeWidgetController::clear_on_paint() {
-    nb::gil_scoped_acquire gil;
     on_paint_.reset();
 }
 
 void NativeWidgetController::set_on_state_changed(nb::object callback) {
-    nb::gil_scoped_acquire gil;
     on_state_changed_ = callback;
 }
 
 void NativeWidgetController::clear_on_state_changed() {
-    nb::gil_scoped_acquire gil;
     on_state_changed_.reset();
 }
 
 void NativeWidgetController::set_on_click(nb::object callback) {
-    nb::gil_scoped_acquire gil;
     on_click_ = callback;
 }
 
 void NativeWidgetController::clear_on_click() {
-    nb::gil_scoped_acquire gil;
     on_click_.reset();
 }
 
 void NativeWidgetController::set_on_resize(nb::object callback) {
-    nb::gil_scoped_acquire gil;
     on_resize_ = callback;
 }
 
 void NativeWidgetController::clear_on_resize() {
-    nb::gil_scoped_acquire gil;
     on_resize_.reset();
 }
 

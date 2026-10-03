@@ -65,11 +65,12 @@ bool NativeBlit(
     ximage->bitmap_bit_order = MSBFirst;
     #endif
 
-    // Acquire GC for Tk drawable
+    // Acquire GC for Tk drawable with ClipByChildren so parent containers do not overwrite child controls
     XGCValues gcValues;
     std::memset(&gcValues, 0, sizeof(gcValues));
     gcValues.graphics_exposures = False;
-    GC gc = Tk_GetGC(tkwin, GCGraphicsExposures, &gcValues);
+    gcValues.subwindow_mode = ClipByChildren;
+    GC gc = Tk_GetGC(tkwin, GCGraphicsExposures | GCSubwindowMode, &gcValues);
 
     BlitClipResult clip = ComputeBlitClip(tkwin, box, width, height);
     if (!clip.visible) {

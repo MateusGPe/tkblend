@@ -6,6 +6,7 @@ Provides high-performance direct blitting and native event sinking for Python-dr
 from __future__ import annotations
 
 import tkinter as tk
+import weakref
 from typing import Optional, Callable, Any, Union
 
 from tkblend._tkblend import (
@@ -82,6 +83,7 @@ class NativeController:
         """Detach controller and stop intercepting native events."""
         self._native.detach()
         self._widget = None
+        self._surface_wrapper = None
 
     @property
     def is_attached(self) -> bool:
@@ -243,12 +245,29 @@ class NativeController:
         parsed = parse_color(color)
         self._native.parent_bg = parsed
 
-    # Python Callbacks
+    # Python Callbacks with Weak References to prevent cycles
     def set_on_paint(self, callback: Callable[[Surface], None]) -> None:
         self._on_paint_user = callback
-        def _thunk(raw_surf):
-            surf = Surface(raw_surf, borrowed=True)
-            callback(surf)
+        if hasattr(callback, "__self__"):
+            obj_ref = weakref.ref(callback.__self__)
+            func = callback.__func__
+            def _thunk(raw_surf):
+                obj = obj_ref()
+                if obj is not None:
+                    surf = Surface(raw_surf, borrowed=True)
+                    func(obj, surf)
+        else:
+            try:
+                cb_ref = weakref.ref(callback)
+                def _thunk(raw_surf):
+                    cb = cb_ref()
+                    if cb is not None:
+                        surf = Surface(raw_surf, borrowed=True)
+                        cb(surf)
+            except TypeError:
+                def _thunk(raw_surf):
+                    surf = Surface(raw_surf, borrowed=True)
+                    callback(surf)
         self._native.set_on_paint(_thunk)
 
     def clear_on_paint(self) -> None:
@@ -257,7 +276,23 @@ class NativeController:
 
     def set_on_state_changed(self, callback: Callable[[int, int], None]) -> None:
         self._on_state_changed_user = callback
-        self._native.set_on_state_changed(callback)
+        if hasattr(callback, "__self__"):
+            obj_ref = weakref.ref(callback.__self__)
+            func = callback.__func__
+            def _thunk(new_state: int, old_state: int):
+                obj = obj_ref()
+                if obj is not None:
+                    func(obj, new_state, old_state)
+        else:
+            try:
+                cb_ref = weakref.ref(callback)
+                def _thunk(new_state: int, old_state: int):
+                    cb = cb_ref()
+                    if cb is not None:
+                        cb(new_state, old_state)
+            except TypeError:
+                _thunk = callback
+        self._native.set_on_state_changed(_thunk)
 
     def clear_on_state_changed(self) -> None:
         self._on_state_changed_user = None
@@ -265,7 +300,23 @@ class NativeController:
 
     def set_on_click(self, callback: Callable[[int, int, int], None]) -> None:
         self._on_click_user = callback
-        self._native.set_on_click(callback)
+        if hasattr(callback, "__self__"):
+            obj_ref = weakref.ref(callback.__self__)
+            func = callback.__func__
+            def _thunk(x: int, y: int, button: int):
+                obj = obj_ref()
+                if obj is not None:
+                    func(obj, x, y, button)
+        else:
+            try:
+                cb_ref = weakref.ref(callback)
+                def _thunk(x: int, y: int, button: int):
+                    cb = cb_ref()
+                    if cb is not None:
+                        cb(x, y, button)
+            except TypeError:
+                _thunk = callback
+        self._native.set_on_click(_thunk)
 
     def clear_on_click(self) -> None:
         self._on_click_user = None
@@ -273,7 +324,23 @@ class NativeController:
 
     def set_on_resize(self, callback: Callable[[int, int], None]) -> None:
         self._on_resize_user = callback
-        self._native.set_on_resize(callback)
+        if hasattr(callback, "__self__"):
+            obj_ref = weakref.ref(callback.__self__)
+            func = callback.__func__
+            def _thunk(width: int, height: int):
+                obj = obj_ref()
+                if obj is not None:
+                    func(obj, width, height)
+        else:
+            try:
+                cb_ref = weakref.ref(callback)
+                def _thunk(width: int, height: int):
+                    cb = cb_ref()
+                    if cb is not None:
+                        cb(width, height)
+            except TypeError:
+                _thunk = callback
+        self._native.set_on_resize(_thunk)
 
     def clear_on_resize(self) -> None:
         self._on_resize_user = None

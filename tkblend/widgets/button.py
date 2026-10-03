@@ -261,11 +261,12 @@ class Button(BaseControl):
             total_content_w = icon_sz + spacing + text_metrics.width
             start_x = (w - total_content_w) / 2.0
 
-            # Draw Icon
+            # Draw Icon (baseline aligned with vertical center)
+            icon_y = center_y + icon_sz * 0.35
             surf.draw_icon(
                 self._icon,
                 start_x,
-                center_y - icon_sz / 2.0,
+                icon_y,
                 size=icon_sz,
                 color=fg_col,
                 family=self._icon_family,
@@ -288,11 +289,12 @@ class Button(BaseControl):
                 align="left",
             )
         elif has_icon:
-            icon_sz = (self._icon_size or (min(w, h) * 0.45))
+            icon_sz = (self._icon_size or (min(w, h) * 0.55)) * s
+            icon_y = center_y + icon_sz * 0.35
             surf.draw_icon(
                 self._icon,
                 w / 2.0,
-                center_y - icon_sz / 2.0,
+                icon_y,
                 size=icon_sz,
                 color=fg_col,
                 family=self._icon_family,
