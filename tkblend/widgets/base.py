@@ -39,6 +39,7 @@ from tkblend.widgets.constants import (
     STATE_DISABLED,
     CURSOR_DEFAULT,
 )
+from tkblend.widgets.utils import unbind_variable_trace
 
 
 class ScalingTracker:
@@ -59,7 +60,22 @@ class ScalingTracker:
 
         if widget is not None:
             try:
-                # Query Tk scaling (72 points per inch standard base)
+                # 1. Tk 9.0+ scaling percentage check (::tk::scalingPct e.g. 100, 150, 200)
+                try:
+                    exists_pct = widget.tk.eval("info exists ::tk::scalingPct")
+                    if str(exists_pct) == "1":
+                        pct_val = widget.tk.getvar("::tk::scalingPct")
+                        if pct_val:
+                            pct_float = float(pct_val)
+                            if pct_float > 10.0:
+                                factor = pct_float / 100.0
+                                if factor > TK_SCALING_MIN_THRESHOLD:
+                                    cls._cached_factor = factor
+                                    return factor
+                except Exception:
+                    pass
+
+                # 2. Query standard Tk scaling (72 points per inch standard base -> 96 / 72 = 1.333)
                 scale = float(widget.tk.call("tk", "scaling"))
                 factor = scale / TK_SCALING_BASE
                 if factor > TK_SCALING_MIN_THRESHOLD:
@@ -370,16 +386,31 @@ class BaseControl(tk.Frame):
         if event.widget is self:
             self.request_redraw()
 
-    def _on_tk_destroy(self, event: tk.Event) -> None:
-        if event.widget is self:
+    def _on_tk_destroy(self, event: Optional[tk.Event] = None) -> None:
+        if event is None or event.widget is self or str(getattr(event, "widget", "")) == str(self):
             if self._idle_redraw_id is not None:
                 try:
                     self.after_cancel(self._idle_redraw_id)
                 except Exception:
                     pass
                 self._idle_redraw_id = None
-            remove_theme_listener(self._on_theme_changed)
+            try:
+                remove_theme_listener(self._on_theme_changed)
+            except Exception:
+                pass
             self._cancel_all_animations()
+            if hasattr(self, "stop") and callable(self.stop):
+                try:
+                    self.stop()
+                except Exception:
+                    pass
+            if hasattr(self, "_var_trace_id") and hasattr(self, "_variable"):
+                try:
+                    unbind_variable_trace(self._variable, self._var_trace_id)
+                except Exception:
+                    pass
+                self._var_trace_id = None
+                self._variable = None
             if hasattr(self, "_controller"):
                 self._controller.clear_on_paint()
                 self._controller.clear_on_state_changed()
@@ -387,6 +418,11 @@ class BaseControl(tk.Frame):
                 self._controller.clear_on_resize()
                 if self._controller.is_attached:
                     self._controller.detach()
+
+    def destroy(self) -> None:
+        """Safely release native controller, bindings, animations and listeners."""
+        self._on_tk_destroy(None)
+        super().destroy()
 
     def _update_cursor(self) -> None:
         if self.is_disabled:

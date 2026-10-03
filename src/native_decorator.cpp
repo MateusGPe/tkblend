@@ -22,11 +22,9 @@ NativeDecorator::NativeDecorator(
     }
 
     Tcl_Interp* interp = reinterpret_cast<Tcl_Interp*>(interp_addr);
-#if defined(USE_TCL_STUBS) && defined(USE_TK_STUBS)
-    if (!Tcl_InitStubs(interp, "8.6", 0) || !Tk_InitStubs(interp, "8.6", 0)) {
+    if (TkBlend_InitStubs(interp) != TCL_OK) {
         throw std::runtime_error("Failed to initialize Tcl/Tk stubs in NativeDecorator");
     }
-#endif
 
     Tk_Window main_win = Tk_MainWindow(interp);
     if (!main_win) {

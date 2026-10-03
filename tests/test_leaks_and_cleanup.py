@@ -95,10 +95,15 @@ def test_decorator_showcase_complete_teardown_zero_leaks():
     """Verify headless DecoratorShowcase initialization and destruction leaves zero memory leaks."""
     gc.collect()
 
+    import sys
+    import os
+    examples_dir = os.path.join(os.path.dirname(__file__), "..", "examples")
+    if examples_dir not in sys.path:
+        sys.path.insert(0, examples_dir)
+    from decorator_showcase import DecoratorShowcase
+
     r = tk.Tk()
     r.withdraw()
-
-    from decorator_showcase import DecoratorShowcase
     app = DecoratorShowcase(r)
     r.update_idletasks()
 

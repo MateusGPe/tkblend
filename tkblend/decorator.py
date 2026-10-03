@@ -16,6 +16,7 @@ from tkblend._tkblend import (
 )
 from tkblend.surface import ColorLike, parse_color
 from tkblend.theme import get_theme, add_theme_listener, remove_theme_listener, Palette, resolve_ancestor_bg
+from tkblend.utils.tcl_interp import extract_interp_address
 
 
 class BlendDecorator(tk.Widget):
@@ -69,9 +70,7 @@ class BlendDecorator(tk.Widget):
         parent_path = getattr(master, "_w", ".")
 
         # Obtain Tcl_Interp address from Tkinter interpreter
-        interp_addr = 0
-        if hasattr(master, "tk") and hasattr(master.tk, "interpaddr"):
-            interp_addr = master.tk.interpaddr()
+        interp_addr = extract_interp_address(master)
 
         # Instantiate the underlying C++ NativeDecorator
         self._native = _NativeDecorator(

@@ -34,6 +34,7 @@ from tkblend._tkblend import (  # type: ignore
     get_shadow_cache_bytes,
     set_shadow_cache_limits,
 )
+from tkblend.utils.tcl_interp import extract_interp_address
 from tkblend.theme import resolve_theme_color
 
 ColorLike = Union[str, int, Tuple[int, int, int], Tuple[int, int, int, int], _NativeColor]
@@ -833,7 +834,7 @@ class Surface:
         Directly blit the surface pixel buffer to a Tkinter PhotoImage using Tk_PhotoPutBlock.
         Zero Python copies, zero allocations.
         """
-        interp_addr = int(photo.tk.interpaddr())
+        interp_addr = extract_interp_address(photo)
         photo_name = str(photo.name)
         self._surface.blit_to_photo(interp_addr, photo_name, int(dst_x), int(dst_y))
 

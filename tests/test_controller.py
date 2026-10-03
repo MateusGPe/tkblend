@@ -198,3 +198,39 @@ class TestNativeController:
         assert canvas.controller.is_attached
         canvas.paint_and_blit()
         assert len(drawn) >= 1
+
+    def test_extract_interp_address_valid(self, tk_root):
+        from tkblend.utils.tcl_interp import extract_interp_address
+        addr = extract_interp_address(tk_root)
+        assert isinstance(addr, int)
+        assert addr > 0
+
+        frame = tk.Frame(tk_root)
+        assert extract_interp_address(frame) == addr
+        assert extract_interp_address(addr) == addr
+
+    def test_extract_interp_address_invalid(self):
+        from tkblend.utils.tcl_interp import extract_interp_address
+        with pytest.raises(ValueError):
+            extract_interp_address(None)
+        with pytest.raises(ValueError):
+            extract_interp_address(0)
+        with pytest.raises(ValueError):
+            extract_interp_address("invalid_object")
+
+    def test_scaling_tracker_tk9_simulation(self, tk_root):
+        from tkblend.widgets.base import ScalingTracker
+        ScalingTracker._cached_factor = None
+
+        # Simulate Tk 9 scaling percentage
+        try:
+            tk_root.tk.setvar("::tk::scalingPct", "150")
+            factor = ScalingTracker.get_scaling_factor(tk_root)
+            assert factor == 1.5
+        finally:
+            try:
+                tk_root.tk.eval("unset -nocomplain ::tk::scalingPct")
+            except Exception:
+                pass
+            ScalingTracker._cached_factor = None
+

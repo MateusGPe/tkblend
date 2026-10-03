@@ -9,8 +9,7 @@
 #include "draw_batch.hpp"
 
 #include <blend2d.h>
-#include <tcl.h>
-#include <tk.h>
+#include "platform_compat.h"
 
 #include <cstdint>
 #include <string>

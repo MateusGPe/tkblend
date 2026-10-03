@@ -17,6 +17,7 @@ from tkblend._tkblend import (
     Color as _NativeColor,
 )
 from tkblend.surface import Surface, ColorLike, parse_color
+from tkblend.utils.tcl_interp import extract_interp_address
 
 
 class NativeController:
@@ -43,7 +44,7 @@ class NativeController:
         parent_bg: Optional[ColorLike] = None,
     ):
         self._native = _NativeWidgetController()
-        self._widget: Optional[tk.Misc] = None
+        self._widget_ref: Optional[weakref.ref[tk.Misc]] = None
         self._surface_wrapper: Optional[Surface] = None
 
         self._on_paint_user = on_paint
@@ -72,17 +73,15 @@ class NativeController:
 
     def attach(self, widget: tk.Misc) -> bool:
         """Attach controller to an existing Tk widget."""
-        self._widget = widget
-        interp_addr = 0
-        if hasattr(widget, "tk") and hasattr(widget.tk, "interpaddr"):
-            interp_addr = widget.tk.interpaddr()
+        self._widget_ref = weakref.ref(widget)
+        interp_addr = extract_interp_address(widget)
         widget_path = getattr(widget, "_w", str(widget))
         return self._native.attach(interp_addr, widget_path)
 
     def detach(self) -> None:
         """Detach controller and stop intercepting native events."""
         self._native.detach()
-        self._widget = None
+        self._widget_ref = None
         self._surface_wrapper = None
 
     @property
@@ -91,7 +90,7 @@ class NativeController:
 
     @property
     def widget(self) -> Optional[tk.Misc]:
-        return self._widget
+        return self._widget_ref() if self._widget_ref is not None else None
 
     @property
     def widget_path(self) -> str:

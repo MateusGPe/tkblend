@@ -12,6 +12,7 @@
 
 #include <tcl.h>
 #include <tk.h>
+#include <limits.h>
 
 #ifdef __cplusplus
 #define TKBLEND_EXTERN_C extern "C"
@@ -28,6 +29,117 @@
 #else
   #define TKBLEND_API TKBLEND_EXTERN_C TCL_STORAGE_CLASS __attribute__((visibility("default")))
 #endif
+
+/* -------------------------------------------------------------------------
+ * Tcl/Tk 8.6 <-> 9.0+ Compatibility Layer (TIP #412, TIP #590, TIP #625)
+ * ------------------------------------------------------------------------- */
+
+/* Tcl_Size abstraction */
+#ifndef TCL_SIZE_MAX
+    typedef int Tcl_Size;
+    #define TCL_SIZE_MAX INT_MAX
+    #define TCL_SIZE_MODIFIER ""
+#else
+    #ifndef TCL_SIZE_MODIFIER
+        #if defined(_WIN64) || defined(__x86_64__) || defined(__ppc64__) || defined(__aarch64__)
+            #define TCL_SIZE_MODIFIER "l"
+        #else
+            #define TCL_SIZE_MODIFIER ""
+        #endif
+    #endif
+#endif
+
+#ifndef TCL_INDEX_NONE
+    #define TCL_INDEX_NONE ((Tcl_Size)-1)
+#endif
+
+/* Const and ClientData qualifiers */
+#if (TCL_MAJOR_VERSION >= 9)
+    #define TKBLEND_CONST86 const
+    #define TKBLEND_CLIENTDATA void *
+#else
+    #define TKBLEND_CONST86
+    #define TKBLEND_CLIENTDATA ClientData
+#endif
+
+/* Safe string length retrieval shim */
+static inline char *TkBlend_GetStringFromObj(Tcl_Obj *objPtr, Tcl_Size *sizePtr) {
+#if (TCL_MAJOR_VERSION >= 9)
+    return Tcl_GetStringFromObj(objPtr, sizePtr);
+#else
+    int legacyLen = 0;
+    char *result;
+    if (sizePtr == NULL) {
+        return Tcl_GetStringFromObj(objPtr, NULL);
+    }
+    result = Tcl_GetStringFromObj(objPtr, &legacyLen);
+    *sizePtr = (Tcl_Size)legacyLen;
+    return result;
+#endif
+}
+
+/* Safe byte array length retrieval shim */
+static inline unsigned char *TkBlend_GetByteArrayFromObj(Tcl_Obj *objPtr, Tcl_Size *sizePtr) {
+#if (TCL_MAJOR_VERSION >= 9)
+    return Tcl_GetByteArrayFromObj(objPtr, sizePtr);
+#else
+    int legacyLen = 0;
+    unsigned char *result;
+    if (sizePtr == NULL) {
+        return Tcl_GetByteArrayFromObj(objPtr, NULL);
+    }
+    result = Tcl_GetByteArrayFromObj(objPtr, &legacyLen);
+    *sizePtr = (Tcl_Size)legacyLen;
+    return result;
+#endif
+}
+
+/* Safe list length query shim */
+static inline int TkBlend_ListObjLength(Tcl_Interp *interp, Tcl_Obj *listPtr, Tcl_Size *sizePtr) {
+#if (TCL_MAJOR_VERSION >= 9)
+    return Tcl_ListObjLength(interp, listPtr, sizePtr);
+#else
+    int legacyLen = 0;
+    int code;
+    if (sizePtr == NULL) {
+        return Tcl_ListObjLength(interp, listPtr, NULL);
+    }
+    code = Tcl_ListObjLength(interp, listPtr, &legacyLen);
+    if (code == TCL_OK) {
+        *sizePtr = (Tcl_Size)legacyLen;
+    }
+    return code;
+#endif
+}
+
+/* Const-correct Tk_SetClassProcs wrapper */
+static inline void TkBlend_SetClassProcs(Tk_Window tkwin,
+                                        const Tk_ClassProcs *procsPtr,
+                                        ClientData instanceData) {
+#if (TK_MAJOR_VERSION >= 9)
+    Tk_SetClassProcs(tkwin, procsPtr, (ClientData)instanceData);
+#else
+    Tk_SetClassProcs(tkwin, (Tk_ClassProcs *)procsPtr, instanceData);
+#endif
+}
+
+/* Unified stubs initialization: supports Tcl/Tk 8.6 through 9.0+ ("8.6-") */
+static inline int TkBlend_InitStubs(Tcl_Interp *interp) {
+    if (interp == NULL) {
+        return TCL_ERROR;
+    }
+#ifdef USE_TCL_STUBS
+    if (Tcl_InitStubs(interp, "8.6-", 0) == NULL) {
+        return TCL_ERROR;
+    }
+#endif
+#ifdef USE_TK_STUBS
+    if (Tk_InitStubs(interp, "8.6-", 0) == NULL) {
+        return TCL_ERROR;
+    }
+#endif
+    return TCL_OK;
+}
 
 #if __has_include(<tk-private/generic/ttk/ttkTheme.h>)
   #include <tk-private/generic/ttk/ttkTheme.h>

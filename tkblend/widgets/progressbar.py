@@ -194,6 +194,17 @@ class ProgressBar(BaseControl):
         if "value" in kwargs:
             self.set(kwargs.pop("value"))
         if "variable" in kwargs:
-            self._variable = kwargs.pop("variable")
+            new_var = kwargs.pop("variable")
+            if self._var_trace_id is not None and self._variable is not None:
+                unbind_variable_trace(self._variable, self._var_trace_id)
+            self._variable = new_var
+            if self._variable is not None:
+                try:
+                    self._progress = max(0.0, min(1.0, float(self._variable.get())))
+                except Exception:
+                    pass
+                self._var_trace_id = bind_variable_trace(self._variable, self._on_variable_write)
+            else:
+                self._var_trace_id = None
         self.request_redraw()
         return super().configure(**kwargs)

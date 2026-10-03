@@ -232,6 +232,15 @@ class RadioButton(BaseControl):
         if "command" in kwargs:
             self._command = kwargs.pop("command")
         if "variable" in kwargs:
-            self._variable = kwargs.pop("variable")
+            new_var = kwargs.pop("variable")
+            if self._var_trace_id is not None and self._variable is not None:
+                unbind_variable_trace(self._variable, self._var_trace_id)
+            self._variable = new_var
+            if self._variable is not None:
+                self._is_selected = (self._variable.get() == self._value)
+                self._dot_t = 1.0 if self._is_selected else 0.0
+                self._var_trace_id = bind_variable_trace(self._variable, self._on_variable_write)
+            else:
+                self._var_trace_id = None
         self.request_redraw()
         return super().configure(**kwargs)
