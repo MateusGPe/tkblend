@@ -323,6 +323,40 @@ class Surface:
         """Draw a line between two points."""
         self._surface.draw_line(float(x1), float(y1), float(x2), float(y2), parse_color(stroke), float(stroke_width))
 
+    stroke_line = draw_line
+
+    def stroke_arc(
+        self,
+        cx: float,
+        cy: float,
+        r: float,
+        start_angle: float,
+        sweep_angle: float,
+        stroke: ColorLike,
+        stroke_width: float = 1.0,
+    ) -> None:
+        """Stroke an arc."""
+        path = Path()
+        path.arc_to(cx, cy, r, r, start_angle, sweep_angle)
+        self.stroke_path(path, stroke, stroke_width=stroke_width)
+
+    def fill_arc(
+        self,
+        cx: float,
+        cy: float,
+        r: float,
+        start_angle: float,
+        sweep_angle: float,
+        fill: Union[ColorLike, GradientLike],
+    ) -> None:
+        """Fill an arc (pie wedge)."""
+        path = Path()
+        path.move_to(cx, cy)
+        path.arc_to(cx, cy, r, r, start_angle, sweep_angle)
+        path.close()
+        self.fill_path(path, fill)
+
+
     def fill_path(self, path: Union[Path, _NativePath], fill: Union[ColorLike, GradientLike]) -> None:
         """Fill a path with color or gradient."""
         native_path = path.native if isinstance(path, Path) else path

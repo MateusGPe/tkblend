@@ -104,6 +104,9 @@ class Card(BaseControl):
         sh_ox = self._shadow_offset_x * s if self._shadow else 0.0
         sh_oy = self._shadow_offset_y * s if self._shadow else 0.0
 
+        # Clear background with parent background
+        surf.clear(self._resolved_parent_bg)
+
         # Draw card with soft shadow, fill, and border
         surf.draw_card(
             0.0,

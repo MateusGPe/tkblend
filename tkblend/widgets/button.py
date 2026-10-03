@@ -200,6 +200,9 @@ class Button(BaseControl):
         rx = self._corner_radius * s
         ry = rx
 
+        # Clear background with parent background
+        surf.clear(self._resolved_parent_bg)
+
         # Resolve Colors
         base_bg = resolve_color_failsafe(self._custom_bg_color or pal.primary, palette=pal)
         hover_bg = resolve_color_failsafe(self._custom_hover_color or pal.primary_hover, palette=pal)

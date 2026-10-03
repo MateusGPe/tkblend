@@ -43,6 +43,7 @@ class ProgressBar(BaseControl):
         master: Optional[tk.Misc] = None,
         width: int = DEFAULT_PROGRESS_WIDTH,
         height: int = DEFAULT_PROGRESS_HEIGHT,
+        value: float = 0.0,
         corner_radius: Optional[float] = None,
         mode: str = "determinate",
         determinate_speed: float = DEFAULT_PROGRESS_DETERMINATE_SPEED,
@@ -70,7 +71,7 @@ class ProgressBar(BaseControl):
         self._variable = variable
         self._animated = animated
 
-        self._progress = 0.0  # 0.0 to 1.0
+        self._progress = max(0.0, min(1.0, float(value)))
         self._phase_offset = 0.0
         self._running = False
         self._timer_id: Optional[str] = None
@@ -156,6 +157,9 @@ class ProgressBar(BaseControl):
 
         track_bg = resolve_color_failsafe(self._custom_track_color or pal.track_bg, palette=pal)
         bar_bg = resolve_color_failsafe(self._custom_progress_color or pal.primary, palette=pal)
+
+        # Clear parent background
+        surf.clear(self._resolved_parent_bg)
         if self.is_disabled:
             track_bg = resolve_color_failsafe(pal.surface_border, palette=pal)
             bar_bg = resolve_color_failsafe(pal.text_muted, palette=pal)

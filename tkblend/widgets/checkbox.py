@@ -187,6 +187,9 @@ class CheckBox(BaseControl):
         bx = DEFAULT_CHECKBOX_LEFT_MARGIN * s
         by = (h - box_sz) / 2.0
 
+        # Clear parent background
+        surf.clear(self._resolved_parent_bg)
+
         # Colors
         active_box = resolve_color_failsafe(self._custom_box_color or pal.primary, palette=pal)
         inactive_box = resolve_color_failsafe(pal.input_bg, palette=pal)

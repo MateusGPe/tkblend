@@ -139,6 +139,9 @@ class BlendCanvas(tk.Label):
         elif self._surface is not None and self._photo is not None:
             self._surface.blit(self._photo)
 
+    blit = redraw
+
+
     def _on_configure(self, event) -> None:
         # Ignore unmapped / transient 1x1 geometry events from hidden notebook tabs
         if event.width <= 1 or event.height <= 1:

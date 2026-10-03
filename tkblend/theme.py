@@ -292,6 +292,10 @@ class Palette:
     def danger(self) -> str:
         return self.destructive
 
+    @property
+    def border(self) -> str:
+        return self.card_border
+
     @classmethod
     def from_theme(cls, theme_name: str) -> Palette:
         """Create a Palette reflecting active StyleEngine CSS variables."""

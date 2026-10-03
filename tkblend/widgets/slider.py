@@ -220,6 +220,9 @@ class Slider(BaseControl):
         pad = (self._thumb_radius + SLIDER_TRACK_PADDING_EXTRA) * s
         prog = self._value_to_progress()
 
+        # Clear parent background
+        surf.clear(self._resolved_parent_bg)
+
         track_bg = resolve_color_failsafe(self._custom_track_color or pal.track_bg, palette=pal)
         active_bg = resolve_color_failsafe(self._custom_active_color or pal.primary, palette=pal)
         if self.is_disabled:

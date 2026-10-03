@@ -172,6 +172,7 @@ class RadioButton(BaseControl):
             dot_col = resolve_color_failsafe(pal.text_muted, palette=pal)
 
         # Outer circle
+        surf.clear(self._resolved_parent_bg)
         surf.fill_circle(cx, cy, r, cur_bg)
         if self._border_width > 0.0:
             surf.stroke_circle(cx, cy, r, cur_border, stroke_width=self._border_width * s)

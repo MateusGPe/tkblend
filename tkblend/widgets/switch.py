@@ -49,7 +49,9 @@ class Switch(BaseControl):
         self,
         master: Optional[tk.Misc] = None,
         text: str = "",
-        command: Optional[Callable[[], None]] = None,
+        is_on: bool = False,
+        on_toggle: Optional[Callable[[bool], None]] = None,
+        command: Optional[Callable] = None,
         variable: Optional[Union[tk.BooleanVar, tk.IntVar, tk.StringVar, tk.Variable]] = None,
         onvalue: Any = True,
         offvalue: Any = False,
@@ -73,6 +75,7 @@ class Switch(BaseControl):
         **kwargs,
     ):
         self._text = str(text)
+        self._on_toggle = on_toggle
         self._command = command
         self._variable = variable
         self._onvalue = onvalue
@@ -94,8 +97,8 @@ class Switch(BaseControl):
         self._custom_focus_ring_color = focus_ring_color
 
         self._animated = animated
-        self._is_on = False
-        self._progress_t = 0.0
+        self._is_on = bool(is_on)
+        self._progress_t = 1.0 if self._is_on else 0.0
 
         # Sync initial variable state if present
         if self._variable is not None:
@@ -104,6 +107,7 @@ class Switch(BaseControl):
             self._var_trace_id = bind_variable_trace(self._variable, self._on_variable_write)
         else:
             self._var_trace_id = None
+
 
         # Determine default widget size
         eff_width = width if text else switch_width + DEFAULT_SWITCH_COMPACT_EXTRA_PAD
@@ -162,6 +166,8 @@ class Switch(BaseControl):
         if self._variable is not None:
             self._variable.set(self._onvalue if self._is_on else self._offvalue)
         self._animate_to_state(self._is_on)
+        if self._on_toggle is not None:
+            self._on_toggle(self._is_on)
         if self._command is not None:
             self._command()
 
@@ -182,6 +188,9 @@ class Switch(BaseControl):
         sh = float(self._switch_h) * s
         sy = (h - sh) / 2.0
         sx = DEFAULT_SWITCH_LEFT_MARGIN * s
+
+        # Clear parent background
+        surf.clear(self._resolved_parent_bg)
 
         # Colors
         track_off = resolve_color_failsafe(self._custom_track_color or pal.track_bg, palette=pal)

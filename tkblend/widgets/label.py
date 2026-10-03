@@ -58,8 +58,8 @@ class Label(BaseControl):
         border_color: Optional[ColorLike] = None,
         border_width: float = DEFAULT_LABEL_BORDER_WIDTH,
         align: str = DEFAULT_LABEL_ALIGN,
-        width: int = DEFAULT_LABEL_WIDTH,
-        height: int = DEFAULT_LABEL_HEIGHT,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
         cursor: Optional[str] = None,
         **kwargs,
     ):
@@ -79,15 +79,31 @@ class Label(BaseControl):
         self._custom_border_color = border_color
         self._border_width = float(border_width)
         self._align = align.lower()
+        self._auto_width = (width is None)
+        self._auto_height = (height is None)
+
+        eff_w = width if width is not None else self._calc_auto_width()
+        eff_h = height if height is not None else self._calc_auto_height()
 
         super().__init__(
             master=master,
-            width=width,
-            height=height,
+            width=eff_w,
+            height=eff_h,
             cursor=cursor or CURSOR_DEFAULT,
             takefocus=False,
             **kwargs,
         )
+
+    def _calc_auto_width(self) -> int:
+        f_sz = self._font_size or DEFAULT_FONT_SIZE
+        char_w = f_sz * 0.65
+        extra = 28 if self._icon else 16
+        auto_w = int(len(self._text) * char_w + extra)
+        return max(DEFAULT_LABEL_WIDTH, auto_w)
+
+    def _calc_auto_height(self) -> int:
+        f_sz = self._font_size or DEFAULT_FONT_SIZE
+        return max(DEFAULT_LABEL_HEIGHT, int(f_sz * 1.6))
 
     @property
     def text(self) -> str:
@@ -96,7 +112,12 @@ class Label(BaseControl):
     @text.setter
     def text(self, val: str) -> None:
         self._text = str(val)
-        self.request_redraw()
+        if self._auto_width or self._auto_height:
+            new_w = self._calc_auto_width() if self._auto_width else self._logical_w
+            new_h = self._calc_auto_height() if self._auto_height else self._logical_h
+            self.set_geometry_request(new_w, new_h)
+        else:
+            self.request_redraw()
 
     @property
     def icon(self) -> Optional[str]:

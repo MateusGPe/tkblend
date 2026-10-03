@@ -30,6 +30,7 @@ COLOR_TRANSPARENT: str = "#00000000"
 
 # Standard Cursors
 CURSOR_HAND: str = "hand2"
+CURSOR_IBEAM: str = "xterm"
 CURSOR_DEFAULT: str = ""
 
 # Standard Widget States
