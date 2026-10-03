@@ -15,6 +15,29 @@ from tkblend.theme import (
     blend_color_hex,
 )
 from tkblend.font import parse_font
+from tkblend.widgets.constants import (
+    DEFAULT_RADIO_WIDTH,
+    DEFAULT_RADIO_HEIGHT,
+    DEFAULT_RADIO_SIZE,
+    DEFAULT_RADIO_BORDER_WIDTH,
+    DEFAULT_RADIO_LEFT_MARGIN,
+    DEFAULT_RADIO_TEXT_SPACING,
+    DEFAULT_RADIO_COMPACT_EXTRA_PAD,
+    DEFAULT_FONT_SIZE,
+    FOCUS_RING_WIDTH,
+    RADIO_ANIM_DURATION_MS,
+    RADIO_INNER_DOT_RATIO,
+    RADIO_FOCUS_RING_OFFSET,
+    CURSOR_HAND,
+    STATE_NORMAL,
+    COLOR_TRANSPARENT,
+)
+from tkblend.widgets.utils import (
+    draw_circular_focus_ring,
+    compute_text_baseline_y,
+    bind_variable_trace,
+    unbind_variable_trace,
+)
 
 
 class RadioButton(BaseControl):
@@ -30,21 +53,21 @@ class RadioButton(BaseControl):
         value: Any = None,
         variable: Optional[Union[tk.StringVar, tk.IntVar, tk.Variable]] = None,
         command: Optional[Callable[[], None]] = None,
-        width: int = 140,
-        height: int = 24,
-        size: int = 20,
+        width: int = DEFAULT_RADIO_WIDTH,
+        height: int = DEFAULT_RADIO_HEIGHT,
+        size: int = DEFAULT_RADIO_SIZE,
         radio_color: Optional[ColorLike] = None,
         dot_color: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
-        border_width: float = 1.5,
+        border_width: float = DEFAULT_RADIO_BORDER_WIDTH,
         fg_color: Optional[ColorLike] = None,
         font: Optional[Any] = None,
         font_size: Optional[float] = None,
         focus_ring: bool = True,
         focus_ring_color: Optional[ColorLike] = None,
         animated: bool = True,
-        cursor: str = "hand2",
-        state: str = "normal",
+        cursor: str = CURSOR_HAND,
+        state: str = STATE_NORMAL,
         **kwargs,
     ):
         self._text = str(text)
@@ -71,17 +94,11 @@ class RadioButton(BaseControl):
         if self._variable is not None:
             self._is_selected = (self._variable.get() == self._value)
             self._dot_t = 1.0 if self._is_selected else 0.0
-            try:
-                self._var_trace_id = self._variable.trace_add("write", self._on_variable_write)
-            except Exception:
-                try:
-                    self._var_trace_id = self._variable.trace("w", self._on_variable_write)
-                except Exception:
-                    self._var_trace_id = None
+            self._var_trace_id = bind_variable_trace(self._variable, self._on_variable_write)
         else:
             self._var_trace_id = None
 
-        eff_width = width if text else size + 6
+        eff_width = width if text else size + DEFAULT_RADIO_COMPACT_EXTRA_PAD
 
         super().__init__(
             master=master,
@@ -104,7 +121,7 @@ class RadioButton(BaseControl):
     def _animate_to_state(self, is_sel: bool) -> None:
         target_t = 1.0 if is_sel else 0.0
         if self._animated and self.winfo_exists():
-            self.animate_property("dot", self._dot_t, target_t, duration_ms=140, on_update=self._set_dot_t)
+            self.animate_property("dot", self._dot_t, target_t, duration_ms=RADIO_ANIM_DURATION_MS, on_update=self._set_dot_t)
         else:
             self._dot_t = target_t
             self.request_redraw()
@@ -137,7 +154,7 @@ class RadioButton(BaseControl):
 
         r_sz = float(self._radio_size) * s
         r = r_sz / 2.0
-        cx = 2.0 * s + r
+        cx = DEFAULT_RADIO_LEFT_MARGIN * s + r
         cy = h / 2.0
 
         active_col = resolve_color_failsafe(self._custom_radio_color or pal.primary, palette=pal)
@@ -154,9 +171,6 @@ class RadioButton(BaseControl):
             cur_border = resolve_color_failsafe(pal.surface_border, palette=pal)
             dot_col = resolve_color_failsafe(pal.text_muted, palette=pal)
 
-        fr_col = resolve_color_failsafe(self._custom_focus_ring_color or pal.input_focus, palette=pal) if (self._focus_ring and self.is_focused and not self.is_disabled) else "#00000000"
-        fr_w = 2.0 * s if (self._focus_ring and self.is_focused and not self.is_disabled) else 0.0
-
         # Outer circle
         surf.fill_circle(cx, cy, r, cur_bg)
         if self._border_width > 0.0:
@@ -164,23 +178,33 @@ class RadioButton(BaseControl):
 
         # Focus ring
         if self._focus_ring and self.is_focused and not self.is_disabled:
-            surf.stroke_circle(cx, cy, r + 2.0 * s, fr_col, stroke_width=fr_w)
+            fr_col = resolve_color_failsafe(self._custom_focus_ring_color or pal.input_focus, palette=pal)
+            draw_circular_focus_ring(
+                surf,
+                cx,
+                cy,
+                r,
+                fr_col,
+                stroke_width=FOCUS_RING_WIDTH,
+                offset=RADIO_FOCUS_RING_OFFSET,
+                scale=s,
+            )
 
         # Inner animated dot
         if self._dot_t > 0.0:
-            inner_r = (r * 0.45) * self._dot_t
+            inner_r = (r * RADIO_INNER_DOT_RATIO) * self._dot_t
             surf.fill_circle(cx, cy, inner_r, dot_col)
 
         # Text Label
         if self._text:
-            text_x = cx + r + 10.0 * s
+            text_x = cx + r + DEFAULT_RADIO_TEXT_SPACING * s
             fg_col = resolve_color_failsafe(self._custom_fg_color or pal.fg, palette=pal)
             if self.is_disabled:
                 fg_col = resolve_color_failsafe(pal.text_muted, palette=pal)
 
-            font_cfg = parse_font(font=self._font_spec, font_size=self._font_size or 13.0)
+            font_cfg = parse_font(font=self._font_spec, font_size=self._font_size or DEFAULT_FONT_SIZE)
             scaled_font_sz = float(font_cfg.size) * s
-            text_y = cy + scaled_font_sz * 0.35
+            text_y = compute_text_baseline_y(cy, scaled_font_sz)
 
             surf.draw_text(
                 self._text,

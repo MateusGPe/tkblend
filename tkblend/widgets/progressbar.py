@@ -13,6 +13,23 @@ from tkblend.theme import (
     Palette,
     resolve_color_failsafe,
 )
+from tkblend.widgets.constants import (
+    DEFAULT_PROGRESS_WIDTH,
+    DEFAULT_PROGRESS_HEIGHT,
+    DEFAULT_PROGRESS_DETERMINATE_SPEED,
+    DEFAULT_PROGRESS_INDETERMINATE_SPEED,
+    DEFAULT_PROGRESS_BORDER_WIDTH,
+    DEFAULT_PROGRESS_STEP_AMOUNT,
+    PROGRESS_ANIM_INTERVAL_MS,
+    PROGRESS_INDETERMINATE_PHASE_STEP,
+    PROGRESS_DETERMINATE_AUTO_STEP,
+    STATE_NORMAL,
+    CURSOR_DEFAULT,
+)
+from tkblend.widgets.utils import (
+    bind_variable_trace,
+    unbind_variable_trace,
+)
 
 
 class ProgressBar(BaseControl):
@@ -24,20 +41,20 @@ class ProgressBar(BaseControl):
     def __init__(
         self,
         master: Optional[tk.Misc] = None,
-        width: int = 200,
-        height: int = 8,
+        width: int = DEFAULT_PROGRESS_WIDTH,
+        height: int = DEFAULT_PROGRESS_HEIGHT,
         corner_radius: Optional[float] = None,
         mode: str = "determinate",
-        determinate_speed: float = 1.0,
-        indeterminate_speed: float = 1.0,
+        determinate_speed: float = DEFAULT_PROGRESS_DETERMINATE_SPEED,
+        indeterminate_speed: float = DEFAULT_PROGRESS_INDETERMINATE_SPEED,
         track_color: Optional[ColorLike] = None,
         progress_color: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
-        border_width: float = 0.0,
+        border_width: float = DEFAULT_PROGRESS_BORDER_WIDTH,
         variable: Optional[Union[tk.DoubleVar, tk.IntVar, tk.Variable]] = None,
         animated: bool = True,
         cursor: Optional[str] = None,
-        state: str = "normal",
+        state: str = STATE_NORMAL,
         **kwargs,
     ):
         self._mode = mode.lower()
@@ -63,13 +80,7 @@ class ProgressBar(BaseControl):
                 self._progress = max(0.0, min(1.0, float(self._variable.get())))
             except Exception:
                 pass
-            try:
-                self._var_trace_id = self._variable.trace_add("write", self._on_variable_write)
-            except Exception:
-                try:
-                    self._var_trace_id = self._variable.trace("w", self._on_variable_write)
-                except Exception:
-                    self._var_trace_id = None
+            self._var_trace_id = bind_variable_trace(self._variable, self._on_variable_write)
         else:
             self._var_trace_id = None
 
@@ -77,7 +88,7 @@ class ProgressBar(BaseControl):
             master=master,
             width=width,
             height=height,
-            cursor=cursor or "",
+            cursor=cursor or CURSOR_DEFAULT,
             state=state,
             takefocus=False,
             **kwargs,
@@ -102,11 +113,11 @@ class ProgressBar(BaseControl):
             self._variable.set(self._progress)
         self.request_redraw()
 
-    def step(self, amount: float = 0.01) -> None:
+    def step(self, amount: float = DEFAULT_PROGRESS_STEP_AMOUNT) -> None:
         new_val = (self._progress + amount) % 1.000001
         self.set(new_val)
 
-    def start(self, interval_ms: int = 16) -> None:
+    def start(self, interval_ms: int = PROGRESS_ANIM_INTERVAL_MS) -> None:
         """Start marquee animation for indeterminate mode or continuous spinning."""
         if self._running:
             return
@@ -128,10 +139,10 @@ class ProgressBar(BaseControl):
             return
 
         if self._mode == "indeterminate":
-            self._phase_offset = (self._phase_offset + 0.015 * self._indeterminate_speed) % 1.0
+            self._phase_offset = (self._phase_offset + PROGRESS_INDETERMINATE_PHASE_STEP * self._indeterminate_speed) % 1.0
             self.request_redraw()
         elif self._mode == "determinate":
-            self.step(0.005 * self._determinate_speed)
+            self.step(PROGRESS_DETERMINATE_AUTO_STEP * self._determinate_speed)
 
         self._timer_id = self.after(interval_ms, lambda: self._loop_animation(interval_ms))
 

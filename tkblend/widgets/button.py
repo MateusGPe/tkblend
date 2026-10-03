@@ -16,6 +16,36 @@ from tkblend.theme import (
 )
 from tkblend.font import FontConfig, parse_font
 from tkblend.icons import Icons
+from tkblend.widgets.constants import (
+    DEFAULT_BUTTON_TEXT,
+    DEFAULT_BUTTON_WIDTH,
+    DEFAULT_BUTTON_HEIGHT,
+    DEFAULT_BUTTON_CORNER_RADIUS,
+    DEFAULT_BUTTON_BORDER_WIDTH,
+    DEFAULT_BUTTON_SHADOW_BLUR,
+    DEFAULT_BUTTON_SHADOW_OFFSET_Y,
+    DEFAULT_BUTTON_ICON_TEXT_SPACING,
+    DEFAULT_FONT_SIZE,
+    FOCUS_RING_WIDTH,
+    FOCUS_RING_PADDING,
+    BUTTON_ANIM_HOVER_MS,
+    BUTTON_ANIM_PRESS_MS,
+    BUTTON_ANIM_KEY_PRESS_MS,
+    BUTTON_ANIM_KEY_RELEASE_MS,
+    BUTTON_PRESS_DISPLACEMENT_Y,
+    BUTTON_PRESS_SHADOW_BLUR_SCALE,
+    BUTTON_PRESS_SHADOW_OFFSET_SCALE,
+    ICON_FONT_SIZE_RATIO,
+    ICON_STANDALONE_SIZE_RATIO,
+    CURSOR_HAND,
+    STATE_NORMAL,
+    DEFAULT_ICON_FAMILY,
+)
+from tkblend.widgets.utils import (
+    draw_focus_ring,
+    compute_text_baseline_y,
+    compute_icon_baseline_y,
+)
 
 
 class Button(BaseControl):
@@ -27,35 +57,35 @@ class Button(BaseControl):
     def __init__(
         self,
         master: Optional[tk.Misc] = None,
-        text: str = "Button",
+        text: str = DEFAULT_BUTTON_TEXT,
         command: Optional[Callable[[], None]] = None,
         icon: Optional[str] = None,
-        icon_family: str = "fa-solid",
+        icon_family: str = DEFAULT_ICON_FAMILY,
         icon_size: Optional[float] = None,
-        width: int = 120,
-        height: int = 36,
-        corner_radius: float = 8.0,
+        width: int = DEFAULT_BUTTON_WIDTH,
+        height: int = DEFAULT_BUTTON_HEIGHT,
+        corner_radius: float = DEFAULT_BUTTON_CORNER_RADIUS,
         bg_color: Optional[ColorLike] = None,
         hover_color: Optional[ColorLike] = None,
         pressed_color: Optional[ColorLike] = None,
         disabled_color: Optional[ColorLike] = None,
         fg_color: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
-        border_width: float = 0.0,
+        border_width: float = DEFAULT_BUTTON_BORDER_WIDTH,
         font: Optional[Any] = None,
         font_size: Optional[float] = None,
         bold: Optional[bool] = True,
         italic: Optional[bool] = False,
         shadow: bool = True,
-        shadow_blur: float = 6.0,
-        shadow_offset_y: float = 2.0,
+        shadow_blur: float = DEFAULT_BUTTON_SHADOW_BLUR,
+        shadow_offset_y: float = DEFAULT_BUTTON_SHADOW_OFFSET_Y,
         shadow_color: Optional[ColorLike] = None,
         focus_ring: bool = True,
         focus_ring_color: Optional[ColorLike] = None,
-        focus_ring_width: float = 2.0,
+        focus_ring_width: float = FOCUS_RING_WIDTH,
         animated: bool = True,
-        cursor: str = "hand2",
-        state: str = "normal",
+        cursor: str = CURSOR_HAND,
+        state: str = STATE_NORMAL,
         **kwargs,
     ):
         self._text = str(text)
@@ -138,20 +168,20 @@ class Button(BaseControl):
 
     def on_key_press(self, event: tk.Event) -> None:
         if event.keysym in ("Return", "space"):
-            self.animate_property("press", self._press_t, 1.0, duration_ms=40, on_update=self._set_press_t)
+            self.animate_property("press", self._press_t, 1.0, duration_ms=BUTTON_ANIM_KEY_PRESS_MS, on_update=self._set_press_t)
             self.invoke()
 
     def on_key_release(self, event: tk.Event) -> None:
         if event.keysym in ("Return", "space"):
-            self.animate_property("press", self._press_t, 0.0, duration_ms=80, on_update=self._set_press_t)
+            self.animate_property("press", self._press_t, 0.0, duration_ms=BUTTON_ANIM_KEY_RELEASE_MS, on_update=self._set_press_t)
 
     def on_state_changed(self, new_state: int, old_state: int) -> None:
         if self._animated:
             target_hover = 1.0 if self.is_hovered else 0.0
             target_press = 1.0 if self.is_pressed else 0.0
             if not self.is_disabled:
-                self.animate_property("hover", self._hover_t, target_hover, duration_ms=120, on_update=self._set_hover_t)
-                self.animate_property("press", self._press_t, target_press, duration_ms=60, on_update=self._set_press_t)
+                self.animate_property("hover", self._hover_t, target_hover, duration_ms=BUTTON_ANIM_HOVER_MS, on_update=self._set_hover_t)
+                self.animate_property("press", self._press_t, target_press, duration_ms=BUTTON_ANIM_PRESS_MS, on_update=self._set_press_t)
         else:
             self._hover_t = 1.0 if self.is_hovered else 0.0
             self._press_t = 1.0 if self.is_pressed else 0.0
@@ -189,13 +219,13 @@ class Button(BaseControl):
             if self._press_t > 0.0:
                 curr_bg = blend_color_hex(curr_bg, press_bg, self._press_t) or curr_bg
 
-            press_offset = (1.5 * s) * self._press_t
-            shadow_blur = self._shadow_blur * s * (1.0 - 0.5 * self._press_t) if self._shadow else 0.0
+            press_offset = (BUTTON_PRESS_DISPLACEMENT_Y * s) * self._press_t
+            shadow_blur = self._shadow_blur * s * (1.0 - BUTTON_PRESS_SHADOW_BLUR_SCALE * self._press_t) if self._shadow else 0.0
 
         # Draw drop shadow
         if self._shadow and shadow_blur > 0.0 and not self.is_disabled:
             sh_col = resolve_color_failsafe(self._custom_shadow_color or pal.shadow_color, palette=pal)
-            sh_y = self._shadow_offset_y * s * (1.0 - 0.4 * self._press_t)
+            sh_y = self._shadow_offset_y * s * (1.0 - BUTTON_PRESS_SHADOW_OFFSET_SCALE * self._press_t)
             surf.draw_shadow(
                 0.0,
                 sh_y + press_offset,
@@ -221,22 +251,24 @@ class Button(BaseControl):
         # Draw focus ring
         if self._focus_ring and self.is_focused and not self.is_disabled:
             fr_col = resolve_color_failsafe(self._custom_focus_ring_color or pal.input_focus, palette=pal)
-            frw = self._focus_ring_width * s
-            surf.stroke_rounded_rect(
-                -1.5 * s,
-                btn_y - 1.5 * s,
-                w + 3.0 * s,
-                btn_h + 3.0 * s,
-                rx + 1.5 * s,
-                ry + 1.5 * s,
+            draw_focus_ring(
+                surf,
+                0.0,
+                btn_y,
+                w,
+                btn_h,
+                rx,
+                ry,
                 fr_col,
-                stroke_width=frw,
+                stroke_width=self._focus_ring_width,
+                padding=FOCUS_RING_PADDING,
+                scale=s,
             )
 
         # Typography and Icon Layout
         font_cfg = parse_font(
             font=self._font_spec,
-            font_size=self._font_size or 13.0,
+            font_size=self._font_size or DEFAULT_FONT_SIZE,
             bold=self._bold,
             italic=self._italic,
         )
@@ -248,8 +280,8 @@ class Button(BaseControl):
         center_y = btn_y + btn_h / 2.0
 
         if has_icon and has_text:
-            icon_sz = (self._icon_size or (font_cfg.size * 1.1)) * s
-            spacing = 8.0 * s
+            icon_sz = (self._icon_size or (font_cfg.size * ICON_FONT_SIZE_RATIO)) * s
+            spacing = DEFAULT_BUTTON_ICON_TEXT_SPACING * s
             text_metrics = surf.measure_text(
                 self._text,
                 font_size=scaled_font_size,
@@ -262,7 +294,7 @@ class Button(BaseControl):
             start_x = (w - total_content_w) / 2.0
 
             # Draw Icon (baseline aligned with vertical center)
-            icon_y = center_y + icon_sz * 0.35
+            icon_y = compute_icon_baseline_y(center_y, icon_sz)
             surf.draw_icon(
                 self._icon,
                 start_x,
@@ -275,7 +307,7 @@ class Button(BaseControl):
 
             # Draw Text
             text_x = start_x + icon_sz + spacing
-            text_y = center_y + scaled_font_size * 0.35
+            text_y = compute_text_baseline_y(center_y, scaled_font_size)
             surf.draw_text(
                 self._text,
                 text_x,
@@ -289,8 +321,8 @@ class Button(BaseControl):
                 align="left",
             )
         elif has_icon:
-            icon_sz = (self._icon_size or (min(w, h) * 0.55)) * s
-            icon_y = center_y + icon_sz * 0.35
+            icon_sz = (self._icon_size or (min(w, h) * ICON_STANDALONE_SIZE_RATIO)) * s
+            icon_y = compute_icon_baseline_y(center_y, icon_sz)
             surf.draw_icon(
                 self._icon,
                 w / 2.0,
@@ -301,7 +333,7 @@ class Button(BaseControl):
                 align="center",
             )
         elif has_text:
-            text_y = center_y + scaled_font_size * 0.35
+            text_y = compute_text_baseline_y(center_y, scaled_font_size)
             surf.draw_text(
                 self._text,
                 w / 2.0,

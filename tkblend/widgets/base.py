@@ -28,6 +28,17 @@ from tkblend.theme import (
     to_tk_hex,
 )
 from tkblend.font import FontConfig, parse_font
+from tkblend.widgets.constants import (
+    TK_SCALING_BASE,
+    TK_SCALING_MIN_THRESHOLD,
+    DEFAULT_BASE_WIDTH,
+    DEFAULT_BASE_HEIGHT,
+    FALLBACK_DARK_BG,
+    FALLBACK_LIGHT_BG,
+    STATE_NORMAL,
+    STATE_DISABLED,
+    CURSOR_DEFAULT,
+)
 
 
 class ScalingTracker:
@@ -50,8 +61,8 @@ class ScalingTracker:
             try:
                 # Query Tk scaling (72 points per inch standard base)
                 scale = float(widget.tk.call("tk", "scaling"))
-                factor = scale / 1.3333333333333333
-                if factor > 0.1:
+                factor = scale / TK_SCALING_BASE
+                if factor > TK_SCALING_MIN_THRESHOLD:
                     cls._cached_factor = factor
                     return factor
             except Exception:
@@ -69,12 +80,12 @@ class BaseControl(tk.Frame):
     def __init__(
         self,
         master: Optional[tk.Misc] = None,
-        width: int = 100,
-        height: int = 30,
+        width: int = DEFAULT_BASE_WIDTH,
+        height: int = DEFAULT_BASE_HEIGHT,
         parent_bg: Optional[ColorLike] = None,
         cursor: Optional[str] = None,
         takefocus: bool = True,
-        state: str = "normal",
+        state: str = STATE_NORMAL,
         **kwargs,
     ):
         self._logical_w = int(width)
@@ -95,7 +106,7 @@ class BaseControl(tk.Frame):
             else resolve_ancestor_bg(master, self._palette)
         )
         self._resolved_parent_bg = resolved_bg
-        tk_bg = to_tk_hex(resolved_bg, fallback="#100e14" if self._palette.dark_mode else "#ffffff")
+        tk_bg = to_tk_hex(resolved_bg, fallback=FALLBACK_DARK_BG if self._palette.dark_mode else FALLBACK_LIGHT_BG)
 
         # Compute initial scaled geometry
         scale = self._scale_factor
@@ -108,7 +119,7 @@ class BaseControl(tk.Frame):
             height=init_h,
             background="",
             takefocus=1 if takefocus else 0,
-            cursor=cursor or "",
+            cursor=cursor or CURSOR_DEFAULT,
             **kwargs,
         )
 

@@ -13,6 +13,33 @@ from tkblend.theme import (
     Palette,
     resolve_color_failsafe,
 )
+from tkblend.widgets.constants import (
+    DEFAULT_SLIDER_WIDTH,
+    DEFAULT_SLIDER_HEIGHT,
+    DEFAULT_SLIDER_FROM,
+    DEFAULT_SLIDER_TO,
+    DEFAULT_SLIDER_VALUE,
+    DEFAULT_SLIDER_THUMB_RADIUS,
+    DEFAULT_SLIDER_TRACK_THICKNESS,
+    DEFAULT_SLIDER_ORIENTATION,
+    SLIDER_TRACK_PADDING_EXTRA,
+    SLIDER_KEY_STEP_RATIO,
+    SLIDER_VERTICAL_SHADOW_OFFSET_Y,
+    SLIDER_VERTICAL_SHADOW_BLUR,
+    SLIDER_VERTICAL_SHADOW_COLOR,
+    SLIDER_VERTICAL_BORDER_WIDTH,
+    SLIDER_VERTICAL_FOCUS_RING_OFFSET,
+    FOCUS_RING_WIDTH,
+    FALLBACK_THUMB_COLOR,
+    CURSOR_HAND,
+    STATE_NORMAL,
+    COLOR_TRANSPARENT,
+)
+from tkblend.widgets.utils import (
+    draw_circular_focus_ring,
+    bind_variable_trace,
+    unbind_variable_trace,
+)
 
 
 class Slider(BaseControl):
@@ -24,26 +51,26 @@ class Slider(BaseControl):
     def __init__(
         self,
         master: Optional[tk.Misc] = None,
-        from_: float = 0.0,
-        to: float = 100.0,
+        from_: float = DEFAULT_SLIDER_FROM,
+        to: float = DEFAULT_SLIDER_TO,
         number_of_steps: Optional[int] = None,
-        value: float = 0.0,
+        value: float = DEFAULT_SLIDER_VALUE,
         command: Optional[Callable[[float], None]] = None,
         variable: Optional[Union[tk.DoubleVar, tk.IntVar, tk.Variable]] = None,
-        width: int = 200,
-        height: int = 24,
-        orientation: str = "horizontal",
+        width: int = DEFAULT_SLIDER_WIDTH,
+        height: int = DEFAULT_SLIDER_HEIGHT,
+        orientation: str = DEFAULT_SLIDER_ORIENTATION,
         track_color: Optional[ColorLike] = None,
         active_color: Optional[ColorLike] = None,
         thumb_color: Optional[ColorLike] = None,
         thumb_border_color: Optional[ColorLike] = None,
-        thumb_radius: float = 8.0,
-        track_thickness: float = 4.0,
+        thumb_radius: float = DEFAULT_SLIDER_THUMB_RADIUS,
+        track_thickness: float = DEFAULT_SLIDER_TRACK_THICKNESS,
         focus_ring: bool = True,
         focus_ring_color: Optional[ColorLike] = None,
         animated: bool = True,
-        cursor: str = "hand2",
-        state: str = "normal",
+        cursor: str = CURSOR_HAND,
+        state: str = STATE_NORMAL,
         **kwargs,
     ):
         self._from = float(from_)
@@ -65,7 +92,7 @@ class Slider(BaseControl):
         self._animated = animated
 
         self._is_dragging = False
-        self._value = float(value if value != 0.0 else from_)
+        self._value = float(value if value != DEFAULT_SLIDER_VALUE else from_)
 
         # Variable synchronization
         if self._variable is not None:
@@ -73,13 +100,7 @@ class Slider(BaseControl):
                 self._value = float(self._variable.get())
             except Exception:
                 pass
-            try:
-                self._var_trace_id = self._variable.trace_add("write", self._on_variable_write)
-            except Exception:
-                try:
-                    self._var_trace_id = self._variable.trace("w", self._on_variable_write)
-                except Exception:
-                    self._var_trace_id = None
+            self._var_trace_id = bind_variable_trace(self._variable, self._on_variable_write)
         else:
             self._var_trace_id = None
 
@@ -141,7 +162,7 @@ class Slider(BaseControl):
         s = self.scale_factor
         w = max(1.0, float(self.winfo_width()))
         h = max(1.0, float(self.winfo_height()))
-        pad = (self._thumb_radius + 2.0) * s
+        pad = (self._thumb_radius + SLIDER_TRACK_PADDING_EXTRA) * s
 
         if self._orientation == "vertical":
             track_len = max(1.0, h - 2.0 * pad)
@@ -180,7 +201,7 @@ class Slider(BaseControl):
         if self.is_disabled:
             return
         rng = abs(self._to - self._from)
-        step = (rng / float(self._number_of_steps)) if (self._number_of_steps and self._number_of_steps > 0) else (rng * 0.05)
+        step = (rng / float(self._number_of_steps)) if (self._number_of_steps and self._number_of_steps > 0) else (rng * SLIDER_KEY_STEP_RATIO)
 
         if event.keysym in ("Left", "Down"):
             self.set(self._value - step)
@@ -196,7 +217,7 @@ class Slider(BaseControl):
         w = float(width)
         h = float(height)
 
-        pad = (self._thumb_radius + 2.0) * s
+        pad = (self._thumb_radius + SLIDER_TRACK_PADDING_EXTRA) * s
         prog = self._value_to_progress()
 
         track_bg = resolve_color_failsafe(self._custom_track_color or pal.track_bg, palette=pal)
@@ -206,13 +227,13 @@ class Slider(BaseControl):
             active_bg = resolve_color_failsafe(pal.text_muted, palette=pal)
 
         thumb_col = resolve_color_failsafe(self._custom_thumb_color or pal.primary, palette=pal)
-        thumb_border = resolve_color_failsafe(self._custom_thumb_border or "#ffffff", palette=pal)
+        thumb_border = resolve_color_failsafe(self._custom_thumb_border or FALLBACK_THUMB_COLOR, palette=pal)
         if self.is_disabled:
             thumb_col = resolve_color_failsafe(pal.surface, palette=pal)
             thumb_border = resolve_color_failsafe(pal.surface_border, palette=pal)
 
-        fr_col = resolve_color_failsafe(self._custom_focus_ring_color or pal.input_focus, palette=pal) if (self._focus_ring and self.is_focused and not self.is_disabled) else "#00000000"
-        fr_w = 2.0 * s if (self._focus_ring and self.is_focused and not self.is_disabled) else 0.0
+        fr_col = resolve_color_failsafe(self._custom_focus_ring_color or pal.input_focus, palette=pal) if (self._focus_ring and self.is_focused and not self.is_disabled) else COLOR_TRANSPARENT
+        fr_w = FOCUS_RING_WIDTH * s if (self._focus_ring and self.is_focused and not self.is_disabled) else 0.0
 
         if self._orientation == "horizontal":
             track_w = max(1.0, w - 2.0 * pad)
@@ -252,11 +273,29 @@ class Slider(BaseControl):
 
             # Thumb
             thumb_cy = track_y + track_h * (1.0 - prog)
-            surf.draw_shadow(cx - tr, thumb_cy - tr + 1.0 * s, tr * 2.0, tr * 2.0, tr, tr, blur_radius=3.0 * s, shadow_color="#00000040")
+            surf.draw_shadow(
+                cx - tr,
+                thumb_cy - tr + SLIDER_VERTICAL_SHADOW_OFFSET_Y * s,
+                tr * 2.0,
+                tr * 2.0,
+                tr,
+                tr,
+                blur_radius=SLIDER_VERTICAL_SHADOW_BLUR * s,
+                shadow_color=SLIDER_VERTICAL_SHADOW_COLOR,
+            )
             surf.fill_circle(cx, thumb_cy, tr, thumb_col)
-            surf.stroke_circle(cx, thumb_cy, tr, thumb_border, stroke_width=1.5 * s)
+            surf.stroke_circle(cx, thumb_cy, tr, thumb_border, stroke_width=SLIDER_VERTICAL_BORDER_WIDTH * s)
             if self._focus_ring and self.is_focused and not self.is_disabled:
-                surf.stroke_circle(cx, thumb_cy, tr + 2.0 * s, fr_col, stroke_width=fr_w)
+                draw_circular_focus_ring(
+                    surf,
+                    cx,
+                    thumb_cy,
+                    tr,
+                    fr_col,
+                    stroke_width=FOCUS_RING_WIDTH,
+                    offset=SLIDER_VERTICAL_FOCUS_RING_OFFSET,
+                    scale=s,
+                )
 
     def configure(self, cnf=None, **kwargs):
         if cnf is None and not kwargs:

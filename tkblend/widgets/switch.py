@@ -15,6 +15,28 @@ from tkblend.theme import (
     blend_color_hex,
 )
 from tkblend.font import parse_font
+from tkblend.widgets.constants import (
+    DEFAULT_SWITCH_WIDTH,
+    DEFAULT_SWITCH_HEIGHT,
+    DEFAULT_SWITCH_TRACK_WIDTH,
+    DEFAULT_SWITCH_TRACK_HEIGHT,
+    DEFAULT_SWITCH_LEFT_MARGIN,
+    DEFAULT_SWITCH_TEXT_SPACING,
+    DEFAULT_SWITCH_COMPACT_EXTRA_PAD,
+    DEFAULT_FONT_SIZE,
+    FOCUS_RING_WIDTH,
+    SWITCH_ANIM_DURATION_MS,
+    FALLBACK_THUMB_COLOR,
+    FALLBACK_THUMB_BORDER_COLOR,
+    CURSOR_HAND,
+    STATE_NORMAL,
+    COLOR_TRANSPARENT,
+)
+from tkblend.widgets.utils import (
+    compute_text_baseline_y,
+    bind_variable_trace,
+    unbind_variable_trace,
+)
 
 
 class Switch(BaseControl):
@@ -31,10 +53,10 @@ class Switch(BaseControl):
         variable: Optional[Union[tk.BooleanVar, tk.IntVar, tk.StringVar, tk.Variable]] = None,
         onvalue: Any = True,
         offvalue: Any = False,
-        width: int = 140,
-        height: int = 28,
-        switch_width: int = 44,
-        switch_height: int = 24,
+        width: int = DEFAULT_SWITCH_WIDTH,
+        height: int = DEFAULT_SWITCH_HEIGHT,
+        switch_width: int = DEFAULT_SWITCH_TRACK_WIDTH,
+        switch_height: int = DEFAULT_SWITCH_TRACK_HEIGHT,
         corner_radius: Optional[float] = None,
         track_color: Optional[ColorLike] = None,
         active_color: Optional[ColorLike] = None,
@@ -46,8 +68,8 @@ class Switch(BaseControl):
         focus_ring: bool = True,
         focus_ring_color: Optional[ColorLike] = None,
         animated: bool = True,
-        cursor: str = "hand2",
-        state: str = "normal",
+        cursor: str = CURSOR_HAND,
+        state: str = STATE_NORMAL,
         **kwargs,
     ):
         self._text = str(text)
@@ -79,18 +101,12 @@ class Switch(BaseControl):
         if self._variable is not None:
             self._is_on = (self._variable.get() == self._onvalue)
             self._progress_t = 1.0 if self._is_on else 0.0
-            try:
-                self._var_trace_id = self._variable.trace_add("write", self._on_variable_write)
-            except Exception:
-                try:
-                    self._var_trace_id = self._variable.trace("w", self._on_variable_write)
-                except Exception:
-                    self._var_trace_id = None
+            self._var_trace_id = bind_variable_trace(self._variable, self._on_variable_write)
         else:
             self._var_trace_id = None
 
         # Determine default widget size
-        eff_width = width if text else switch_width + 6
+        eff_width = width if text else switch_width + DEFAULT_SWITCH_COMPACT_EXTRA_PAD
 
         super().__init__(
             master=master,
@@ -113,7 +129,7 @@ class Switch(BaseControl):
     def _animate_to_state(self, is_on: bool) -> None:
         target_t = 1.0 if is_on else 0.0
         if self._animated and self.winfo_exists():
-            self.animate_property("thumb", self._progress_t, target_t, duration_ms=160, on_update=self._set_progress_t)
+            self.animate_property("thumb", self._progress_t, target_t, duration_ms=SWITCH_ANIM_DURATION_MS, on_update=self._set_progress_t)
         else:
             self._progress_t = target_t
             self.request_redraw()
@@ -165,7 +181,7 @@ class Switch(BaseControl):
         sw = float(self._switch_w) * s
         sh = float(self._switch_h) * s
         sy = (h - sh) / 2.0
-        sx = 2.0 * s
+        sx = DEFAULT_SWITCH_LEFT_MARGIN * s
 
         # Colors
         track_off = resolve_color_failsafe(self._custom_track_color or pal.track_bg, palette=pal)
@@ -174,13 +190,13 @@ class Switch(BaseControl):
         if self.is_disabled:
             cur_track = resolve_color_failsafe(pal.surface_border, palette=pal)
 
-        thumb_col = resolve_color_failsafe(self._custom_thumb_color or "#ffffff", palette=pal)
+        thumb_col = resolve_color_failsafe(self._custom_thumb_color or FALLBACK_THUMB_COLOR, palette=pal)
         if self.is_disabled:
             thumb_col = resolve_color_failsafe(pal.text_muted, palette=pal)
-        thumb_border = resolve_color_failsafe(self._custom_thumb_border or "#00000022", palette=pal)
+        thumb_border = resolve_color_failsafe(self._custom_thumb_border or FALLBACK_THUMB_BORDER_COLOR, palette=pal)
 
-        fr_col = resolve_color_failsafe(self._custom_focus_ring_color or pal.input_focus, palette=pal) if (self._focus_ring and self.is_focused and not self.is_disabled) else "#00000000"
-        fr_w = 2.0 * s if (self._focus_ring and self.is_focused and not self.is_disabled) else 0.0
+        fr_col = resolve_color_failsafe(self._custom_focus_ring_color or pal.input_focus, palette=pal) if (self._focus_ring and self.is_focused and not self.is_disabled) else COLOR_TRANSPARENT
+        fr_w = FOCUS_RING_WIDTH * s if (self._focus_ring and self.is_focused and not self.is_disabled) else 0.0
 
         # Draw native switch
         surf.draw_switch(
@@ -199,14 +215,14 @@ class Switch(BaseControl):
 
         # Draw label text if present
         if self._text:
-            text_x = sx + sw + 10.0 * s
+            text_x = sx + sw + DEFAULT_SWITCH_TEXT_SPACING * s
             fg_col = resolve_color_failsafe(self._custom_fg_color or pal.fg, palette=pal)
             if self.is_disabled:
                 fg_col = resolve_color_failsafe(pal.text_muted, palette=pal)
 
-            font_cfg = parse_font(font=self._font_spec, font_size=self._font_size or 13.0)
+            font_cfg = parse_font(font=self._font_spec, font_size=self._font_size or DEFAULT_FONT_SIZE)
             scaled_font_sz = float(font_cfg.size) * s
-            text_y = h / 2.0 + scaled_font_sz * 0.35
+            text_y = compute_text_baseline_y(h / 2.0, scaled_font_sz)
 
             surf.draw_text(
                 self._text,

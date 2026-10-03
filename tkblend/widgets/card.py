@@ -14,6 +14,18 @@ from tkblend.theme import (
     resolve_color_failsafe,
     cascade_bg_to_children,
 )
+from tkblend.widgets.constants import (
+    DEFAULT_CARD_WIDTH,
+    DEFAULT_CARD_HEIGHT,
+    DEFAULT_CARD_CORNER_RADIUS,
+    DEFAULT_CARD_BORDER_WIDTH,
+    DEFAULT_CARD_SHADOW_BLUR,
+    DEFAULT_CARD_SHADOW_SPREAD,
+    DEFAULT_CARD_SHADOW_OFFSET_X,
+    DEFAULT_CARD_SHADOW_OFFSET_Y,
+    CURSOR_DEFAULT,
+    COLOR_TRANSPARENT,
+)
 
 
 class Card(BaseControl):
@@ -25,17 +37,17 @@ class Card(BaseControl):
     def __init__(
         self,
         master: Optional[tk.Misc] = None,
-        width: int = 240,
-        height: int = 160,
-        corner_radius: float = 12.0,
+        width: int = DEFAULT_CARD_WIDTH,
+        height: int = DEFAULT_CARD_HEIGHT,
+        corner_radius: float = DEFAULT_CARD_CORNER_RADIUS,
         bg_color: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
-        border_width: float = 1.0,
+        border_width: float = DEFAULT_CARD_BORDER_WIDTH,
         shadow: bool = True,
-        shadow_blur: float = 10.0,
-        shadow_spread: float = 0.0,
-        shadow_offset_x: float = 0.0,
-        shadow_offset_y: float = 3.0,
+        shadow_blur: float = DEFAULT_CARD_SHADOW_BLUR,
+        shadow_spread: float = DEFAULT_CARD_SHADOW_SPREAD,
+        shadow_offset_x: float = DEFAULT_CARD_SHADOW_OFFSET_X,
+        shadow_offset_y: float = DEFAULT_CARD_SHADOW_OFFSET_Y,
         shadow_color: Optional[ColorLike] = None,
         cursor: Optional[str] = None,
         **kwargs,
@@ -56,7 +68,7 @@ class Card(BaseControl):
             master=master,
             width=width,
             height=height,
-            cursor=cursor or "",
+            cursor=cursor or CURSOR_DEFAULT,
             takefocus=False,
             **kwargs,
         )
@@ -86,7 +98,7 @@ class Card(BaseControl):
         border_col = resolve_color_failsafe(self._custom_border_color or pal.card_border, palette=pal)
         bw = self._border_width * s
 
-        sh_col = resolve_color_failsafe(self._custom_shadow_color or pal.shadow_color, palette=pal) if self._shadow else "#00000000"
+        sh_col = resolve_color_failsafe(self._custom_shadow_color or pal.shadow_color, palette=pal) if self._shadow else COLOR_TRANSPARENT
         sh_blur = self._shadow_blur * s if self._shadow else 0.0
         sh_spread = self._shadow_spread * s if self._shadow else 0.0
         sh_ox = self._shadow_offset_x * s if self._shadow else 0.0

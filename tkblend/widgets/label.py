@@ -15,6 +15,24 @@ from tkblend.theme import (
 )
 from tkblend.font import parse_font
 from tkblend.icons import Icons
+from tkblend.widgets.constants import (
+    DEFAULT_LABEL_WIDTH,
+    DEFAULT_LABEL_HEIGHT,
+    DEFAULT_LABEL_CORNER_RADIUS,
+    DEFAULT_LABEL_BORDER_WIDTH,
+    DEFAULT_LABEL_ALIGN,
+    DEFAULT_LABEL_ICON_TEXT_SPACING,
+    DEFAULT_LABEL_SIDE_PADDING,
+    DEFAULT_FONT_SIZE,
+    DEFAULT_ICON_FAMILY,
+    ICON_FONT_SIZE_RATIO,
+    ICON_STANDALONE_SIZE_RATIO,
+    CURSOR_DEFAULT,
+)
+from tkblend.widgets.utils import (
+    compute_text_baseline_y,
+    compute_icon_baseline_y,
+)
 
 
 class Label(BaseControl):
@@ -28,7 +46,7 @@ class Label(BaseControl):
         master: Optional[tk.Misc] = None,
         text: str = "",
         icon: Optional[str] = None,
-        icon_family: str = "fa-solid",
+        icon_family: str = DEFAULT_ICON_FAMILY,
         icon_size: Optional[float] = None,
         font: Optional[Any] = None,
         font_size: Optional[float] = None,
@@ -36,12 +54,12 @@ class Label(BaseControl):
         italic: Optional[bool] = None,
         fg_color: Optional[ColorLike] = None,
         bg_color: Optional[ColorLike] = None,
-        corner_radius: float = 0.0,
+        corner_radius: float = DEFAULT_LABEL_CORNER_RADIUS,
         border_color: Optional[ColorLike] = None,
-        border_width: float = 0.0,
-        align: str = "left",
-        width: int = 100,
-        height: int = 24,
+        border_width: float = DEFAULT_LABEL_BORDER_WIDTH,
+        align: str = DEFAULT_LABEL_ALIGN,
+        width: int = DEFAULT_LABEL_WIDTH,
+        height: int = DEFAULT_LABEL_HEIGHT,
         cursor: Optional[str] = None,
         **kwargs,
     ):
@@ -66,7 +84,7 @@ class Label(BaseControl):
             master=master,
             width=width,
             height=height,
-            cursor=cursor or "",
+            cursor=cursor or CURSOR_DEFAULT,
             takefocus=False,
             **kwargs,
         )
@@ -110,7 +128,7 @@ class Label(BaseControl):
 
         font_cfg = parse_font(
             font=self._font_spec,
-            font_size=self._font_size or 13.0,
+            font_size=self._font_size or DEFAULT_FONT_SIZE,
             bold=self._bold,
             italic=self._italic,
         )
@@ -121,8 +139,8 @@ class Label(BaseControl):
         has_icon = bool(self._icon)
 
         if has_icon and has_text:
-            icon_sz = (self._icon_size or (font_cfg.size * 1.1)) * s
-            spacing = 6.0 * s
+            icon_sz = (self._icon_size or (font_cfg.size * ICON_FONT_SIZE_RATIO)) * s
+            spacing = DEFAULT_LABEL_ICON_TEXT_SPACING * s
             text_metrics = surf.measure_text(
                 self._text,
                 font_size=scaled_font_sz,
@@ -136,11 +154,11 @@ class Label(BaseControl):
             if self._align == "center":
                 start_x = (w - total_content_w) / 2.0
             elif self._align == "right":
-                start_x = w - total_content_w - 4.0 * s
+                start_x = w - total_content_w - DEFAULT_LABEL_SIDE_PADDING * s
             else:
-                start_x = 4.0 * s
+                start_x = DEFAULT_LABEL_SIDE_PADDING * s
 
-            icon_y = center_y + icon_sz * 0.35
+            icon_y = compute_icon_baseline_y(center_y, icon_sz)
             surf.draw_icon(
                 self._icon,
                 start_x,
@@ -151,7 +169,7 @@ class Label(BaseControl):
                 align="left",
             )
             text_x = start_x + icon_sz + spacing
-            text_y = center_y + scaled_font_sz * 0.35
+            text_y = compute_text_baseline_y(center_y, scaled_font_sz)
             surf.draw_text(
                 self._text,
                 text_x,
@@ -165,11 +183,11 @@ class Label(BaseControl):
                 align="left",
             )
         elif has_icon:
-            icon_sz = (self._icon_size or (min(w, h) * 0.55)) * s
-            icon_y = center_y + icon_sz * 0.35
+            icon_sz = (self._icon_size or (min(w, h) * ICON_STANDALONE_SIZE_RATIO)) * s
+            icon_y = compute_icon_baseline_y(center_y, icon_sz)
             surf.draw_icon(
                 self._icon,
-                w / 2.0 if self._align == "center" else (4.0 * s if self._align == "left" else w - 4.0 * s),
+                w / 2.0 if self._align == "center" else (DEFAULT_LABEL_SIDE_PADDING * s if self._align == "left" else w - DEFAULT_LABEL_SIDE_PADDING * s),
                 icon_y,
                 size=icon_sz,
                 color=fg_col,
@@ -177,8 +195,8 @@ class Label(BaseControl):
                 align=self._align,
             )
         elif has_text:
-            text_x = 4.0 * s if self._align == "left" else (w / 2.0 if self._align == "center" else w - 4.0 * s)
-            text_y = center_y + scaled_font_sz * 0.35
+            text_x = DEFAULT_LABEL_SIDE_PADDING * s if self._align == "left" else (w / 2.0 if self._align == "center" else w - DEFAULT_LABEL_SIDE_PADDING * s)
+            text_y = compute_text_baseline_y(center_y, scaled_font_sz)
             surf.draw_text(
                 self._text,
                 text_x,
