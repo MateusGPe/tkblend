@@ -1,0 +1,188 @@
+"""
+Pure Blend2D Vector ProgressBar powered by NativeController.
+"""
+
+from __future__ import annotations
+
+import tkinter as tk
+from typing import Optional, Callable, Any, Union
+
+from tkblend.widgets.base import BaseControl
+from tkblend.surface import Surface, ColorLike, parse_color
+from tkblend.theme import (
+    Palette,
+    resolve_color_failsafe,
+)
+
+
+class ProgressBar(BaseControl):
+    """
+    Modern vector progress bar with determinate and indeterminate modes,
+    continuous 60fps marquee animation, and Tk variable synchronization.
+    """
+
+    def __init__(
+        self,
+        master: Optional[tk.Misc] = None,
+        width: int = 200,
+        height: int = 8,
+        corner_radius: Optional[float] = None,
+        mode: str = "determinate",
+        determinate_speed: float = 1.0,
+        indeterminate_speed: float = 1.0,
+        track_color: Optional[ColorLike] = None,
+        progress_color: Optional[ColorLike] = None,
+        border_color: Optional[ColorLike] = None,
+        border_width: float = 0.0,
+        variable: Optional[Union[tk.DoubleVar, tk.IntVar, tk.Variable]] = None,
+        animated: bool = True,
+        cursor: Optional[str] = None,
+        state: str = "normal",
+        **kwargs,
+    ):
+        self._mode = mode.lower()
+        self._determinate_speed = float(determinate_speed)
+        self._indeterminate_speed = float(indeterminate_speed)
+        self._corner_radius = corner_radius
+
+        self._custom_track_color = track_color
+        self._custom_progress_color = progress_color
+        self._custom_border_color = border_color
+        self._border_width = float(border_width)
+
+        self._variable = variable
+        self._animated = animated
+
+        self._progress = 0.0  # 0.0 to 1.0
+        self._phase_offset = 0.0
+        self._running = False
+        self._timer_id: Optional[str] = None
+
+        if self._variable is not None:
+            try:
+                self._progress = max(0.0, min(1.0, float(self._variable.get())))
+            except Exception:
+                pass
+            try:
+                self._var_trace_id = self._variable.trace_add("write", self._on_variable_write)
+            except Exception:
+                try:
+                    self._var_trace_id = self._variable.trace("w", self._on_variable_write)
+                except Exception:
+                    self._var_trace_id = None
+        else:
+            self._var_trace_id = None
+
+        super().__init__(
+            master=master,
+            width=width,
+            height=height,
+            cursor=cursor or "",
+            state=state,
+            takefocus=False,
+            **kwargs,
+        )
+
+    def _on_variable_write(self, *args) -> None:
+        if self._variable is not None:
+            try:
+                val = max(0.0, min(1.0, float(self._variable.get())))
+                if val != self._progress:
+                    self._progress = val
+                    self.request_redraw()
+            except Exception:
+                pass
+
+    def get(self) -> float:
+        return self._progress
+
+    def set(self, value: float) -> None:
+        self._progress = max(0.0, min(1.0, float(value)))
+        if self._variable is not None:
+            self._variable.set(self._progress)
+        self.request_redraw()
+
+    def step(self, amount: float = 0.01) -> None:
+        new_val = (self._progress + amount) % 1.000001
+        self.set(new_val)
+
+    def start(self, interval_ms: int = 16) -> None:
+        """Start marquee animation for indeterminate mode or continuous spinning."""
+        if self._running:
+            return
+        self._running = True
+        self._loop_animation(interval_ms)
+
+    def stop(self) -> None:
+        """Stop animation loop."""
+        self._running = False
+        if self._timer_id is not None:
+            try:
+                self.after_cancel(self._timer_id)
+            except Exception:
+                pass
+            self._timer_id = None
+
+    def _loop_animation(self, interval_ms: int) -> None:
+        if not self._running or not self.winfo_exists():
+            return
+
+        if self._mode == "indeterminate":
+            self._phase_offset = (self._phase_offset + 0.015 * self._indeterminate_speed) % 1.0
+            self.request_redraw()
+        elif self._mode == "determinate":
+            self.step(0.005 * self._determinate_speed)
+
+        self._timer_id = self.after(interval_ms, lambda: self._loop_animation(interval_ms))
+
+    def render(self, surf: Surface, pal: Palette, width: int, height: int, scale: float) -> None:
+        s = scale
+        w = float(width)
+        h = float(height)
+
+        rx = (self._corner_radius * s) if self._corner_radius is not None else (h / 2.0)
+        ry = rx
+
+        track_bg = resolve_color_failsafe(self._custom_track_color or pal.track_bg, palette=pal)
+        bar_bg = resolve_color_failsafe(self._custom_progress_color or pal.primary, palette=pal)
+        if self.is_disabled:
+            track_bg = resolve_color_failsafe(pal.surface_border, palette=pal)
+            bar_bg = resolve_color_failsafe(pal.text_muted, palette=pal)
+
+        is_indet = (self._mode == "indeterminate")
+
+        # Native progress bar call
+        surf.draw_progress_bar(
+            0.0,
+            0.0,
+            w,
+            h,
+            rx=rx,
+            ry=ry,
+            track_bg=track_bg,
+            bar_bg=bar_bg,
+            progress_t=self._progress,
+            is_indeterminate=is_indet,
+            phase_offset=self._phase_offset,
+        )
+
+        # Border
+        bw = self._border_width * s
+        if bw > 0.0:
+            bc = resolve_color_failsafe(self._custom_border_color or pal.card_border, palette=pal)
+            surf.stroke_rounded_rect(0.0, 0.0, w, h, rx, ry, bc, stroke_width=bw)
+
+    def configure(self, cnf=None, **kwargs):
+        if cnf is None and not kwargs:
+            return super().configure()
+        if cnf:
+            kwargs.update(cnf)
+
+        if "mode" in kwargs:
+            self._mode = str(kwargs.pop("mode")).lower()
+        if "value" in kwargs:
+            self.set(kwargs.pop("value"))
+        if "variable" in kwargs:
+            self._variable = kwargs.pop("variable")
+        self.request_redraw()
+        return super().configure(**kwargs)

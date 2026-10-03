@@ -53,6 +53,9 @@ class BlendDecorator(tk.Widget):
         focus_ring_color: Optional[ColorLike] = None,
         focus_ring_width: float = 2.0,
         focus_ring_offset: float = 2.0,
+        clip_child: bool = False,
+        child_rx: Optional[float] = None,
+        child_ry: Optional[float] = None,
         name: Optional[str] = None,
         **kwargs,
     ):
@@ -126,13 +129,45 @@ class BlendDecorator(tk.Widget):
             focus_ring_color=init_focus_ring,
             focus_ring_width=float(focus_ring_width),
             focus_ring_offset=float(focus_ring_offset),
+            clip_child=bool(clip_child),
+            child_rx=float(child_rx) if child_rx is not None else None,
+            child_ry=float(child_ry) if child_ry is not None else None,
         )
 
         self._child: Optional[tk.Widget] = None
         self._child_padding: Tuple[int, int, int, int] = (8, 6, 8, 6)
 
-        # Register dynamic theme listener
-        self._theme_listener_id = add_theme_listener(self._on_theme_changed)
+        # Register dynamic theme listener and destruction cleanup
+        self.bind("<Destroy>", self._on_destroy_event, add="+")
+        add_theme_listener(self._on_theme_changed)
+
+    def _on_destroy_event(self, event=None) -> None:
+        """Proactively release listeners and child hooks when destroyed."""
+        if event is not None:
+            w = getattr(event, "widget", None)
+            if w is not None and w != self and str(w) != str(self):
+                return
+        try:
+            remove_theme_listener(self._on_theme_changed)
+        except Exception:
+            pass
+        self.detach()
+
+    def redraw(self) -> None:
+        """Request immediate or asynchronous redraw of the decorator."""
+        self._native.request_redraw()
+
+    def request_redraw(self) -> None:
+        """Request redraw of the decorator."""
+        self._native.request_redraw()
+
+    def set_hovered(self, hovered: bool) -> None:
+        """Explicitly set or simulate the hover state."""
+        self._native.set_hovered(bool(hovered))
+
+    def set_focused(self, focused: bool) -> None:
+        """Explicitly set or simulate the focus state."""
+        self._native.set_focused(bool(focused))
 
     def _on_theme_changed(self, pal: Palette) -> None:
         """Update decorator styling when global theme changes."""
@@ -193,10 +228,45 @@ class BlendDecorator(tk.Widget):
         """True if the decorator or its child has input focus."""
         return self._native.is_focused
 
+    @is_focused.setter
+    def is_focused(self, val: bool) -> None:
+        self._native.set_focused(bool(val))
+
     @property
     def is_hovered(self) -> bool:
         """True if the mouse cursor is over the decorator or child widget."""
         return self._native.is_hovered
+
+    @is_hovered.setter
+    def is_hovered(self, val: bool) -> None:
+        self._native.set_hovered(bool(val))
+
+    @property
+    def clip_child(self) -> bool:
+        """True if the embedded child Tk window is shaped/clipped to match rounded card corners."""
+        return self._native.clip_child
+
+    @clip_child.setter
+    def clip_child(self, val: bool) -> None:
+        self._native.clip_child = bool(val)
+
+    @property
+    def child_rx(self) -> Optional[float]:
+        """Explicit horizontal corner radius for child window shaping (None = automatic)."""
+        return self._native.child_rx
+
+    @child_rx.setter
+    def child_rx(self, val: Optional[float]) -> None:
+        self._native.child_rx = float(val) if val is not None else None
+
+    @property
+    def child_ry(self) -> Optional[float]:
+        """Explicit vertical corner radius for child window shaping (None = automatic)."""
+        return self._native.child_ry
+
+    @child_ry.setter
+    def child_ry(self, val: Optional[float]) -> None:
+        self._native.child_ry = float(val) if val is not None else None
 
     def _reposition_child(self) -> None:
         """Recalculate and place child widget based on active insets and padding."""
@@ -225,12 +295,16 @@ class BlendDecorator(tk.Widget):
         child_widget: tk.Widget,
         padding: Union[int, float, Sequence[Union[int, float]]] = (8, 6, 8, 6),
         match_bg: bool = True,
+        clip_child: Optional[bool] = None,
+        child_rx: Optional[float] = None,
+        child_ry: Optional[float] = None,
     ) -> tk.Widget:
         """
         Embed and passively monitor a child widget inside this decorator.
         
         Removes borders on inputs (Entry, Combobox, Text, etc.) and places
         the child with appropriate padding accounting for drop shadow insets.
+        Optionally enables native OS-level window shaping on the child widget.
         """
         # Normalize padding to (left, top, right, bottom)
         if isinstance(padding, (int, float)):
@@ -244,6 +318,13 @@ class BlendDecorator(tk.Widget):
 
         self._child_padding = pad
         self._child = child_widget
+
+        if clip_child is not None:
+            self._native.clip_child = bool(clip_child)
+        if child_rx is not None:
+            self._native.child_rx = float(child_rx)
+        if child_ry is not None:
+            self._native.child_ry = float(child_ry)
 
         # Configure child widget to be borderless if applicable
         self._apply_borderless_style(child_widget)
@@ -355,6 +436,14 @@ class BlendDecorator(tk.Widget):
             style_args["focus_ring_width"] = float(kwargs.pop("focus_ring_width"))
         if "focus_ring_offset" in kwargs:
             style_args["focus_ring_offset"] = float(kwargs.pop("focus_ring_offset"))
+        if "clip_child" in kwargs:
+            style_args["clip_child"] = bool(kwargs.pop("clip_child"))
+        if "child_rx" in kwargs:
+            val = kwargs.pop("child_rx")
+            style_args["child_rx"] = float(val) if val is not None else None
+        if "child_ry" in kwargs:
+            val = kwargs.pop("child_ry")
+            style_args["child_ry"] = float(val) if val is not None else None
 
         if "width" in kwargs or "height" in kwargs:
             w = kwargs.pop("width", 200)
@@ -373,9 +462,5 @@ class BlendDecorator(tk.Widget):
 
     def destroy(self) -> None:
         """Safely clean up listeners and window resources."""
-        try:
-            remove_theme_listener(self._theme_listener_id)
-        except Exception:
-            pass
-        self.detach()
+        self._on_destroy_event()
         super().destroy()

@@ -259,19 +259,56 @@ class DecoratorShowcase(tk.Frame):
         self.text_dec = BlendDecorator(
             self.left_inner,
             width=320,
-            height=80,
+            height=60,
             radius=10.0,
             border_width=1.0,
             shadow_blur=8.0,
             shadow_offset_y=2.0,
         )
-        self.text_dec.pack(fill="both", expand=True, pady=(0, 2))
+        self.text_dec.pack(fill="x", pady=(0, 6))
         self._decorators.append(self.text_dec)
 
-        self.text_widget = tk.Text(self.text_dec, font=("Consolas", 9), height=3, bg=self.text_dec.bg_color, fg=pal.fg, relief="flat", bd=0)
-        self.text_widget.insert("1.0", "# Pure Blend2D Surface Decorator\nimport tkblend as tb\ndec = tb.BlendDecorator(root, radius=12)\ndec.decorate(entry)")
-        self.text_dec.decorate(self.text_widget, padding=(10, 6, 10, 6))
+        self.text_widget = tk.Text(self.text_dec, font=("Consolas", 9), height=2, bg=self.text_dec.bg_color, fg=pal.fg, relief="flat", bd=0)
+        self.text_widget.insert("1.0", "# Pure Blend2D Surface Decorator\ndec = tb.BlendDecorator(root, radius=12)")
+        self.text_dec.decorate(self.text_widget, padding=(10, 4, 10, 4))
         self._entries.append(self.text_widget)
+
+        # 5. Native Window Corner Clipping (clip_child)
+        p5_lbl = tk.Label(self.left_inner, text="5. Full-Bleed Container (Native OS Window Clipping)", font=("Segoe UI", 10, "bold"), fg=pal.fg, bg=pal.card_bg)
+        p5_lbl.pack(anchor="w", pady=(0, 3))
+        self._primary_labels.append(p5_lbl)
+
+        clip_row = tk.Frame(self.left_inner, bg=pal.card_bg)
+        clip_row.pack(fill="x", pady=(0, 2))
+        self._card_frames.append(clip_row)
+
+        self.clip_dec = BlendDecorator(
+            clip_row,
+            width=220,
+            height=54,
+            radius=16.0,
+            border_width=1.5,
+            shadow_blur=8.0,
+            shadow_offset_y=2.0,
+            clip_child=True,
+        )
+        self.clip_dec.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        self._decorators.append(self.clip_dec)
+
+        # Child frame with vibrant gradient/accent fill to show clipping
+        self.clip_child_frame = tk.Frame(self.clip_dec, bg="#2563eb")
+        clip_inner_lbl = tk.Label(self.clip_child_frame, text="⚡ Shaped Child OS Window", font=("Segoe UI", 9, "bold"), fg="#ffffff", bg="#2563eb")
+        clip_inner_lbl.pack(expand=True)
+        self.clip_dec.decorate(self.clip_child_frame, padding=(0, 0, 0, 0))
+
+        self._clip_var = tk.BooleanVar(value=True)
+        self.clip_switch = ttk.Checkbutton(
+            clip_row,
+            text="Clip Child",
+            variable=self._clip_var,
+            command=self._on_toggle_demo_clip,
+        )
+        self.clip_switch.pack(side="right")
 
         # ======================================================================
         # Right Column: Live Style Studio & Inset Inspector
@@ -518,6 +555,10 @@ class DecoratorShowcase(tk.Frame):
             self.val_entry.delete(0, tk.END)
             self.val_entry.insert(0, "BLND-8941-XJ92 (Valid)")
             self.val_entry.configure(fg=pal.fg)
+
+    def _on_toggle_demo_clip(self):
+        is_clipped = self._clip_var.get()
+        self.clip_dec.configure(clip_child=is_clipped)
 
     def _toggle_sim_hover(self):
         self._is_simulated_hover = not self._is_simulated_hover

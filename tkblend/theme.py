@@ -436,6 +436,44 @@ def get_preset_semantic_colors() -> Dict[str, Set[str]]:
 
 
 
+class SafeWeakMethod:
+    """
+    Lightweight, GC-safe weak reference for bound methods.
+
+    Avoids Python 3.12's stdlib weakref.WeakMethod bug where self._alive throws
+    AttributeError during shutdown or GC when WeakMethod is collected before its referent.
+    """
+    __slots__ = ("_obj_ref", "_func", "_dead_cb")
+
+    def __init__(self, method: Any, dead_cb: Optional[Callable[[Any], None]] = None):
+        self._obj_ref = weakref.ref(method.__self__, self._on_obj_dead if dead_cb else None)
+        self._func = method.__func__
+        self._dead_cb = dead_cb
+
+    def _on_obj_dead(self, wr: Any) -> None:
+        if self._dead_cb is not None:
+            try:
+                self._dead_cb(self)
+            except Exception:
+                pass
+
+    def __call__(self) -> Optional[Callable]:
+        obj = self._obj_ref()
+        if obj is None:
+            return None
+        return self._func.__get__(obj, type(obj))
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, SafeWeakMethod):
+            return self._obj_ref() == other._obj_ref() and self._func == other._func
+        if hasattr(other, "__self__") and hasattr(other, "__func__"):
+            return self._obj_ref() is other.__self__ and self._func == other.__func__
+        return False
+
+    def __hash__(self) -> int:
+        return hash((self._obj_ref, self._func))
+
+
 class ThemeManager:
     """Singleton managing dynamic theme notifications and Palette queries."""
     _instance: Optional[ThemeManager] = None
@@ -482,7 +520,7 @@ class ThemeManager:
         pal = palette or self._current_palette
         for target_list in (self._priority_listeners, self._listeners):
             for item in list(target_list):
-                if isinstance(item, weakref.ref):
+                if isinstance(item, (weakref.ref, SafeWeakMethod)):
                     cb = item()
                     if cb is None:
                         if item in target_list:
@@ -502,19 +540,24 @@ class ThemeManager:
         target_list = self._priority_listeners if priority else self._listeners
         # If already added, ignore
         for item in target_list:
-            cb = item() if isinstance(item, weakref.ref) else item
+            if item == callback:
+                return
+            cb = item() if isinstance(item, (weakref.ref, SafeWeakMethod)) else item
             if cb == callback:
                 return
 
         if hasattr(callback, "__self__"):
-            target_list.append(weakref.WeakMethod(callback, lambda ref: self._remove_dead_ref(ref, target_list)))  # type: ignore
+            target_list.append(SafeWeakMethod(callback, lambda ref: self._remove_dead_ref(ref, target_list)))
         else:
             target_list.append(callback)
 
     def remove_listener(self, callback: Callable[[Palette], None]) -> None:
         for target_list in (self._priority_listeners, self._listeners):
             for item in list(target_list):
-                cb = item() if isinstance(item, weakref.ref) else item
+                if item == callback:
+                    target_list.remove(item)
+                    continue
+                cb = item() if isinstance(item, (weakref.ref, SafeWeakMethod)) else item
                 if cb == callback:
                     target_list.remove(item)
 

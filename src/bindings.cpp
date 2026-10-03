@@ -2,6 +2,7 @@
 #include "style_engine.hpp"
 #include "surface_registry.hpp"
 #include "native_decorator.hpp"
+#include "native_controller.hpp"
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
@@ -1149,6 +1150,7 @@ void bind_native_decorator(nb::module_& m) {
         .def("set_geometry_request", &NativeDecorator::set_geometry_request, nb::arg("width"), nb::arg("height"))
         .def("request_redraw", &NativeDecorator::request_redraw)
         .def("get_insets", &NativeDecorator::get_insets)
+        .def("update_child_shape", &NativeDecorator::update_child_shape)
         .def("set_style", &NativeDecorator::set_style,
              nb::arg("bg_color") = nb::none(),
              nb::arg("hover_bg_color") = nb::none(),
@@ -1168,8 +1170,17 @@ void bind_native_decorator(nb::module_& m) {
              nb::arg("shadow_enabled") = nb::none(),
              nb::arg("focus_ring_color") = nb::none(),
              nb::arg("focus_ring_width") = nb::none(),
-             nb::arg("focus_ring_offset") = nb::none()
+             nb::arg("focus_ring_offset") = nb::none(),
+             nb::arg("clip_child") = nb::none(),
+             nb::arg("child_rx") = nb::none(),
+             nb::arg("child_ry") = nb::none()
         )
+        .def_prop_rw("clip_child", &NativeDecorator::clip_child, &NativeDecorator::set_clip_child)
+        .def("set_clip_child", &NativeDecorator::set_clip_child, nb::arg("clip"))
+        .def_prop_rw("child_rx", &NativeDecorator::child_rx, &NativeDecorator::set_child_rx)
+        .def("set_child_rx", &NativeDecorator::set_child_rx, nb::arg("rx"))
+        .def_prop_rw("child_ry", &NativeDecorator::child_ry, &NativeDecorator::set_child_ry)
+        .def("set_child_ry", &NativeDecorator::set_child_ry, nb::arg("ry"))
         .def_prop_rw("bg_color", &NativeDecorator::bg_color, &NativeDecorator::set_bg_color)
         .def_prop_rw("hover_bg_color", &NativeDecorator::hover_bg_color, &NativeDecorator::set_hover_bg_color)
         .def_prop_rw("focus_bg_color", &NativeDecorator::focus_bg_color, &NativeDecorator::set_focus_bg_color)
@@ -1189,6 +1200,55 @@ void bind_native_decorator(nb::module_& m) {
         .def_prop_rw("focus_ring_color", &NativeDecorator::focus_ring_color, &NativeDecorator::set_focus_ring_color)
         .def_prop_rw("focus_ring_width", &NativeDecorator::focus_ring_width, &NativeDecorator::set_focus_ring_width)
         .def_prop_rw("focus_ring_offset", &NativeDecorator::focus_ring_offset, &NativeDecorator::set_focus_ring_offset);
+}
+
+void bind_native_controller(nb::module_& m) {
+    nb::enum_<ControllerPseudoState>(m, "ControllerPseudoState", nb::is_arithmetic())
+        .value("Normal", ControllerPseudoState::StateNormal)
+        .value("Hover", ControllerPseudoState::StateHover)
+        .value("Active", ControllerPseudoState::StateActive)
+        .value("Focused", ControllerPseudoState::StateFocused)
+        .value("Disabled", ControllerPseudoState::StateDisabled)
+        .value("Checked", ControllerPseudoState::StateChecked);
+
+    nb::class_<NativeWidgetController>(m, "NativeWidgetController")
+        .def(nb::init<>())
+        .def("attach", &NativeWidgetController::attach, nb::arg("interp_addr"), nb::arg("widget_path"))
+        .def("detach", &NativeWidgetController::detach)
+        .def_prop_ro("is_attached", &NativeWidgetController::is_attached)
+        .def_prop_ro("widget_path", &NativeWidgetController::widget_path)
+        .def("set_geometry_request", &NativeWidgetController::set_geometry_request, nb::arg("width"), nb::arg("height"))
+        .def_prop_ro("width", &NativeWidgetController::width)
+        .def_prop_ro("height", &NativeWidgetController::height)
+        .def("request_redraw", &NativeWidgetController::request_redraw)
+        .def("paint_and_blit", &NativeWidgetController::paint_and_blit)
+        .def_prop_ro("surface", &NativeWidgetController::surface, nb::rv_policy::reference)
+        .def_prop_ro("has_bound_surface", &NativeWidgetController::has_bound_surface)
+        .def_prop_ro("bound_surface_id", &NativeWidgetController::bound_surface_id)
+        .def("bind_surface", &NativeWidgetController::bind_surface, nb::arg("surface"))
+        .def("bind_surface_handle", &NativeWidgetController::bind_surface_handle, nb::arg("handle"))
+        .def("bind_surface_id", &NativeWidgetController::bind_surface_id, nb::arg("surface_id"))
+        .def("unbind_surface", &NativeWidgetController::unbind_surface)
+        .def("blit_surface", &NativeWidgetController::blit_surface, nb::arg("surface"))
+        .def("blit_handle", &NativeWidgetController::blit_handle, nb::arg("handle"))
+        .def_prop_rw("state", &NativeWidgetController::state, &NativeWidgetController::set_state)
+        .def_prop_rw("is_hovered", &NativeWidgetController::is_hovered, &NativeWidgetController::set_hovered)
+        .def_prop_rw("is_pressed", &NativeWidgetController::is_pressed, &NativeWidgetController::set_pressed)
+        .def_prop_rw("is_focused", &NativeWidgetController::is_focused, &NativeWidgetController::set_focused)
+        .def_prop_rw("is_disabled", &NativeWidgetController::is_disabled, &NativeWidgetController::set_disabled)
+        .def_prop_rw("is_checked", &NativeWidgetController::is_checked, &NativeWidgetController::set_checked)
+        .def_prop_rw("auto_hover", &NativeWidgetController::auto_hover, &NativeWidgetController::set_auto_hover)
+        .def_prop_rw("auto_press", &NativeWidgetController::auto_press, &NativeWidgetController::set_auto_press)
+        .def_prop_rw("auto_focus", &NativeWidgetController::auto_focus, &NativeWidgetController::set_auto_focus)
+        .def_prop_rw("parent_bg", &NativeWidgetController::parent_bg, &NativeWidgetController::set_parent_bg)
+        .def("set_on_paint", &NativeWidgetController::set_on_paint, nb::arg("callback"))
+        .def("clear_on_paint", &NativeWidgetController::clear_on_paint)
+        .def("set_on_state_changed", &NativeWidgetController::set_on_state_changed, nb::arg("callback"))
+        .def("clear_on_state_changed", &NativeWidgetController::clear_on_state_changed)
+        .def("set_on_click", &NativeWidgetController::set_on_click, nb::arg("callback"))
+        .def("clear_on_click", &NativeWidgetController::clear_on_click)
+        .def("set_on_resize", &NativeWidgetController::set_on_resize, nb::arg("callback"))
+        .def("clear_on_resize", &NativeWidgetController::clear_on_resize);
 }
 
 } // anonymous namespace
@@ -1213,6 +1273,7 @@ NB_MODULE(_tkblend, m) {
     tkblend::bind_surface_handle(m);
     tkblend::bind_surface_registry(m);
     tkblend::bind_native_decorator(m);
+    tkblend::bind_native_controller(m);
 }
 
 

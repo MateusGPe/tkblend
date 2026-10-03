@@ -4,6 +4,7 @@
 #include "surface.hpp"
 #include "color.hpp"
 #include "blit/blit_backend.h"
+#include "window_shape.hpp"
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
@@ -63,6 +64,18 @@ public:
     // Insets calculation for children and boundaries (left, top, right, bottom)
     std::tuple<double, double, double, double> get_insets() const;
 
+    // Child Window Shaping
+    void update_child_shape();
+
+    bool clip_child() const { std::lock_guard<std::mutex> lock(mutex_); return clip_child_; }
+    void set_clip_child(bool clip);
+
+    std::optional<double> child_rx() const { std::lock_guard<std::mutex> lock(mutex_); return child_rx_; }
+    void set_child_rx(std::optional<double> val);
+
+    std::optional<double> child_ry() const { std::lock_guard<std::mutex> lock(mutex_); return child_ry_; }
+    void set_child_ry(std::optional<double> val);
+
     // Style Setters & Getters
     void set_style(
         std::optional<Color> bg_color = std::nullopt,
@@ -83,7 +96,10 @@ public:
         std::optional<bool> shadow_enabled = std::nullopt,
         std::optional<Color> focus_ring_color = std::nullopt,
         std::optional<double> focus_ring_width = std::nullopt,
-        std::optional<double> focus_ring_offset = std::nullopt
+        std::optional<double> focus_ring_offset = std::nullopt,
+        std::optional<bool> clip_child = std::nullopt,
+        std::optional<double> child_rx = std::nullopt,
+        std::optional<double> child_ry = std::nullopt
     );
 
     Color bg_color() const { std::lock_guard<std::mutex> lock(mutex_); return bg_color_; }
@@ -108,13 +124,13 @@ public:
     void set_border_focus_color(std::optional<Color> c) { { std::lock_guard<std::mutex> lock(mutex_); border_focus_color_ = c; } request_redraw(); }
 
     double border_width() const { std::lock_guard<std::mutex> lock(mutex_); return border_width_; }
-    void set_border_width(double w) { { std::lock_guard<std::mutex> lock(mutex_); border_width_ = w; } request_redraw(); }
+    void set_border_width(double w) { { std::lock_guard<std::mutex> lock(mutex_); border_width_ = w; } update_child_shape(); request_redraw(); }
 
     double rx() const { std::lock_guard<std::mutex> lock(mutex_); return rx_; }
-    void set_rx(double val) { { std::lock_guard<std::mutex> lock(mutex_); rx_ = val; } request_redraw(); }
+    void set_rx(double val) { { std::lock_guard<std::mutex> lock(mutex_); rx_ = val; } update_child_shape(); request_redraw(); }
 
     double ry() const { std::lock_guard<std::mutex> lock(mutex_); return ry_; }
-    void set_ry(double val) { { std::lock_guard<std::mutex> lock(mutex_); ry_ = val; } request_redraw(); }
+    void set_ry(double val) { { std::lock_guard<std::mutex> lock(mutex_); ry_ = val; } update_child_shape(); request_redraw(); }
 
     Color shadow_color() const { std::lock_guard<std::mutex> lock(mutex_); return shadow_color_; }
     void set_shadow_color(const Color& c) { { std::lock_guard<std::mutex> lock(mutex_); shadow_color_ = c; } request_redraw(); }
@@ -169,6 +185,12 @@ private:
     bool child_focused_{false};
     bool dec_hovered_{false};
     bool child_hovered_{false};
+
+    // Child shaping
+    bool clip_child_{false};
+    std::optional<double> child_rx_{std::nullopt};
+    std::optional<double> child_ry_{std::nullopt};
+    bool child_is_shaped_{false};
 
     // Styling properties
     Color bg_color_{255, 255, 255, 255};

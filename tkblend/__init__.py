@@ -14,6 +14,8 @@ from tkblend._tkblend import (  # type: ignore
     StyleEngine,
     PseudoState,
     ComputedStyle,
+    NativeWidgetController,
+    ControllerPseudoState,
     load_font_face,
     load_font,
     register_font,
@@ -136,6 +138,21 @@ try:
     resolve_color = resolve_theme_color
 
     from tkblend.decorator import BlendDecorator
+    from tkblend.controller import NativeController, NativeBlitCanvas
+    from tkblend.widgets import (
+        BaseControl,
+        ScalingTracker,
+        Button,
+        Switch,
+        Toggle,
+        Slider,
+        CheckBox,
+        ProgressBar,
+        Progress,
+        RadioButton,
+        Card,
+        Label,
+    )
 except ImportError as _err:
     logging.getLogger("tkblend").debug(
         "Tkinter is not available in the current Python environment (%s). UI widgets and canvas are disabled.",
@@ -209,8 +226,25 @@ __all__ = [
     "is_inside_card",
     "is_ttkbootstrap_installed",
     "cascade_bg_to_children",
-    # Decorator
+    # Decorator & Controller
     "BlendDecorator",
+    "NativeController",
+    "NativeWidgetController",
+    "ControllerPseudoState",
+    "NativeBlitCanvas",
+    # Native Vector Widgets
+    "BaseControl",
+    "ScalingTracker",
+    "Button",
+    "Switch",
+    "Toggle",
+    "Slider",
+    "CheckBox",
+    "ProgressBar",
+    "Progress",
+    "RadioButton",
+    "Card",
+    "Label",
     # Font Management & Typography
     "load_font_face",
     "load_font",

@@ -129,6 +129,20 @@ class TestBlendDecorator:
         assert not dec.is_hovered
         assert dec.child is None
 
+        # Test state setters and redraw
+        dec.set_hovered(True)
+        assert dec.is_hovered is True
+        dec.set_focused(True)
+        assert dec.is_focused is True
+
+        dec.redraw()
+        dec.request_redraw()
+
+        dec.is_hovered = False
+        assert dec.is_hovered is False
+        dec.is_focused = False
+        assert dec.is_focused is False
+
         dec.destroy()
 
     def test_decorate_entry(self, tk_root):
@@ -253,3 +267,52 @@ class TestBlendDecorator:
         assert initial_photos == photos_after, "BlendDecorator must not create any tk.PhotoImage instances"
 
         dec.destroy()
+
+    def test_child_window_shaping_and_clipping(self, tk_root):
+        """Test clip_child, child_rx, child_ry properties and OS-level window shaping."""
+        dec = BlendDecorator(
+            tk_root,
+            width=260,
+            height=60,
+            rx=16.0,
+            ry=16.0,
+            clip_child=True,
+        )
+        dec.pack()
+
+        assert dec.clip_child is True
+        assert dec.child_rx is None
+        assert dec.child_ry is None
+
+        # Decorate a frame/canvas container
+        inner_frame = tk.Frame(dec, bg="#3b82f6")
+        dec.decorate(inner_frame, padding=(0, 0, 0, 0))
+
+        tk_root.update_idletasks()
+        tk_root.update()
+
+        # Update custom child radius
+        dec.child_rx = 14.0
+        dec.child_ry = 14.0
+        assert dec.child_rx == 14.0
+        assert dec.child_ry == 14.0
+
+        tk_root.update_idletasks()
+        tk_root.update()
+
+        # Toggle clipping off and on via configure
+        dec.configure(clip_child=False)
+        assert dec.clip_child is False
+
+        dec.configure(clip_child=True, child_rx=12.0)
+        assert dec.clip_child is True
+        assert dec.child_rx == 12.0
+
+        tk_root.update_idletasks()
+        tk_root.update()
+
+        # Clean detach and destroy
+        dec.detach()
+        assert dec.child is None
+        dec.destroy()
+

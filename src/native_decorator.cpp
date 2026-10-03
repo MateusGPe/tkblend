@@ -108,24 +108,31 @@ bool NativeDecorator::attach_child(const std::string& child_path) {
     const long mask = FocusChangeMask | EnterWindowMask | LeaveWindowMask | StructureNotifyMask;
     Tk_CreateEventHandler(child_tkwin_, mask, ChildEventHandler, this);
 
+    update_child_shape();
     request_redraw();
     return true;
 }
 
 void NativeDecorator::detach_child() {
     Tk_Window old_child = nullptr;
+    bool was_shaped = false;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         old_child = child_tkwin_;
+        was_shaped = child_is_shaped_;
         child_tkwin_ = nullptr;
         child_path_.clear();
         child_focused_ = false;
         child_hovered_ = false;
         manual_focused_ = false;
         manual_hovered_ = false;
+        child_is_shaped_ = false;
     }
 
     if (old_child && interp_) {
+        if (was_shaped && Tk_WindowId(old_child) != None) {
+            clear_window_shape(static_cast<uint64_t>(Tk_WindowId(old_child)));
+        }
         const long mask = FocusChangeMask | EnterWindowMask | LeaveWindowMask | StructureNotifyMask;
         Tk_DeleteEventHandler(old_child, mask, ChildEventHandler, this);
     }
@@ -145,6 +152,84 @@ void NativeDecorator::set_hovered(bool hovered) {
         manual_hovered_ = hovered;
     }
     request_redraw();
+}
+
+void NativeDecorator::set_clip_child(bool clip) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        clip_child_ = clip;
+    }
+    update_child_shape();
+    request_redraw();
+}
+
+void NativeDecorator::set_child_rx(std::optional<double> val) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        child_rx_ = val;
+    }
+    update_child_shape();
+    request_redraw();
+}
+
+void NativeDecorator::set_child_ry(std::optional<double> val) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        child_ry_ = val;
+    }
+    update_child_shape();
+    request_redraw();
+}
+
+void NativeDecorator::update_child_shape() {
+    Tk_Window child = nullptr;
+    bool clip = false;
+    double crx = 0.0;
+    double cry = 0.0;
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        child = child_tkwin_;
+        clip = clip_child_;
+        double default_rx = std::max(0.0, rx_ - border_width_);
+        double default_ry = std::max(0.0, ry_ - border_width_);
+        crx = child_rx_.value_or(default_rx);
+        cry = child_ry_.value_or(default_ry);
+    }
+
+    if (!child || !interp_) {
+        return;
+    }
+
+    if (Tk_WindowId(child) == None) {
+        Tk_MakeWindowExist(child);
+    }
+
+    Drawable d = Tk_WindowId(child);
+    if (d == None) {
+        return;
+    }
+
+    uint64_t win_id = static_cast<uint64_t>(d);
+    int w = Tk_Width(child);
+    int h = Tk_Height(child);
+
+    if (clip && w > 0 && h > 0 && crx > 0.0 && cry > 0.0) {
+        if (apply_round_rect_shape(win_id, w, h, crx, cry)) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            child_is_shaped_ = true;
+        }
+    } else {
+        bool was_shaped = false;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            was_shaped = child_is_shaped_;
+            child_is_shaped_ = false;
+        }
+        if (was_shaped) {
+            clear_window_shape(win_id);
+        }
+    }
 }
 
 void NativeDecorator::set_geometry_request(int width, int height) {
@@ -214,29 +299,38 @@ void NativeDecorator::set_style(
     std::optional<bool> shadow_enabled,
     std::optional<Color> focus_ring_color,
     std::optional<double> focus_ring_width,
-    std::optional<double> focus_ring_offset
+    std::optional<double> focus_ring_offset,
+    std::optional<bool> clip_child,
+    std::optional<double> child_rx,
+    std::optional<double> child_ry
 ) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (bg_color.has_value()) bg_color_ = *bg_color;
-    if (hover_bg_color.has_value()) hover_bg_color_ = hover_bg_color;
-    if (focus_bg_color.has_value()) focus_bg_color_ = focus_bg_color;
-    if (parent_bg.has_value()) parent_bg_ = *parent_bg;
-    if (border_color.has_value()) border_color_ = *border_color;
-    if (border_hover_color.has_value()) border_hover_color_ = border_hover_color;
-    if (border_focus_color.has_value()) border_focus_color_ = border_focus_color;
-    if (border_width.has_value()) border_width_ = *border_width;
-    if (rx.has_value()) rx_ = *rx;
-    if (ry.has_value()) ry_ = *ry;
-    if (shadow_color.has_value()) shadow_color_ = *shadow_color;
-    if (shadow_blur.has_value()) shadow_blur_ = *shadow_blur;
-    if (shadow_spread.has_value()) shadow_spread_ = *shadow_spread;
-    if (shadow_offset_x.has_value()) shadow_offset_x_ = *shadow_offset_x;
-    if (shadow_offset_y.has_value()) shadow_offset_y_ = *shadow_offset_y;
-    if (shadow_enabled.has_value()) shadow_enabled_ = *shadow_enabled;
-    if (focus_ring_color.has_value()) focus_ring_color_ = *focus_ring_color;
-    if (focus_ring_width.has_value()) focus_ring_width_ = *focus_ring_width;
-    if (focus_ring_offset.has_value()) focus_ring_offset_ = *focus_ring_offset;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (bg_color.has_value()) bg_color_ = *bg_color;
+        if (hover_bg_color.has_value()) hover_bg_color_ = hover_bg_color;
+        if (focus_bg_color.has_value()) focus_bg_color_ = focus_bg_color;
+        if (parent_bg.has_value()) parent_bg_ = *parent_bg;
+        if (border_color.has_value()) border_color_ = *border_color;
+        if (border_hover_color.has_value()) border_hover_color_ = border_hover_color;
+        if (border_focus_color.has_value()) border_focus_color_ = border_focus_color;
+        if (border_width.has_value()) border_width_ = *border_width;
+        if (rx.has_value()) rx_ = *rx;
+        if (ry.has_value()) ry_ = *ry;
+        if (shadow_color.has_value()) shadow_color_ = *shadow_color;
+        if (shadow_blur.has_value()) shadow_blur_ = *shadow_blur;
+        if (shadow_spread.has_value()) shadow_spread_ = *shadow_spread;
+        if (shadow_offset_x.has_value()) shadow_offset_x_ = *shadow_offset_x;
+        if (shadow_offset_y.has_value()) shadow_offset_y_ = *shadow_offset_y;
+        if (shadow_enabled.has_value()) shadow_enabled_ = *shadow_enabled;
+        if (focus_ring_color.has_value()) focus_ring_color_ = *focus_ring_color;
+        if (focus_ring_width.has_value()) focus_ring_width_ = *focus_ring_width;
+        if (focus_ring_offset.has_value()) focus_ring_offset_ = *focus_ring_offset;
+        if (clip_child.has_value()) clip_child_ = *clip_child;
+        if (child_rx.has_value()) child_rx_ = child_rx;
+        if (child_ry.has_value()) child_ry_ = child_ry;
+    }
 
+    update_child_shape();
     request_redraw();
 }
 
@@ -365,7 +459,9 @@ void NativeDecorator::on_child_event(XEvent* eventPtr) {
             break;
         }
 
+        case MapNotify:
         case ConfigureNotify: {
+            update_child_shape();
             request_redraw();
             break;
         }
@@ -377,6 +473,7 @@ void NativeDecorator::on_child_event(XEvent* eventPtr) {
                 child_path_.clear();
                 child_focused_ = false;
                 child_hovered_ = false;
+                child_is_shaped_ = false;
             }
             request_redraw();
             break;

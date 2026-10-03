@@ -132,7 +132,13 @@ class Surface:
     High-performance Blend2D Vector Surface with direct Tkinter blitting.
     """
 
-    def __init__(self, width: Union[int, _NativeSurface, SurfaceHandle], height: Optional[int] = None):
+    def __init__(
+        self,
+        width: Union[int, _NativeSurface, SurfaceHandle],
+        height: Optional[int] = None,
+        borrowed: bool = False,
+    ):
+        self._borrowed = borrowed
         if isinstance(width, (_NativeSurface, SurfaceHandle)):
             self._surface = width
         else:
@@ -147,7 +153,7 @@ class Surface:
 
     def __del__(self) -> None:
         try:
-            if hasattr(self, "_surface") and self._surface is not None and not self._surface.is_closed:
+            if not getattr(self, "_borrowed", False) and hasattr(self, "_surface") and self._surface is not None and not self._surface.is_closed:
                 self._surface.close()
         except Exception:
             pass
@@ -159,7 +165,7 @@ class Surface:
 
     def close(self) -> None:
         """Explicitly release native Blend2D context and pixel buffers immediately."""
-        if hasattr(self, "_surface") and self._surface is not None and not self._surface.is_closed:
+        if not getattr(self, "_borrowed", False) and hasattr(self, "_surface") and self._surface is not None and not self._surface.is_closed:
             self._surface.close()
 
     @property

@@ -39,6 +39,9 @@ static X11ShapeContext& get_x11_context() {
     return ctx;
 }
 
+    static int ignore_x_error(Display*, XErrorEvent*) {
+        return 0;
+    }
 } // anonymous namespace
 
 bool is_window_shaping_supported() {
@@ -93,6 +96,7 @@ bool apply_round_rect_shape(uint64_t window_id, int width, int height, double rx
 
     {
         std::lock_guard<std::mutex> lock(ctx.mutex);
+        auto old_handler = XSetErrorHandler(ignore_x_error);
         XShapeCombineRectangles(
             ctx.dpy,
             static_cast<Window>(window_id),
@@ -104,7 +108,8 @@ bool apply_round_rect_shape(uint64_t window_id, int width, int height, double rx
             ShapeSet,
             Unsorted
         );
-        XFlush(ctx.dpy);
+        XSync(ctx.dpy, False);
+        XSetErrorHandler(old_handler);
     }
     return true;
 }
@@ -120,6 +125,7 @@ bool clear_window_shape(uint64_t window_id) {
 
     {
         std::lock_guard<std::mutex> lock(ctx.mutex);
+        auto old_handler = XSetErrorHandler(ignore_x_error);
         XShapeCombineMask(
             ctx.dpy,
             static_cast<Window>(window_id),
@@ -129,7 +135,8 @@ bool clear_window_shape(uint64_t window_id) {
             None,
             ShapeSet
         );
-        XFlush(ctx.dpy);
+        XSync(ctx.dpy, False);
+        XSetErrorHandler(old_handler);
     }
     return true;
 }
