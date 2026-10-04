@@ -126,18 +126,4 @@ class Card(BaseControl):
         )
 
     def configure(self, cnf=None, **kwargs):
-        if cnf is None and not kwargs:
-            return super().configure()
-        if cnf:
-            kwargs.update(cnf)
-
-        if "corner_radius" in kwargs:
-            self._corner_radius = float(kwargs.pop("corner_radius"))
-        if "bg_color" in kwargs:
-            self._custom_card_bg = kwargs.pop("bg_color")
-        if "border_color" in kwargs:
-            self._custom_border_color = kwargs.pop("border_color")
-        if "border_width" in kwargs:
-            self._border_width = float(kwargs.pop("border_width"))
-        self.request_redraw()
-        return super().configure(**kwargs)
+        return super().configure(cnf, **kwargs)

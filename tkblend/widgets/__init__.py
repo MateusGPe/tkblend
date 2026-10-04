@@ -30,6 +30,8 @@ from tkblend.widgets import utils
 Toggle = Switch
 Progress = ProgressBar
 Progressbar = ProgressBar
+Radiobutton = RadioButton
+Checkbox = CheckBox
 
 __all__ = [
     "BaseControl",

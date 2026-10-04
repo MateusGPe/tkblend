@@ -247,15 +247,8 @@ class Switch(BaseControl):
             )
 
     def configure(self, cnf=None, **kwargs):
-        if cnf is None and not kwargs:
-            return super().configure()
         if cnf:
             kwargs.update(cnf)
-
-        if "text" in kwargs:
-            self._text = str(kwargs.pop("text"))
-        if "command" in kwargs:
-            self._command = kwargs.pop("command")
         if "variable" in kwargs:
             new_var = kwargs.pop("variable")
             if self._var_trace_id is not None and self._variable is not None:
@@ -267,5 +260,4 @@ class Switch(BaseControl):
                 self._var_trace_id = bind_variable_trace(self._variable, self._on_variable_write)
             else:
                 self._var_trace_id = None
-        self.request_redraw()
         return super().configure(**kwargs)

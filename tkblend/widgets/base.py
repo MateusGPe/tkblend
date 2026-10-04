@@ -39,7 +39,7 @@ from tkblend.widgets.constants import (
     STATE_DISABLED,
     CURSOR_DEFAULT,
 )
-from tkblend.widgets.utils import unbind_variable_trace
+from tkblend.widgets.utils import bind_variable_trace, unbind_variable_trace
 
 
 class ScalingTracker:
@@ -221,9 +221,10 @@ class BaseControl(tk.Frame):
         """Expose background color for container recursion protocols."""
         return self._resolved_parent_bg
 
-    def set_parent_bg(self, color: ColorLike, render: bool = True) -> None:
+    def set_parent_bg(self, color: ColorLike, render: bool = True, explicit: bool = False) -> None:
         """Update parent container background color."""
-        self._explicit_parent_bg = color
+        if explicit:
+            self._explicit_parent_bg = color
         resolved = resolve_color_failsafe(color, palette=self._palette)
         self._resolved_parent_bg = resolved
         self._controller.parent_bg = resolved
@@ -263,6 +264,13 @@ class BaseControl(tk.Frame):
         if not hasattr(self, "_controller") or not self._controller.is_attached:
             return
         surf = self._controller.surface
+        try:
+            cur_w = self.winfo_width()
+            cur_h = self.winfo_height()
+            if cur_w > 1 and cur_h > 1 and (surf.width != cur_w or surf.height != cur_h):
+                surf.resize(cur_w, cur_h)
+        except Exception:
+            pass
         w = surf.width
         h = surf.height
         if w <= 1 or h <= 1:
@@ -274,6 +282,13 @@ class BaseControl(tk.Frame):
 
     # Controller Callbacks
     def _on_controller_paint(self, surf: Surface) -> None:
+        try:
+            cur_w = self.winfo_width()
+            cur_h = self.winfo_height()
+            if cur_w > 1 and cur_h > 1 and (surf.width != cur_w or surf.height != cur_h):
+                surf.resize(cur_w, cur_h)
+        except Exception:
+            pass
         w = surf.width
         h = surf.height
         if w <= 1 or h <= 1:
@@ -315,6 +330,9 @@ class BaseControl(tk.Frame):
         self._palette = pal
         if self._explicit_parent_bg is None:
             self._resolved_parent_bg = resolve_ancestor_bg(self.master, pal)
+            self._controller.parent_bg = self._resolved_parent_bg
+        else:
+            self._resolved_parent_bg = resolve_color_failsafe(self._explicit_parent_bg, palette=pal)
             self._controller.parent_bg = self._resolved_parent_bg
         self.on_theme_update(pal)
         self.request_redraw()
@@ -380,6 +398,11 @@ class BaseControl(tk.Frame):
 
     def _on_tk_configure(self, event: tk.Event) -> None:
         if event.widget is self:
+            if hasattr(self, "_controller") and self._controller.is_attached:
+                surf = self._controller.surface
+                if event.width > 1 and event.height > 1 and (surf.width != event.width or surf.height != event.height):
+                    surf.resize(event.width, event.height)
+                self.on_resize(event.width, event.height)
             self.request_redraw()
 
     def _on_tk_map(self, event: tk.Event) -> None:
@@ -510,6 +533,207 @@ class BaseControl(tk.Frame):
         for name in list(self._active_animations.keys()):
             self.cancel_animation(name)
 
+    def _apply_configure_option(self, key: str, val: Any) -> bool:
+        """Apply a single configuration option to this widget."""
+        # 1. Custom subclass handler hook if defined
+        if hasattr(self, "_handle_custom_config") and callable(self._handle_custom_config):
+            if self._handle_custom_config(key, val):
+                return True
+
+        # 2. Check property setters on class
+        cls_attr = getattr(type(self), key, None)
+        if isinstance(cls_attr, property) and cls_attr.fset is not None:
+            setattr(self, key, val)
+            return True
+
+        # 3. Handle standard/common vector widget properties
+        if key == "text" and hasattr(self, "_text"):
+            self._text = str(val) if val is not None else ""
+            return True
+        if key == "command" and hasattr(self, "_command"):
+            self._command = val
+            return True
+        if key == "icon" and hasattr(self, "_icon"):
+            self._icon = val
+            return True
+        if key == "icon_family" and hasattr(self, "_icon_family"):
+            self._icon_family = str(val)
+            return True
+        if key == "icon_size" and hasattr(self, "_icon_size"):
+            self._icon_size = float(val) if val is not None else None
+            return True
+        if key in ("corner_radius", "radius") and hasattr(self, "_corner_radius"):
+            self._corner_radius = float(val)
+            return True
+        if key == "border_width" and hasattr(self, "_border_width"):
+            self._border_width = float(val)
+            return True
+        if key == "border_color":
+            if hasattr(self, "_custom_border_color"):
+                self._custom_border_color = val
+                return True
+            if hasattr(self, "_custom_border"):
+                self._custom_border = val
+                return True
+            if hasattr(self, "_border_color"):
+                self._border_color = val
+                return True
+        if key == "bg_color":
+            if hasattr(self, "_custom_bg_color"):
+                self._custom_bg_color = val
+                return True
+            if hasattr(self, "_custom_card_bg"):
+                self._custom_card_bg = val
+                return True
+            if hasattr(self, "_custom_bg"):
+                self._custom_bg = val
+                return True
+            if hasattr(self, "_bg_color"):
+                self._bg_color = val
+                return True
+        if key == "fg_color":
+            if hasattr(self, "_custom_fg_color"):
+                self._custom_fg_color = val
+                return True
+            if hasattr(self, "_custom_fg"):
+                self._custom_fg = val
+                return True
+            if hasattr(self, "_custom_text_color"):
+                self._custom_text_color = val
+                return True
+            if hasattr(self, "_fg_color"):
+                self._fg_color = val
+                return True
+        if key == "hover_color" and hasattr(self, "_custom_hover_color"):
+            self._custom_hover_color = val
+            return True
+        if key == "pressed_color" and hasattr(self, "_custom_pressed_color"):
+            self._custom_pressed_color = val
+            return True
+        if key == "disabled_color" and hasattr(self, "_custom_disabled_color"):
+            self._custom_disabled_color = val
+            return True
+        if key == "track_color":
+            if hasattr(self, "_custom_track_color"):
+                self._custom_track_color = val
+                return True
+            if hasattr(self, "_custom_track"):
+                self._custom_track = val
+                return True
+        if key == "active_color":
+            if hasattr(self, "_custom_active_color"):
+                self._custom_active_color = val
+                return True
+            if hasattr(self, "_custom_active"):
+                self._custom_active = val
+                return True
+        if key == "thumb_color":
+            if hasattr(self, "_custom_thumb_color"):
+                self._custom_thumb_color = val
+                return True
+            if hasattr(self, "_custom_thumb"):
+                self._custom_thumb = val
+                return True
+        if key == "thumb_border_color" and hasattr(self, "_custom_thumb_border"):
+            self._custom_thumb_border = val
+            return True
+        if key == "thumb_radius" and hasattr(self, "_thumb_radius"):
+            self._thumb_radius = float(val)
+            return True
+        if key == "track_thickness" and hasattr(self, "_track_thickness"):
+            self._track_thickness = float(val)
+            return True
+        if key == "shadow" and hasattr(self, "_shadow"):
+            self._shadow = bool(val)
+            return True
+        if key == "shadow_blur" and hasattr(self, "_shadow_blur"):
+            self._shadow_blur = float(val)
+            return True
+        if key == "shadow_spread" and hasattr(self, "_shadow_spread"):
+            self._shadow_spread = float(val)
+            return True
+        if key == "shadow_offset_x" and hasattr(self, "_shadow_offset_x"):
+            self._shadow_offset_x = float(val)
+            return True
+        if key == "shadow_offset_y" and hasattr(self, "_shadow_offset_y"):
+            self._shadow_offset_y = float(val)
+            return True
+        if key == "shadow_color" and hasattr(self, "_custom_shadow_color"):
+            self._custom_shadow_color = val
+            return True
+        if key == "focus_ring" and hasattr(self, "_focus_ring"):
+            self._focus_ring = bool(val)
+            return True
+        if key == "focus_ring_color" and hasattr(self, "_custom_focus_ring_color"):
+            self._custom_focus_ring_color = val
+            return True
+        if key == "focus_ring_width" and hasattr(self, "_focus_ring_width"):
+            self._focus_ring_width = float(val)
+            return True
+        if key == "animated" and hasattr(self, "_animated"):
+            self._animated = bool(val)
+            return True
+        if key in ("from_", "from") and hasattr(self, "_from"):
+            self._from = float(val)
+            return True
+        if key == "to" and hasattr(self, "_to"):
+            self._to = float(val)
+            return True
+        if key == "number_of_steps" and hasattr(self, "_number_of_steps"):
+            self._number_of_steps = val
+            return True
+        if key == "value":
+            if hasattr(self, "set") and callable(self.set):
+                try:
+                    self.set(val)
+                    return True
+                except Exception:
+                    pass
+            if hasattr(self, "_value"):
+                self._value = val
+                return True
+        if key == "variable":
+            if hasattr(self, "_variable"):
+                if hasattr(self, "_var_trace_id") and self._var_trace_id is not None and self._variable is not None:
+                    unbind_variable_trace(self._variable, self._var_trace_id)
+                self._variable = val
+                if self._variable is not None:
+                    try:
+                        new_val = self._variable.get()
+                        if hasattr(self, "set") and callable(self.set):
+                            self.set(new_val)
+                        elif hasattr(self, "_value"):
+                            self._value = new_val
+                    except Exception:
+                        pass
+                    if hasattr(self, "_on_variable_write") and callable(self._on_variable_write):
+                        self._var_trace_id = bind_variable_trace(self._variable, self._on_variable_write)
+                else:
+                    self._var_trace_id = None
+                return True
+        if key in ("font", "font_size", "font_family", "bold", "italic", "weight"):
+            if hasattr(self, f"_{key}"):
+                setattr(self, f"_{key}", val)
+            if hasattr(self, "_font_spec") and key == "font":
+                self._font_spec = val
+            if hasattr(self, "_font_cfg"):
+                f_spec = getattr(self, "_font_spec", None) or getattr(self, "_font", None)
+                f_sz = getattr(self, "_font_size", None)
+                f_b = getattr(self, "_bold", None)
+                f_i = getattr(self, "_italic", None)
+                self._font_cfg = parse_font(font=f_spec, font_size=f_sz, bold=f_b, italic=f_i)
+            return True
+
+        # 4. Generic attribute reflection fallback
+        if hasattr(self, f"_{key}"):
+            setattr(self, f"_{key}", val)
+            return True
+        if hasattr(self, f"_custom_{key}"):
+            setattr(self, f"_custom_{key}", val)
+            return True
+
+        return False
+
     # Standard Tkinter compatibility overrides
     def configure(self, cnf=None, **kwargs):
         if cnf is None and not kwargs:
@@ -531,10 +755,25 @@ class BaseControl(tk.Frame):
         if "bg" in kwargs or "background" in kwargs:
             bg_val = kwargs.pop("bg", kwargs.pop("background", None))
             if bg_val is not None:
-                self.set_parent_bg(bg_val)
+                self.set_parent_bg(bg_val, explicit=True)
+        if "parent_bg" in kwargs:
+            self.set_parent_bg(kwargs.pop("parent_bg"), explicit=True)
+
+        keys_to_remove = []
+        for key, val in kwargs.items():
+            if self._apply_configure_option(key, val):
+                keys_to_remove.append(key)
+
+        for k in keys_to_remove:
+            kwargs.pop(k, None)
+
+        self.request_redraw()
 
         if kwargs:
-            return super().configure(**kwargs)
+            valid_tk_keys = ("takefocus", "highlightbackground", "highlightcolor", "highlightthickness", "padx", "pady")
+            tk_kwargs = {k: v for k, v in kwargs.items() if k in valid_tk_keys}
+            if tk_kwargs:
+                return super().configure(**tk_kwargs)
         return None
 
     config = configure
@@ -546,10 +785,32 @@ class BaseControl(tk.Frame):
             return self._logical_w
         if key == "height":
             return self._logical_h
-        if key in ("bg", "background"):
+        if key in ("bg", "background", "parent_bg"):
             return self._resolved_parent_bg
         if key == "cursor":
             return self._cursor_pref
-        return super().cget(key)
+        if key in ("corner_radius", "radius") and hasattr(self, "_corner_radius"):
+            return self._corner_radius
+        if key == "text" and hasattr(self, "_text"):
+            return self._text
+        if key == "value":
+            if hasattr(self, "get") and callable(self.get):
+                return self.get()
+            if hasattr(self, "_value"):
+                return self._value
+
+        cls_attr = getattr(type(self), key, None)
+        if isinstance(cls_attr, property) and cls_attr.fget is not None:
+            return getattr(self, key)
+
+        if hasattr(self, f"_{key}"):
+            return getattr(self, f"_{key}")
+        if hasattr(self, f"_custom_{key}"):
+            return getattr(self, f"_custom_{key}")
+
+        try:
+            return super().cget(key)
+        except Exception:
+            return None
 
     __getitem__ = cget

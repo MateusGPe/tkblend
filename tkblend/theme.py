@@ -689,32 +689,40 @@ def resolve_ancestor_bg(widget: Optional[tk.Misc], palette: Optional[Palette] = 
 
 
 def cascade_bg_to_children(container: tk.Misc, bg_color: str, preserve_overrides: bool = True, render: bool = True, palette: Optional[Palette] = None) -> None:
-    """Update background color of container and direct vector children."""
+    """Update background color of container and direct and nested vector children."""
     resolved = resolve_color_failsafe(bg_color)
     pal = palette or get_theme()
     try:
-        container.configure(background=resolved)
+        container.configure(background=to_tk_hex(resolved))
     except Exception:
         pass
 
     if hasattr(container, "winfo_children"):
         try:
             for child in container.winfo_children():
+                # 1. Direct vector widgets with set_parent_bg
                 if hasattr(child, "set_parent_bg"):
-                    child.set_parent_bg(resolved, render=render)
+                    try:
+                        child.set_parent_bg(resolved, render=render, explicit=False)
+                    except TypeError:
+                        child.set_parent_bg(resolved, render=render)
+                # 2. Standard Tk Labels
                 elif isinstance(child, tk.Label):
                     try:
-                        child.configure(background=resolved, foreground=pal.text_muted)
+                        child.configure(background=to_tk_hex(resolved), foreground=to_tk_hex(pal.text_muted))
                     except Exception:
                         try:
-                            child.configure(background=resolved)
+                            child.configure(background=to_tk_hex(resolved))
                         except Exception:
                             pass
-                elif isinstance(child, tk.Frame):
+                # 3. Standard Tk Frames or helper containers (recurse into children)
+                elif isinstance(child, (tk.Frame, tk.LabelFrame, tk.Canvas)):
                     try:
-                        child.configure(background=resolved)
+                        child.configure(background=to_tk_hex(resolved))
                     except Exception:
                         pass
+                    # Recurse into plain Tk frame hierarchy
+                    cascade_bg_to_children(child, resolved, preserve_overrides=preserve_overrides, render=render, palette=pal)
         except Exception:
             pass
 

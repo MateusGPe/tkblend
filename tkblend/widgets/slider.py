@@ -301,33 +301,4 @@ class Slider(BaseControl):
                 )
 
     def configure(self, cnf=None, **kwargs):
-        if cnf is None and not kwargs:
-            return super().configure()
-        if cnf:
-            kwargs.update(cnf)
-
-        if "from_" in kwargs:
-            self._from = float(kwargs.pop("from_"))
-        if "to" in kwargs:
-            self._to = float(kwargs.pop("to"))
-        if "number_of_steps" in kwargs:
-            self._number_of_steps = kwargs.pop("number_of_steps")
-        if "command" in kwargs:
-            self._command = kwargs.pop("command")
-        if "variable" in kwargs:
-            new_var = kwargs.pop("variable")
-            if self._var_trace_id is not None and self._variable is not None:
-                unbind_variable_trace(self._variable, self._var_trace_id)
-            self._variable = new_var
-            if self._variable is not None:
-                try:
-                    self._value = float(self._variable.get())
-                except Exception:
-                    pass
-                self._var_trace_id = bind_variable_trace(self._variable, self._on_variable_write)
-            else:
-                self._var_trace_id = None
-        if "value" in kwargs:
-            self.set(kwargs.pop("value"))
-        self.request_redraw()
-        return super().configure(**kwargs)
+        return super().configure(cnf, **kwargs)

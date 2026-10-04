@@ -82,6 +82,12 @@ class RangeSlider(BaseControl):
         self._high = max(self._low, min(self._to, float(high)))
         self.request_redraw()
 
+    def _handle_custom_config(self, key: str, val: Any) -> bool:
+        if key in ("values", "value") and isinstance(val, (tuple, list)) and len(val) == 2:
+            self.set(val[0], val[1])
+            return True
+        return False
+
     def _val_to_x(self, val: float, w: float, pad: float) -> float:
         rng = max(0.0001, self._to - self._from)
         fraction = (val - self._from) / rng

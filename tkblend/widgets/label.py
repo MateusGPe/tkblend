@@ -232,18 +232,4 @@ class Label(BaseControl):
             )
 
     def configure(self, cnf=None, **kwargs):
-        if cnf is None and not kwargs:
-            return super().configure()
-        if cnf:
-            kwargs.update(cnf)
-
-        if "text" in kwargs:
-            self._text = str(kwargs.pop("text"))
-        if "icon" in kwargs:
-            self._icon = kwargs.pop("icon")
-        if "fg_color" in kwargs:
-            self._custom_fg_color = kwargs.pop("fg_color")
-        if "bg_color" in kwargs:
-            self._custom_bg_color = kwargs.pop("bg_color")
-        self.request_redraw()
-        return super().configure(**kwargs)
+        return super().configure(cnf, **kwargs)

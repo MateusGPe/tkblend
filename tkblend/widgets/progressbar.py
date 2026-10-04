@@ -188,15 +188,10 @@ class ProgressBar(BaseControl):
             surf.stroke_rounded_rect(0.0, 0.0, w, h, rx, ry, bc, stroke_width=bw)
 
     def configure(self, cnf=None, **kwargs):
-        if cnf is None and not kwargs:
-            return super().configure()
         if cnf:
             kwargs.update(cnf)
-
         if "mode" in kwargs:
             self._mode = str(kwargs.pop("mode")).lower()
-        if "value" in kwargs:
-            self.set(kwargs.pop("value"))
         if "variable" in kwargs:
             new_var = kwargs.pop("variable")
             if self._var_trace_id is not None and self._variable is not None:
@@ -210,5 +205,4 @@ class ProgressBar(BaseControl):
                 self._var_trace_id = bind_variable_trace(self._variable, self._on_variable_write)
             else:
                 self._var_trace_id = None
-        self.request_redraw()
         return super().configure(**kwargs)

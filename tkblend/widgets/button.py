@@ -351,27 +351,4 @@ class Button(BaseControl):
             )
 
     def configure(self, cnf=None, **kwargs):
-        if cnf is None and not kwargs:
-            return super().configure()
-        if cnf:
-            kwargs.update(cnf)
-
-        if "text" in kwargs:
-            self._text = str(kwargs.pop("text"))
-        if "command" in kwargs:
-            self._command = kwargs.pop("command")
-        if "icon" in kwargs:
-            self._icon = kwargs.pop("icon")
-        if "icon_size" in kwargs:
-            self._icon_size = kwargs.pop("icon_size")
-        if "corner_radius" in kwargs:
-            self._corner_radius = float(kwargs.pop("corner_radius"))
-        if "bg_color" in kwargs or "fg_color" in kwargs or "hover_color" in kwargs:
-            if "bg_color" in kwargs:
-                self._custom_bg_color = kwargs.pop("bg_color")
-            if "hover_color" in kwargs:
-                self._custom_hover_color = kwargs.pop("hover_color")
-            if "fg_color" in kwargs:
-                self._custom_fg_color = kwargs.pop("fg_color")
-        self.request_redraw()
-        return super().configure(**kwargs)
+        return super().configure(cnf, **kwargs)
