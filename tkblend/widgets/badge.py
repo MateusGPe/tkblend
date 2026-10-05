@@ -36,12 +36,16 @@ class Badge(BaseControl):
         master: Optional[tk.Misc] = None,
         text: str = "Badge",
         variant: str = "primary",
+        color: Optional[ColorLike] = None,
         icon: Optional[str] = None,
         icon_family: str = DEFAULT_ICON_FAMILY,
         dot: bool = False,
         dot_color: Optional[ColorLike] = None,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
         fg_color: Optional[ColorLike] = None,
         bg_color: Optional[ColorLike] = None,
+        parent_bg: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
         border_width: float = 1.0,
         corner_radius: Optional[float] = None,
@@ -53,13 +57,15 @@ class Badge(BaseControl):
         **kwargs,
     ):
         self._text = str(text)
-        self._variant = variant.lower()
+        if isinstance(color, str) and color in ("primary", "secondary", "success", "warning", "danger", "info"):
+            self._variant = color.lower()
+        else:
+            self._variant = variant.lower()
         self._icon = icon
         self._icon_family = icon_family
         self._dot = dot
         self._custom_dot_color = dot_color
         self._custom_fg = fg_color
-        self._custom_bg = bg_color
         self._custom_border = border_color
         self._border_width = float(border_width)
         self._corner_radius = corner_radius
@@ -69,14 +75,21 @@ class Badge(BaseControl):
         # Default auto-width estimation
         w = width if width is not None else max(40, int(len(self._text) * 8 + (30 if icon or dot else 20)))
 
+        explicit_bg = inner_bg or bg_color or (color if color not in ("primary", "secondary", "success", "warning", "danger", "info") else None)
+
         super().__init__(
             master=master,
             width=w,
             height=height,
+            inner_bg=explicit_bg,
+            outer_bg=outer_bg or parent_bg,
             cursor=cursor or CURSOR_DEFAULT,
             takefocus=False,
             **kwargs,
         )
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.primary
 
     @property
     def text(self) -> str:
@@ -97,8 +110,8 @@ class Badge(BaseControl):
         self.request_redraw()
 
     def _resolve_variant_colors(self, pal: Palette) -> tuple[str, str, str]:
-        if self._custom_bg and self._custom_fg:
-            bg = resolve_color_failsafe(self._custom_bg, palette=pal)
+        if self._explicit_inner_bg is not None and self._custom_fg:
+            bg = self.inner_bg
             fg = resolve_color_failsafe(self._custom_fg, palette=pal)
             bc = resolve_color_failsafe(self._custom_border or bg, palette=pal)
             return bg, fg, bc
@@ -134,8 +147,8 @@ class Badge(BaseControl):
             fg = base
             bc = blend_color_hex(base, pal.bg, 0.4)
 
-        if self._custom_bg:
-            bg = resolve_color_failsafe(self._custom_bg, palette=pal)
+        if self._explicit_inner_bg is not None:
+            bg = self.inner_bg
         if self._custom_fg:
             fg = resolve_color_failsafe(self._custom_fg, palette=pal)
         if self._custom_border:
@@ -151,7 +164,7 @@ class Badge(BaseControl):
         bg_col, fg_col, border_col = self._resolve_variant_colors(pal)
         cr = (self._corner_radius if self._corner_radius is not None else (h / 2.0 / s)) * s
 
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self.outer_bg)
         if bg_col != "transparent":
             surf.fill_rounded_rect(0.0, 0.0, w, h, cr, cr, bg_col)
 
@@ -234,7 +247,10 @@ class Avatar(BaseControl):
         icon_family: str = DEFAULT_ICON_FAMILY,
         size: int = 36,
         status: Optional[str] = None,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
         bg_color: Optional[ColorLike] = None,
+        parent_bg: Optional[ColorLike] = None,
         fg_color: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
         border_width: float = 1.5,
@@ -245,7 +261,6 @@ class Avatar(BaseControl):
         self._icon = icon if not text else None
         self._icon_family = icon_family
         self._status = status
-        self._custom_bg = bg_color
         self._custom_fg = fg_color
         self._custom_border = border_color
         self._border_width = float(border_width)
@@ -254,10 +269,15 @@ class Avatar(BaseControl):
             master=master,
             width=size,
             height=size,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             cursor=cursor or CURSOR_DEFAULT,
             takefocus=False,
             **kwargs,
         )
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.primary
 
     def render(self, surf: Surface, pal: Palette, width: int, height: int, scale: float) -> None:
         s = scale
@@ -267,12 +287,12 @@ class Avatar(BaseControl):
         cx = w / 2.0
         cy = h / 2.0
 
-        bg_col = resolve_color_failsafe(self._custom_bg or pal.primary, palette=pal)
-        fg_col = resolve_color_failsafe(self._custom_fg or "#FFFFFF", palette=pal)
+        bg_col = self.inner_bg
+        fg_col = resolve_color_failsafe(self._custom_fg or pal.primary_fg, palette=pal)
         b_col = resolve_color_failsafe(self._custom_border or pal.card_border, palette=pal)
 
         # Background circle
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self.outer_bg)
         surf.fill_circle(cx, cy, r, bg_col)
         if self._border_width > 0.0:
             surf.stroke_circle(cx, cy, r, b_col, stroke_width=self._border_width * s)

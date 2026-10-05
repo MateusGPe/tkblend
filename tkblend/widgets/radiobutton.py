@@ -56,6 +56,10 @@ class RadioButton(BaseControl):
         width: int = DEFAULT_RADIO_WIDTH,
         height: int = DEFAULT_RADIO_HEIGHT,
         size: int = DEFAULT_RADIO_SIZE,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
+        bg_color: Optional[ColorLike] = None,
+        parent_bg: Optional[ColorLike] = None,
         radio_color: Optional[ColorLike] = None,
         dot_color: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
@@ -76,7 +80,7 @@ class RadioButton(BaseControl):
         self._command = command
 
         self._radio_size = int(size)
-        self._custom_radio_color = radio_color
+        self._custom_radio_color = radio_color or inner_bg or bg_color
         self._custom_dot_color = dot_color
         self._custom_border_color = border_color
         self._border_width = float(border_width)
@@ -104,11 +108,16 @@ class RadioButton(BaseControl):
             master=master,
             width=eff_width,
             height=height,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             cursor=cursor,
             state=state,
             takefocus=True,
             **kwargs,
         )
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.primary
 
     def _on_variable_write(self, *args) -> None:
         if self._variable is not None:
@@ -172,7 +181,7 @@ class RadioButton(BaseControl):
             dot_col = resolve_color_failsafe(pal.text_muted, palette=pal)
 
         # Outer circle
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self.outer_bg)
         surf.fill_circle(cx, cy, r, cur_bg)
         if self._border_width > 0.0:
             surf.stroke_circle(cx, cy, r, cur_border, stroke_width=self._border_width * s)

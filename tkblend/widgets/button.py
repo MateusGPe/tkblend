@@ -13,6 +13,7 @@ from tkblend.theme import (
     Palette,
     resolve_color_failsafe,
     blend_color_hex,
+    get_contrast_color,
 )
 from tkblend.font import FontConfig, parse_font
 from tkblend.icons import Icons
@@ -65,7 +66,10 @@ class Button(BaseControl):
         width: int = DEFAULT_BUTTON_WIDTH,
         height: int = DEFAULT_BUTTON_HEIGHT,
         corner_radius: float = DEFAULT_BUTTON_CORNER_RADIUS,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
         bg_color: Optional[ColorLike] = None,
+        parent_bg: Optional[ColorLike] = None,
         hover_color: Optional[ColorLike] = None,
         pressed_color: Optional[ColorLike] = None,
         disabled_color: Optional[ColorLike] = None,
@@ -95,7 +99,6 @@ class Button(BaseControl):
         self._icon_size = icon_size
         self._corner_radius = float(corner_radius)
 
-        self._custom_bg_color = bg_color
         self._custom_hover_color = hover_color
         self._custom_pressed_color = pressed_color
         self._custom_disabled_color = disabled_color
@@ -125,11 +128,16 @@ class Button(BaseControl):
             master=master,
             width=width,
             height=height,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             cursor=cursor,
             state=state,
             takefocus=True,
             **kwargs,
         )
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.primary
 
     @property
     def text(self) -> str:
@@ -200,15 +208,21 @@ class Button(BaseControl):
         rx = self._corner_radius * s
         ry = rx
 
-        # Clear background with parent background
-        surf.clear(self._resolved_parent_bg)
+        # Clear background with outer background
+        surf.clear(self.outer_bg)
 
         # Resolve Colors
-        base_bg = resolve_color_failsafe(self._custom_bg_color or pal.primary, palette=pal)
+        base_bg = self.inner_bg
         hover_bg = resolve_color_failsafe(self._custom_hover_color or pal.primary_hover, palette=pal)
         press_bg = resolve_color_failsafe(self._custom_pressed_color or pal.primary_active, palette=pal)
         disabled_bg = resolve_color_failsafe(self._custom_disabled_color or pal.surface, palette=pal)
-        fg_col = resolve_color_failsafe(self._custom_fg_color or pal.primary_fg, palette=pal)
+
+        if self._custom_fg_color is not None:
+            fg_col = resolve_color_failsafe(self._custom_fg_color, palette=pal)
+        elif self._explicit_inner_bg is not None:
+            fg_col = get_contrast_color(base_bg, light_fg="#ffffff", dark_fg="#0f172a", palette=pal)
+        else:
+            fg_col = resolve_color_failsafe(pal.primary_fg, palette=pal)
 
         if self.is_disabled:
             curr_bg = disabled_bg

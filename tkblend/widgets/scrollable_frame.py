@@ -37,6 +37,10 @@ class VectorScrollbar(BaseControl):
         height: int = 100,
         thumb_color: Optional[ColorLike] = None,
         track_color: Optional[ColorLike] = None,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
+        bg_color: Optional[ColorLike] = None,
+        parent_bg: Optional[ColorLike] = None,
         cursor: Optional[str] = None,
         **kwargs,
     ):
@@ -60,8 +64,13 @@ class VectorScrollbar(BaseControl):
             height=h,
             cursor=cursor or CURSOR_DEFAULT,
             takefocus=False,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             **kwargs,
         )
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.track_bg
 
         self.bind("<Button-1>", self._on_press)
         self.bind("<B1-Motion>", self._on_drag)
@@ -73,6 +82,10 @@ class VectorScrollbar(BaseControl):
         self._start_fraction = max(0.0, min(1.0, float(first)))
         self._end_fraction = max(self._start_fraction, min(1.0, float(last)))
         self.request_redraw()
+
+    def set_fraction(self, first: float, last: float) -> None:
+        """Alias for set(first, last)."""
+        self.set(first, last)
 
     def get(self) -> tuple[float, float]:
         return (self._start_fraction, self._end_fraction)
@@ -140,6 +153,12 @@ class VectorScrollbar(BaseControl):
         w = float(width)
         h = float(height)
 
+        surf.clear(self.outer_bg)
+
+        # Do not draw thumb if content fits completely (no scroll range)
+        if (self._end_fraction - self._start_fraction) >= 0.999:
+            return
+
         th_col = resolve_color_failsafe(self._custom_thumb or pal.thumb_color, palette=pal)
         if self._is_hovered or self._is_dragging:
             th_col = blend_color_hex(th_col, pal.primary, 0.4)
@@ -168,7 +187,10 @@ class ScrollableFrame(BaseControl):
         width: int = 300,
         height: int = 300,
         corner_radius: float = 8.0,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
         bg_color: Optional[ColorLike] = None,
+        parent_bg: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
         border_width: float = 1.0,
         scrollbar_width: int = 8,
@@ -176,7 +198,6 @@ class ScrollableFrame(BaseControl):
         **kwargs,
     ):
         self._corner_radius = float(corner_radius)
-        self._custom_bg = bg_color
         self._custom_border = border_color
         self._border_width = float(border_width)
         self._scrollbar_w = int(scrollbar_width)
@@ -185,6 +206,8 @@ class ScrollableFrame(BaseControl):
             master=master,
             width=width,
             height=height,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             cursor=cursor or CURSOR_DEFAULT,
             takefocus=False,
             **kwargs,
@@ -192,7 +215,7 @@ class ScrollableFrame(BaseControl):
 
         # Viewport Canvas
         pal = self._palette
-        bg_hex = to_tk_hex(self.bg_color)
+        bg_hex = to_tk_hex(self.inner_bg)
         self._canvas = tk.Canvas(
             self,
             bd=0,
@@ -232,9 +255,8 @@ class ScrollableFrame(BaseControl):
     def content_frame(self) -> tk.Frame:
         return self._scrollable_frame
 
-    @property
-    def bg_color(self) -> str:
-        return resolve_color_failsafe(self._custom_bg or self._palette.card_bg, palette=self._palette)
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.card_bg
 
     def _layout_components(self) -> None:
         s = self._scale_factor
@@ -280,12 +302,12 @@ class ScrollableFrame(BaseControl):
             self._canvas.yview_scroll(2, "units")
 
     def on_theme_update(self, pal: Palette) -> None:
-        bg_hex = to_tk_hex(self.bg_color)
+        bg_hex = to_tk_hex(self.inner_bg)
         self._canvas.configure(background=bg_hex)
         self._scrollable_frame.configure(background=bg_hex)
         if hasattr(self, "_v_scrollbar") and self._v_scrollbar.winfo_exists():
-            self._v_scrollbar.set_parent_bg(self.bg_color)
-        cascade_bg_to_children(self._scrollable_frame, self.bg_color, palette=pal)
+            self._v_scrollbar.set_outer_bg(self.inner_bg)
+        cascade_bg_to_children(self._scrollable_frame, self.inner_bg, palette=pal)
 
     def render(self, surf: Surface, pal: Palette, width: int, height: int, scale: float) -> None:
         s = scale
@@ -293,10 +315,10 @@ class ScrollableFrame(BaseControl):
         h = float(height)
 
         cr = self._corner_radius * s
-        bg_col = resolve_color_failsafe(self._custom_bg or pal.card_bg, palette=pal)
+        bg_col = self.inner_bg
         border_col = resolve_color_failsafe(self._custom_border or pal.card_border, palette=pal)
 
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self.outer_bg)
         surf.fill_rounded_rect(0.0, 0.0, w, h, cr, cr, bg_col)
         if self._border_width > 0.0:
             surf.stroke_rounded_rect(0.0, 0.0, w, h, cr, cr, border_col, stroke_width=self._border_width * s)

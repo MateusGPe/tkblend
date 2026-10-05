@@ -52,6 +52,11 @@ class TestBaseControl:
         assert base.cget("width") == 150
         assert base.cget("height") == 50
 
+        # Cursor configuration
+        base.configure(cursor="sb_h_double_arrow")
+        assert base.cget("cursor") == "sb_h_double_arrow"
+        assert tk_root.tk.call(base._w, "cget", "-cursor") == "sb_h_double_arrow"
+
     def test_disabled_state(self, tk_root):
         base = BaseControl(tk_root, state="disabled")
         assert base.is_disabled
@@ -410,4 +415,63 @@ class TestExtendedBaseControlWidgets:
         sp.push(75.0)
         assert len(sp.data) == 7
         sp.paint_and_blit()
+
+    def test_inner_and_outer_bg_semantics(self, tk_root):
+        tb.set_theme("dark")
+        pal = tb.get_theme()
+
+        card = tb.Card(tk_root, inner_bg="#112233", outer_bg="#000000")
+        card.pack()
+        btn = tb.Button(card, text="Click", outer_bg=card.inner_bg)
+        btn.pack()
+        slider = tb.Slider(card)
+        slider.pack()
+        tk_root.update_idletasks()
+
+        assert card.inner_bg == "#112233"
+        assert card.outer_bg == "#000000"
+        # btn inherits card.inner_bg as its outer_bg
+        assert btn.outer_bg == "#112233"
+        assert slider.outer_bg == "#112233"
+
+        # Check property mutation & backward compatibility aliases
+        btn.set_outer_bg("#223344")
+        assert btn.outer_bg == "#223344"
+        assert btn.parent_bg == "#223344"
+
+        btn.set_inner_bg("#556677")
+        assert btn.inner_bg == "#556677"
+        assert btn.bg_color == "#556677"
+
+        # Configure cget
+        btn.configure(outer_bg="#334455", inner_bg="#667788")
+        assert btn.cget("outer_bg") == "#334455"
+        assert btn.cget("inner_bg") == "#667788"
+
+        # Card set_inner_bg cascades to child widgets with un-overridden outer_bg
+        child_badge = tb.Badge(card, text="Status")
+        child_badge.pack()
+        tk_root.update_idletasks()
+        assert child_badge.outer_bg == card.inner_bg
+
+        card.set_inner_bg("#445566")
+        tk_root.update_idletasks()
+        assert child_badge.outer_bg == "#445566"
+
+        # Slider interaction test (drag simulation)
+        sl = tb.Slider(tk_root, from_=0, to=100, number_of_steps=10)
+        sl.pack()
+        tk_root.update_idletasks()
+        assert sl.get() == 0.0
+
+        # Simulate mouse press & drag
+        class FakeEvent:
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+
+        sl._on_mouse_press(FakeEvent(x=100, y=10))
+        assert sl.get() > 0.0
+        sl._on_mouse_release(FakeEvent(x=100, y=10))
+
 

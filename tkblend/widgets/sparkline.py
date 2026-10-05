@@ -37,11 +37,15 @@ class Sparkline(BaseControl):
         fill_alpha: float = 0.25,
         highlight_last: bool = True,
         cursor: Optional[str] = None,
+        inner_bg: Optional[str] = None,
+        outer_bg: Optional[str] = None,
+        parent_bg: Optional[str] = None,
+        bg_color: Optional[str] = None,
         **kwargs,
     ):
         self._data: List[float] = [float(v) for v in data] if data else [0.0]
         self._kind = kind.lower()
-        self._custom_color = color
+        self._custom_color = color or inner_bg
         self._line_width = float(line_width)
         self._fill_alpha = float(fill_alpha)
         self._highlight_last = highlight_last
@@ -52,8 +56,15 @@ class Sparkline(BaseControl):
             height=height,
             cursor=cursor or CURSOR_DEFAULT,
             takefocus=False,
+            inner_bg=inner_bg,
+            outer_bg=outer_bg,
+            parent_bg=parent_bg,
+            bg_color=bg_color,
             **kwargs,
         )
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.primary
 
     @property
     def data(self) -> List[float]:
@@ -81,12 +92,12 @@ class Sparkline(BaseControl):
         if n < 2:
             return
 
-        col = resolve_color_failsafe(self._custom_color or pal.primary, palette=pal)
+        col = resolve_color_failsafe(self._custom_color or self.inner_bg or pal.primary, palette=pal)
         min_v = min(self._data)
         max_v = max(self._data)
         rng = max(0.0001, max_v - min_v)
 
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self.outer_bg)
 
         pad_x = 4.0 * s
         pad_y = 4.0 * s
@@ -118,8 +129,8 @@ class Sparkline(BaseControl):
 
                 # Gradient fill
                 grad = LinearGradient(0, pad_y, 0, h - pad_y)
-                grad.add_stop(0.0, blend_color_hex(col, "#FFFFFF", 0.2))
-                grad.add_stop(1.0, blend_color_hex(col, pal.bg, 0.95))
+                grad.add_stop(0.0, col, alpha=self._fill_alpha)
+                grad.add_stop(1.0, col, alpha=0.0)
                 surf.fill_path(area_path, grad)
 
             # Stroke line

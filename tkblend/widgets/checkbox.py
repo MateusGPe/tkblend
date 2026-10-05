@@ -63,6 +63,10 @@ class CheckBox(BaseControl):
         height: int = DEFAULT_CHECKBOX_HEIGHT,
         size: int = DEFAULT_CHECKBOX_BOX_SIZE,
         corner_radius: float = DEFAULT_CHECKBOX_CORNER_RADIUS,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
+        bg_color: Optional[ColorLike] = None,
+        parent_bg: Optional[ColorLike] = None,
         box_color: Optional[ColorLike] = None,
         check_color: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
@@ -86,7 +90,7 @@ class CheckBox(BaseControl):
         self._box_size = int(size)
         self._corner_radius = float(corner_radius)
 
-        self._custom_box_color = box_color
+        self._custom_box_color = box_color or inner_bg or bg_color
         self._custom_check_color = check_color
         self._custom_border_color = border_color
         self._border_width = float(border_width)
@@ -114,11 +118,16 @@ class CheckBox(BaseControl):
             master=master,
             width=eff_width,
             height=height,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             cursor=cursor,
             state=state,
             takefocus=True,
             **kwargs,
         )
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.primary
 
     def _on_variable_write(self, *args) -> None:
         if self._variable is not None:
@@ -188,10 +197,10 @@ class CheckBox(BaseControl):
         by = (h - box_sz) / 2.0
 
         # Clear parent background
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self.outer_bg)
 
         # Colors
-        active_box = resolve_color_failsafe(self._custom_box_color or pal.primary, palette=pal)
+        active_box = resolve_color_failsafe(self._custom_box_color or self.inner_bg or pal.primary, palette=pal)
         inactive_box = resolve_color_failsafe(pal.input_bg, palette=pal)
         cur_box = blend_color_hex(inactive_box, active_box, self._check_t) or inactive_box
 

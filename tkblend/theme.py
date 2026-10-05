@@ -241,6 +241,55 @@ def adjust_brightness(hex_code: str, factor: float) -> Optional[str]:
         return hex_code
 
 
+def get_contrast_color(
+    bg_color: Any,
+    light_fg: str = "#ffffff",
+    dark_fg: str = "#0f172a",
+    palette: Optional[Palette] = None,
+) -> str:
+    """Calculate perceived relative luminance and return optimal contrasting text color."""
+    if bg_color is None:
+        return light_fg
+    resolved = resolve_color_failsafe(bg_color, palette=palette)
+    if not resolved or not resolved.startswith("#"):
+        return light_fg
+    hex_str = resolved.lstrip("#")
+    if len(hex_str) in (3, 4):
+        hex_str = "".join(c + c for c in hex_str[:3])
+    if len(hex_str) < 6:
+        return light_fg
+    try:
+        r = int(hex_str[0:2], 16) / 255.0
+        g = int(hex_str[2:4], 16) / 255.0
+        b = int(hex_str[4:6], 16) / 255.0
+
+        def _lin(c: float) -> float:
+            return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+        lum = 0.2126 * _lin(r) + 0.7152 * _lin(g) + 0.0722 * _lin(b)
+        return dark_fg if lum > 0.45 else light_fg
+    except Exception:
+        return light_fg
+
+
+THEME_ALIASES: Dict[str, str] = {
+    "forest": "emerald_forest",
+    "forest_green": "emerald_forest",
+    "light_forest_green": "emerald_forest",
+    "neon": "cyberpunk",
+    "neon_cyber": "cyberpunk",
+}
+
+
+def normalize_theme_name(name: str) -> str:
+    """Normalize and resolve theme aliases."""
+    if not name or not isinstance(name, str):
+        return "dark"
+    n = name.strip().lower().replace("-", "_").replace(" ", "_")
+    return THEME_ALIASES.get(n, n)
+
+
+
 @dataclass
 class Palette:
     """Semantic color palette definition queryable from StyleEngine variables."""
@@ -265,10 +314,10 @@ class Palette:
     primary_fg: str = "#381e72"
 
     # Secondary action
-    secondary: str = "#4a4458"
-    secondary_hover: str = "#585168"
-    secondary_active: str = "#332d41"
-    secondary_fg: str = "#e8def8"
+    secondary: str = "#06b6d4"
+    secondary_hover: str = "#22d3ee"
+    secondary_active: str = "#0891b2"
+    secondary_fg: str = "#ffffff"
 
     # Status & Accent colors
     accent: str = "#efb8c8"
@@ -299,13 +348,19 @@ class Palette:
     @classmethod
     def from_theme(cls, theme_name: str) -> Palette:
         """Create a Palette reflecting active StyleEngine CSS variables."""
+        norm_name = normalize_theme_name(theme_name)
+
         def v(key: str, default: str) -> str:
-            res = StyleEngine.get_variable(f"--{key}", theme_name)
+            res = StyleEngine.get_variable(f"--{key}", norm_name)
             if not res:
-                res = StyleEngine.get_variable(key, theme_name)
+                res = StyleEngine.get_variable(key, norm_name)
+            if not res and norm_name != theme_name:
+                res = StyleEngine.get_variable(f"--{key}", theme_name)
+                if not res:
+                    res = StyleEngine.get_variable(key, theme_name)
             return res if res else default
 
-        is_dark = theme_name not in ("light", "catppuccin_latte", "solarized_light")
+        is_dark = norm_name not in ("light", "catppuccin_latte", "solarized_light")
         default_bg = "#100e14" if is_dark else "#f4f5f7"
         default_fg = "#e6e0e9" if is_dark else "#0f172a"
 
@@ -314,28 +369,28 @@ class Palette:
             dark_mode=is_dark,
             bg=v("bg", default_bg),
             fg=v("fg", default_fg),
-            text_muted=v("text-muted", "#cac4d0" if is_dark else "#475569"),
+            text_muted=v("text-muted", "#a1a1aa" if is_dark else "#475569"),
             card_bg=v("card-bg", "#25232a" if is_dark else "#ffffff"),
             card_border=v("card-border", "#49454f" if is_dark else "#cbd5e1"),
             surface=v("surface", "#1d1b20" if is_dark else "#e2e8f0"),
             surface_border=v("surface-border", "#36343b" if is_dark else "#cbd5e1"),
-            primary=v("primary", "#d0bcff" if is_dark else "#6366f1"),
-            primary_hover=v("primary-hover", "#e8def8" if is_dark else "#4f46e5"),
-            primary_active=v("primary-active", "#b69df8" if is_dark else "#4338ca"),
-            primary_fg=v("primary-fg", "#381e72" if is_dark else "#ffffff"),
-            secondary=v("secondary", "#4a4458" if is_dark else "#e2e8f0"),
-            secondary_hover=v("secondary-hover", "#585168" if is_dark else "#cbd5e1"),
-            secondary_active=v("secondary-active", "#332d41" if is_dark else "#94a3b8"),
-            secondary_fg=v("secondary-fg", "#e8def8" if is_dark else "#0f172a"),
-            accent=v("accent", "#efb8c8" if is_dark else "#0ea5e9"),
-            success=v("success", "#85d697" if is_dark else "#10b981"),
-            warning=v("warning", "#ffb877" if is_dark else "#f59e0b"),
-            destructive=v("destructive", "#ffb4ab" if is_dark else "#ef4444"),
+            primary=v("primary", "#8b5cf6" if is_dark else "#6366f1"),
+            primary_hover=v("primary-hover", "#7c3aed" if is_dark else "#4f46e5"),
+            primary_active=v("primary-active", "#6d28d9" if is_dark else "#4338ca"),
+            primary_fg=v("primary-fg", "#ffffff" if is_dark else "#ffffff"),
+            secondary=v("secondary", "#06b6d4" if is_dark else "#0284c7"),
+            secondary_hover=v("secondary-hover", "#22d3ee" if is_dark else "#0ea5e9"),
+            secondary_active=v("secondary-active", "#0891b2" if is_dark else "#0369a1"),
+            secondary_fg=v("secondary-fg", "#ffffff" if is_dark else "#ffffff"),
+            accent=v("accent", "#ec4899" if is_dark else "#0ea5e9"),
+            success=v("success", "#10b981" if is_dark else "#10b981"),
+            warning=v("warning", "#f59e0b" if is_dark else "#f59e0b"),
+            destructive=v("destructive", "#ef4444" if is_dark else "#ef4444"),
             input_bg=v("input-bg", "#1d1b20" if is_dark else "#ffffff"),
-            input_border=v("input-border", "#49454f" if is_dark else "#94a3b8"),
-            input_focus=v("input-focus", "#d0bcff" if is_dark else "#6366f1"),
-            track_bg=v("track-bg", "#36343b" if is_dark else "#e2e8f0"),
-            thumb_color=v("thumb-color", "#d0bcff" if is_dark else "#6366f1"),
+            input_border=v("input-border", "#3f3f46" if is_dark else "#94a3b8"),
+            input_focus=v("input-focus", "#8b5cf6" if is_dark else "#6366f1"),
+            track_bg=v("track-bg", "#27272a" if is_dark else "#e2e8f0"),
+            thumb_color=v("thumb-color", "#8b5cf6" if is_dark else "#6366f1"),
             shadow_color=v("shadow-color", "#00000055" if is_dark else "#00000018"),
         )
 
@@ -399,6 +454,7 @@ MONOKAI_PRO_PALETTE = Palette.from_theme("monokai_pro")
 CYBERPUNK_PALETTE = Palette.from_theme("cyberpunk")
 SOLARIZED_DARK_PALETTE = Palette.from_theme("solarized_dark")
 SOLARIZED_LIGHT_PALETTE = Palette.from_theme("solarized_light")
+SLATE_PALETTE = Palette.from_theme("slate")
 
 THEME_PRESETS: Dict[str, Palette] = {
     "dark": DARK_PALETTE,
@@ -418,6 +474,9 @@ THEME_PRESETS: Dict[str, Palette] = {
     "cyberpunk": CYBERPUNK_PALETTE,
     "solarized_dark": SOLARIZED_DARK_PALETTE,
     "solarized_light": SOLARIZED_LIGHT_PALETTE,
+    "slate": SLATE_PALETTE,
+    "forest": EMERALD_FOREST_PALETTE,
+    "neon": CYBERPUNK_PALETTE,
 }
 
 
@@ -504,6 +563,7 @@ class ThemeManager:
         target_name = name
         if str(name).lower() in ("system", "auto"):
             target_name = detect_system_theme()
+        target_name = normalize_theme_name(target_name)
         StyleEngine.set_theme(target_name)
         self._current_palette = Palette.from_theme(target_name)
 
@@ -658,10 +718,14 @@ def resolve_ancestor_bg(widget: Optional[tk.Misc], palette: Optional[Palette] = 
 
     curr = widget
     while curr is not None:
+        if hasattr(curr, "inner_bg") and curr.inner_bg:
+            return resolve_color_failsafe(curr.inner_bg, palette=active_pal)
         if hasattr(curr, "bg_color") and curr.bg_color:
             return resolve_color_failsafe(curr.bg_color, palette=active_pal)
         if hasattr(curr, "_bg_color") and curr._bg_color:
             return resolve_color_failsafe(curr._bg_color, palette=active_pal)
+        if hasattr(curr, "_explicit_inner_bg") and curr._explicit_inner_bg:
+            return resolve_color_failsafe(curr._explicit_inner_bg, palette=active_pal)
         if hasattr(curr, "_parent_bg") and curr._parent_bg and getattr(curr, "_explicit_bg", None):
             return resolve_color_failsafe(curr._explicit_bg, palette=active_pal)
 
@@ -692,37 +756,81 @@ def cascade_bg_to_children(container: tk.Misc, bg_color: str, preserve_overrides
     """Update background color of container and direct and nested vector children."""
     resolved = resolve_color_failsafe(bg_color)
     pal = palette or get_theme()
-    try:
-        container.configure(background=to_tk_hex(resolved))
-    except Exception:
-        pass
+    if not hasattr(container, "set_outer_bg"):
+        try:
+            container.configure(background=to_tk_hex(resolved))
+        except Exception:
+            pass
 
     if hasattr(container, "winfo_children"):
         try:
             for child in container.winfo_children():
-                # 1. Direct vector widgets with set_parent_bg
-                if hasattr(child, "set_parent_bg"):
+                # 1. Direct vector widgets with set_outer_bg or set_parent_bg
+                if hasattr(child, "set_outer_bg"):
+                    try:
+                        child.set_outer_bg(resolved, render=render, explicit=False)
+                    except TypeError:
+                        child.set_outer_bg(resolved, render=render)
+                    if len(child.winfo_children()) > 0:
+                        child_inner = child.inner_bg if hasattr(child, "inner_bg") else resolved
+                        cascade_bg_to_children(child, child_inner, preserve_overrides=preserve_overrides, render=render, palette=pal)
+                    continue
+                elif hasattr(child, "set_parent_bg"):
                     try:
                         child.set_parent_bg(resolved, render=render, explicit=False)
                     except TypeError:
                         child.set_parent_bg(resolved, render=render)
+                    if len(child.winfo_children()) > 0:
+                        child_inner = child.inner_bg if hasattr(child, "inner_bg") else resolved
+                        cascade_bg_to_children(child, child_inner, preserve_overrides=preserve_overrides, render=render, palette=pal)
+                    continue
+
                 # 2. Standard Tk Labels
-                elif isinstance(child, tk.Label):
+                if isinstance(child, tk.Label):
                     try:
-                        child.configure(background=to_tk_hex(resolved), foreground=to_tk_hex(pal.text_muted))
+                        child_bg = to_tk_hex(resolved)
+                        curr_fg = str(child.cget("foreground")).strip().lower()
+                        is_bold = "bold" in str(child.cget("font")).lower()
+                        
+                        # Known old theme fg / text_muted values across presets
+                        known_fgs = {p.fg.lower() for p in THEME_PRESETS.values()}
+                        known_muteds = {p.text_muted.lower() for p in THEME_PRESETS.values()}
+                        
+                        # Contrast check: if background and foreground share same luminance polarity, contrast is broken
+                        bg_contrast_need = get_contrast_color(child_bg)
+                        fg_contrast_need = get_contrast_color(curr_fg) if curr_fg.startswith("#") else None
+                        is_low_contrast = (fg_contrast_need is not None and bg_contrast_need == fg_contrast_need)
+
+                        if (
+                            curr_fg in ("", "black", "white", "#000000", "#ffffff", "systembuttontext", "systemwindowtext")
+                            or is_default_tk_bg(curr_fg)
+                            or is_low_contrast
+                            or not preserve_overrides
+                        ):
+                            fg_col = pal.fg if is_bold else pal.text_muted
+                            child.configure(background=child_bg, foreground=to_tk_hex(fg_col))
+                        elif curr_fg in known_fgs:
+                            child.configure(background=child_bg, foreground=to_tk_hex(pal.fg))
+                        elif curr_fg in known_muteds:
+                            child.configure(background=child_bg, foreground=to_tk_hex(pal.text_muted))
+                        else:
+                            child.configure(background=child_bg)
                     except Exception:
                         try:
                             child.configure(background=to_tk_hex(resolved))
                         except Exception:
                             pass
-                # 3. Standard Tk Frames or helper containers (recurse into children)
+                # 3. Standard Tk containers (Frames, LabelFrames, Canvas)
                 elif isinstance(child, (tk.Frame, tk.LabelFrame, tk.Canvas)):
                     try:
                         child.configure(background=to_tk_hex(resolved))
                     except Exception:
                         pass
-                    # Recurse into plain Tk frame hierarchy
                     cascade_bg_to_children(child, resolved, preserve_overrides=preserve_overrides, render=render, palette=pal)
+                elif hasattr(child, "winfo_children") and len(child.winfo_children()) > 0:
+                    cascade_bg_to_children(child, resolved, preserve_overrides=preserve_overrides, render=render, palette=pal)
+        except Exception:
+            pass
         except Exception:
             pass
 

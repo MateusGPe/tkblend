@@ -30,6 +30,8 @@ from tkblend import (
     get_theme,
     set_theme,
     get_available_themes,
+    add_theme_listener,
+    remove_theme_listener,
     cascade_bg_to_children,
     ScalingTracker,
 )
@@ -123,48 +125,63 @@ class ShowcaseHub(tk.Frame):
         self._active_app_idx = 0
         self._current_embedded_view: Optional[tk.Widget] = None
         self._sidebar_buttons: List[Button] = []
+        self._in_theme_update = False
 
         self._build_ui()
         self._load_app(0)
+
+        # Listen for global theme changes from inside embedded views or external callers
+        self._theme_listener = self._on_global_theme_changed
+        add_theme_listener(self._theme_listener)
+        self.bind("<Destroy>", self._on_hub_destroy, add="+")
+
+    def _on_hub_destroy(self, _event: tk.Event) -> None:
+        try:
+            remove_theme_listener(self._theme_listener)
+        except Exception:
+            pass
 
     def _build_ui(self) -> None:
         pal = get_theme()
         self.configure(background=pal.bg)
 
         # Header Bar Card
-        header = Card(self, height=64, corner_radius=10, bg_color=pal.card_bg)
-        header.pack(fill="x", padx=14, pady=(14, 8))
+        self._header_card = Card(self, height=64, corner_radius=10)
+        self._header_card.pack(fill="x", padx=14, pady=(14, 8))
 
         # Brand / Logo
-        logo_box = tk.Frame(header, bg=header.bg_color)
-        logo_box.pack(side="left", padx=14, pady=10)
+        self._logo_box = tk.Frame(self._header_card, bg=pal.card_bg)
+        self._logo_box.pack(side="left", padx=14, pady=10)
 
-        Avatar(logo_box, text="TB", size=38, bg_color=pal.primary).pack(side="left", padx=(0, 10))
+        self._avatar = Avatar(self._logo_box, text="TB", size=38)
+        self._avatar.pack(side="left", padx=(0, 10))
 
-        title_box = tk.Frame(logo_box, bg=header.bg_color)
-        title_box.pack(side="left")
+        self._title_box = tk.Frame(self._logo_box, bg=pal.card_bg)
+        self._title_box.pack(side="left")
 
-        tk.Label(
-            title_box,
+        self._title_lbl = tk.Label(
+            self._title_box,
             text="tkblend Showcase Hub",
             font=("sans-serif", 14, "bold"),
-            bg=header.bg_color,
+            bg=pal.card_bg,
             fg=pal.fg,
-        ).pack(anchor="w")
+        )
+        self._title_lbl.pack(anchor="w")
 
-        tk.Label(
-            title_box,
+        self._subtitle_lbl = tk.Label(
+            self._title_box,
             text="Pure Blend2D C++ Vector Graphics Engine & Modern Controls",
             font=("sans-serif", 9),
-            bg=header.bg_color,
+            bg=pal.card_bg,
             fg=pal.text_muted,
-        ).pack(anchor="w", pady=(1, 0))
+        )
+        self._subtitle_lbl.pack(anchor="w", pady=(1, 0))
 
         # Theme Selector
         self._theme_opt = OptionMenu(
-            header,
+            self._header_card,
             values=get_available_themes(),
-            default_value="dark",
+            default_value=pal.name,
             command=self._on_theme_change,
             width=130,
             height=30,
@@ -172,57 +189,61 @@ class ShowcaseHub(tk.Frame):
         self._theme_opt.pack(side="right", padx=14)
 
         # Launch Standalone Window Button
-        btn_launch = Button(
-            header,
+        self._btn_launch = Button(
+            self._header_card,
             text="🚀 Launch in Detached Window",
             width=210,
             height=30,
             command=self._launch_standalone,
         )
-        btn_launch.pack(side="right", padx=6)
+        self._btn_launch.pack(side="right", padx=6)
 
         # Main Central Workspace
-        workspace = tk.Frame(self, bg=pal.bg)
-        workspace.pack(fill="both", expand=True, padx=14, pady=6)
+        self._workspace = tk.Frame(self, bg=pal.bg)
+        self._workspace.pack(fill="both", expand=True, padx=14, pady=6)
 
         # 1. Left Sidebar: App Navigation List
-        sidebar = Card(workspace, width=280, corner_radius=10, bg_color=pal.card_bg)
-        sidebar.pack(side="left", fill="y", padx=(0, 6))
+        self._sidebar_card = Card(self._workspace, width=280, corner_radius=10)
+        self._sidebar_card.pack(side="left", fill="y", padx=(0, 6))
 
-        tk.Label(
-            sidebar,
+        self._sidebar_hdr = tk.Label(
+            self._sidebar_card,
             text="SHOWCASE APPLICATIONS",
             font=("sans-serif", 9, "bold"),
-            bg=sidebar.bg_color,
+            bg=pal.card_bg,
             fg=pal.text_muted,
-        ).pack(anchor="w", padx=14, pady=(14, 8))
+        )
+        self._sidebar_hdr.pack(anchor="w", padx=14, pady=(14, 8))
 
         self._sidebar_buttons.clear()
         for i, app_info in enumerate(SHOWCASE_APPS):
             btn = Button(
-                sidebar,
+                self._sidebar_card,
                 text=f"{app_info['title']}",
                 height=34,
                 width=245,
-                bg_color=pal.primary if i == 0 else sidebar.bg_color,
+                bg_color=pal.primary if i == 0 else pal.card_bg,
+                fg_color=pal.primary_fg if i == 0 and hasattr(pal, "primary_fg") else pal.fg,
                 command=lambda idx=i: self._load_app(idx),
             )
             btn.pack(fill="x", padx=10, pady=3)
             self._sidebar_buttons.append(btn)
 
         # Sidebar footer info
-        footer_box = tk.Frame(sidebar, bg=sidebar.bg_color)
-        footer_box.pack(side="bottom", fill="x", padx=14, pady=14)
+        self._footer_box = tk.Frame(self._sidebar_card, bg=pal.card_bg)
+        self._footer_box.pack(side="bottom", fill="x", padx=14, pady=14)
 
         scale_val = ScalingTracker.get_scaling_factor(self)
-        Badge(footer_box, text=f"DPI Scale: {scale_val:.2f}x", variant="outline").pack(side="left")
-        Badge(footer_box, text="Zero TTK", variant="success").pack(side="right")
+        self._badge_dpi = Badge(self._footer_box, text=f"DPI Scale: {scale_val:.2f}x", variant="outline")
+        self._badge_dpi.pack(side="left")
+        self._badge_zero = Badge(self._footer_box, text="Zero TTK", variant="success")
+        self._badge_zero.pack(side="right")
 
         # 2. Right Column: Embedded Live App Viewport Card
-        self._view_card = Card(workspace, corner_radius=10, bg_color=pal.card_bg)
+        self._view_card = Card(self._workspace, corner_radius=10)
         self._view_card.pack(side="right", fill="both", expand=True, padx=(6, 0))
 
-        self._view_container = tk.Frame(self._view_card, bg=self._view_card.bg_color)
+        self._view_container = tk.Frame(self._view_card, bg=pal.card_bg)
         self._view_container.pack(fill="both", expand=True, padx=4, pady=4)
 
         cascade_bg_to_children(self, pal.bg, palette=pal)
@@ -232,12 +253,18 @@ class ShowcaseHub(tk.Frame):
         app_info = SHOWCASE_APPS[app_idx]
         pal = get_theme()
 
-        # Update sidebar button highlight
+        # Update sidebar button highlights
         for i, btn in enumerate(self._sidebar_buttons):
             if i == app_idx:
-                btn.configure(bg_color=pal.primary, fg_color="#FFFFFF")
+                btn.configure(
+                    bg_color=pal.primary,
+                    fg_color=pal.primary_fg if hasattr(pal, "primary_fg") else "#FFFFFF",
+                )
             else:
-                btn.configure(bg_color=pal.card_bg, fg_color=pal.fg)
+                btn.configure(
+                    bg_color=pal.card_bg,
+                    fg_color=pal.fg,
+                )
 
         # Teardown previous embedded view
         if self._current_embedded_view is not None:
@@ -259,7 +286,7 @@ class ShowcaseHub(tk.Frame):
                 text=f"Error loading embedded view: {err}",
                 font=("sans-serif", 11),
                 fg="red",
-                bg=self._view_card.bg_color,
+                bg=pal.card_bg,
             )
             err_lbl.pack(padx=20, pady=20)
             self._current_embedded_view = err_lbl
@@ -272,12 +299,61 @@ class ShowcaseHub(tk.Frame):
         if os.path.exists(script_path):
             subprocess.Popen([sys.executable, script_path])
 
+    def _on_global_theme_changed(self, pal: Palette) -> None:
+        if self._in_theme_update or not self.winfo_exists():
+            return
+        self._apply_theme_to_hub(pal)
+
     def _on_theme_change(self, theme_name: str) -> None:
-        set_theme(theme_name)
-        pal = get_theme()
+        if self._in_theme_update:
+            return
+        self._in_theme_update = True
+        try:
+            set_theme(theme_name)
+            pal = get_theme()
+            self._apply_theme_to_hub(pal)
+        finally:
+            self._in_theme_update = False
+
+    def _apply_theme_to_hub(self, pal: Palette) -> None:
         self.configure(background=pal.bg)
-        cascade_bg_to_children(self, pal.bg, palette=pal)
-        # Refresh current app with new theme
+        if hasattr(self, "_workspace") and self._workspace.winfo_exists():
+            self._workspace.configure(background=pal.bg)
+
+        # Update frame backgrounds
+        for frame_attr in ("_logo_box", "_title_box", "_footer_box", "_view_container"):
+            if hasattr(self, frame_attr):
+                f = getattr(self, frame_attr)
+                if f and f.winfo_exists():
+                    f.configure(bg=pal.card_bg)
+
+        # Update labels
+        if hasattr(self, "_title_lbl") and self._title_lbl.winfo_exists():
+            self._title_lbl.configure(bg=pal.card_bg, fg=pal.fg)
+        if hasattr(self, "_subtitle_lbl") and self._subtitle_lbl.winfo_exists():
+            self._subtitle_lbl.configure(bg=pal.card_bg, fg=pal.text_muted)
+        if hasattr(self, "_sidebar_hdr") and self._sidebar_hdr.winfo_exists():
+            self._sidebar_hdr.configure(bg=pal.card_bg, fg=pal.text_muted)
+
+        # Synchronize theme option menu
+        if hasattr(self, "_theme_opt") and self._theme_opt.winfo_exists():
+            if self._theme_opt.get().lower() != pal.name.lower():
+                self._theme_opt.set(pal.name)
+
+        # Cascade colors to cards and children
+        if hasattr(self, "_header_card") and self._header_card.winfo_exists():
+            self._header_card.request_redraw()
+            cascade_bg_to_children(self._header_card, pal.card_bg, palette=pal)
+
+        if hasattr(self, "_sidebar_card") and self._sidebar_card.winfo_exists():
+            self._sidebar_card.request_redraw()
+            cascade_bg_to_children(self._sidebar_card, pal.card_bg, palette=pal)
+
+        if hasattr(self, "_view_card") and self._view_card.winfo_exists():
+            self._view_card.request_redraw()
+            cascade_bg_to_children(self._view_card, pal.card_bg, palette=pal)
+
+        # Reload embedded app and refresh sidebar buttons
         self._load_app(self._active_app_idx)
 
 
@@ -295,3 +371,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

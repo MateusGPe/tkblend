@@ -60,6 +60,10 @@ class Slider(BaseControl):
         width: int = DEFAULT_SLIDER_WIDTH,
         height: int = DEFAULT_SLIDER_HEIGHT,
         orientation: str = DEFAULT_SLIDER_ORIENTATION,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
+        bg_color: Optional[ColorLike] = None,
+        parent_bg: Optional[ColorLike] = None,
         track_color: Optional[ColorLike] = None,
         active_color: Optional[ColorLike] = None,
         thumb_color: Optional[ColorLike] = None,
@@ -80,7 +84,7 @@ class Slider(BaseControl):
         self._variable = variable
         self._orientation = orientation.lower()
 
-        self._custom_track_color = track_color
+        self._custom_track_color = track_color or inner_bg or bg_color
         self._custom_active_color = active_color
         self._custom_thumb_color = thumb_color
         self._custom_thumb_border = thumb_border_color
@@ -108,6 +112,8 @@ class Slider(BaseControl):
             master=master,
             width=width,
             height=height,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             cursor=cursor,
             state=state,
             takefocus=True,
@@ -118,6 +124,9 @@ class Slider(BaseControl):
         self.bind("<ButtonPress-1>", self._on_mouse_press, add="+")
         self.bind("<B1-Motion>", self._on_mouse_drag, add="+")
         self.bind("<ButtonRelease-1>", self._on_mouse_release, add="+")
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.track_bg
 
     def _on_variable_write(self, *args) -> None:
         if self._variable is not None and not self._is_dragging:
@@ -221,9 +230,9 @@ class Slider(BaseControl):
         prog = self._value_to_progress()
 
         # Clear parent background
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self.outer_bg)
 
-        track_bg = resolve_color_failsafe(self._custom_track_color or pal.track_bg, palette=pal)
+        track_bg = resolve_color_failsafe(self._custom_track_color or self.inner_bg or pal.track_bg, palette=pal)
         active_bg = resolve_color_failsafe(self._custom_active_color or pal.primary, palette=pal)
         if self.is_disabled:
             track_bg = resolve_color_failsafe(pal.surface_border, palette=pal)

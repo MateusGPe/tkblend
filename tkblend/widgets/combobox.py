@@ -255,13 +255,15 @@ class ComboBox(BaseControl):
         width: int = 160,
         height: int = 34,
         cursor: Optional[str] = None,
+        inner_bg: Optional[str] = None,
+        outer_bg: Optional[str] = None,
+        parent_bg: Optional[str] = None,
         **kwargs,
     ):
         raw_vals = values or ["Option 1", "Option 2"]
         self._values = [str(v) for v in raw_vals]
         self._value = selected_value or default_value or (self._values[0] if self._values else "")
         self._command = command
-        self._custom_bg = bg_color
         self._custom_text_color = text_color
         self._custom_border = border_color
         self._border_width = float(border_width)
@@ -277,12 +279,17 @@ class ComboBox(BaseControl):
             height=height,
             cursor=cursor or CURSOR_HAND,
             takefocus=True,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             **kwargs,
         )
 
         self.bind("<Button-1>", self._on_click)
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.input_bg
 
     @property
     def values(self) -> List[str]:
@@ -309,6 +316,22 @@ class ComboBox(BaseControl):
             self.set(self._values[index])
             return index
         return None
+
+    def on_theme_update(self, pal: Palette) -> None:
+        if self._active_popup and self._active_popup.winfo_exists():
+            try:
+                self._active_popup.destroy()
+            except Exception:
+                pass
+            self._active_popup = None
+            self._popup_active = False
+
+        # If dropdown values contain theme names (e.g. theme switcher), synchronize selected value
+        norm_theme = pal.name.lower()
+        for v in self._values:
+            if v.lower() == norm_theme:
+                self._value = v
+                break
 
     def _on_enter(self, event) -> None:
         self._is_hovered = True
@@ -347,15 +370,15 @@ class ComboBox(BaseControl):
         h = float(height)
 
         cr = self._corner_radius * s
-        bg_col = resolve_color_failsafe(self._custom_bg or pal.input_bg, palette=pal)
+        bg_col = self.inner_bg
         txt_col = resolve_color_failsafe(self._custom_text_color or pal.fg, palette=pal)
         border_col = resolve_color_failsafe(
             self._custom_border or (pal.primary if (self._is_hovered or self._popup_active) else pal.border),
             palette=pal,
         )
 
-        # Clear background with parent bg
-        surf.clear(self._resolved_parent_bg)
+        # Clear background with outer bg
+        surf.clear(self.outer_bg)
 
         # Background & border
         surf.fill_rounded_rect(0.0, 0.0, w, h, cr, cr, bg_col)

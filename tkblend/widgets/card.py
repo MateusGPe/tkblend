@@ -31,7 +31,7 @@ from tkblend.widgets.constants import (
 class Card(BaseControl):
     """
     Modern container card with soft drop shadow, rounded corners, and border.
-    Conforms to the compound container background protocol (.bg_color).
+    Conforms to the compound container background protocol (.bg_color / .inner_bg).
     """
 
     def __init__(
@@ -40,7 +40,10 @@ class Card(BaseControl):
         width: int = DEFAULT_CARD_WIDTH,
         height: int = DEFAULT_CARD_HEIGHT,
         corner_radius: float = DEFAULT_CARD_CORNER_RADIUS,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
         bg_color: Optional[ColorLike] = None,
+        parent_bg: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
         border_width: float = DEFAULT_CARD_BORDER_WIDTH,
         shadow: bool = True,
@@ -49,11 +52,11 @@ class Card(BaseControl):
         shadow_offset_x: float = DEFAULT_CARD_SHADOW_OFFSET_X,
         shadow_offset_y: float = DEFAULT_CARD_SHADOW_OFFSET_Y,
         shadow_color: Optional[ColorLike] = None,
+        shadow_insets: bool = True,
         cursor: Optional[str] = None,
         **kwargs,
     ):
         self._corner_radius = float(corner_radius)
-        self._custom_card_bg = bg_color
         self._custom_border_color = border_color
         self._border_width = float(border_width)
 
@@ -63,11 +66,14 @@ class Card(BaseControl):
         self._shadow_offset_x = float(shadow_offset_x)
         self._shadow_offset_y = float(shadow_offset_y)
         self._custom_shadow_color = shadow_color
+        self._shadow_insets = shadow_insets
 
         super().__init__(
             master=master,
             width=width,
             height=height,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             cursor=cursor or CURSOR_DEFAULT,
             takefocus=False,
             **kwargs,
@@ -77,13 +83,15 @@ class Card(BaseControl):
         self.pack_propagate(True)
         self.grid_propagate(True)
 
-    @property
-    def bg_color(self) -> str:
-        """Return the active inner surface fill color for child recursion."""
-        return resolve_color_failsafe(self._custom_card_bg or self._palette.card_bg, palette=self._palette)
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.card_bg
+
+    def set_inner_bg(self, color: ColorLike, render: bool = True, explicit: bool = True) -> None:
+        super().set_inner_bg(color, render=render, explicit=explicit)
+        cascade_bg_to_children(self, self.inner_bg, palette=self._palette)
 
     def on_theme_update(self, pal: Palette) -> None:
-        inner_bg = self.bg_color
+        inner_bg = self.inner_bg
         cascade_bg_to_children(self, inner_bg, palette=pal)
 
     def render(self, surf: Surface, pal: Palette, width: int, height: int, scale: float) -> None:
@@ -94,7 +102,7 @@ class Card(BaseControl):
         rx = self._corner_radius * s
         ry = rx
 
-        card_bg = resolve_color_failsafe(self._custom_card_bg or pal.card_bg, palette=pal)
+        card_bg = self.inner_bg
         border_col = resolve_color_failsafe(self._custom_border_color or pal.card_border, palette=pal)
         bw = self._border_width * s
 
@@ -104,8 +112,8 @@ class Card(BaseControl):
         sh_ox = self._shadow_offset_x * s if self._shadow else 0.0
         sh_oy = self._shadow_offset_y * s if self._shadow else 0.0
 
-        # Clear background with parent background
-        surf.clear(self._resolved_parent_bg)
+        # Clear background with outer background
+        surf.clear(self.outer_bg)
 
         # Draw card with soft shadow, fill, and border
         surf.draw_card(

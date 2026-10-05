@@ -48,6 +48,10 @@ class CircularProgress(BaseControl):
         start_angle: float = -90.0,
         sweep_angle: float = 360.0,
         cursor: Optional[str] = None,
+        inner_bg: Optional[str] = None,
+        outer_bg: Optional[str] = None,
+        parent_bg: Optional[str] = None,
+        bg_color: Optional[str] = None,
         **kwargs,
     ):
         if thickness is not None:
@@ -74,8 +78,15 @@ class CircularProgress(BaseControl):
             height=size,
             cursor=cursor or CURSOR_DEFAULT,
             takefocus=False,
+            inner_bg=inner_bg,
+            outer_bg=outer_bg,
+            parent_bg=parent_bg,
+            bg_color=bg_color,
             **kwargs,
         )
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.track_bg
 
     @property
     def value(self) -> float:
@@ -104,12 +115,12 @@ class CircularProgress(BaseControl):
         sw = self._stroke_w * s
         r = min(w, h) / 2.0 - sw / 2.0 - 2.0 * s
 
-        track_col = resolve_color_failsafe(self._custom_track_color or pal.track_bg, palette=pal)
+        track_col = resolve_color_failsafe(self._custom_track_color or self.inner_bg or pal.track_bg, palette=pal)
         fill_col = resolve_color_failsafe(self._custom_fill_color or pal.primary, palette=pal)
         text_col = resolve_color_failsafe(self._custom_text_color or pal.fg, palette=pal)
 
-        # Clear parent background
-        surf.clear(self._resolved_parent_bg)
+        # Clear outer background
+        surf.clear(self.outer_bg)
 
         # Draw full background track
         if self._sweep_angle >= 359.9:

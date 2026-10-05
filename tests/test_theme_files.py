@@ -20,6 +20,8 @@ from tkblend import (
     THEME_PRESETS,
     Palette,
     BlendDecorator,
+    get_contrast_color,
+    SLATE_PALETTE,
 )
 
 
@@ -148,3 +150,30 @@ def test_soft_shadow_rendering(tk_root):
     assert card.winfo_reqwidth() > 0
     assert card.winfo_reqheight() > 0
     card.destroy()
+
+
+def test_theme_aliases_and_slate():
+    """Verify theme aliases (forest, neon) and slate theme work properly."""
+    set_theme("forest")
+    assert get_theme().bg == THEME_PRESETS["emerald_forest"].bg
+
+    set_theme("neon")
+    assert get_theme().bg == THEME_PRESETS["cyberpunk"].bg
+
+    set_theme("slate")
+    assert get_theme().bg == "#0f172a"
+    assert get_theme().primary == "#38bdf8"
+    assert "slate" in THEME_PRESETS
+
+
+def test_get_contrast_color():
+    """Verify get_contrast_color returns white on dark/saturated colors and dark on light colors."""
+    assert get_contrast_color("#000000") == "#ffffff"
+    assert get_contrast_color("#100e14") == "#ffffff"
+    assert get_contrast_color("#10b981") == "#ffffff"  # Emerald green
+    assert get_contrast_color("#ef4444") == "#ffffff"  # Red
+    assert get_contrast_color("#8b5cf6") == "#ffffff"  # Vivid purple
+    assert get_contrast_color("#ffffff") == "#0f172a"  # White
+    assert get_contrast_color("#f8f9fa") == "#0f172a"  # Light gray
+    assert get_contrast_color("#fbbf24") == "#0f172a"  # Amber/yellow
+

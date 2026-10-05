@@ -98,7 +98,10 @@ class BaseControl(tk.Frame):
         master: Optional[tk.Misc] = None,
         width: int = DEFAULT_BASE_WIDTH,
         height: int = DEFAULT_BASE_HEIGHT,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
         parent_bg: Optional[ColorLike] = None,
+        bg_color: Optional[ColorLike] = None,
         cursor: Optional[str] = None,
         takefocus: bool = True,
         state: str = STATE_NORMAL,
@@ -106,7 +109,9 @@ class BaseControl(tk.Frame):
     ):
         self._logical_w = int(width)
         self._logical_h = int(height)
-        self._explicit_parent_bg = parent_bg
+        self._explicit_outer_bg = outer_bg if outer_bg is not None else parent_bg
+        self._explicit_inner_bg = inner_bg if inner_bg is not None else bg_color
+        self._explicit_parent_bg = self._explicit_outer_bg
         self._state_str = state
         self._takefocus = takefocus
         self._cursor_pref = cursor
@@ -114,15 +119,23 @@ class BaseControl(tk.Frame):
         self._scale_factor = ScalingTracker.get_scaling_factor(master)
         self._idle_redraw_id: Optional[str] = None
 
-        # Resolve initial theme palette & background
+        # Resolve initial theme palette & backgrounds
         self._palette = get_theme()
-        resolved_bg = (
-            resolve_color_failsafe(parent_bg, palette=self._palette)
-            if parent_bg is not None
+        resolved_outer = (
+            resolve_color_failsafe(self._explicit_outer_bg, palette=self._palette)
+            if self._explicit_outer_bg is not None
             else resolve_ancestor_bg(master, self._palette)
         )
-        self._resolved_parent_bg = resolved_bg
-        tk_bg = to_tk_hex(resolved_bg, fallback=FALLBACK_DARK_BG if self._palette.dark_mode else FALLBACK_LIGHT_BG)
+        self._resolved_outer_bg = resolved_outer
+        self._resolved_parent_bg = resolved_outer
+
+        resolved_inner = (
+            resolve_color_failsafe(self._explicit_inner_bg, palette=self._palette)
+            if self._explicit_inner_bg is not None
+            else self._default_inner_bg(self._palette)
+        )
+        self._resolved_inner_bg = resolved_inner
+        tk_bg = to_tk_hex(resolved_outer, fallback=FALLBACK_DARK_BG if self._palette.dark_mode else FALLBACK_LIGHT_BG)
 
         # Compute initial scaled geometry
         scale = self._scale_factor
@@ -149,7 +162,7 @@ class BaseControl(tk.Frame):
             auto_hover=False,
             auto_press=False,
             auto_focus=False,
-            parent_bg=self._resolved_parent_bg,
+            parent_bg=self._resolved_outer_bg,
         )
         self._controller.set_geometry_request(init_w, init_h)
 
@@ -171,6 +184,10 @@ class BaseControl(tk.Frame):
         self.bind("<Configure>", self._on_tk_configure, add="+")
         self.bind("<Map>", self._on_tk_map, add="+")
         self.bind("<Destroy>", self._on_tk_destroy, add="+")
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        """Subclasses can override to define their default semantic theme inner color."""
+        return pal.bg
 
     @property
     def controller(self) -> NativeController:
@@ -217,19 +234,73 @@ class BaseControl(tk.Frame):
         self.request_redraw()
 
     @property
-    def bg_color(self) -> str:
-        """Expose background color for container recursion protocols."""
-        return self._resolved_parent_bg
+    def outer_bg(self) -> str:
+        """Return the active outer (parent container) background color."""
+        return self._resolved_outer_bg
 
-    def set_parent_bg(self, color: ColorLike, render: bool = True, explicit: bool = False) -> None:
-        """Update parent container background color."""
+    @outer_bg.setter
+    def outer_bg(self, color: ColorLike) -> None:
+        self.set_outer_bg(color, render=True, explicit=True)
+
+    @property
+    def parent_bg(self) -> str:
+        """Deprecated alias for outer_bg."""
+        return self._resolved_outer_bg
+
+    @parent_bg.setter
+    def parent_bg(self, color: ColorLike) -> None:
+        self.set_outer_bg(color, render=True, explicit=True)
+
+    @property
+    def inner_bg(self) -> str:
+        """Return the active inner surface/fill background color."""
+        if self._explicit_inner_bg is not None:
+            return resolve_color_failsafe(self._explicit_inner_bg, palette=self._palette)
+        if self._resolved_inner_bg is not None:
+            return self._resolved_inner_bg
+        return self._default_inner_bg(self._palette)
+
+    @inner_bg.setter
+    def inner_bg(self, color: ColorLike) -> None:
+        self.set_inner_bg(color, render=True, explicit=True)
+
+    @property
+    def bg_color(self) -> str:
+        """Alias for inner_bg used in container background protocols."""
+        return self.inner_bg
+
+    @bg_color.setter
+    def bg_color(self, color: ColorLike) -> None:
+        self.set_inner_bg(color, render=True, explicit=True)
+
+    def set_outer_bg(self, color: ColorLike, render: bool = True, explicit: bool = False) -> None:
+        """Update outer (parent container) background color."""
         if explicit:
+            self._explicit_outer_bg = color
             self._explicit_parent_bg = color
         resolved = resolve_color_failsafe(color, palette=self._palette)
+        self._resolved_outer_bg = resolved
         self._resolved_parent_bg = resolved
         self._controller.parent_bg = resolved
         if render:
             self.request_redraw()
+
+    def set_parent_bg(self, color: ColorLike, render: bool = True, explicit: bool = False) -> None:
+        """Deprecated alias for set_outer_bg."""
+        self.set_outer_bg(color, render=render, explicit=explicit)
+
+    def set_inner_bg(self, color: ColorLike, render: bool = True, explicit: bool = True) -> None:
+        """Update inner fill background color."""
+        if explicit:
+            self._explicit_inner_bg = color
+        resolved = resolve_color_failsafe(color, palette=self._palette)
+        self._resolved_inner_bg = resolved
+        if render:
+            self.request_redraw()
+
+    def set_bg_color(self, color: ColorLike, render: bool = True, explicit: bool = True) -> None:
+        """Alias for set_inner_bg."""
+        self.set_inner_bg(color, render=render, explicit=explicit)
 
     def set_geometry_request(self, width: int, height: int) -> None:
         """Set logical dimensions and request geometry update."""
@@ -275,7 +346,7 @@ class BaseControl(tk.Frame):
         h = surf.height
         if w <= 1 or h <= 1:
             return
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self._resolved_outer_bg)
         scale = self.scale_factor
         self.render(surf, self._palette, w, h, scale)
         self._controller.blit_surface(surf)
@@ -293,7 +364,7 @@ class BaseControl(tk.Frame):
         h = surf.height
         if w <= 1 or h <= 1:
             return
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self._resolved_outer_bg)
         scale = self.scale_factor
         self.render(surf, self._palette, w, h, scale)
 
@@ -328,12 +399,18 @@ class BaseControl(tk.Frame):
     # Theme lifecycle
     def _on_theme_changed(self, pal: Palette) -> None:
         self._palette = pal
-        if self._explicit_parent_bg is None:
-            self._resolved_parent_bg = resolve_ancestor_bg(self.master, pal)
-            self._controller.parent_bg = self._resolved_parent_bg
+        if self._explicit_outer_bg is None:
+            self._resolved_outer_bg = resolve_ancestor_bg(self.master, pal)
         else:
-            self._resolved_parent_bg = resolve_color_failsafe(self._explicit_parent_bg, palette=pal)
-            self._controller.parent_bg = self._resolved_parent_bg
+            self._resolved_outer_bg = resolve_color_failsafe(self._explicit_outer_bg, palette=pal)
+        self._resolved_parent_bg = self._resolved_outer_bg
+        self._controller.parent_bg = self._resolved_outer_bg
+
+        if self._explicit_inner_bg is None:
+            self._resolved_inner_bg = self._default_inner_bg(pal)
+        else:
+            self._resolved_inner_bg = resolve_color_failsafe(self._explicit_inner_bg, palette=pal)
+
         self.on_theme_update(pal)
         self.request_redraw()
 
@@ -448,16 +525,11 @@ class BaseControl(tk.Frame):
         super().destroy()
 
     def _update_cursor(self) -> None:
-        if self.is_disabled:
-            try:
-                self.configure(cursor="")
-            except Exception:
-                pass
-        else:
-            try:
-                self.configure(cursor=self._cursor_pref or "")
-            except Exception:
-                pass
+        cur = "" if self.is_disabled else (self._cursor_pref or "")
+        try:
+            super().configure(cursor=cur)
+        except Exception:
+            pass
 
     # Smooth Property Animation Helper
     def animate_property(
@@ -578,19 +650,12 @@ class BaseControl(tk.Frame):
             if hasattr(self, "_border_color"):
                 self._border_color = val
                 return True
-        if key == "bg_color":
-            if hasattr(self, "_custom_bg_color"):
-                self._custom_bg_color = val
-                return True
-            if hasattr(self, "_custom_card_bg"):
-                self._custom_card_bg = val
-                return True
-            if hasattr(self, "_custom_bg"):
-                self._custom_bg = val
-                return True
-            if hasattr(self, "_bg_color"):
-                self._bg_color = val
-                return True
+        if key in ("bg_color", "inner_bg"):
+            self.set_inner_bg(val, render=False, explicit=True)
+            return True
+        if key in ("outer_bg", "parent_bg", "bg", "background"):
+            self.set_outer_bg(val, render=False, explicit=True)
+            return True
         if key == "fg_color":
             if hasattr(self, "_custom_fg_color"):
                 self._custom_fg_color = val
@@ -752,12 +817,18 @@ class BaseControl(tk.Frame):
         if "cursor" in kwargs:
             self._cursor_pref = kwargs.pop("cursor")
             self._update_cursor()
+        if "outer_bg" in kwargs:
+            self.set_outer_bg(kwargs.pop("outer_bg"), explicit=True)
+        if "parent_bg" in kwargs:
+            self.set_outer_bg(kwargs.pop("parent_bg"), explicit=True)
+        if "inner_bg" in kwargs:
+            self.set_inner_bg(kwargs.pop("inner_bg"), explicit=True)
+        if "bg_color" in kwargs:
+            self.set_inner_bg(kwargs.pop("bg_color"), explicit=True)
         if "bg" in kwargs or "background" in kwargs:
             bg_val = kwargs.pop("bg", kwargs.pop("background", None))
             if bg_val is not None:
-                self.set_parent_bg(bg_val, explicit=True)
-        if "parent_bg" in kwargs:
-            self.set_parent_bg(kwargs.pop("parent_bg"), explicit=True)
+                self.set_outer_bg(bg_val, explicit=True)
 
         keys_to_remove = []
         for key, val in kwargs.items():
@@ -785,8 +856,12 @@ class BaseControl(tk.Frame):
             return self._logical_w
         if key == "height":
             return self._logical_h
-        if key in ("bg", "background", "parent_bg"):
-            return self._resolved_parent_bg
+        if key in ("outer_bg", "parent_bg"):
+            return self._resolved_outer_bg
+        if key in ("inner_bg", "bg_color"):
+            return self.inner_bg
+        if key in ("bg", "background"):
+            return self._resolved_outer_bg
         if key == "cursor":
             return self._cursor_pref
         if key in ("corner_radius", "radius") and hasattr(self, "_corner_radius"):

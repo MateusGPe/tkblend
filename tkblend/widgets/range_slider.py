@@ -41,6 +41,10 @@ class RangeSlider(BaseControl):
         width: int = 240,
         height: int = 32,
         cursor: Optional[str] = None,
+        inner_bg: Optional[str] = None,
+        outer_bg: Optional[str] = None,
+        parent_bg: Optional[str] = None,
+        bg_color: Optional[str] = None,
         **kwargs,
     ):
         self._from = float(from_)
@@ -65,6 +69,10 @@ class RangeSlider(BaseControl):
             height=height,
             cursor=cursor or CURSOR_HAND,
             takefocus=True,
+            inner_bg=inner_bg,
+            outer_bg=outer_bg,
+            parent_bg=parent_bg,
+            bg_color=bg_color,
             **kwargs,
         )
 
@@ -73,6 +81,9 @@ class RangeSlider(BaseControl):
         self.bind("<ButtonRelease-1>", self._on_release)
         self.bind("<Motion>", self._on_motion)
         self.bind("<Leave>", self._on_leave)
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.track_bg
 
     def get(self) -> Tuple[float, float]:
         return (self._low, self._high)
@@ -185,12 +196,12 @@ class RangeSlider(BaseControl):
         th_r = self._thumb_radius * s
         pad = th_r + 4.0 * s
 
-        tr_col = resolve_color_failsafe(self._track_color or pal.track_bg, palette=pal)
+        tr_col = resolve_color_failsafe(self._track_color or self.inner_bg or pal.track_bg, palette=pal)
         act_col = resolve_color_failsafe(self._active_color or pal.primary, palette=pal)
         th_col = resolve_color_failsafe(self._thumb_color or pal.thumb_color, palette=pal)
 
         # 1. Full track
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self.outer_bg)
         surf.fill_rounded_rect(pad, cy - tr_r, w - pad * 2.0, tr_h, tr_r, tr_r, tr_col)
 
         # 2. Highlighted range track

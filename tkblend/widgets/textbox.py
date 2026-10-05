@@ -39,8 +39,11 @@ class Entry(BaseControl):
         textvariable: Optional[tk.StringVar] = None,
         font: Optional[Any] = None,
         font_size: float = 11.0,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
         fg_color: Optional[ColorLike] = None,
         bg_color: Optional[ColorLike] = None,
+        parent_bg: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
         border_width: float = 1.0,
         corner_radius: float = 6.0,
@@ -53,7 +56,6 @@ class Entry(BaseControl):
     ):
         self._placeholder = placeholder_text if placeholder_text is not None else placeholder
         self._custom_fg = fg_color
-        self._custom_bg = bg_color
         self._custom_border = border_color
         self._border_width = float(border_width)
         self._corner_radius = float(corner_radius)
@@ -66,6 +68,8 @@ class Entry(BaseControl):
             master=master,
             width=width,
             height=height,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             cursor=cursor or CURSOR_IBEAM,
             takefocus=False,
             **kwargs,
@@ -92,9 +96,8 @@ class Entry(BaseControl):
         self._place_inner_entry()
         self._sync_colors()
 
-    @property
-    def bg_color(self) -> str:
-        return resolve_color_failsafe(self._custom_bg or self._palette.input_bg, palette=self._palette)
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.input_bg
 
     def _place_inner_entry(self) -> None:
         s = self._scale_factor
@@ -122,7 +125,7 @@ class Entry(BaseControl):
 
     def _sync_colors(self) -> None:
         pal = self._palette
-        bg = resolve_color_failsafe(self._custom_bg or pal.input_bg, palette=pal)
+        bg = self.inner_bg
         fg = resolve_color_failsafe(self._custom_fg or pal.fg, palette=pal)
         insert_bg = resolve_color_failsafe(pal.primary, palette=pal)
         self._entry.configure(
@@ -151,14 +154,14 @@ class Entry(BaseControl):
         h = float(height)
 
         cr = self._corner_radius * s
-        bg_col = resolve_color_failsafe(self._custom_bg or pal.input_bg, palette=pal)
+        bg_col = self.inner_bg
         border_col = resolve_color_failsafe(
             self._custom_border or (pal.primary if self._is_focused else pal.border),
             palette=pal,
         )
 
         # Clear parent background
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self.outer_bg)
 
         # Rounded background & border
         surf.fill_rounded_rect(0.0, 0.0, w, h, cr, cr, bg_col)
@@ -215,8 +218,11 @@ class TextBox(BaseControl):
         height: int = 140,
         font: Optional[Any] = None,
         font_size: float = 11.0,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
         fg_color: Optional[ColorLike] = None,
         bg_color: Optional[ColorLike] = None,
+        parent_bg: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
         border_width: float = 1.0,
         corner_radius: float = 8.0,
@@ -225,7 +231,6 @@ class TextBox(BaseControl):
         **kwargs,
     ):
         self._custom_fg = fg_color
-        self._custom_bg = bg_color
         self._custom_border = border_color
         self._border_width = float(border_width)
         self._corner_radius = float(corner_radius)
@@ -237,6 +242,8 @@ class TextBox(BaseControl):
             master=master,
             width=width,
             height=height,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             cursor=cursor or CURSOR_DEFAULT,
             takefocus=False,
             **kwargs,
@@ -258,9 +265,8 @@ class TextBox(BaseControl):
         self._place_inner_text()
         self._sync_colors()
 
-    @property
-    def bg_color(self) -> str:
-        return resolve_color_failsafe(self._custom_bg or self._palette.input_bg, palette=self._palette)
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.input_bg
 
     def _place_inner_text(self) -> None:
         s = self._scale_factor
@@ -284,7 +290,7 @@ class TextBox(BaseControl):
 
     def _sync_colors(self) -> None:
         pal = self._palette
-        bg = resolve_color_failsafe(self._custom_bg or pal.input_bg, palette=pal)
+        bg = self.inner_bg
         fg = resolve_color_failsafe(self._custom_fg or pal.fg, palette=pal)
         insert_bg = resolve_color_failsafe(pal.primary, palette=pal)
         self._text_widget.configure(
@@ -311,13 +317,13 @@ class TextBox(BaseControl):
         h = float(height)
 
         cr = self._corner_radius * s
-        bg_col = resolve_color_failsafe(self._custom_bg or pal.input_bg, palette=pal)
+        bg_col = self.inner_bg
         border_col = resolve_color_failsafe(
             self._custom_border or (pal.primary if self._is_focused else pal.border),
             palette=pal,
         )
 
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self.outer_bg)
         surf.fill_rounded_rect(0.0, 0.0, w, h, cr, cr, bg_col)
         bw = (2.0 if self._is_focused else self._border_width) * s
         if bw > 0.0:

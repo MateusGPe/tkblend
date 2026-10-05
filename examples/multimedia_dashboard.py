@@ -217,7 +217,7 @@ class MultimediaDashboard(tk.Frame):
         self._theme_opt = OptionMenu(
             header,
             values=get_available_themes(),
-            default_value="dark",
+            default_value=pal.name,
             command=self._on_theme_change,
             width=130,
             height=30,

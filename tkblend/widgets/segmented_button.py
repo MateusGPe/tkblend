@@ -47,6 +47,10 @@ class SegmentedButton(BaseControl):
         width: int = 280,
         height: int = 36,
         cursor: Optional[str] = None,
+        inner_bg: Optional[str] = None,
+        outer_bg: Optional[str] = None,
+        parent_bg: Optional[str] = None,
+        bg_color: Optional[str] = None,
         **kwargs,
     ):
         raw_vals = values or ["Option 1", "Option 2"]
@@ -73,6 +77,10 @@ class SegmentedButton(BaseControl):
             height=height,
             cursor=cursor or CURSOR_HAND,
             takefocus=True,
+            inner_bg=inner_bg,
+            outer_bg=outer_bg,
+            parent_bg=parent_bg,
+            bg_color=bg_color,
             **kwargs,
         )
 
@@ -81,6 +89,9 @@ class SegmentedButton(BaseControl):
         self.bind("<Leave>", self._on_leave)
         self.bind("<Left>", self._on_key_left)
         self.bind("<Right>", self._on_key_right)
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.track_bg
 
     @property
     def values(self) -> List[str]:
@@ -178,13 +189,13 @@ class SegmentedButton(BaseControl):
             return
 
         cr = (self._corner_radius if self._corner_radius is not None else (h / 2.0 / s)) * s
-        track_col = resolve_color_failsafe(self._track_color or pal.track_bg, palette=pal)
+        track_col = resolve_color_failsafe(self._track_color or self.inner_bg or pal.track_bg, palette=pal)
         act_col = resolve_color_failsafe(self._active_color or pal.primary, palette=pal)
         txt_col = resolve_color_failsafe(self._text_color or pal.fg, palette=pal)
         act_txt_col = resolve_color_failsafe(self._active_text_color or "#FFFFFF", palette=pal)
 
         # 1. Background Track
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self.outer_bg)
         surf.fill_rounded_rect(0.0, 0.0, w, h, cr, cr, track_col)
         surf.stroke_rounded_rect(0.0, 0.0, w, h, cr, cr, pal.border, stroke_width=1.0 * s)
 

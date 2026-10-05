@@ -34,7 +34,10 @@ class Tabview(BaseControl):
         width: int = 400,
         height: int = 300,
         corner_radius: float = 8.0,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
         bg_color: Optional[ColorLike] = None,
+        parent_bg: Optional[ColorLike] = None,
         border_color: Optional[ColorLike] = None,
         border_width: float = 1.0,
         command: Optional[Callable[[str], None]] = None,
@@ -42,7 +45,6 @@ class Tabview(BaseControl):
         **kwargs,
     ):
         self._corner_radius = float(corner_radius)
-        self._custom_bg = bg_color
         self._custom_border = border_color
         self._border_width = float(border_width)
         self._command = command
@@ -55,6 +57,8 @@ class Tabview(BaseControl):
             master=master,
             width=width,
             height=height,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             cursor=cursor or CURSOR_DEFAULT,
             takefocus=False,
             **kwargs,
@@ -65,17 +69,17 @@ class Tabview(BaseControl):
             self,
             values=["Tab 1"],
             command=self._on_tab_switched,
+            outer_bg=self.inner_bg,
             height=32,
         )
 
         # Content container
-        self._container = tk.Frame(self, background=to_tk_hex(self.bg_color))
+        self._container = tk.Frame(self, background=to_tk_hex(self.inner_bg))
 
         self._layout_components()
 
-    @property
-    def bg_color(self) -> str:
-        return resolve_color_failsafe(self._custom_bg or self._palette.card_bg, palette=self._palette)
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.card_bg
 
     def _layout_components(self) -> None:
         s = self._scale_factor
@@ -97,7 +101,7 @@ class Tabview(BaseControl):
         if name_str in self._tabs:
             return self._tabs[name_str]
 
-        tab_frame = tk.Frame(self._container, background=to_tk_hex(self.bg_color))
+        tab_frame = tk.Frame(self._container, background=to_tk_hex(self.inner_bg))
         self._tabs[name_str] = tab_frame
         self._tab_names.append(name_str)
         self._tab_bar.values = list(self._tab_names)
@@ -137,11 +141,13 @@ class Tabview(BaseControl):
         self.set(name)
 
     def on_theme_update(self, pal: Palette) -> None:
-        bg_hex = to_tk_hex(self.bg_color)
+        bg_hex = to_tk_hex(self.inner_bg)
         self._container.configure(background=bg_hex)
+        if hasattr(self, "_tab_bar"):
+            self._tab_bar.set_outer_bg(self.inner_bg)
         for tframe in self._tabs.values():
             tframe.configure(background=bg_hex)
-            cascade_bg_to_children(tframe, self.bg_color, palette=pal)
+            cascade_bg_to_children(tframe, self.inner_bg, palette=pal)
 
     def render(self, surf: Surface, pal: Palette, width: int, height: int, scale: float) -> None:
         s = scale
@@ -149,10 +155,10 @@ class Tabview(BaseControl):
         h = float(height)
 
         cr = self._corner_radius * s
-        bg_col = resolve_color_failsafe(self._custom_bg or pal.card_bg, palette=pal)
+        bg_col = self.inner_bg
         border_col = resolve_color_failsafe(self._custom_border or pal.card_border, palette=pal)
 
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self.outer_bg)
         surf.fill_rounded_rect(0.0, 0.0, w, h, cr, cr, bg_col)
         if self._border_width > 0.0:
             surf.stroke_rounded_rect(0.0, 0.0, w, h, cr, cr, border_col, stroke_width=self._border_width * s)

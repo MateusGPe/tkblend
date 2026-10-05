@@ -315,3 +315,81 @@ def test_to_tk_hex():
     assert to_tk_hex("rgb(10, 20, 30)") == "#0a141e"
     assert to_tk_color("#12345678") == "#123456"
 
+
+def test_cascade_bg_preserves_card_hierarchy_and_contrast(root):
+    from tkblend.widgets.card import Card
+    from tkblend.theme import cascade_bg_to_children, get_theme, to_tk_hex, get_contrast_color
+    set_theme("dark")
+    pal = get_theme()
+
+    card = Card(root, width=300, height=200)
+    frame = tk.Frame(card)
+    lbl_title = tk.Label(frame, text="Header Title", font=("sans-serif", 12, "bold"))
+    lbl_desc = tk.Label(frame, text="Description", font=("sans-serif", 9))
+
+    cascade_bg_to_children(card, card.bg_color, palette=pal)
+    root.update_idletasks()
+
+    # Verify frame and labels inherit card_bg and have high contrast
+    assert frame.cget("background").lower() == to_tk_hex(pal.card_bg).lower()
+    assert lbl_title.cget("background").lower() == to_tk_hex(pal.card_bg).lower()
+    # Foreground must have high contrast against card_bg
+    assert get_contrast_color(lbl_title.cget("background")) != get_contrast_color(lbl_title.cget("foreground"))
+
+    # Switch theme to light and verify cascade
+    set_theme("light")
+    new_pal = get_theme()
+    cascade_bg_to_children(card, card.bg_color, palette=new_pal)
+    root.update_idletasks()
+
+    assert frame.cget("background").lower() == to_tk_hex(new_pal.card_bg).lower()
+    assert lbl_title.cget("background").lower() == to_tk_hex(new_pal.card_bg).lower()
+    assert lbl_title.cget("foreground").lower() == to_tk_hex(new_pal.fg).lower()
+    assert get_contrast_color(lbl_title.cget("background")) != get_contrast_color(lbl_title.cget("foreground"))
+
+    card.destroy()
+
+
+def test_combobox_syncs_with_global_theme(root):
+    from tkblend.widgets.combobox import OptionMenu
+    from tkblend.theme import get_available_themes, set_theme, get_theme
+
+    set_theme("dark")
+    themes = get_available_themes()
+    assert "light" in themes
+    assert "dark" in themes
+
+    opt = OptionMenu(root, values=themes, default_value="dark")
+    assert opt.get() == "dark"
+
+    # Global theme switch
+    set_theme("light")
+    root.update_idletasks()
+    assert opt.get() == "light"
+
+    set_theme("cyberpunk")
+    root.update_idletasks()
+    assert opt.get() == "cyberpunk"
+
+    # Reset
+    set_theme("dark")
+    opt.destroy()
+
+
+def test_contrast_across_all_registered_presets():
+    from tkblend.theme import THEME_PRESETS, get_contrast_color, set_theme, get_theme
+    for name, pal in THEME_PRESETS.items():
+        set_theme(name)
+        active = get_theme()
+        # Ensure card_bg and bg have high contrast text
+        fg_card = get_contrast_color(active.card_bg)
+        fg_bg = get_contrast_color(active.bg)
+        fg_primary = get_contrast_color(active.primary)
+
+        assert fg_card in ("#ffffff", "#0f172a")
+        assert fg_bg in ("#ffffff", "#0f172a")
+        assert fg_primary in ("#ffffff", "#0f172a")
+
+    set_theme("dark")
+
+

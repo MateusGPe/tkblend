@@ -203,9 +203,10 @@ class TelemetryChart(BlendCanvas):
         area_path.line_to(pts[-1][0], bottom_y)
         area_path.close()
 
-        grad = LinearGradient(0, 0, 0, bottom_y)
-        grad.add_stop(0.0, color)
-        grad.add_stop(1.0, pal.card_bg)
+        min_y = min(p[1] for p in pts)
+        grad = LinearGradient(0, min_y, 0, bottom_y)
+        grad.add_stop(0.0, color, alpha=0.35)
+        grad.add_stop(1.0, color, alpha=0.0)
         self._surface.fill_path(area_path, grad)
 
         # Stroke curve
@@ -248,7 +249,7 @@ class AnalyticsDashboard(tk.Frame):
         self._theme_opt = OptionMenu(
             header_card,
             values=theme_names,
-            default_value="dark",
+            default_value=pal.name,
             command=self._on_change_theme,
             width=130,
             height=30,
@@ -387,6 +388,11 @@ class AnalyticsDashboard(tk.Frame):
         self.configure(background=pal.bg)
         cascade_bg_to_children(self, pal.bg, palette=pal)
         self._telemetry_chart.redraw()
+        for sp in self._kpi_sparklines:
+            sp.request_redraw()
+        self._cpu_gauge.request_redraw()
+        self._mem_gauge.request_redraw()
+        self._table.request_redraw()
 
     def _toggle_streaming(self, is_on: bool) -> None:
         self._is_streaming = is_on

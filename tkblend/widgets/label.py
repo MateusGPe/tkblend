@@ -54,6 +54,9 @@ class Label(BaseControl):
         italic: Optional[bool] = None,
         fg_color: Optional[ColorLike] = None,
         bg_color: Optional[ColorLike] = None,
+        inner_bg: Optional[str] = None,
+        outer_bg: Optional[str] = None,
+        parent_bg: Optional[str] = None,
         corner_radius: float = DEFAULT_LABEL_CORNER_RADIUS,
         border_color: Optional[ColorLike] = None,
         border_width: float = DEFAULT_LABEL_BORDER_WIDTH,
@@ -74,7 +77,6 @@ class Label(BaseControl):
         self._italic = italic
 
         self._custom_fg_color = fg_color
-        self._custom_bg_color = bg_color
         self._corner_radius = float(corner_radius)
         self._custom_border_color = border_color
         self._border_width = float(border_width)
@@ -91,8 +93,13 @@ class Label(BaseControl):
             height=eff_h,
             cursor=cursor or CURSOR_DEFAULT,
             takefocus=False,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             **kwargs,
         )
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.bg
 
     def _calc_auto_width(self) -> int:
         f_sz = self._font_size or DEFAULT_FONT_SIZE
@@ -133,9 +140,12 @@ class Label(BaseControl):
         w = float(width)
         h = float(height)
 
-        # Optional pill background
-        if self._custom_bg_color is not None:
-            bg_col = resolve_color_failsafe(self._custom_bg_color, palette=pal)
+        # Clear outer background
+        surf.clear(self.outer_bg)
+
+        # Optional pill background if explicitly set
+        if self._explicit_inner_bg is not None:
+            bg_col = self.inner_bg
             rx = self._corner_radius * s
             ry = rx
             surf.fill_rounded_rect(0.0, 0.0, w, h, rx, ry, bg_col)

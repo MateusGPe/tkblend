@@ -56,6 +56,10 @@ class ProgressBar(BaseControl):
         animated: bool = True,
         cursor: Optional[str] = None,
         state: str = STATE_NORMAL,
+        inner_bg: Optional[str] = None,
+        outer_bg: Optional[str] = None,
+        parent_bg: Optional[str] = None,
+        bg_color: Optional[str] = None,
         **kwargs,
     ):
         self._mode = mode.lower()
@@ -92,8 +96,15 @@ class ProgressBar(BaseControl):
             cursor=cursor or CURSOR_DEFAULT,
             state=state,
             takefocus=False,
+            inner_bg=inner_bg,
+            outer_bg=outer_bg,
+            parent_bg=parent_bg,
+            bg_color=bg_color,
             **kwargs,
         )
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.track_bg
 
     def _on_variable_write(self, *args) -> None:
         if self._variable is not None:
@@ -155,11 +166,11 @@ class ProgressBar(BaseControl):
         rx = (self._corner_radius * s) if self._corner_radius is not None else (h / 2.0)
         ry = rx
 
-        track_bg = resolve_color_failsafe(self._custom_track_color or pal.track_bg, palette=pal)
+        track_bg = resolve_color_failsafe(self._custom_track_color or self.inner_bg or pal.track_bg, palette=pal)
         bar_bg = resolve_color_failsafe(self._custom_progress_color or pal.primary, palette=pal)
 
-        # Clear parent background
-        surf.clear(self._resolved_parent_bg)
+        # Clear outer background
+        surf.clear(self.outer_bg)
         if self.is_disabled:
             track_bg = resolve_color_failsafe(pal.surface_border, palette=pal)
             bar_bg = resolve_color_failsafe(pal.text_muted, palette=pal)

@@ -72,6 +72,10 @@ class BlendDecorator(tk.Widget):
         # Obtain Tcl_Interp address from Tkinter interpreter
         interp_addr = extract_interp_address(master)
 
+        # Store requested inner card geometry
+        self._card_width = int(width)
+        self._card_height = int(height)
+
         # Instantiate the underlying C++ NativeDecorator
         self._native = _NativeDecorator(
             interp_addr,
@@ -108,6 +112,15 @@ class BlendDecorator(tk.Widget):
         init_border_focus = parse_color(border_focus_color) if border_focus_color is not None else None
         init_shadow_color = parse_color(shadow_color) if shadow_color is not None else _NativeColor(0, 0, 0, 30)
 
+        self._hover_bg_hex = (
+            f"#{init_hover_bg.r:02x}{init_hover_bg.g:02x}{init_hover_bg.b:02x}"
+            if init_hover_bg is not None else None
+        )
+        self._focus_bg_hex = (
+            f"#{init_focus_bg.r:02x}{init_focus_bg.g:02x}{init_focus_bg.b:02x}"
+            if init_focus_bg is not None else None
+        )
+
         self._native.set_style(
             bg_color=init_bg,
             hover_bg_color=init_hover_bg,
@@ -135,10 +148,24 @@ class BlendDecorator(tk.Widget):
 
         self._child: Optional[tk.Widget] = None
         self._child_padding: Tuple[int, int, int, int] = (8, 6, 8, 6)
+        self._match_bg: bool = True
+
+        # Calculate outer geometry accounting for drop shadow and focus ring insets
+        self._update_geometry_request()
 
         # Register dynamic theme listener and destruction cleanup
         self.bind("<Destroy>", self._on_destroy_event, add="+")
+        self.bind("<Enter>", lambda e: self._on_hover_state_change(True), add="+")
+        self.bind("<Leave>", lambda e: self._on_hover_state_change(False), add="+")
         add_theme_listener(self._on_theme_changed)
+
+    def _update_geometry_request(self) -> None:
+        """Update outer Tk window requested geometry to enclose card plus insets."""
+        insets = self._native.get_insets()
+        outer_w = int(self._card_width + insets[0] + insets[2])
+        outer_h = int(self._card_height + insets[1] + insets[3])
+        self._native.set_geometry_request(max(1, outer_w), max(1, outer_h))
+        self._reposition_child()
 
     def _on_destroy_event(self, event=None) -> None:
         """Proactively release listeners and child hooks when destroyed."""
@@ -163,10 +190,37 @@ class BlendDecorator(tk.Widget):
     def set_hovered(self, hovered: bool) -> None:
         """Explicitly set or simulate the hover state."""
         self._native.set_hovered(bool(hovered))
+        self._sync_child_state_bg()
 
     def set_focused(self, focused: bool) -> None:
         """Explicitly set or simulate the focus state."""
         self._native.set_focused(bool(focused))
+        self._sync_child_state_bg()
+
+    def _on_hover_state_change(self, hovered: bool) -> None:
+        self._sync_child_state_bg()
+
+    def _sync_child_state_bg(self) -> None:
+        """Ensure decorated child matches active hover/focus/normal background."""
+        if self._child is None or not self._match_bg:
+            return
+
+        target_bg = None
+        if self.is_focused and self._focus_bg_hex:
+            target_bg = self._focus_bg_hex
+        elif self.is_hovered and self._hover_bg_hex:
+            target_bg = self._hover_bg_hex
+        else:
+            c = self._native.bg_color
+            target_bg = f"#{c.r:02x}{c.g:02x}{c.b:02x}"
+
+        try:
+            self._child.configure(bg=target_bg)
+        except Exception:
+            try:
+                self._child.configure(background=target_bg)
+            except Exception:
+                pass
 
     def _on_theme_changed(self, pal: Palette) -> None:
         """Update decorator styling when global theme changes."""
@@ -181,15 +235,9 @@ class BlendDecorator(tk.Widget):
                 self._native.focus_ring_color = parse_color(pal.primary)
             self._native.request_redraw()
 
-            if self._child is not None:
-                bg_hex = f"#{self._native.bg_color.r:02x}{self._native.bg_color.g:02x}{self._native.bg_color.b:02x}"
-                try:
-                    self._child.configure(bg=bg_hex)
-                except Exception:
-                    try:
-                        self._child.configure(background=bg_hex)
-                    except Exception:
-                        pass
+            if self._child is not None and self._match_bg:
+                self._sync_child_state_bg()
+
                 fg_hex = f"#{pal.fg.r:02x}{pal.fg.g:02x}{pal.fg.b:02x}" if hasattr(pal.fg, "r") else pal.fg
                 try:
                     self._child.configure(fg=fg_hex)
@@ -229,7 +277,7 @@ class BlendDecorator(tk.Widget):
 
     @is_focused.setter
     def is_focused(self, val: bool) -> None:
-        self._native.set_focused(bool(val))
+        self.set_focused(bool(val))
 
     @property
     def is_hovered(self) -> bool:
@@ -238,7 +286,7 @@ class BlendDecorator(tk.Widget):
 
     @is_hovered.setter
     def is_hovered(self, val: bool) -> None:
-        self._native.set_hovered(bool(val))
+        self.set_hovered(bool(val))
 
     @property
     def clip_child(self) -> bool:
@@ -317,6 +365,7 @@ class BlendDecorator(tk.Widget):
 
         self._child_padding = pad
         self._child = child_widget
+        self._match_bg = match_bg
 
         if clip_child is not None:
             self._native.clip_child = bool(clip_child)
@@ -330,14 +379,7 @@ class BlendDecorator(tk.Widget):
 
         # Match child background and foreground if requested
         if match_bg:
-            bg_hex = f"#{self._native.bg_color.r:02x}{self._native.bg_color.g:02x}{self._native.bg_color.b:02x}"
-            try:
-                child_widget.configure(bg=bg_hex)
-            except Exception:
-                try:
-                    child_widget.configure(background=bg_hex)
-                except Exception:
-                    pass
+            self._sync_child_state_bg()
 
         pal = get_theme()
         fg_hex = f"#{pal.fg.r:02x}{pal.fg.g:02x}{pal.fg.b:02x}" if hasattr(pal.fg, "r") else pal.fg
@@ -356,6 +398,12 @@ class BlendDecorator(tk.Widget):
         child_path = getattr(child_widget, "_w", "")
         if child_path:
             self._native.attach_child(child_path)
+
+        # Hook focus and hover on child to sync bg color in Python
+        child_widget.bind("<FocusIn>", lambda e: self._sync_child_state_bg(), add="+")
+        child_widget.bind("<FocusOut>", lambda e: self._sync_child_state_bg(), add="+")
+        child_widget.bind("<Enter>", lambda e: self._sync_child_state_bg(), add="+")
+        child_widget.bind("<Leave>", lambda e: self._sync_child_state_bg(), add="+")
 
         return child_widget
 
@@ -387,13 +435,26 @@ class BlendDecorator(tk.Widget):
         style_args = {}
         if "bg_color" in kwargs:
             self._explicit_bg = True
-            style_args["bg_color"] = parse_color(kwargs.pop("bg_color"))
+            c = parse_color(kwargs.pop("bg_color"))
+            style_args["bg_color"] = c
         if "hover_bg_color" in kwargs:
             val = kwargs.pop("hover_bg_color")
-            style_args["hover_bg_color"] = parse_color(val) if val is not None else None
+            if val is not None:
+                c = parse_color(val)
+                style_args["hover_bg_color"] = c
+                self._hover_bg_hex = f"#{c.r:02x}{c.g:02x}{c.b:02x}"
+            else:
+                style_args["hover_bg_color"] = None
+                self._hover_bg_hex = None
         if "focus_bg_color" in kwargs:
             val = kwargs.pop("focus_bg_color")
-            style_args["focus_bg_color"] = parse_color(val) if val is not None else None
+            if val is not None:
+                c = parse_color(val)
+                style_args["focus_bg_color"] = c
+                self._focus_bg_hex = f"#{c.r:02x}{c.g:02x}{c.b:02x}"
+            else:
+                style_args["focus_bg_color"] = None
+                self._focus_bg_hex = None
         if "parent_bg" in kwargs:
             self._explicit_parent_bg = True
             style_args["parent_bg"] = parse_color(kwargs.pop("parent_bg"))
@@ -444,17 +505,22 @@ class BlendDecorator(tk.Widget):
             val = kwargs.pop("child_ry")
             style_args["child_ry"] = float(val) if val is not None else None
 
-        if "width" in kwargs or "height" in kwargs:
-            w = kwargs.pop("width", 200)
-            h = kwargs.pop("height", 45)
-            self._native.set_geometry_request(int(w), int(h))
+        if "width" in kwargs:
+            self._card_width = int(kwargs.pop("width"))
+        if "height" in kwargs:
+            self._card_height = int(kwargs.pop("height"))
 
         if style_args:
             self._native.set_style(**style_args)
-            self._reposition_child()
+
+        self._update_geometry_request()
+        self._sync_child_state_bg()
 
         if kwargs:
-            return super().configure(**kwargs)
+            try:
+                return super().configure(**kwargs)
+            except Exception:
+                pass
         return None
 
     config = configure

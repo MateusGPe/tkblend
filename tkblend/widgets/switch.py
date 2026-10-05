@@ -60,6 +60,10 @@ class Switch(BaseControl):
         switch_width: int = DEFAULT_SWITCH_TRACK_WIDTH,
         switch_height: int = DEFAULT_SWITCH_TRACK_HEIGHT,
         corner_radius: Optional[float] = None,
+        inner_bg: Optional[ColorLike] = None,
+        outer_bg: Optional[ColorLike] = None,
+        bg_color: Optional[ColorLike] = None,
+        parent_bg: Optional[ColorLike] = None,
         track_color: Optional[ColorLike] = None,
         active_color: Optional[ColorLike] = None,
         thumb_color: Optional[ColorLike] = None,
@@ -86,7 +90,7 @@ class Switch(BaseControl):
         self._corner_radius = corner_radius
 
         self._custom_track_color = track_color
-        self._custom_active_color = active_color
+        self._custom_active_color = active_color or inner_bg or bg_color
         self._custom_thumb_color = thumb_color
         self._custom_thumb_border = thumb_border_color
         self._custom_fg_color = fg_color
@@ -108,7 +112,6 @@ class Switch(BaseControl):
         else:
             self._var_trace_id = None
 
-
         # Determine default widget size
         eff_width = width if text else switch_width + DEFAULT_SWITCH_COMPACT_EXTRA_PAD
 
@@ -116,11 +119,16 @@ class Switch(BaseControl):
             master=master,
             width=eff_width,
             height=height,
+            inner_bg=inner_bg or bg_color,
+            outer_bg=outer_bg or parent_bg,
             cursor=cursor,
             state=state,
             takefocus=True,
             **kwargs,
         )
+
+    def _default_inner_bg(self, pal: Palette) -> str:
+        return pal.primary
 
     def _on_variable_write(self, *args) -> None:
         if self._variable is not None:
@@ -190,11 +198,11 @@ class Switch(BaseControl):
         sx = DEFAULT_SWITCH_LEFT_MARGIN * s
 
         # Clear parent background
-        surf.clear(self._resolved_parent_bg)
+        surf.clear(self.outer_bg)
 
         # Colors
         track_off = resolve_color_failsafe(self._custom_track_color or pal.track_bg, palette=pal)
-        track_on = resolve_color_failsafe(self._custom_active_color or pal.primary, palette=pal)
+        track_on = resolve_color_failsafe(self._custom_active_color or self.inner_bg or pal.primary, palette=pal)
         cur_track = blend_color_hex(track_off, track_on, self._progress_t) or track_off
         if self.is_disabled:
             cur_track = resolve_color_failsafe(pal.surface_border, palette=pal)
