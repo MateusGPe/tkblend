@@ -167,6 +167,10 @@ class BlendCanvas(tk.Label):
             self._canvas_height = target_h
             self._photo.configure(width=photo_w, height=photo_h)
             self._surface.resize(self._canvas_width, self._canvas_height)
+            bg_token = self._bg_color
+            if bg_token in ("bg", "card_bg") and is_inside_card(self.master if self.master is not None else self):
+                bg_token = "card_bg"
+            self._surface.clear(resolve_theme_color(bg_token))
             self.redraw()
 
     def _on_theme_changed(self) -> None:

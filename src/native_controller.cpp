@@ -266,7 +266,7 @@ void NativeWidgetController::IdleRedraw(ClientData clientData) {
     auto* self = static_cast<NativeWidgetController*>(clientData);
     if (self) {
         self->idle_scheduled_ = false;
-        self->paint_and_blit();
+        self->blit_active_surface();
     }
 }
 
@@ -398,17 +398,23 @@ void NativeWidgetController::paint_and_blit() {
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         if (tkwin_) {
+            if (!Tk_IsMapped(tkwin_)) {
+                return;
+            }
             win_w = Tk_Width(tkwin_);
             win_h = Tk_Height(tkwin_);
         }
+        if (win_w <= 1 || win_h <= 1) {
+            return;
+        }
         surf = get_active_surface();
         if (surf && bound_surface_id_ == 0 && external_surface_ == nullptr) {
-            if (win_w > 0 && win_h > 0 && (surf->width() != win_w || surf->height() != win_h)) {
+            if (surf->width() != win_w || surf->height() != win_h) {
                 surf->resize(win_w, win_h);
             }
         }
     }
-    if (!surf || surf->width() <= 0 || surf->height() <= 0) {
+    if (!surf || surf->width() <= 1 || surf->height() <= 1) {
         return;
     }
 

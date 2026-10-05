@@ -318,6 +318,8 @@ class BaseControl(tk.Frame):
 
     def request_redraw(self) -> None:
         """Request idle redraw of widget surface."""
+        if not self.winfo_exists():
+            return
         if self._idle_redraw_id is not None:
             return
         try:
@@ -334,6 +336,8 @@ class BaseControl(tk.Frame):
         """Synchronously render and blit to widget."""
         if not hasattr(self, "_controller") or not self._controller.is_attached:
             return
+        if not self.winfo_exists():
+            return
         surf = self._controller.surface
         try:
             cur_w = self.winfo_width()
@@ -349,10 +353,13 @@ class BaseControl(tk.Frame):
         surf.clear(self._resolved_outer_bg)
         scale = self.scale_factor
         self.render(surf, self._palette, w, h, scale)
-        self._controller.blit_surface(surf)
+        if self.winfo_ismapped():
+            self._controller.blit_surface(surf)
 
     # Controller Callbacks
     def _on_controller_paint(self, surf: Surface) -> None:
+        if not self.winfo_exists() or not self.winfo_ismapped():
+            return
         try:
             cur_w = self.winfo_width()
             cur_h = self.winfo_height()

@@ -40,6 +40,7 @@ void Surface::init_context() {
     image_.create(width_, height_, BL_FORMAT_PRGB32);
     ctx_.begin(image_);
     ctx_.set_comp_op(BL_COMP_OP_SRC_OVER);
+    ctx_.clear_all();
 }
 
 void Surface::resize(int width, int height) {

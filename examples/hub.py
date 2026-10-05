@@ -279,7 +279,7 @@ class ShowcaseHub(tk.Frame):
         try:
             self._current_embedded_view = view_cls(self._view_container)
             self._current_embedded_view.pack(fill="both", expand=True)
-            cascade_bg_to_children(self._current_embedded_view, pal.bg, palette=pal)
+            cascade_bg_to_children(self._current_embedded_view, pal.card_bg, palette=pal)
         except Exception as err:
             err_lbl = tk.Label(
                 self._view_container,
