@@ -71,8 +71,11 @@ public:
     std::string get_variable(const std::string& key, const std::string& theme_name = "") const;
     std::string resolve_var_string(const std::string& val, int depth = 0, const std::string& theme_name = "") const;
 
-    // Color resolution
+    // Color & Typed Variable resolution
     Color resolve_color(const std::string& color_str) const;
+    Color resolve_color_var(const std::string& val, const Color& fallback = Color{0, 0, 0, 0}, const std::string& theme_name = "") const;
+    double resolve_scalar(const std::string& val, double fallback = 0.0, const std::string& theme_name = "") const;
+    std::string resolve_string(const std::string& val, const std::string& fallback = "", const std::string& theme_name = "") const;
 
     // Core $O(1)$ ComputedStyle resolution
     ComputedStyle resolve(

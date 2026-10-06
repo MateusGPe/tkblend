@@ -575,7 +575,14 @@ public:
                                 check_color, is_checked, is_hovered, focus_ring_color, focus_ring_width);
     }
 
-    void execute_batch(const DrawBatch& batch) { surface().execute_batch(batch); }
+    void execute_batch(
+        const DrawBatch& batch,
+        const std::unordered_map<std::string, std::string>& local_vars = {},
+        uint16_t pseudo_state = 0,
+        const std::string& class_name = ""
+    ) {
+        surface().execute_batch(batch, local_vars, pseudo_state, class_name);
+    }
     void flush() { surface().flush(); }
 
     Surface::BufferViewInfo acquire_buffer_view() { return surface().acquire_buffer_view(); }

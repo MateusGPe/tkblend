@@ -229,7 +229,7 @@ class AnalyticsDashboard(tk.Frame):
 
         # Top Header Bar
         header_card = Card(self, height=64, corner_radius=10, bg_color=pal.card_bg)
-        header_card.pack(fill="x", padx=16, pady=(16, 10))
+        header_card.pack(fill="x", padx=16, pady=20)
 
         title_lbl = tk.Label(
             header_card,
@@ -238,7 +238,7 @@ class AnalyticsDashboard(tk.Frame):
             bg=header_card.bg_color,
             fg=pal.fg,
         )
-        title_lbl.pack(side="left", padx=16)
+        title_lbl.pack(side="left", padx=16,pady=10)
 
         # Live Status badge
         self._status_badge = Badge(header_card, text="LIVE STREAM", variant="success", dot=True)

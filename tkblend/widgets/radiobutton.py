@@ -116,6 +116,22 @@ class RadioButton(BaseControl):
             **kwargs,
         )
 
+        self.add_class("radio")
+        if self._is_selected:
+            self.add_class("selected")
+        self._update_radio_vars()
+
+    def _update_radio_vars(self) -> None:
+        pal = self._palette
+        dot_col = resolve_color_failsafe(self._custom_dot_color or self._custom_radio_color or pal.primary, palette=pal)
+        border_col = resolve_color_failsafe(self._custom_border_color or pal.card_border, palette=pal)
+        fg_col = resolve_color_failsafe(self._custom_fg_color or pal.fg, palette=pal)
+
+        self.set_var("--dot-color", dot_col)
+        self.set_var("--radio-border", border_col)
+        self.set_var("--fg-color", fg_col)
+        self.set_var("--dot-t", str(self._dot_t))
+
     def _default_inner_bg(self, pal: Palette) -> str:
         return pal.primary
 
@@ -128,15 +144,21 @@ class RadioButton(BaseControl):
                 self._animate_to_state(new_sel)
 
     def _animate_to_state(self, is_sel: bool) -> None:
+        if is_sel:
+            self.add_class("selected")
+        else:
+            self.remove_class("selected")
         target_t = 1.0 if is_sel else 0.0
         if self._animated and self.winfo_exists():
             self.animate_property("dot", self._dot_t, target_t, duration_ms=RADIO_ANIM_DURATION_MS, on_update=self._set_dot_t)
         else:
             self._dot_t = target_t
+            self.set_var("--dot-t", str(self._dot_t))
             self.request_redraw()
 
     def _set_dot_t(self, val: float) -> None:
         self._dot_t = val
+        self.set_var("--dot-t", str(val))
 
     def select(self) -> None:
         if self.is_disabled:

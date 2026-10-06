@@ -136,6 +136,24 @@ class Button(BaseControl):
             **kwargs,
         )
 
+        self.add_class("button")
+        self._update_button_vars()
+
+    def _update_button_vars(self) -> None:
+        pal = self._palette
+        base_bg = self.inner_bg
+        if self._custom_fg_color is not None:
+            fg_col = resolve_color_failsafe(self._custom_fg_color, palette=pal)
+        elif self._explicit_inner_bg is not None:
+            fg_col = get_contrast_color(base_bg, light_fg="#ffffff", dark_fg="#0f172a", palette=pal)
+        else:
+            fg_col = resolve_color_failsafe(pal.primary_fg, palette=pal)
+
+        self.set_var("--btn-bg", base_bg)
+        self.set_var("--btn-fg", fg_col)
+        self.set_var("--btn-rx", str(self._corner_radius * self.scale_factor))
+        self.set_var("--btn-bw", str(self._border_width * self.scale_factor))
+
     def _default_inner_bg(self, pal: Palette) -> str:
         return pal.primary
 

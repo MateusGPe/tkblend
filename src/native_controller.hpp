@@ -5,12 +5,17 @@
 #include "surface_registry.hpp"
 #include "blit/blit_backend.h"
 #include "color.hpp"
+#include "draw_batch.hpp"
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/optional.h>
+#include <nanobind/stl/vector.h>
+#include <nanobind/stl/unordered_map.h>
 
 #include <string>
+#include <vector>
+#include <unordered_map>
 #include <memory>
 #include <mutex>
 #include <cstdint>
@@ -109,6 +114,28 @@ public:
     void set_on_resize(nb::object callback);
     void clear_on_resize();
 
+    // CSS Class Management
+    void add_class(const std::string& name);
+    void remove_class(const std::string& name);
+    void toggle_class(const std::string& name);
+    bool has_class(const std::string& name) const;
+    std::vector<std::string> get_classes() const;
+    void set_classes(const std::vector<std::string>& classes);
+    std::string class_name() const;
+    void set_class_name(const std::string& cls);
+
+    // Dynamic Variable Management
+    void set_var(const std::string& key, const std::string& val);
+    std::string get_var(const std::string& key) const;
+    void remove_var(const std::string& key);
+    void clear_vars();
+    std::unordered_map<std::string, std::string> get_vars() const;
+
+    // DrawBatch Binding for zero-Python rendering
+    void bind_batch(const DrawBatch& batch);
+    void clear_batch();
+    bool has_batch() const;
+
 private:
     static void HandleTkEvent(ClientData clientData, XEvent* eventPtr);
     static void IdleRedraw(ClientData clientData);
@@ -139,6 +166,11 @@ private:
     nb::object on_state_changed_;
     nb::object on_click_;
     nb::object on_resize_;
+
+    // CSS Classes, dynamic variables, and DrawBatch
+    std::vector<std::string> classes_;
+    std::unordered_map<std::string, std::string> local_vars_;
+    std::shared_ptr<DrawBatch> draw_batch_{nullptr};
 };
 
 } // namespace tkblend

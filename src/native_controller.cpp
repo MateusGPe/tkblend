@@ -1,5 +1,7 @@
 #include "native_controller.hpp"
+#include "style_engine.hpp"
 #include <algorithm>
+#include <sstream>
 #include <stdexcept>
 #include <iostream>
 
@@ -266,7 +268,7 @@ void NativeWidgetController::IdleRedraw(ClientData clientData) {
     auto* self = static_cast<NativeWidgetController*>(clientData);
     if (self) {
         self->idle_scheduled_ = false;
-        self->blit_active_surface();
+        self->paint_and_blit();
     }
 }
 
@@ -398,27 +400,32 @@ void NativeWidgetController::paint_and_blit() {
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         if (tkwin_) {
-            if (!Tk_IsMapped(tkwin_)) {
-                return;
-            }
             win_w = Tk_Width(tkwin_);
             win_h = Tk_Height(tkwin_);
         }
-        if (win_w <= 1 || win_h <= 1) {
-            return;
-        }
         surf = get_active_surface();
         if (surf && bound_surface_id_ == 0 && external_surface_ == nullptr) {
-            if (surf->width() != win_w || surf->height() != win_h) {
+            if (win_w > 0 && win_h > 0 && (surf->width() != win_w || surf->height() != win_h)) {
                 surf->resize(win_w, win_h);
             }
         }
     }
-    if (!surf || surf->width() <= 1 || surf->height() <= 1) {
+    if (!surf || surf->width() <= 0 || surf->height() <= 0) {
         return;
     }
 
-    if (on_paint_.is_valid() && !on_paint_.is_none()) {
+    if (draw_batch_) {
+        surf->clear(parent_bg_);
+        std::string cls_str;
+        {
+            std::lock_guard<std::recursive_mutex> lock(mutex_);
+            for (size_t i = 0; i < classes_.size(); ++i) {
+                if (i > 0) cls_str += " ";
+                cls_str += classes_[i];
+            }
+        }
+        surf->execute_batch(*draw_batch_, local_vars_, state_, cls_str);
+    } else if (on_paint_.is_valid() && !on_paint_.is_none()) {
         nb::gil_scoped_acquire gil;
         try {
             on_paint_(nb::cast(surf, nb::rv_policy::reference));
@@ -492,6 +499,140 @@ void NativeWidgetController::set_on_resize(nb::object callback) {
 
 void NativeWidgetController::clear_on_resize() {
     on_resize_.reset();
+}
+
+void NativeWidgetController::add_class(const std::string& name) {
+    if (name.empty()) return;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        if (std::find(classes_.begin(), classes_.end(), name) == classes_.end()) {
+            classes_.push_back(name);
+        }
+    }
+    request_redraw();
+}
+
+void NativeWidgetController::remove_class(const std::string& name) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        auto it = std::find(classes_.begin(), classes_.end(), name);
+        if (it != classes_.end()) {
+            classes_.erase(it);
+        }
+    }
+    request_redraw();
+}
+
+void NativeWidgetController::toggle_class(const std::string& name) {
+    if (name.empty()) return;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        auto it = std::find(classes_.begin(), classes_.end(), name);
+        if (it != classes_.end()) {
+            classes_.erase(it);
+        } else {
+            classes_.push_back(name);
+        }
+    }
+    request_redraw();
+}
+
+bool NativeWidgetController::has_class(const std::string& name) const {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    return std::find(classes_.begin(), classes_.end(), name) != classes_.end();
+}
+
+std::vector<std::string> NativeWidgetController::get_classes() const {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    return classes_;
+}
+
+void NativeWidgetController::set_classes(const std::vector<std::string>& classes) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        classes_ = classes;
+    }
+    request_redraw();
+}
+
+std::string NativeWidgetController::class_name() const {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    std::string res;
+    for (size_t i = 0; i < classes_.size(); ++i) {
+        if (i > 0) res += " ";
+        res += classes_[i];
+    }
+    return res;
+}
+
+void NativeWidgetController::set_class_name(const std::string& cls) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        classes_.clear();
+        std::stringstream ss(cls);
+        std::string token;
+        while (ss >> token) {
+            classes_.push_back(token);
+        }
+    }
+    request_redraw();
+}
+
+void NativeWidgetController::set_var(const std::string& key, const std::string& val) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        local_vars_[key] = val;
+    }
+    request_redraw();
+}
+
+std::string NativeWidgetController::get_var(const std::string& key) const {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    auto it = local_vars_.find(key);
+    if (it != local_vars_.end()) return it->second;
+    return StyleEngine::instance().get_variable(key);
+}
+
+void NativeWidgetController::remove_var(const std::string& key) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        local_vars_.erase(key);
+    }
+    request_redraw();
+}
+
+void NativeWidgetController::clear_vars() {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        local_vars_.clear();
+    }
+    request_redraw();
+}
+
+std::unordered_map<std::string, std::string> NativeWidgetController::get_vars() const {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    return local_vars_;
+}
+
+void NativeWidgetController::bind_batch(const DrawBatch& batch) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        draw_batch_ = std::make_shared<DrawBatch>(batch);
+    }
+    request_redraw();
+}
+
+void NativeWidgetController::clear_batch() {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        draw_batch_ = nullptr;
+    }
+    request_redraw();
+}
+
+bool NativeWidgetController::has_batch() const {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    return draw_batch_ != nullptr;
 }
 
 } // namespace tkblend

@@ -10,7 +10,7 @@
 [![Status](https://img.shields.io/badge/Status-Experimental%20%2F%20R%26D-yellow.svg?style=flat-square)](#-project-status--experimental-scope)
 [![Zero TTK Dependencies](https://img.shields.io/badge/TTK-Zero%20Dependencies-success.svg?style=flat-square)](#2--suite-of-20-zero-ttk-vector-widgets)
 [![Frame Rate](https://img.shields.io/badge/Rendering-60%2B%20FPS%20Zero--Copy-purple.svg?style=flat-square)](#-performance--benchmarks)
-[![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg?style=flat-square)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 
 <br/>
 
@@ -285,12 +285,6 @@ set_theme("light")
 
 ## 📄 License
 
-**tkblend** is licensed under the **Business Source License 1.1 (BSL 1.1)**.
-
-* **Free Use Grant**: You may use **tkblend** freely for non-production, testing, development, and evaluation purposes.
-* **Production & Commercial Use**: Production or commercial deployment requires a separate commercial license from the Licensor.
-* **Conversion to Open Source**: On **January 1, 2030** (the Change Date), the license automatically converts to the standard **MIT License**.
-
-See the full [LICENSE](LICENSE) file for complete details. For commercial inquiries, please reach out via GitHub.
+**tkblend** is licensed under the [MIT License](LICENSE).
 
 Blend2D is licensed under the [Zlib License](https://blend2d.com).

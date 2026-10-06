@@ -120,10 +120,25 @@ class Slider(BaseControl):
             **kwargs,
         )
 
+        self.add_class("slider")
+        self.add_class(self._orientation)
+        self._update_slider_vars()
+
         # Mouse Drag Event Bindings
         self.bind("<ButtonPress-1>", self._on_mouse_press, add="+")
         self.bind("<B1-Motion>", self._on_mouse_drag, add="+")
         self.bind("<ButtonRelease-1>", self._on_mouse_release, add="+")
+
+    def _update_slider_vars(self) -> None:
+        pal = self._palette
+        track_col = resolve_color_failsafe(self._custom_track_color or pal.track_bg, palette=pal)
+        active_col = resolve_color_failsafe(self._custom_active_color or pal.primary, palette=pal)
+        thumb_col = resolve_color_failsafe(self._custom_thumb_color or pal.thumb_color, palette=pal, fallback=FALLBACK_THUMB_COLOR)
+
+        self.set_var("--track-bg", track_col)
+        self.set_var("--active-bg", active_col)
+        self.set_var("--thumb-bg", thumb_col)
+        self.set_var("--thumb-pos", str(self._value_to_progress()))
 
     def _default_inner_bg(self, pal: Palette) -> str:
         return pal.track_bg
@@ -134,6 +149,7 @@ class Slider(BaseControl):
                 val = float(self._variable.get())
                 if val != self._value:
                     self._value = val
+                    self.set_var("--thumb-pos", str(self._value_to_progress()))
                     self.request_redraw()
             except Exception:
                 pass
@@ -153,6 +169,7 @@ class Slider(BaseControl):
 
     def set(self, value: float) -> None:
         self._value = self._quantize_value(float(value))
+        self.set_var("--thumb-pos", str(self._value_to_progress()))
         if self._variable is not None:
             self._variable.set(self._value)
         self.request_redraw()

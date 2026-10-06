@@ -103,6 +103,19 @@ class ProgressBar(BaseControl):
             **kwargs,
         )
 
+        self.add_class("progressbar")
+        self.add_class(self._mode)
+        self._update_progress_vars()
+
+    def _update_progress_vars(self) -> None:
+        pal = self._palette
+        track_col = resolve_color_failsafe(self._custom_track_color or pal.track_bg, palette=pal)
+        prog_col = resolve_color_failsafe(self._custom_progress_color or pal.primary, palette=pal)
+
+        self.set_var("--track-bg", track_col)
+        self.set_var("--progress-bg", prog_col)
+        self.set_var("--progress", str(self._progress))
+
     def _default_inner_bg(self, pal: Palette) -> str:
         return pal.track_bg
 
@@ -112,6 +125,7 @@ class ProgressBar(BaseControl):
                 val = max(0.0, min(1.0, float(self._variable.get())))
                 if val != self._progress:
                     self._progress = val
+                    self.set_var("--progress", str(self._progress))
                     self.request_redraw()
             except Exception:
                 pass
@@ -121,6 +135,7 @@ class ProgressBar(BaseControl):
 
     def set(self, value: float) -> None:
         self._progress = max(0.0, min(1.0, float(value)))
+        self.set_var("--progress", str(self._progress))
         if self._variable is not None:
             self._variable.set(self._progress)
         self.request_redraw()

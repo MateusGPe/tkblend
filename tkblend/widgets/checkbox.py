@@ -126,6 +126,24 @@ class CheckBox(BaseControl):
             **kwargs,
         )
 
+        self.add_class("checkbox")
+        if self._is_checked:
+            self.add_class("checked")
+        self._update_checkbox_vars()
+
+    def _update_checkbox_vars(self) -> None:
+        pal = self._palette
+        box_col = resolve_color_failsafe(self._custom_box_color or pal.primary, palette=pal)
+        check_col = resolve_color_failsafe(self._custom_check_color or pal.primary_fg, palette=pal)
+        border_col = resolve_color_failsafe(self._custom_border_color or pal.card_border, palette=pal)
+        fg_col = resolve_color_failsafe(self._custom_fg_color or pal.fg, palette=pal)
+
+        self.set_var("--box-bg", box_col)
+        self.set_var("--box-border", border_col)
+        self.set_var("--check-color", check_col)
+        self.set_var("--fg-color", fg_col)
+        self.set_var("--check-t", str(self._check_t))
+
     def _default_inner_bg(self, pal: Palette) -> str:
         return pal.primary
 
@@ -138,15 +156,21 @@ class CheckBox(BaseControl):
                 self._animate_to_state(new_checked)
 
     def _animate_to_state(self, is_checked: bool) -> None:
+        if is_checked:
+            self.add_class("checked")
+        else:
+            self.remove_class("checked")
         target_t = 1.0 if is_checked else 0.0
         if self._animated and self.winfo_exists():
             self.animate_property("check", self._check_t, target_t, duration_ms=CHECKBOX_ANIM_DURATION_MS, on_update=self._set_check_t)
         else:
             self._check_t = target_t
+            self.set_var("--check-t", str(self._check_t))
             self.request_redraw()
 
     def _set_check_t(self, val: float) -> None:
         self._check_t = val
+        self.set_var("--check-t", str(val))
 
     def get(self) -> Any:
         return self._onvalue if self._is_checked else self._offvalue

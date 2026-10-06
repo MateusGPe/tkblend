@@ -88,6 +88,16 @@ class Badge(BaseControl):
             **kwargs,
         )
 
+        self.add_class("badge")
+        self.add_class(self._variant)
+        self._update_badge_vars()
+
+    def _update_badge_vars(self) -> None:
+        bg, fg, bc = self._resolve_variant_colors(self._palette)
+        self.set_var("--badge-bg", bg)
+        self.set_var("--badge-fg", fg)
+        self.set_var("--badge-border", bc)
+
     def _default_inner_bg(self, pal: Palette) -> str:
         return pal.primary
 
@@ -106,7 +116,11 @@ class Badge(BaseControl):
 
     @variant.setter
     def variant(self, val: str) -> None:
+        old_v = self._variant
         self._variant = val.lower()
+        self.remove_class(old_v)
+        self.add_class(self._variant)
+        self._update_badge_vars()
         self.request_redraw()
 
     def _resolve_variant_colors(self, pal: Palette) -> tuple[str, str, str]:

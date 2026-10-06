@@ -1,8 +1,10 @@
 #include "native_decorator.hpp"
+#include "style_engine.hpp"
 #include "blit/blit_backend.h"
 
 #include <cstring>
 #include <algorithm>
+#include <sstream>
 #include <stdexcept>
 
 namespace tkblend {
@@ -482,6 +484,140 @@ void NativeDecorator::on_child_event(XEvent* eventPtr) {
     }
 }
 
+void NativeDecorator::add_class(const std::string& name) {
+    if (name.empty()) return;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (std::find(classes_.begin(), classes_.end(), name) == classes_.end()) {
+            classes_.push_back(name);
+        }
+    }
+    request_redraw();
+}
+
+void NativeDecorator::remove_class(const std::string& name) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = std::find(classes_.begin(), classes_.end(), name);
+        if (it != classes_.end()) {
+            classes_.erase(it);
+        }
+    }
+    request_redraw();
+}
+
+void NativeDecorator::toggle_class(const std::string& name) {
+    if (name.empty()) return;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = std::find(classes_.begin(), classes_.end(), name);
+        if (it != classes_.end()) {
+            classes_.erase(it);
+        } else {
+            classes_.push_back(name);
+        }
+    }
+    request_redraw();
+}
+
+bool NativeDecorator::has_class(const std::string& name) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return std::find(classes_.begin(), classes_.end(), name) != classes_.end();
+}
+
+std::vector<std::string> NativeDecorator::get_classes() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return classes_;
+}
+
+void NativeDecorator::set_classes(const std::vector<std::string>& classes) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        classes_ = classes;
+    }
+    request_redraw();
+}
+
+std::string NativeDecorator::class_name() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::string res;
+    for (size_t i = 0; i < classes_.size(); ++i) {
+        if (i > 0) res += " ";
+        res += classes_[i];
+    }
+    return res;
+}
+
+void NativeDecorator::set_class_name(const std::string& cls) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        classes_.clear();
+        std::stringstream ss(cls);
+        std::string token;
+        while (ss >> token) {
+            classes_.push_back(token);
+        }
+    }
+    request_redraw();
+}
+
+void NativeDecorator::set_var(const std::string& key, const std::string& val) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        local_vars_[key] = val;
+    }
+    request_redraw();
+}
+
+std::string NativeDecorator::get_var(const std::string& key) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = local_vars_.find(key);
+    if (it != local_vars_.end()) return it->second;
+    return StyleEngine::instance().get_variable(key);
+}
+
+void NativeDecorator::remove_var(const std::string& key) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        local_vars_.erase(key);
+    }
+    request_redraw();
+}
+
+void NativeDecorator::clear_vars() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        local_vars_.clear();
+    }
+    request_redraw();
+}
+
+std::unordered_map<std::string, std::string> NativeDecorator::get_vars() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return local_vars_;
+}
+
+void NativeDecorator::bind_batch(const DrawBatch& batch) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        draw_batch_ = std::make_shared<DrawBatch>(batch);
+    }
+    request_redraw();
+}
+
+void NativeDecorator::clear_batch() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        draw_batch_ = nullptr;
+    }
+    request_redraw();
+}
+
+bool NativeDecorator::has_batch() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return draw_batch_ != nullptr;
+}
+
 void NativeDecorator::render_and_present() {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!tkwin_ || !interp_) return;
@@ -502,7 +638,31 @@ void NativeDecorator::render_and_present() {
         surface_->resize(w, h);
     }
 
-    // Clear background
+    bool focused = manual_focused_ || dec_focused_ || child_focused_;
+    bool hovered = manual_hovered_ || dec_hovered_ || child_hovered_;
+
+    // Check if C++ DrawBatch is attached
+    if (draw_batch_) {
+        surface_->clear(parent_bg_);
+        uint16_t pseudo = 0;
+        if (focused) pseudo |= PseudoState::Focused;
+        if (hovered) pseudo |= PseudoState::Hover;
+        std::string cls_str;
+        for (size_t i = 0; i < classes_.size(); ++i) {
+            if (i > 0) cls_str += " ";
+            cls_str += classes_[i];
+        }
+        surface_->execute_batch(*draw_batch_, local_vars_, pseudo, cls_str);
+        surface_->flush();
+
+        Ttk_Box box{0, 0, w, h};
+        uint8_t* pixels = surface_->data_ptr();
+        size_t stride = surface_->stride();
+        NativeBlit(tkwin_, d, box, pixels, stride, w, h);
+        return;
+    }
+
+    // Default Card Vector Rendering
     surface_->clear(parent_bg_);
 
     double pad_left = 0.0;
@@ -550,10 +710,7 @@ void NativeDecorator::render_and_present() {
         );
     }
 
-    // Resolve state colors
-    bool focused = manual_focused_ || dec_focused_ || child_focused_;
-    bool hovered = manual_hovered_ || dec_hovered_ || child_hovered_;
-
+    // Resolve state colors with class resolution fallback
     Color current_bg = bg_color_;
     if (focused && focus_bg_color_.has_value()) {
         current_bg = *focus_bg_color_;

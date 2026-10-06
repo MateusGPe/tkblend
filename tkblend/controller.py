@@ -345,6 +345,96 @@ class NativeController:
         self._on_resize_user = None
         self._native.clear_on_resize()
 
+    # CSS Class Management
+    def add_class(self, name: str) -> NativeController:
+        """Add a CSS class to the controller and trigger auto-redraw."""
+        self._native.add_class(str(name))
+        return self
+
+    def remove_class(self, name: str) -> NativeController:
+        """Remove a CSS class from the controller and trigger auto-redraw."""
+        self._native.remove_class(str(name))
+        return self
+
+    def toggle_class(self, name: str) -> NativeController:
+        """Toggle a CSS class on the controller."""
+        self._native.toggle_class(str(name))
+        return self
+
+    def has_class(self, name: str) -> bool:
+        """Return True if the controller has the specified CSS class."""
+        return self._native.has_class(str(name))
+
+    @property
+    def classes(self) -> list[str]:
+        """List of active CSS classes."""
+        return list(self._native.classes)
+
+    @classes.setter
+    def classes(self, val: Sequence[str]) -> None:
+        self._native.classes = [str(x) for x in val]
+
+    @property
+    def class_name(self) -> str:
+        """Space-separated string of active CSS classes."""
+        return self._native.class_name
+
+    @class_name.setter
+    def class_name(self, val: str) -> None:
+        self._native.class_name = str(val)
+
+    # Dynamic Variable Management
+    def set_var(self, key: str, value: Any) -> NativeController:
+        """Set a local scoped variable (color, scalar curve/dimension, or string) and trigger auto-redraw."""
+        self._native.set_var(str(key), str(value))
+        return self
+
+    def get_var(self, key: str, default: Optional[str] = None) -> str:
+        """Get the value of a scoped or global variable."""
+        res = self._native.get_var(str(key))
+        if not res and default is not None:
+            return default
+        return res
+
+    def remove_var(self, key: str) -> NativeController:
+        """Remove a locally scoped variable override."""
+        self._native.remove_var(str(key))
+        return self
+
+    def clear_vars(self) -> NativeController:
+        """Clear all locally scoped variable overrides."""
+        self._native.clear_vars()
+        return self
+
+    @property
+    def vars(self) -> dict[str, str]:
+        """Dictionary of all local variable overrides."""
+        return dict(self._native.get_vars())
+
+    @vars.setter
+    def vars(self, d: dict[str, Any]) -> None:
+        self._native.clear_vars()
+        for k, v in d.items():
+            self._native.set_var(str(k), str(v))
+
+    # DrawBatch Binding for Zero-Python Rendering
+    def bind_batch(self, batch: Any) -> NativeController:
+        """Bind a C++ DrawBatch display list for zero-GIL, zero-Python rendering."""
+        if hasattr(batch, "native"):
+            batch = batch.native
+        self._native.bind_batch(batch)
+        return self
+
+    def clear_batch(self) -> NativeController:
+        """Clear any bound DrawBatch and return to standard paint callbacks."""
+        self._native.clear_batch()
+        return self
+
+    @property
+    def has_batch(self) -> bool:
+        """Return True if a C++ DrawBatch is actively bound."""
+        return self._native.has_batch
+
 
 class NativeBlitCanvas(tk.Frame):
     """

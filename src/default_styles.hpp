@@ -60,48 +60,48 @@ button:disabled {
   box-shadow: none;
 }
 
-.btn-primary, button.primary {
+.btn-primary, .primary {
   background: var(--primary);
   color: var(--primary-fg);
   border: 1px solid transparent;
   border-radius: 8px;
   box-shadow: 0 2px 4px var(--shadow);
 }
-.btn-primary:hover, button.primary:hover {
+.btn-primary:hover, .primary:hover {
   background: var(--primary-hover);
   color: var(--primary-fg);
 }
-.btn-primary:active, button.primary:active {
+.btn-primary:active, .primary:active {
   background: var(--primary-active);
   box-shadow: none;
 }
 
-.btn-secondary, button.secondary {
+.btn-secondary, .secondary {
   background: var(--secondary);
   color: var(--secondary-fg);
   border: 1px solid var(--card-border);
   border-radius: 8px;
   box-shadow: 0 1px 2px var(--shadow);
 }
-.btn-secondary:hover, button.secondary:hover {
+.btn-secondary:hover, .secondary:hover {
   background: var(--secondary-hover);
 }
-.btn-secondary:active, button.secondary:active {
+.btn-secondary:active, .secondary:active {
   background: var(--secondary-active);
 }
 
-.btn-accent, button.accent, .btn-info, button.info {
+.btn-accent, .accent, .btn-info, .info {
   background: var(--accent);
   color: #100e14;
   border: 1px solid transparent;
   border-radius: 8px;
   box-shadow: 0 2px 4px var(--shadow);
 }
-.btn-accent:hover, button.accent:hover, .btn-info:hover, button.info:hover {
+.btn-accent:hover, .accent:hover, .btn-info:hover, .info:hover {
   background: var(--primary-hover);
 }
 
-.btn-destructive, button.destructive, .btn-danger, button.danger {
+.btn-destructive, .destructive, .btn-danger, .danger {
   background: var(--destructive);
   color: #410002;
   border: 1px solid transparent;
@@ -109,7 +109,7 @@ button:disabled {
   box-shadow: 0 2px 4px var(--shadow);
 }
 
-.btn-success, button.success {
+.btn-success, .success {
   background: var(--success);
   color: #003912;
   border: 1px solid transparent;
@@ -117,7 +117,7 @@ button:disabled {
   box-shadow: 0 2px 4px var(--shadow);
 }
 
-.btn-warning, button.warning {
+.btn-warning, .warning {
   background: var(--warning);
   color: #100e14;
   border: 1px solid transparent;
@@ -125,18 +125,18 @@ button:disabled {
   box-shadow: 0 2px 4px var(--shadow);
 }
 
-.btn-outline, button.outline, .btn-outline-primary {
+.btn-outline, .outline, .btn-outline-primary {
   background: transparent;
   color: var(--primary);
   border: 1px solid var(--primary);
   border-radius: 8px;
   box-shadow: none;
 }
-.btn-outline:hover, button.outline:hover, .btn-outline-primary:hover {
+.btn-outline:hover, .outline:hover, .btn-outline-primary:hover {
   background: var(--primary-hover);
   color: var(--primary-fg);
 }
-.btn-outline:active, button.outline:active, .btn-outline-primary:active {
+.btn-outline:active, .outline:active, .btn-outline-primary:active {
   background: var(--primary-active);
 }
 
@@ -160,18 +160,18 @@ button:disabled {
 }
 
 
-.btn-ghost, button.ghost, .btn-flat, button.flat {
+.btn-ghost, .ghost, .btn-flat, .flat {
   background: transparent;
   color: var(--fg);
   border: 1px solid transparent;
   border-radius: 8px;
   box-shadow: none;
 }
-.btn-ghost:hover, button.ghost:hover, .btn-flat:hover, button.flat:hover {
+.btn-ghost:hover, .ghost:hover, .btn-flat:hover, .flat:hover {
   background: var(--surface);
   color: var(--fg);
 }
-.btn-ghost:active, button.ghost:active, .btn-flat:active, button.flat:active {
+.btn-ghost:active, .ghost:active, .btn-flat:active, .flat:active {
   background: var(--secondary-active);
 }
 
@@ -201,19 +201,19 @@ badge, .badge {
   font-size: 11px;
   font-weight: 600;
 }
-.badge-primary, badge.primary {
+.badge-primary, .badge.primary {
   background: var(--primary);
   color: var(--primary-fg);
 }
-.badge-success, badge.success {
+.badge-success, .badge.success {
   background: var(--success);
   color: #100e14;
 }
-.badge-warning, badge.warning {
+.badge-warning, .badge.warning {
   background: var(--warning);
   color: #100e14;
 }
-.badge-danger, .badge-destructive, badge.danger {
+.badge-danger, .badge-destructive, .badge.danger {
   background: var(--destructive);
   color: #100e14;
 }
@@ -298,47 +298,47 @@ button:disabled {
   box-shadow: none;
 }
 
-.btn-primary, button.primary {
+.btn-primary, .primary {
   background: var(--primary);
   color: var(--primary-fg);
   border: 1px solid transparent;
   border-radius: 8px;
   box-shadow: 0 2px 4px var(--shadow);
 }
-.btn-primary:hover, button.primary:hover {
+.btn-primary:hover, .primary:hover {
   background: var(--primary-hover);
   color: var(--primary-fg);
 }
-.btn-primary:active, button.primary:active {
+.btn-primary:active, .primary:active {
   background: var(--primary-active);
   box-shadow: none;
 }
 
-.btn-secondary, button.secondary {
+.btn-secondary, .secondary {
   background: var(--secondary);
   color: var(--secondary-fg);
   border: 1px solid var(--card-border);
   border-radius: 8px;
 }
-.btn-secondary:hover, button.secondary:hover {
+.btn-secondary:hover, .secondary:hover {
   background: var(--secondary-hover);
 }
-.btn-secondary:active, button.secondary:active {
+.btn-secondary:active, .secondary:active {
   background: var(--secondary-active);
 }
 
-.btn-accent, button.accent, .btn-info, button.info {
+.btn-accent, .accent, .btn-info, .info {
   background: var(--accent);
   color: #ffffff;
   border: 1px solid transparent;
   border-radius: 8px;
   box-shadow: 0 2px 4px var(--shadow);
 }
-.btn-accent:hover, button.accent:hover, .btn-info:hover, button.info:hover {
+.btn-accent:hover, .accent:hover, .btn-info:hover, .info:hover {
   background: var(--primary-hover);
 }
 
-.btn-destructive, button.destructive, .btn-danger, button.danger {
+.btn-destructive, .destructive, .btn-danger, .danger {
   background: var(--destructive);
   color: #ffffff;
   border: 1px solid transparent;
@@ -346,7 +346,7 @@ button:disabled {
   box-shadow: 0 2px 4px var(--shadow);
 }
 
-.btn-success, button.success {
+.btn-success, .success {
   background: var(--success);
   color: #ffffff;
   border: 1px solid transparent;
@@ -354,7 +354,7 @@ button:disabled {
   box-shadow: 0 2px 4px var(--shadow);
 }
 
-.btn-warning, button.warning {
+.btn-warning, .warning {
   background: var(--warning);
   color: #ffffff;
   border: 1px solid transparent;
@@ -362,18 +362,18 @@ button:disabled {
   box-shadow: 0 2px 4px var(--shadow);
 }
 
-.btn-outline, button.outline, .btn-outline-primary {
+.btn-outline, .outline, .btn-outline-primary {
   background: transparent;
   color: var(--primary);
   border: 1px solid var(--primary);
   border-radius: 8px;
   box-shadow: none;
 }
-.btn-outline:hover, button.outline:hover, .btn-outline-primary:hover {
+.btn-outline:hover, .outline:hover, .btn-outline-primary:hover {
   background: var(--primary-hover);
   color: var(--primary-fg);
 }
-.btn-outline:active, button.outline:active, .btn-outline-primary:active {
+.btn-outline:active, .outline:active, .btn-outline-primary:active {
   background: var(--primary-active);
 }
 
@@ -397,18 +397,18 @@ button:disabled {
 }
 
 
-.btn-ghost, button.ghost, .btn-flat, button.flat {
+.btn-ghost, .ghost, .btn-flat, .flat {
   background: transparent;
   color: var(--fg);
   border: 1px solid transparent;
   border-radius: 8px;
   box-shadow: none;
 }
-.btn-ghost:hover, button.ghost:hover, .btn-flat:hover, button.flat:hover {
+.btn-ghost:hover, .ghost:hover, .btn-flat:hover, .flat:hover {
   background: var(--surface);
   color: var(--fg);
 }
-.btn-ghost:active, button.ghost:active, .btn-flat:active, button.flat:active {
+.btn-ghost:active, .ghost:active, .btn-flat:active, .flat:active {
   background: var(--secondary-active);
 }
 
@@ -438,19 +438,19 @@ badge, .badge {
   font-size: 11px;
   font-weight: 600;
 }
-.badge-primary, badge.primary {
+.badge-primary, .badge.primary {
   background: var(--primary);
   color: var(--primary-fg);
 }
-.badge-success, badge.success {
+.badge-success, .badge.success {
   background: var(--success);
   color: #ffffff;
 }
-.badge-warning, badge.warning {
+.badge-warning, .badge.warning {
   background: var(--warning);
   color: #ffffff;
 }
-.badge-danger, .badge-destructive, badge.danger {
+.badge-danger, .badge-destructive, .badge.danger {
   background: var(--destructive);
   color: #ffffff;
 }

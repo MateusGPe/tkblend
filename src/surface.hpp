@@ -383,7 +383,12 @@ public:
     );
 
     // Display List Execution
-    void execute_batch(const DrawBatch& batch);
+    void execute_batch(
+        const DrawBatch& batch,
+        const std::unordered_map<std::string, std::string>& local_vars = {},
+        uint16_t pseudo_state = 0,
+        const std::string& class_name = ""
+    );
 
     // Tcl/Tk Blitting Bridge
     void blit_to_photo(

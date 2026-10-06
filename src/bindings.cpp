@@ -64,6 +64,9 @@ void bind_color(nb::module_& m) {
         .def("lerp", &Color::lerp, nb::arg("other"), nb::arg("t"))
         .def("with_alpha", &Color::with_alpha, nb::arg("new_a"))
         .def("with_alpha_f", &Color::with_alpha_f, nb::arg("new_a"))
+        .def("__eq__", [](const Color& a, const Color& b) {
+            return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+        })
         .def("__repr__", [](const Color& c) {
             std::ostringstream ss;
             ss << "Color(r=" << static_cast<int>(c.r) << ", g=" << static_cast<int>(c.g)
@@ -135,13 +138,21 @@ void bind_draw_batch(nb::module_& m) {
     nb::class_<DrawBatch>(m, "DrawBatch")
         .def(nb::init<>())
         .def("clear", &DrawBatch::clear, nb::arg("color"))
+        .def("clear_var", &DrawBatch::clear_var, nb::arg("c_var"), nb::arg("fallback") = Color(0, 0, 0, 0))
         .def("fill_rect", &DrawBatch::fill_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("color"))
+        .def("fill_rect_var", &DrawBatch::fill_rect_var, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("c_var"), nb::arg("fallback") = Color(0, 0, 0, 255))
         .def("stroke_rect", &DrawBatch::stroke_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("stroke_rect_var", &DrawBatch::stroke_rect_var, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("c_var"), nb::arg("stroke_width") = 1.0, nb::arg("sw_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255))
         .def("fill_rounded_rect", &DrawBatch::fill_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"))
+        .def("fill_rounded_rect_var", &DrawBatch::fill_rounded_rect_var, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("c_var"), nb::arg("rx_var") = "", nb::arg("ry_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255))
         .def("stroke_rounded_rect", &DrawBatch::stroke_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("stroke_rounded_rect_var", &DrawBatch::stroke_rounded_rect_var, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("c_var"), nb::arg("stroke_width") = 1.0, nb::arg("rx_var") = "", nb::arg("ry_var") = "", nb::arg("sw_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255))
         .def("fill_circle", &DrawBatch::fill_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("color"))
+        .def("fill_circle_var", &DrawBatch::fill_circle_var, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("c_var"), nb::arg("r_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255))
         .def("stroke_circle", &DrawBatch::stroke_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("stroke_circle_var", &DrawBatch::stroke_circle_var, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("c_var"), nb::arg("stroke_width") = 1.0, nb::arg("r_var") = "", nb::arg("sw_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255))
         .def("draw_line", &DrawBatch::draw_line, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("draw_line_var", &DrawBatch::draw_line_var, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::arg("c_var"), nb::arg("stroke_width") = 1.0, nb::arg("sw_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255))
         .def("draw_text", [](DrawBatch& b,
                              const std::string& text, double x, double y,
                              float font_size, const std::string& font_family,
@@ -154,6 +165,12 @@ void bind_draw_batch(nb::module_& m) {
              nb::arg("font_size") = 14.0f, nb::arg("font_family") = "default",
              nb::arg("color") = nb::none(), nb::arg("align") = 0,
              nb::arg("weight") = 400, nb::arg("italic") = false)
+        .def("draw_text_var", &DrawBatch::draw_text_var,
+             nb::arg("text"), nb::arg("x"), nb::arg("y"),
+             nb::arg("font_size") = 14.0f, nb::arg("font_family") = "default",
+             nb::arg("c_var") = "", nb::arg("text_var") = "",
+             nb::arg("size_var") = "", nb::arg("fallback") = Color(255, 255, 255, 255),
+             nb::arg("align") = 0, nb::arg("weight") = 400, nb::arg("italic") = false)
         .def("draw_shadow_rounded_rect", [](DrawBatch& b,
                                             double x, double y, double w, double h,
                                             double rx, double ry,
@@ -167,6 +184,13 @@ void bind_draw_batch(nb::module_& m) {
              nb::arg("rx"), nb::arg("ry"), nb::arg("blur_radius"),
              nb::arg("spread") = 0.0, nb::arg("offset_x") = 0.0,
              nb::arg("offset_y") = 0.0, nb::arg("shadow_color") = nb::none())
+        .def("draw_shadow_rounded_rect_var", &DrawBatch::draw_shadow_rounded_rect_var,
+             nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"),
+             nb::arg("rx"), nb::arg("ry"), nb::arg("blur_radius"),
+             nb::arg("spread") = 0.0, nb::arg("offset_x") = 0.0,
+             nb::arg("offset_y") = 0.0, nb::arg("shadow_color_var") = "",
+             nb::arg("rx_var") = "", nb::arg("ry_var") = "",
+             nb::arg("blur_var") = "", nb::arg("fallback") = Color(0, 0, 0, 30))
         .def("draw_card", [](DrawBatch& b,
                              double x, double y, double w, double h,
                              double rx, double ry,
@@ -193,6 +217,17 @@ void bind_draw_batch(nb::module_& m) {
              nb::arg("shadow_offset_x") = 0.0,
              nb::arg("shadow_offset_y") = 0.0,
              nb::arg("shadow_color") = nb::none())
+        .def("draw_card_var", &DrawBatch::draw_card_var,
+             nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"),
+             nb::arg("rx"), nb::arg("ry"),
+             nb::arg("bg_var") = "", nb::arg("border_var") = "",
+             nb::arg("border_w") = 0.0, nb::arg("shadow_blur") = 0.0,
+             nb::arg("shadow_spread") = 0.0, nb::arg("shadow_ox") = 0.0,
+             nb::arg("shadow_oy") = 0.0, nb::arg("shadow_var") = "",
+             nb::arg("rx_var") = "", nb::arg("ry_var") = "",
+             nb::arg("bw_var") = "", nb::arg("bg_fallback") = Color(255, 255, 255, 255),
+             nb::arg("border_fallback") = Color(200, 200, 200, 255),
+             nb::arg("shadow_fallback") = Color(0, 0, 0, 30))
         .def("save", &DrawBatch::save)
         .def("restore", &DrawBatch::restore)
         .def("translate", &DrawBatch::translate, nb::arg("tx"), nb::arg("ty"))
@@ -789,6 +824,9 @@ void bind_surface(nb::module_& m) {
         // Batch Execution
         .def("execute_batch", &Surface::execute_batch,
              nb::arg("batch"),
+             nb::arg("local_vars") = std::unordered_map<std::string, std::string>{},
+             nb::arg("pseudo_state") = 0,
+             nb::arg("class_name") = "",
              nb::call_guard<nb::gil_scoped_release>())
 
         // Tkinter Blit & Buffer
@@ -899,6 +937,16 @@ void bind_style_engine(nb::module_& m) {
         .def_static("resolve_color", [](const std::string& color_str) {
             return StyleEngine::instance().resolve_color(color_str);
         }, nb::arg("color_str"))
+        .def_static("resolve_color_var", [](const std::string& val, std::optional<Color> fallback, const std::string& theme_name) {
+            Color fb = fallback.value_or(Color(0, 0, 0, 0));
+            return StyleEngine::instance().resolve_color_var(val, fb, theme_name);
+        }, nb::arg("val"), nb::arg("fallback") = nb::none(), nb::arg("theme_name") = "")
+        .def_static("resolve_scalar", [](const std::string& val, double fallback, const std::string& theme_name) {
+            return StyleEngine::instance().resolve_scalar(val, fallback, theme_name);
+        }, nb::arg("val"), nb::arg("fallback") = 0.0, nb::arg("theme_name") = "")
+        .def_static("resolve_string", [](const std::string& val, const std::string& fallback, const std::string& theme_name) {
+            return StyleEngine::instance().resolve_string(val, fallback, theme_name);
+        }, nb::arg("val"), nb::arg("fallback") = "", nb::arg("theme_name") = "")
         .def_static("set_variable", [](const std::string& key, const std::string& val, const std::string& theme_name) {
             StyleEngine::instance().set_variable(key, val, theme_name);
         }, nb::arg("key"), nb::arg("val"), nb::arg("theme_name") = "")
@@ -1066,7 +1114,12 @@ void bind_surface_handle(nb::module_& m) {
             }
             return nb::steal(mem);
         })
-        .def("execute_batch", &SurfaceHandle::execute_batch, nb::arg("batch"), nb::call_guard<nb::gil_scoped_release>())
+        .def("execute_batch", &SurfaceHandle::execute_batch,
+             nb::arg("batch"),
+             nb::arg("local_vars") = std::unordered_map<std::string, std::string>{},
+             nb::arg("pseudo_state") = 0,
+             nb::arg("class_name") = "",
+             nb::call_guard<nb::gil_scoped_release>())
         .def("save", &SurfaceHandle::save)
         .def("restore", &SurfaceHandle::restore)
         .def("reset_transform", &SurfaceHandle::reset_transform)
@@ -1199,7 +1252,22 @@ void bind_native_decorator(nb::module_& m) {
         .def_prop_rw("shadow_enabled", &NativeDecorator::shadow_enabled, &NativeDecorator::set_shadow_enabled)
         .def_prop_rw("focus_ring_color", &NativeDecorator::focus_ring_color, &NativeDecorator::set_focus_ring_color)
         .def_prop_rw("focus_ring_width", &NativeDecorator::focus_ring_width, &NativeDecorator::set_focus_ring_width)
-        .def_prop_rw("focus_ring_offset", &NativeDecorator::focus_ring_offset, &NativeDecorator::set_focus_ring_offset);
+        .def_prop_rw("focus_ring_offset", &NativeDecorator::focus_ring_offset, &NativeDecorator::set_focus_ring_offset)
+        // CSS Classes, dynamic vars, and DrawBatch
+        .def("add_class", &NativeDecorator::add_class, nb::arg("name"))
+        .def("remove_class", &NativeDecorator::remove_class, nb::arg("name"))
+        .def("toggle_class", &NativeDecorator::toggle_class, nb::arg("name"))
+        .def("has_class", &NativeDecorator::has_class, nb::arg("name"))
+        .def_prop_rw("classes", &NativeDecorator::get_classes, &NativeDecorator::set_classes)
+        .def_prop_rw("class_name", &NativeDecorator::class_name, &NativeDecorator::set_class_name)
+        .def("set_var", &NativeDecorator::set_var, nb::arg("key"), nb::arg("val"))
+        .def("get_var", &NativeDecorator::get_var, nb::arg("key"))
+        .def("remove_var", &NativeDecorator::remove_var, nb::arg("key"))
+        .def("clear_vars", &NativeDecorator::clear_vars)
+        .def("get_vars", &NativeDecorator::get_vars)
+        .def("bind_batch", &NativeDecorator::bind_batch, nb::arg("batch"))
+        .def("clear_batch", &NativeDecorator::clear_batch)
+        .def_prop_ro("has_batch", &NativeDecorator::has_batch);
 }
 
 void bind_native_controller(nb::module_& m) {
@@ -1248,7 +1316,22 @@ void bind_native_controller(nb::module_& m) {
         .def("set_on_click", &NativeWidgetController::set_on_click, nb::arg("callback"))
         .def("clear_on_click", &NativeWidgetController::clear_on_click)
         .def("set_on_resize", &NativeWidgetController::set_on_resize, nb::arg("callback"))
-        .def("clear_on_resize", &NativeWidgetController::clear_on_resize);
+        .def("clear_on_resize", &NativeWidgetController::clear_on_resize)
+        // CSS Classes, dynamic vars, and DrawBatch
+        .def("add_class", &NativeWidgetController::add_class, nb::arg("name"))
+        .def("remove_class", &NativeWidgetController::remove_class, nb::arg("name"))
+        .def("toggle_class", &NativeWidgetController::toggle_class, nb::arg("name"))
+        .def("has_class", &NativeWidgetController::has_class, nb::arg("name"))
+        .def_prop_rw("classes", &NativeWidgetController::get_classes, &NativeWidgetController::set_classes)
+        .def_prop_rw("class_name", &NativeWidgetController::class_name, &NativeWidgetController::set_class_name)
+        .def("set_var", &NativeWidgetController::set_var, nb::arg("key"), nb::arg("val"))
+        .def("get_var", &NativeWidgetController::get_var, nb::arg("key"))
+        .def("remove_var", &NativeWidgetController::remove_var, nb::arg("key"))
+        .def("clear_vars", &NativeWidgetController::clear_vars)
+        .def("get_vars", &NativeWidgetController::get_vars)
+        .def("bind_batch", &NativeWidgetController::bind_batch, nb::arg("batch"))
+        .def("clear_batch", &NativeWidgetController::clear_batch)
+        .def_prop_ro("has_batch", &NativeWidgetController::has_batch);
 }
 
 } // anonymous namespace

@@ -127,6 +127,22 @@ class Switch(BaseControl):
             **kwargs,
         )
 
+        self.add_class("switch")
+        if self._is_on:
+            self.add_class("checked")
+        self._update_switch_vars()
+
+    def _update_switch_vars(self) -> None:
+        pal = self._palette
+        track_col = resolve_color_failsafe(self._custom_track_color or pal.track_bg, palette=pal)
+        active_col = resolve_color_failsafe(self._custom_active_color or pal.primary, palette=pal)
+        thumb_col = resolve_color_failsafe(self._custom_thumb_color or pal.thumb_color, palette=pal, fallback=FALLBACK_THUMB_COLOR)
+
+        self.set_var("--track-bg", track_col)
+        self.set_var("--active-bg", active_col)
+        self.set_var("--thumb-bg", thumb_col)
+        self.set_var("--progress-t", str(self._progress_t))
+
     def _default_inner_bg(self, pal: Palette) -> str:
         return pal.primary
 
@@ -139,15 +155,21 @@ class Switch(BaseControl):
                 self._animate_to_state(new_is_on)
 
     def _animate_to_state(self, is_on: bool) -> None:
+        if is_on:
+            self.add_class("checked")
+        else:
+            self.remove_class("checked")
         target_t = 1.0 if is_on else 0.0
         if self._animated and self.winfo_exists():
             self.animate_property("thumb", self._progress_t, target_t, duration_ms=SWITCH_ANIM_DURATION_MS, on_update=self._set_progress_t)
         else:
             self._progress_t = target_t
+            self.set_var("--progress-t", str(self._progress_t))
             self.request_redraw()
 
     def _set_progress_t(self, val: float) -> None:
         self._progress_t = val
+        self.set_var("--progress-t", str(val))
 
     def get(self) -> Any:
         return self._onvalue if self._is_on else self._offvalue

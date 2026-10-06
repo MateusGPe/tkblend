@@ -201,7 +201,7 @@ class BlendDecorator(tk.Widget):
         self._sync_child_state_bg()
 
     def _sync_child_state_bg(self) -> None:
-        """Ensure decorated child matches active hover/focus/normal background."""
+        """Ensure decorated child matches active hover/focus/normal background and class styles."""
         if self._child is None or not self._match_bg:
             return
 
@@ -213,6 +213,30 @@ class BlendDecorator(tk.Widget):
         else:
             c = self._native.bg_color
             target_bg = f"#{c.r:02x}{c.g:02x}{c.b:02x}"
+
+        if self.classes:
+            try:
+                from tkblend._tkblend import StyleEngine, PseudoState
+                pseudo = 0
+                if self.is_focused:
+                    pseudo |= int(PseudoState.Focused)
+                if self.is_hovered:
+                    pseudo |= int(PseudoState.Hover)
+                elem_tag = self._child.winfo_class().lower() if hasattr(self._child, "winfo_class") else ""
+                cs = StyleEngine.resolve(elem_tag, self.class_name, pseudo)
+                if cs.bg_color.a > 0 and not self._explicit_bg:
+                    target_bg = f"#{cs.bg_color.r:02x}{cs.bg_color.g:02x}{cs.bg_color.b:02x}"
+                if cs.fg_color.a > 0:
+                    fg_hex = f"#{cs.fg_color.r:02x}{cs.fg_color.g:02x}{cs.fg_color.b:02x}"
+                    try:
+                        self._child.configure(fg=fg_hex)
+                    except Exception:
+                        try:
+                            self._child.configure(foreground=fg_hex)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
 
         try:
             self._child.configure(bg=target_bg)
@@ -314,6 +338,105 @@ class BlendDecorator(tk.Widget):
     @child_ry.setter
     def child_ry(self, val: Optional[float]) -> None:
         self._native.child_ry = float(val) if val is not None else None
+
+    # CSS Class Management
+    def add_class(self, name: str) -> BlendDecorator:
+        """Add a CSS class and trigger auto-redraw and child styling sync."""
+        self._native.add_class(str(name))
+        self._sync_child_state_bg()
+        return self
+
+    def remove_class(self, name: str) -> BlendDecorator:
+        """Remove a CSS class and trigger auto-redraw and child styling sync."""
+        self._native.remove_class(str(name))
+        self._sync_child_state_bg()
+        return self
+
+    def toggle_class(self, name: str) -> BlendDecorator:
+        """Toggle a CSS class on the decorator."""
+        self._native.toggle_class(str(name))
+        self._sync_child_state_bg()
+        return self
+
+    def has_class(self, name: str) -> bool:
+        """Return True if the decorator has the specified CSS class."""
+        return self._native.has_class(str(name))
+
+    @property
+    def classes(self) -> list[str]:
+        """List of active CSS classes."""
+        return list(self._native.classes)
+
+    @classes.setter
+    def classes(self, val: Sequence[str]) -> None:
+        self._native.classes = [str(x) for x in val]
+        self._sync_child_state_bg()
+
+    @property
+    def class_name(self) -> str:
+        """Space-separated string of active CSS classes."""
+        return self._native.class_name
+
+    @class_name.setter
+    def class_name(self, val: str) -> None:
+        self._native.class_name = str(val)
+        self._sync_child_state_bg()
+
+    # Dynamic Variable Management
+    def set_var(self, key: str, value: Any) -> BlendDecorator:
+        """Set a local scoped variable (color, scalar curve/dimension, or string) and trigger auto-redraw."""
+        self._native.set_var(str(key), str(value))
+        self._sync_child_state_bg()
+        return self
+
+    def get_var(self, key: str, default: Optional[str] = None) -> str:
+        """Get the value of a scoped or global variable."""
+        res = self._native.get_var(str(key))
+        if not res and default is not None:
+            return default
+        return res
+
+    def remove_var(self, key: str) -> BlendDecorator:
+        """Remove a locally scoped variable override."""
+        self._native.remove_var(str(key))
+        self._sync_child_state_bg()
+        return self
+
+    def clear_vars(self) -> BlendDecorator:
+        """Clear all locally scoped variable overrides."""
+        self._native.clear_vars()
+        self._sync_child_state_bg()
+        return self
+
+    @property
+    def vars(self) -> dict[str, str]:
+        """Dictionary of all local variable overrides."""
+        return dict(self._native.get_vars())
+
+    @vars.setter
+    def vars(self, d: dict[str, Any]) -> None:
+        self._native.clear_vars()
+        for k, v in d.items():
+            self._native.set_var(str(k), str(v))
+        self._sync_child_state_bg()
+
+    # DrawBatch Binding for Zero-Python Rendering
+    def bind_batch(self, batch: Any) -> BlendDecorator:
+        """Bind a C++ DrawBatch display list for zero-GIL, zero-Python rendering."""
+        if hasattr(batch, "native"):
+            batch = batch.native
+        self._native.bind_batch(batch)
+        return self
+
+    def clear_batch(self) -> BlendDecorator:
+        """Clear any bound DrawBatch and return to standard card rendering."""
+        self._native.clear_batch()
+        return self
+
+    @property
+    def has_batch(self) -> bool:
+        """Return True if a C++ DrawBatch is actively bound."""
+        return self._native.has_batch
 
     def _reposition_child(self) -> None:
         """Recalculate and place child widget based on active insets and padding."""

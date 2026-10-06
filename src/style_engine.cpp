@@ -308,6 +308,36 @@ Color StyleEngine::resolve_color(const std::string& color_str) const {
     return Color(0, 0, 0, 255);
 }
 
+Color StyleEngine::resolve_color_var(const std::string& val, const Color& fallback, const std::string& theme_name) const {
+    if (val.empty()) return fallback;
+    std::string s = resolve_var_string(val, 0, theme_name);
+    s = trim(s);
+    if (s.empty()) return fallback;
+    return resolve_color(s);
+}
+
+double StyleEngine::resolve_scalar(const std::string& val, double fallback, const std::string& theme_name) const {
+    if (val.empty()) return fallback;
+    std::string s = resolve_var_string(val, 0, theme_name);
+    s = trim(s);
+    if (s.empty()) return fallback;
+    try {
+        size_t idx = 0;
+        double v = std::stod(s, &idx);
+        return v;
+    } catch (...) {
+        return fallback;
+    }
+}
+
+std::string StyleEngine::resolve_string(const std::string& val, const std::string& fallback, const std::string& theme_name) const {
+    if (val.empty()) return fallback;
+    std::string s = resolve_var_string(val, 0, theme_name);
+    s = trim(s);
+    if (s.empty()) return fallback;
+    return strip_quotes(s);
+}
+
 void StyleEngine::clear_cache() {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     resolve_cache_.clear();
@@ -475,11 +505,21 @@ ComputedStyle StyleEngine::resolve(
         // Element matching
         bool el_match = r.element.empty() || r.element == "*" || r.element == eff_el;
         if (!r.element.empty() && r.element != "*" && r.element != eff_el) {
-            // Also allow matching if element name matches class_name (e.g. .card widget tag)
-            if (r.element != eff_cls) {
-                el_match = false;
-            } else {
+            // Also allow matching if element name matches class_name or one of the class tokens
+            if (r.element == eff_cls) {
                 el_match = true;
+            } else {
+                std::stringstream el_ss(eff_cls);
+                std::string c_tok;
+                bool found_el = false;
+                while (el_ss >> c_tok) {
+                    if (!c_tok.empty() && c_tok.front() == '.') c_tok.erase(0, 1);
+                    if (r.element == c_tok) {
+                        found_el = true;
+                        break;
+                    }
+                }
+                el_match = found_el;
             }
         }
 
@@ -488,13 +528,21 @@ ComputedStyle StyleEngine::resolve(
         if (!r.class_name.empty()) {
             if (eff_cls.empty()) {
                 cls_match = false;
-            } else if (r.class_name != eff_cls) {
-                // Check prefix e.g. .btn-primary matching "primary"
-                if (r.class_name == "btn-" + eff_cls || r.class_name == "badge-" + eff_cls) {
-                    cls_match = true;
-                } else {
-                    cls_match = false;
+            } else if (r.class_name == eff_cls || r.class_name == "btn-" + eff_cls || r.class_name == "badge-" + eff_cls) {
+                cls_match = true;
+            } else {
+                // Check space-separated class tokens
+                bool found = false;
+                std::stringstream cls_ss(eff_cls);
+                std::string c_tok;
+                while (cls_ss >> c_tok) {
+                    if (!c_tok.empty() && c_tok.front() == '.') c_tok.erase(0, 1);
+                    if (r.class_name == c_tok || r.class_name == "btn-" + c_tok || r.class_name == "badge-" + c_tok) {
+                        found = true;
+                        break;
+                    }
                 }
+                cls_match = found;
             }
         }
 

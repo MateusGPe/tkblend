@@ -1488,41 +1488,155 @@ void Surface::draw_checkbox(
     }
 }
 
-void Surface::execute_batch(const DrawBatch& batch) {
+namespace {
+
+static Color resolve_op_color(
+    const std::string& var_name,
+    const Color& fallback,
+    const std::unordered_map<std::string, std::string>& local_vars
+) {
+    if (var_name.empty()) return fallback;
+    std::string clean_var = var_name;
+    if (clean_var.rfind("var(", 0) == 0 && clean_var.back() == ')') {
+        clean_var = clean_var.substr(4, clean_var.size() - 5);
+        size_t comma = clean_var.find(',');
+        if (comma != std::string::npos) {
+            clean_var = clean_var.substr(0, comma);
+        }
+        auto s = clean_var.find_first_not_of(" \t\n\r");
+        auto e = clean_var.find_last_not_of(" \t\n\r");
+        if (s != std::string::npos) clean_var = clean_var.substr(s, e - s + 1);
+    }
+    auto it = local_vars.find(clean_var);
+    if (it != local_vars.end()) {
+        return StyleEngine::instance().resolve_color_var(it->second, fallback);
+    }
+    if (clean_var.rfind("--", 0) == 0) {
+        it = local_vars.find(clean_var.substr(2));
+        if (it != local_vars.end()) return StyleEngine::instance().resolve_color_var(it->second, fallback);
+    } else {
+        it = local_vars.find("--" + clean_var);
+        if (it != local_vars.end()) return StyleEngine::instance().resolve_color_var(it->second, fallback);
+    }
+    return StyleEngine::instance().resolve_color_var(var_name, fallback);
+}
+
+static double resolve_op_scalar(
+    const std::string& var_name,
+    double fallback,
+    const std::unordered_map<std::string, std::string>& local_vars
+) {
+    if (var_name.empty()) return fallback;
+    std::string clean_var = var_name;
+    if (clean_var.rfind("var(", 0) == 0 && clean_var.back() == ')') {
+        clean_var = clean_var.substr(4, clean_var.size() - 5);
+        size_t comma = clean_var.find(',');
+        if (comma != std::string::npos) {
+            clean_var = clean_var.substr(0, comma);
+        }
+        auto s = clean_var.find_first_not_of(" \t\n\r");
+        auto e = clean_var.find_last_not_of(" \t\n\r");
+        if (s != std::string::npos) clean_var = clean_var.substr(s, e - s + 1);
+    }
+    auto it = local_vars.find(clean_var);
+    if (it != local_vars.end()) {
+        return StyleEngine::instance().resolve_scalar(it->second, fallback);
+    }
+    if (clean_var.rfind("--", 0) == 0) {
+        it = local_vars.find(clean_var.substr(2));
+        if (it != local_vars.end()) return StyleEngine::instance().resolve_scalar(it->second, fallback);
+    } else {
+        it = local_vars.find("--" + clean_var);
+        if (it != local_vars.end()) return StyleEngine::instance().resolve_scalar(it->second, fallback);
+    }
+    return StyleEngine::instance().resolve_scalar(var_name, fallback);
+}
+
+static std::string resolve_op_string(
+    const std::string& var_name,
+    const std::string& fallback,
+    const std::unordered_map<std::string, std::string>& local_vars
+) {
+    if (var_name.empty()) return fallback;
+    std::string clean_var = var_name;
+    if (clean_var.rfind("var(", 0) == 0 && clean_var.back() == ')') {
+        clean_var = clean_var.substr(4, clean_var.size() - 5);
+        size_t comma = clean_var.find(',');
+        if (comma != std::string::npos) {
+            clean_var = clean_var.substr(0, comma);
+        }
+        auto s = clean_var.find_first_not_of(" \t\n\r");
+        auto e = clean_var.find_last_not_of(" \t\n\r");
+        if (s != std::string::npos) clean_var = clean_var.substr(s, e - s + 1);
+    }
+    auto it = local_vars.find(clean_var);
+    if (it != local_vars.end()) {
+        return StyleEngine::instance().resolve_string(it->second, fallback);
+    }
+    if (clean_var.rfind("--", 0) == 0) {
+        it = local_vars.find(clean_var.substr(2));
+        if (it != local_vars.end()) return StyleEngine::instance().resolve_string(it->second, fallback);
+    } else {
+        it = local_vars.find("--" + clean_var);
+        if (it != local_vars.end()) return StyleEngine::instance().resolve_string(it->second, fallback);
+    }
+    return StyleEngine::instance().resolve_string(var_name, fallback);
+}
+
+} // namespace
+
+void Surface::execute_batch(
+    const DrawBatch& batch,
+    const std::unordered_map<std::string, std::string>& local_vars,
+    uint16_t pseudo_state,
+    const std::string& class_name
+) {
+    (void)pseudo_state;
+    (void)class_name;
     for (const auto& op : batch.ops) {
+        Color c1 = resolve_op_color(op.c1_var, op.c1, local_vars);
+        Color c2 = resolve_op_color(op.c2_var, op.c2, local_vars);
+        Color c3 = resolve_op_color(op.c3_var, op.c3, local_vars);
+        std::string str = resolve_op_string(op.str_var, op.str, local_vars);
+
+        double d[12];
+        for (int i = 0; i < 12; ++i) {
+            d[i] = resolve_op_scalar(op.d_vars[i], op.d[i], local_vars);
+        }
+
         switch (op.type) {
             case DrawOpType::Clear:
-                clear(op.c1);
+                clear(c1);
                 break;
             case DrawOpType::FillRect:
-                fill_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.c1);
+                fill_rect(d[0], d[1], d[2], d[3], c1);
                 break;
             case DrawOpType::StrokeRect:
-                stroke_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.c1, op.d[4]);
+                stroke_rect(d[0], d[1], d[2], d[3], c1, d[4]);
                 break;
             case DrawOpType::FillRoundedRect:
-                fill_rounded_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5], op.c1);
+                fill_rounded_rect(d[0], d[1], d[2], d[3], d[4], d[5], c1);
                 break;
             case DrawOpType::StrokeRoundedRect:
-                stroke_rounded_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5], op.c1, op.d[6]);
+                stroke_rounded_rect(d[0], d[1], d[2], d[3], d[4], d[5], c1, d[6]);
                 break;
             case DrawOpType::FillCircle:
-                fill_circle(op.d[0], op.d[1], op.d[2], op.c1);
+                fill_circle(d[0], d[1], d[2], c1);
                 break;
             case DrawOpType::StrokeCircle:
-                stroke_circle(op.d[0], op.d[1], op.d[2], op.c1, op.d[3]);
+                stroke_circle(d[0], d[1], d[2], c1, d[3]);
                 break;
             case DrawOpType::DrawLine:
-                draw_line(op.d[0], op.d[1], op.d[2], op.d[3], op.c1, op.d[4]);
+                draw_line(d[0], d[1], d[2], d[3], c1, d[4]);
                 break;
             case DrawOpType::DrawText:
-                draw_text(op.str, op.d[0], op.d[1], static_cast<float>(op.d[2]), "default", op.c1, op.i1, op.i2, op.i3 != 0);
+                draw_text(str, d[0], d[1], static_cast<float>(d[2]), "default", c1, op.i1, op.i2, op.i3 != 0);
                 break;
             case DrawOpType::DrawShadowRoundedRect:
-                draw_shadow_rounded_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5], op.d[6], op.d[7], op.d[8], op.d[9], op.c1);
+                draw_shadow_rounded_rect(d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], c1);
                 break;
             case DrawOpType::DrawCard:
-                draw_card(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5], op.c1, op.c2, op.d[6], op.d[7], op.d[8], op.d[9], op.d[10], op.c3);
+                draw_card(d[0], d[1], d[2], d[3], d[4], d[5], c1, c2, d[6], d[7], d[8], d[9], d[10], c3);
                 break;
             case DrawOpType::Save:
                 save();
@@ -1531,19 +1645,19 @@ void Surface::execute_batch(const DrawBatch& batch) {
                 restore();
                 break;
             case DrawOpType::Translate:
-                translate(op.d[0], op.d[1]);
+                translate(d[0], d[1]);
                 break;
             case DrawOpType::Scale:
-                scale(op.d[0], op.d[1]);
+                scale(d[0], d[1]);
                 break;
             case DrawOpType::Rotate:
-                rotate(op.d[0]);
+                rotate(d[0]);
                 break;
             case DrawOpType::ClipRect:
-                clip_rect(op.d[0], op.d[1], op.d[2], op.d[3]);
+                clip_rect(d[0], d[1], d[2], d[3]);
                 break;
             case DrawOpType::ClipRoundedRect:
-                clip_rounded_rect(op.d[0], op.d[1], op.d[2], op.d[3], op.d[4], op.d[5]);
+                clip_rounded_rect(d[0], d[1], d[2], d[3], d[4], d[5]);
                 break;
             case DrawOpType::ResetClip:
                 reset_clip();

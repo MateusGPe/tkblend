@@ -316,6 +316,89 @@ class BaseControl(tk.Frame):
             pass
         self.request_redraw()
 
+    # CSS Class Management
+    def add_class(self, name: str) -> BaseControl:
+        """Add a CSS class and trigger auto-redraw."""
+        self._controller.add_class(name)
+        return self
+
+    def remove_class(self, name: str) -> BaseControl:
+        """Remove a CSS class and trigger auto-redraw."""
+        self._controller.remove_class(name)
+        return self
+
+    def toggle_class(self, name: str) -> BaseControl:
+        """Toggle a CSS class on the control."""
+        self._controller.toggle_class(name)
+        return self
+
+    def has_class(self, name: str) -> bool:
+        """Return True if the control has the specified CSS class."""
+        return self._controller.has_class(name)
+
+    @property
+    def classes(self) -> list[str]:
+        """List of active CSS classes."""
+        return self._controller.classes
+
+    @classes.setter
+    def classes(self, val: Sequence[str]) -> None:
+        self._controller.classes = val
+
+    @property
+    def class_name(self) -> str:
+        """Space-separated string of active CSS classes."""
+        return self._controller.class_name
+
+    @class_name.setter
+    def class_name(self, val: str) -> None:
+        self._controller.class_name = val
+
+    # Dynamic Variable Management
+    def set_var(self, key: str, value: Any) -> BaseControl:
+        """Set a local scoped variable (color, scalar curve/dimension, or string) and trigger auto-redraw."""
+        self._controller.set_var(key, value)
+        return self
+
+    def get_var(self, key: str, default: Optional[str] = None) -> str:
+        """Get the value of a scoped or global variable."""
+        return self._controller.get_var(key, default)
+
+    def remove_var(self, key: str) -> BaseControl:
+        """Remove a locally scoped variable override."""
+        self._controller.remove_var(key)
+        return self
+
+    def clear_vars(self) -> BaseControl:
+        """Clear all locally scoped variable overrides."""
+        self._controller.clear_vars()
+        return self
+
+    @property
+    def vars(self) -> dict[str, str]:
+        """Dictionary of all local variable overrides."""
+        return self._controller.vars
+
+    @vars.setter
+    def vars(self, d: dict[str, Any]) -> None:
+        self._controller.vars = d
+
+    # DrawBatch Binding for Zero-Python Rendering
+    def bind_batch(self, batch: Any) -> BaseControl:
+        """Bind a C++ DrawBatch display list for zero-GIL, zero-Python rendering."""
+        self._controller.bind_batch(batch)
+        return self
+
+    def clear_batch(self) -> BaseControl:
+        """Clear any bound DrawBatch and return to standard render callbacks."""
+        self._controller.clear_batch()
+        return self
+
+    @property
+    def has_batch(self) -> bool:
+        """Return True if a C++ DrawBatch is actively bound."""
+        return self._controller.has_batch
+
     def request_redraw(self) -> None:
         """Request idle redraw of widget surface."""
         if not self.winfo_exists():
@@ -337,6 +420,9 @@ class BaseControl(tk.Frame):
         if not hasattr(self, "_controller") or not self._controller.is_attached:
             return
         if not self.winfo_exists():
+            return
+        if self._controller.has_batch:
+            self._controller.paint_and_blit()
             return
         surf = self._controller.surface
         try:

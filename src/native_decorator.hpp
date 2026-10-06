@@ -3,6 +3,7 @@
 #include "platform_compat.h"
 #include "surface.hpp"
 #include "color.hpp"
+#include "draw_batch.hpp"
 #include "blit/blit_backend.h"
 #include "window_shape.hpp"
 
@@ -10,8 +11,12 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/tuple.h>
+#include <nanobind/stl/vector.h>
+#include <nanobind/stl/unordered_map.h>
 
 #include <string>
+#include <vector>
+#include <unordered_map>
 #include <memory>
 #include <mutex>
 #include <cstdint>
@@ -159,6 +164,28 @@ public:
     double focus_ring_offset() const { std::lock_guard<std::mutex> lock(mutex_); return focus_ring_offset_; }
     void set_focus_ring_offset(double o) { { std::lock_guard<std::mutex> lock(mutex_); focus_ring_offset_ = o; } request_redraw(); }
 
+    // CSS Class Management
+    void add_class(const std::string& name);
+    void remove_class(const std::string& name);
+    void toggle_class(const std::string& name);
+    bool has_class(const std::string& name) const;
+    std::vector<std::string> get_classes() const;
+    void set_classes(const std::vector<std::string>& classes);
+    std::string class_name() const;
+    void set_class_name(const std::string& cls);
+
+    // Dynamic Variable Management
+    void set_var(const std::string& key, const std::string& val);
+    std::string get_var(const std::string& key) const;
+    void remove_var(const std::string& key);
+    void clear_vars();
+    std::unordered_map<std::string, std::string> get_vars() const;
+
+    // DrawBatch Binding for zero-Python rendering
+    void bind_batch(const DrawBatch& batch);
+    void clear_batch();
+    bool has_batch() const;
+
 private:
     static void WindowEventHandler(ClientData clientData, XEvent* eventPtr);
     static void ChildEventHandler(ClientData clientData, XEvent* eventPtr);
@@ -216,6 +243,11 @@ private:
     Color focus_ring_color_{66, 133, 244, 255};
     double focus_ring_width_{2.0};
     double focus_ring_offset_{2.0};
+
+    // CSS Classes and dynamic variables
+    std::vector<std::string> classes_;
+    std::unordered_map<std::string, std::string> local_vars_;
+    std::shared_ptr<DrawBatch> draw_batch_{nullptr};
 };
 
 } // namespace tkblend

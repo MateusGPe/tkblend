@@ -855,9 +855,16 @@ class Surface:
             float(focus_ring_width),
         )
 
-    def execute_batch(self, batch: DrawBatch) -> None:
-        """Execute a recorded DrawBatch display list with zero GIL overhead."""
-        self._surface.execute_batch(batch)
+    def execute_batch(
+        self,
+        batch: DrawBatch,
+        local_vars: Optional[dict[str, str]] = None,
+        pseudo_state: int = 0,
+        class_name: str = "",
+    ) -> None:
+        """Execute a recorded DrawBatch display list with zero GIL overhead and dynamic variable resolution."""
+        vars_dict = {str(k): str(v) for k, v in (local_vars or {}).items()}
+        self._surface.execute_batch(batch, vars_dict, int(pseudo_state), str(class_name))
 
     def flush(self) -> None:
         """Synchronize and flush all queued Blend2D rendering operations."""
