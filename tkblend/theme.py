@@ -16,7 +16,9 @@ from tkblend._tkblend import (
     StyleEngine,
     PseudoState,
     ComputedStyle,
+    ContainerLayer,
 )
+
 
 logger = logging.getLogger(__name__)
 
@@ -642,13 +644,14 @@ def remove_theme_listener(callback: Callable[[Palette], None]) -> None:
 
 
 def resolve_ancestor_bg(widget: Optional[tk.Misc], palette: Optional[Palette] = None) -> str:
-    """Declarative resolution of background color from nearest container or theme."""
+    """Declarative resolution of background color from nearest container or theme via C++."""
     active_pal = palette or get_theme()
     if widget is None:
         return active_pal.bg
 
     curr = widget
     while curr is not None:
+        # Check explicit container surface properties first
         if hasattr(curr, "inner_bg") and curr.inner_bg:
             return resolve_color_failsafe(curr.inner_bg, palette=active_pal)
         if hasattr(curr, "bg_color") and curr.bg_color:
@@ -659,6 +662,15 @@ def resolve_ancestor_bg(widget: Optional[tk.Misc], palette: Optional[Palette] = 
             return resolve_color_failsafe(curr._explicit_inner_bg, palette=active_pal)
         if hasattr(curr, "_parent_bg") and curr._parent_bg and getattr(curr, "_explicit_bg", None):
             return resolve_color_failsafe(curr._explicit_bg, palette=active_pal)
+
+        # If container has a native controller attached, query C++ Tk_Parent traversal
+        if hasattr(curr, "controller") and hasattr(curr.controller, "resolve_parent_bg"):
+            try:
+                col = curr.controller.resolve_parent_bg()
+                if col.a > 0 or col.r > 0 or col.g > 0 or col.b > 0:
+                    return col.to_hex(include_alpha=False)
+            except Exception:
+                pass
 
         if isinstance(curr, tk.Misc):
             try:
@@ -685,71 +697,41 @@ def resolve_ancestor_bg(widget: Optional[tk.Misc], palette: Optional[Palette] = 
 
 
 def cascade_bg_to_children(container: tk.Misc, bg_color: str, preserve_overrides: bool = True, render: bool = True, palette: Optional[Palette] = None) -> None:
-    """Update background color of container and direct and nested vector children."""
+    """Enforce theme background on container and all vector and standard children."""
     resolved = resolve_color_failsafe(bg_color)
     pal = palette or get_theme()
+    tk_hex = to_tk_hex(resolved)
+
     if not hasattr(container, "set_outer_bg"):
         try:
-            container.configure(background=to_tk_hex(resolved))
+            container.configure(background=tk_hex)
         except Exception:
             pass
 
     if hasattr(container, "winfo_children"):
         try:
             for child in container.winfo_children():
-                # 1. Direct vector widgets with set_outer_bg or set_parent_bg
                 if hasattr(child, "set_outer_bg"):
-                    try:
-                        child.set_outer_bg(resolved, render=render, explicit=False)
-                    except TypeError:
-                        child.set_outer_bg(resolved, render=render)
+                    child.set_outer_bg(resolved, render=render)
                     if len(child.winfo_children()) > 0:
-                        child_inner = child.inner_bg if hasattr(child, "inner_bg") else resolved
+                        child_inner = getattr(child, "inner_bg", resolved)
                         cascade_bg_to_children(child, child_inner, preserve_overrides=preserve_overrides, render=render, palette=pal)
-                    continue
                 elif hasattr(child, "set_parent_bg"):
-                    try:
-                        child.set_parent_bg(resolved, render=render, explicit=False)
-                    except TypeError:
-                        child.set_parent_bg(resolved, render=render)
+                    child.set_parent_bg(resolved, render=render)
                     if len(child.winfo_children()) > 0:
-                        child_inner = child.inner_bg if hasattr(child, "inner_bg") else resolved
+                        child_inner = getattr(child, "inner_bg", resolved)
                         cascade_bg_to_children(child, child_inner, preserve_overrides=preserve_overrides, render=render, palette=pal)
-                    continue
-
-                # 2. Standard Tk Labels
-                if isinstance(child, tk.Label):
-                    try:
-                        child_bg = to_tk_hex(resolved)
-                        curr_fg = str(child.cget("foreground")).strip().lower()
-                        is_bold = "bold" in str(child.cget("font")).lower()
-                        
-                        bg_contrast_need = get_contrast_color(child_bg)
-                        fg_contrast_need = get_contrast_color(curr_fg) if curr_fg.startswith("#") else None
-                        is_low_contrast = (fg_contrast_need is not None and bg_contrast_need == fg_contrast_need)
-
-                        if (
-                            curr_fg in ("", "black", "white", "#000000", "#ffffff", "systembuttontext", "systemwindowtext")
-                            or is_default_tk_bg(curr_fg)
-                            or is_low_contrast
-                            or not preserve_overrides
-                        ):
-                            fg_col = pal.fg if is_bold else pal.text_muted
-                            child.configure(background=child_bg, foreground=to_tk_hex(fg_col))
-                        else:
-                            child.configure(background=child_bg)
-                    except Exception:
-                        try:
-                            child.configure(background=to_tk_hex(resolved))
-                        except Exception:
-                            pass
-                # 3. Standard Tk containers (Frames, LabelFrames, Canvas)
                 elif isinstance(child, (tk.Frame, tk.LabelFrame, tk.Canvas)):
                     try:
-                        child.configure(background=to_tk_hex(resolved))
+                        child.configure(background=tk_hex)
                     except Exception:
                         pass
                     cascade_bg_to_children(child, resolved, preserve_overrides=preserve_overrides, render=render, palette=pal)
+                elif isinstance(child, tk.Label):
+                    try:
+                        child.configure(background=tk_hex, foreground=to_tk_hex(pal.fg))
+                    except Exception:
+                        pass
                 elif hasattr(child, "winfo_children") and len(child.winfo_children()) > 0:
                     cascade_bg_to_children(child, resolved, preserve_overrides=preserve_overrides, render=render, palette=pal)
         except Exception:
@@ -796,52 +778,42 @@ def apply_theme(
 
     def _apply(w, p, container_bg=None):
         eff_bg = container_bg or p.bg
+        tk_bg = to_tk_hex(eff_bg)
         try:
             if hasattr(w, "configure"):
                 if isinstance(w, (tk.Tk, tk.Toplevel)):
-                    w.configure(background=p.bg)
-                    w._tkblend_theme_bg = p.bg
-                elif hasattr(w, "_bg_label") and hasattr(w, "set_parent_bg"):
-                    w.set_parent_bg(eff_bg)
-                    if hasattr(w, "_bg_label") and w._bg_label.winfo_exists():
-                        w._bg_label.configure(background=eff_bg)
-                    if hasattr(w, "set_background") and getattr(w, "_explicit_bg_color", None) is None:
-                        w._bg_color = p.card_bg
-                        w.render()
+                    w.configure(background=tk_bg)
+                    w._tkblend_theme_bg = tk_bg
                 elif hasattr(w, "set_parent_bg"):
                     w.set_parent_bg(eff_bg)
-                elif isinstance(w, (tk.Frame, tk.LabelFrame)):
+                elif isinstance(w, (tk.Frame, tk.LabelFrame, tk.Canvas)):
                     cur = str(w.cget("background")).lower()
                     last_set = getattr(w, "_tkblend_theme_bg", None)
                     known_bgs = [preset.bg.lower() for preset in THEME_PRESETS.values()]
                     if last_set is not None or is_default_tk_bg(cur) or not preserve_overrides or cur in known_bgs:
-                        w.configure(background=eff_bg)
-                        w._tkblend_theme_bg = eff_bg
-                elif isinstance(w, (tk.Label, tk.Canvas)):
+                        w.configure(background=tk_bg)
+                        w._tkblend_theme_bg = tk_bg
+                elif isinstance(w, tk.Label):
                     cur = str(w.cget("background")).lower()
                     last_set = getattr(w, "_tkblend_theme_bg", None)
                     known_bgs = [preset.bg.lower() for preset in THEME_PRESETS.values()]
                     if last_set is not None or is_default_tk_bg(cur) or not preserve_overrides or cur in known_bgs:
-                        w.configure(background=eff_bg)
-                        w._tkblend_theme_bg = eff_bg
+                        w.configure(background=tk_bg, foreground=to_tk_hex(p.fg))
         except Exception:
             pass
 
         if recursive and hasattr(w, "winfo_children"):
             try:
                 for c in w.winfo_children():
-                    if hasattr(w, "_bg_label") and c is getattr(w, "_bg_label", None):
-                        continue
                     child_bg = eff_bg
-                    if hasattr(w, "bg_color") and w.bg_color:
+                    if hasattr(w, "inner_bg") and w.inner_bg:
+                        child_bg = w.inner_bg
+                    elif hasattr(w, "bg_color") and w.bg_color:
                         child_bg = w.bg_color
-                    elif hasattr(w, "_bg_color") and w._bg_color:
-                        child_bg = w._bg_color
-                    if hasattr(w, "content_frame") and c is getattr(w, "content_frame", None):
-                        child_bg = p.surface
                     _apply(c, p, child_bg)
             except Exception:
                 pass
+
 
     _apply(root, pal)
 
@@ -864,6 +836,7 @@ def apply_theme(
             auto_cleanup()
 
     return cleanup
+
 
 
 inject_theme = apply_theme

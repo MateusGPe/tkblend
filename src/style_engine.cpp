@@ -37,6 +37,7 @@ inline float parse_length(const std::string& s) {
     try {
         size_t idx = 0;
         float val = std::stof(t, &idx);
+        if (!std::isfinite(val)) return 0.0f;
         return val;
     } catch (...) {
         return 0.0f;
@@ -69,6 +70,36 @@ Color hsl_to_color(double h, double s, double l, double a = 1.0) {
     return Color(r, g, b, alpha);
 }
 
+// Split on a delimiter, ignoring delimiters inside parentheses or quotes.
+inline std::vector<std::string> split_top_level(const std::string& s, char delim) {
+    std::vector<std::string> out;
+    std::string cur;
+    int depth = 0;
+    char quote = 0;
+    for (char c : s) {
+        if (quote) {
+            cur.push_back(c);
+            if (c == quote) quote = 0;
+            continue;
+        }
+        if (c == '"' || c == '\'') {
+            quote = c;
+            cur.push_back(c);
+            continue;
+        }
+        if (c == '(') ++depth;
+        else if (c == ')' && depth > 0) --depth;
+        if (c == delim && depth == 0) {
+            out.push_back(cur);
+            cur.clear();
+            continue;
+        }
+        cur.push_back(c);
+    }
+    out.push_back(cur);
+    return out;
+}
+
 } // anonymous namespace
 
 StyleEngine& StyleEngine::instance() {
@@ -81,11 +112,10 @@ StyleEngine::StyleEngine() {
 }
 
 void StyleEngine::init_default_themes() {
+    // Rules are stored per theme; resolve() falls back to "dark" rules for
+    // themes that do not register their own element rules.
     register_theme("dark", DEFAULT_DARK_THEME_CSS);
     register_theme("light", DEFAULT_LIGHT_THEME_CSS);
-
-    // Global widget rules fallback
-    parse_and_apply_css(DEFAULT_DARK_THEME_CSS, "");
 }
 
 
@@ -199,12 +229,25 @@ std::unordered_map<std::string, std::string> StyleEngine::get_all_variables(cons
 }
 
 std::string StyleEngine::resolve_var_string(const std::string& val, int depth, const std::string& theme_name) const {
-    if (depth > 8) return val;
+    // Guard against cyclic references (e.g. --a: var(--a)): beyond the depth
+    // limit the expression resolves to nothing instead of echoing var(...).
+    if (depth > 8) return "";
     std::string s = trim(val);
-    size_t var_pos = s.find("var(");
-    while (var_pos != std::string::npos) {
-        size_t close_pos = s.find(')', var_pos);
-        if (close_pos == std::string::npos) break;
+    size_t search_from = 0;
+    for (int iter = 0; iter < 64; ++iter) {
+        size_t var_pos = s.find("var(", search_from);
+        if (var_pos == std::string::npos) break;
+
+        // Find the matching close paren, honouring nested parentheses.
+        size_t i = var_pos + 4;
+        int paren_depth = 1;
+        while (i < s.size() && paren_depth > 0) {
+            if (s[i] == '(') ++paren_depth;
+            else if (s[i] == ')') --paren_depth;
+            ++i;
+        }
+        if (paren_depth != 0) break;
+        size_t close_pos = i - 1;
 
         std::string inner = s.substr(var_pos + 4, close_pos - (var_pos + 4));
         std::string var_name;
@@ -221,19 +264,25 @@ std::string StyleEngine::resolve_var_string(const std::string& val, int depth, c
         if (resolved.empty()) {
             resolved = fallback;
         }
-
         if (!resolved.empty()) {
             resolved = resolve_var_string(resolved, depth + 1, theme_name);
         }
 
         s.replace(var_pos, close_pos - var_pos + 1, resolved);
-        var_pos = s.find("var(");
+        search_from = var_pos + resolved.size();
     }
     return s;
 }
 
-Color StyleEngine::resolve_color(const std::string& color_str) const {
-    std::string s = resolve_var_string(color_str);
+Color StyleEngine::resolve_color(const std::string& color_str, const std::string& theme_name) const {
+    if (color_str.empty()) return Color(0, 0, 0, 0);
+
+    // Fast-path: hex color literal without var(...)
+    if (color_str.front() == '#' && color_str.find("var(") == std::string::npos) {
+        return Color::from_hex(color_str);
+    }
+
+    std::string s = resolve_var_string(color_str, 0, theme_name);
     s = trim(s);
     if (s.empty()) return Color(0, 0, 0, 0);
 
@@ -324,13 +373,13 @@ Color StyleEngine::resolve_color(const std::string& color_str) const {
     }
 
     // Check if it's an interned variable name or token directly (e.g. "primary", "card_bg")
-    std::string token_val = get_variable("--" + s);
+    std::string token_val = get_variable("--" + s, theme_name);
     if (!token_val.empty()) {
-        return resolve_color(token_val);
+        return resolve_color(token_val, theme_name);
     }
-    std::string token_val2 = get_variable(s);
+    std::string token_val2 = get_variable(s, theme_name);
     if (!token_val2.empty()) {
-        return resolve_color(token_val2);
+        return resolve_color(token_val2, theme_name);
     }
 
     return Color(0, 0, 0, 0);
@@ -341,7 +390,7 @@ Color StyleEngine::resolve_color_var(const std::string& val, const Color& fallba
     std::string s = resolve_var_string(val, 0, theme_name);
     s = trim(s);
     if (s.empty()) return fallback;
-    Color c = resolve_color(s);
+    Color c = resolve_color(s, theme_name);
     if (c.a == 0 && c.r == 0 && c.g == 0 && c.b == 0) {
         std::string low = to_lower(s);
         if (low != "transparent" && low != "none" && low != "#00000000" && low != "#0000") {
@@ -357,6 +406,13 @@ Color StyleEngine::get_contrast_color(const Color& bg, const Color& light_fg, co
 
 double StyleEngine::resolve_scalar(const std::string& val, double fallback, const std::string& theme_name) const {
     if (val.empty()) return fallback;
+    if (val.find("var(") == std::string::npos) {
+        try {
+            size_t idx = 0;
+            double v = std::stod(val, &idx);
+            return v;
+        } catch (...) {}
+    }
     std::string s = resolve_var_string(val, 0, theme_name);
     s = trim(s);
     if (s.empty()) return fallback;
@@ -383,6 +439,11 @@ void StyleEngine::clear_cache() {
 }
 
 void StyleEngine::parse_and_apply_css(const std::string& css_text, const std::string& target_theme) {
+    // Named themes own their rules (re-registering replaces them);
+    // unnamed stylesheets append to the shared base rules.
+    std::vector<StyleRule>& out_rules = target_theme.empty() ? base_rules_ : theme_rules_[target_theme];
+    if (!target_theme.empty()) out_rules.clear();
+
     // 1. Remove comments
     std::string clean;
     clean.reserve(css_text.size());
@@ -403,7 +464,17 @@ void StyleEngine::parse_and_apply_css(const std::string& css_text, const std::st
     while (pos < clean.size()) {
         size_t open_brace = clean.find('{', pos);
         if (open_brace == std::string::npos) break;
-        size_t close_brace = clean.find('}', open_brace + 1);
+
+        // Find the matching close brace so nested blocks (@media etc.) are skipped whole.
+        size_t close_brace = std::string::npos;
+        int brace_depth = 1;
+        for (size_t k = open_brace + 1; k < clean.size(); ++k) {
+            if (clean[k] == '{') ++brace_depth;
+            else if (clean[k] == '}' && --brace_depth == 0) {
+                close_brace = k;
+                break;
+            }
+        }
         if (close_brace == std::string::npos) break;
 
         std::string selector_group = trim(clean.substr(pos, open_brace - pos));
@@ -411,28 +482,30 @@ void StyleEngine::parse_and_apply_css(const std::string& css_text, const std::st
         pos = close_brace + 1;
 
         if (selector_group.empty()) continue;
+        if (selector_group.front() == '@') continue; // unsupported at-rule
 
-        // Parse declarations
-        std::unordered_map<std::string, std::string> decls;
-        std::stringstream ss(body);
-        std::string item;
-        while (std::getline(ss, item, ';')) {
-            item = trim(item);
+        // Parse declarations (source order preserved)
+        std::vector<std::pair<std::string, std::string>> decls;
+        for (const std::string& raw_item : split_top_level(body, ';')) {
+            std::string item = trim(raw_item);
             if (item.empty()) continue;
             size_t colon = item.find(':');
             if (colon == std::string::npos) continue;
             std::string prop = trim(item.substr(0, colon));
             std::string val = trim(item.substr(colon + 1));
+            static const std::string kImportant = "!important";
+            if (val.size() >= kImportant.size() &&
+                to_lower(val.substr(val.size() - kImportant.size())) == kImportant) {
+                val = trim(val.substr(0, val.size() - kImportant.size()));
+            }
             if (!prop.empty() && !val.empty()) {
-                decls[to_lower(prop)] = val;
+                decls.emplace_back(to_lower(prop), val);
             }
         }
 
         // Split multiple comma-separated selectors
-        std::stringstream sel_ss(selector_group);
-        std::string single_sel;
-        while (std::getline(sel_ss, single_sel, ',')) {
-            single_sel = trim(single_sel);
+        for (const std::string& raw_sel : split_top_level(selector_group, ',')) {
+            std::string single_sel = trim(raw_sel);
             if (single_sel.empty()) continue;
 
             if (single_sel == ":root") {
@@ -491,7 +564,7 @@ void StyleEngine::parse_and_apply_css(const std::string& css_text, const std::st
                 }
             }
 
-            global_rules_.push_back(rule);
+            out_rules.push_back(rule);
         }
     }
 }
@@ -511,12 +584,18 @@ ComputedStyle StyleEngine::resolve(
         eff_cls.erase(0, 1);
     }
 
-    uint64_t h_el = std::hash<std::string>()(eff_el);
-    uint64_t h_cls = std::hash<std::string>()(eff_cls);
-    uint64_t h_th = std::hash<std::string>()(current_theme_);
-    uint64_t key_hash = h_el ^ (h_cls << 16) ^ (static_cast<uint64_t>(states) << 32) ^ (h_th << 48);
+    // Exact composite key (no hash collisions possible)
+    std::string cache_key;
+    cache_key.reserve(current_theme_.size() + eff_el.size() + eff_cls.size() + 8);
+    cache_key += current_theme_;
+    cache_key += '\x1f';
+    cache_key += eff_el;
+    cache_key += '\x1f';
+    cache_key += eff_cls;
+    cache_key += '\x1f';
+    cache_key += std::to_string(states);
 
-    auto it_cache = resolve_cache_.find(key_hash);
+    auto it_cache = resolve_cache_.find(cache_key);
     if (it_cache != resolve_cache_.end()) {
         return it_cache->second;
     }
@@ -530,8 +609,18 @@ ComputedStyle StyleEngine::resolve(
     };
     std::vector<Match> matches;
 
-    for (size_t r_idx = 0; r_idx < global_rules_.size(); ++r_idx) {
-        const auto& r = global_rules_[r_idx];
+    // Rule set: current theme's rules (falling back to "dark"), then shared
+    // base rules so user stylesheets win ties on specificity.
+    std::vector<const StyleRule*> all_rules;
+    auto it_rules = theme_rules_.find(current_theme_);
+    if (it_rules == theme_rules_.end()) it_rules = theme_rules_.find("dark");
+    if (it_rules != theme_rules_.end()) {
+        for (const auto& tr : it_rules->second) all_rules.push_back(&tr);
+    }
+    for (const auto& br : base_rules_) all_rules.push_back(&br);
+
+    for (size_t r_idx = 0; r_idx < all_rules.size(); ++r_idx) {
+        const auto& r = *all_rules[r_idx];
 
         // Pseudo state matching:
         // If rule specifies pseudo states, all of them must be set in 'states'
@@ -621,7 +710,7 @@ ComputedStyle StyleEngine::resolve(
                     while (b_ss >> token) {
                         token = trim(token);
                         if (token.empty()) continue;
-                        if (std::isdigit(token.front()) || token.front() == '.') {
+                        if (std::isdigit(static_cast<unsigned char>(token.front())) || token.front() == '.') {
                             cs.border_width = parse_length(token);
                         } else if (token == "solid" || token == "dashed" || token == "dotted") {
                             // style indicator
@@ -658,7 +747,10 @@ ComputedStyle StyleEngine::resolve(
                         cs.shadow_blur = parse_length(tokens[2]);
 
                         size_t color_idx = 3;
-                        if (tokens.size() >= 4 && (std::isdigit(tokens[3].front()) || tokens[3].front() == '-' || tokens[3].front() == '.')) {
+                        auto is_num_start = [](char ch) {
+                            return std::isdigit(static_cast<unsigned char>(ch)) || ch == '-' || ch == '.';
+                        };
+                        if (tokens.size() >= 4 && is_num_start(tokens[3].front())) {
                             // 4th token is spread radius
                             color_idx = 4;
                         }
@@ -696,8 +788,72 @@ ComputedStyle StyleEngine::resolve(
         }
     }
 
-    resolve_cache_[key_hash] = cs;
+    resolve_cache_[cache_key] = cs;
+    if (resolve_cache_.size() > 4096) {
+        resolve_cache_.clear(); // Simple bounded cache to prevent unbounded growth
+    }
     return cs;
+}
+
+void StyleEngine::register_container_window(uintptr_t tkwin_ptr, ContainerLayer layer) {
+    if (tkwin_ptr == 0) return;
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    container_windows_[tkwin_ptr] = layer;
+}
+
+void StyleEngine::unregister_container_window(uintptr_t tkwin_ptr) {
+    if (tkwin_ptr == 0) return;
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    container_windows_.erase(tkwin_ptr);
+}
+
+ContainerLayer StyleEngine::resolve_window_layer(uintptr_t tkwin_ptr) const {
+    if (tkwin_ptr == 0) return ContainerLayer::Base;
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    auto it = container_windows_.find(tkwin_ptr);
+    if (it != container_windows_.end()) {
+        return it->second;
+    }
+    return ContainerLayer::Base;
+}
+
+Color StyleEngine::get_layer_color(ContainerLayer layer, const std::string& theme_name) const {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    std::string t_name = theme_name.empty() ? current_theme_ : theme_name;
+    switch (layer) {
+        case ContainerLayer::Base:
+            return resolve_color_var("--bg", Color(16, 14, 20, 255), t_name);
+        case ContainerLayer::Surface: {
+            Color c = resolve_color_var("--surface", Color(0, 0, 0, 0), t_name);
+            if (c.a == 0 && c.r == 0 && c.g == 0 && c.b == 0) {
+                c = resolve_color_var("--card-bg", Color(29, 27, 32, 255), t_name);
+            }
+            return c;
+        }
+        case ContainerLayer::Elevated: {
+            Color c = resolve_color_var("--surface-elevated", Color(0, 0, 0, 0), t_name);
+            if (c.a == 0 && c.r == 0 && c.g == 0 && c.b == 0) {
+                c = resolve_color_var("--card-bg", Color(37, 35, 42, 255), t_name);
+            }
+            return c;
+        }
+        default:
+            return resolve_color_var("--bg", Color(16, 14, 20, 255), t_name);
+    }
+}
+
+void StyleEngine::register_element_batch(const std::string& element, const DrawBatch& batch) {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    element_batches_[to_lower(trim(element))] = batch;
+}
+
+const DrawBatch* StyleEngine::get_element_batch(const std::string& element) const {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    auto it = element_batches_.find(to_lower(trim(element)));
+    if (it != element_batches_.end()) {
+        return &it->second;
+    }
+    return nullptr;
 }
 
 } // namespace tkblend

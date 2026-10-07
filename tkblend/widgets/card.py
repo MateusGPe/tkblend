@@ -7,6 +7,7 @@ from __future__ import annotations
 import tkinter as tk
 from typing import Optional, Callable, Any, Union
 
+from tkblend._tkblend import ContainerLayer, StyleEngine
 from tkblend.widgets.base import BaseControl
 from tkblend.surface import Surface, ColorLike, parse_color, DrawBatch
 from tkblend.theme import (
@@ -33,6 +34,8 @@ class Card(BaseControl):
     Modern container card with soft drop shadow, rounded corners, and border.
     Conforms to the compound container background protocol (.bg_color / .inner_bg).
     """
+    CONTAINER_LAYER = ContainerLayer.Surface
+
 
     def __init__(
         self,
@@ -87,8 +90,14 @@ class Card(BaseControl):
         self.pack_propagate(True)
         self.grid_propagate(True)
 
+        try:
+            StyleEngine.register_container_window(self.winfo_id(), ContainerLayer.Surface)
+        except Exception:
+            pass
+
         self._update_vars()
         self._sync_batch()
+
 
     def _update_vars(self) -> None:
         pal = self._palette

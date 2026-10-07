@@ -47,16 +47,16 @@ public:
     void clear_var(const std::string& c_var, const Color& fallback = Color(0, 0, 0, 0));
 
     void fill_rect(double x, double y, double w, double h, const Color& c);
-    void fill_rect_var(double x, double y, double w, double h, const std::string& c_var, const Color& fallback = Color(0, 0, 0, 255));
+    void fill_rect_var(double x, double y, double w, double h, const std::string& c_var, const Color& fallback = Color(0, 0, 0, 255), const std::string& w_var = "", const std::string& h_var = "");
 
     void stroke_rect(double x, double y, double w, double h, const Color& c, double stroke_width = 1.0);
-    void stroke_rect_var(double x, double y, double w, double h, const std::string& c_var, double stroke_width = 1.0, const std::string& sw_var = "", const Color& fallback = Color(0, 0, 0, 255));
+    void stroke_rect_var(double x, double y, double w, double h, const std::string& c_var, double stroke_width = 1.0, const std::string& sw_var = "", const Color& fallback = Color(0, 0, 0, 255), const std::string& w_var = "", const std::string& h_var = "");
 
     void fill_rounded_rect(double x, double y, double w, double h, double rx, double ry, const Color& c);
-    void fill_rounded_rect_var(double x, double y, double w, double h, double rx, double ry, const std::string& c_var, const std::string& rx_var = "", const std::string& ry_var = "", const Color& fallback = Color(0, 0, 0, 255));
+    void fill_rounded_rect_var(double x, double y, double w, double h, double rx, double ry, const std::string& c_var, const std::string& rx_var = "", const std::string& ry_var = "", const Color& fallback = Color(0, 0, 0, 255), const std::string& w_var = "", const std::string& h_var = "");
 
     void stroke_rounded_rect(double x, double y, double w, double h, double rx, double ry, const Color& c, double stroke_width = 1.0);
-    void stroke_rounded_rect_var(double x, double y, double w, double h, double rx, double ry, const std::string& c_var, double stroke_width = 1.0, const std::string& rx_var = "", const std::string& ry_var = "", const std::string& sw_var = "", const Color& fallback = Color(0, 0, 0, 255));
+    void stroke_rounded_rect_var(double x, double y, double w, double h, double rx, double ry, const std::string& c_var, double stroke_width = 1.0, const std::string& rx_var = "", const std::string& ry_var = "", const std::string& sw_var = "", const Color& fallback = Color(0, 0, 0, 255), const std::string& w_var = "", const std::string& h_var = "");
 
     void fill_circle(double cx, double cy, double r, const Color& c);
     void fill_circle_var(double cx, double cy, double r, const std::string& c_var, const std::string& r_var = "", const Color& fallback = Color(0, 0, 0, 255));
@@ -71,10 +71,10 @@ public:
     void draw_text_var(const std::string& text, double x, double y, float font_size, const std::string& font_family, const std::string& c_var, const std::string& text_var = "", const std::string& size_var = "", const Color& fallback = Color(255, 255, 255, 255), int align = 0, int weight = 400, bool italic = false);
 
     void draw_shadow_rounded_rect(double x, double y, double w, double h, double rx, double ry, double blur_radius, double spread, double offset_x, double offset_y, const Color& shadow_color);
-    void draw_shadow_rounded_rect_var(double x, double y, double w, double h, double rx, double ry, double blur_radius, double spread, double offset_x, double offset_y, const std::string& shadow_color_var, const std::string& rx_var = "", const std::string& ry_var = "", const std::string& blur_var = "", const Color& fallback = Color(0, 0, 0, 30));
+    void draw_shadow_rounded_rect_var(double x, double y, double w, double h, double rx, double ry, double blur_radius, double spread, double offset_x, double offset_y, const std::string& shadow_color_var, const std::string& rx_var = "", const std::string& ry_var = "", const std::string& blur_var = "", const Color& fallback = Color(0, 0, 0, 30), const std::string& w_var = "", const std::string& h_var = "");
 
     void draw_card(double x, double y, double w, double h, double rx, double ry, const Color& bg, const Color& border, double border_w, double shadow_blur, double shadow_spread, double shadow_ox, double shadow_oy, const Color& shadow_col);
-    void draw_card_var(double x, double y, double w, double h, double rx, double ry, const std::string& bg_var, const std::string& border_var, double border_w, double shadow_blur, double shadow_spread, double shadow_ox, double shadow_oy, const std::string& shadow_var, const std::string& rx_var = "", const std::string& ry_var = "", const std::string& bw_var = "", const Color& bg_fallback = Color(255, 255, 255, 255), const Color& border_fallback = Color(200, 200, 200, 255), const Color& shadow_fallback = Color(0, 0, 0, 30));
+    void draw_card_var(double x, double y, double w, double h, double rx, double ry, const std::string& bg_var, const std::string& border_var, double border_w, double shadow_blur, double shadow_spread, double shadow_ox, double shadow_oy, const std::string& shadow_var, const std::string& rx_var = "", const std::string& ry_var = "", const std::string& bw_var = "", const Color& bg_fallback = Color(255, 255, 255, 255), const Color& border_fallback = Color(200, 200, 200, 255), const Color& shadow_fallback = Color(0, 0, 0, 30), const std::string& w_var = "", const std::string& h_var = "");
 
     void save();
     void restore();

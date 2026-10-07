@@ -240,9 +240,50 @@ class NativeController:
         return self._native.parent_bg
 
     @parent_bg.setter
-    def parent_bg(self, color: ColorLike) -> None:
-        parsed = parse_color(color)
-        self._native.parent_bg = parsed
+    def parent_bg(self, color: Optional[ColorLike]) -> None:
+        if color is None:
+            self._native.clear_parent_bg()
+        else:
+            parsed = parse_color(color)
+            self._native.parent_bg = parsed
+
+    def clear_parent_bg(self) -> None:
+        self._native.clear_parent_bg()
+
+    def resolve_parent_bg(self) -> _NativeColor:
+        return self._native.resolve_parent_bg()
+
+    @property
+    def animated(self) -> bool:
+        return self._native.animated
+
+    @animated.setter
+    def animated(self, val: bool) -> None:
+        self._native.animated = bool(val)
+
+    @property
+    def hover_t(self) -> float:
+        return self._native.hover_t
+
+    @hover_t.setter
+    def hover_t(self, val: float) -> None:
+        self._native.hover_t = float(val)
+
+    @property
+    def press_t(self) -> float:
+        return self._native.press_t
+
+    @press_t.setter
+    def press_t(self, val: float) -> None:
+        self._native.press_t = float(val)
+
+    @property
+    def focus_t(self) -> float:
+        return self._native.focus_t
+
+    @focus_t.setter
+    def focus_t(self, val: float) -> None:
+        self._native.focus_t = float(val)
 
     # Python Callbacks with Weak References to prevent cycles
     def set_on_paint(self, callback: Callable[[Surface], None]) -> None:
@@ -405,6 +446,10 @@ class NativeController:
         """Clear all locally scoped variable overrides."""
         self._native.clear_vars()
         return self
+
+    def get_vars(self) -> dict[str, str]:
+        """Dictionary of all local variable overrides."""
+        return dict(self._native.get_vars())
 
     @property
     def vars(self) -> dict[str, str]:

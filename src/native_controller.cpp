@@ -64,9 +64,14 @@ bool NativeWidgetController::attach(uintptr_t interp_addr, const std::string& wi
 }
 
 void NativeWidgetController::detach() {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (idle_scheduled_ && interp_) {
         Tcl_CancelIdleCall(IdleRedraw, this);
         idle_scheduled_ = false;
+    }
+    if (anim_timer_ && interp_) {
+        Tcl_DeleteTimerHandler(anim_timer_);
+        anim_timer_ = nullptr;
     }
 
     if (tkwin_ && interp_) {
@@ -74,6 +79,10 @@ void NativeWidgetController::detach() {
                           EnterWindowMask | LeaveWindowMask |
                           FocusChangeMask | ButtonPressMask | ButtonReleaseMask;
         Tk_DeleteEventHandler(tkwin_, mask, HandleTkEvent, this);
+        StyleEngine::instance().unregister_container_window(reinterpret_cast<uintptr_t>(tkwin_));
+        if (Tk_WindowId(tkwin_) != None) {
+            StyleEngine::instance().unregister_container_window(static_cast<uintptr_t>(Tk_WindowId(tkwin_)));
+        }
     }
 
     tkwin_ = nullptr;
@@ -84,9 +93,20 @@ void NativeWidgetController::detach() {
 }
 
 void NativeWidgetController::on_window_destroyed() {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (idle_scheduled_ && interp_) {
         Tcl_CancelIdleCall(IdleRedraw, this);
         idle_scheduled_ = false;
+    }
+    if (anim_timer_ && interp_) {
+        Tcl_DeleteTimerHandler(anim_timer_);
+        anim_timer_ = nullptr;
+    }
+    if (tkwin_) {
+        StyleEngine::instance().unregister_container_window(reinterpret_cast<uintptr_t>(tkwin_));
+        if (Tk_WindowId(tkwin_) != None) {
+            StyleEngine::instance().unregister_container_window(static_cast<uintptr_t>(Tk_WindowId(tkwin_)));
+        }
     }
     tkwin_ = nullptr;
     interp_ = nullptr;
@@ -105,6 +125,9 @@ int NativeWidgetController::width() const {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (tkwin_) {
         int w = Tk_Width(tkwin_);
+        if (w > 1) return w;
+        int req_w = Tk_ReqWidth(tkwin_);
+        if (req_w > 1) return req_w;
         if (w > 0) return w;
     }
     return internal_surface_->width();
@@ -114,6 +137,9 @@ int NativeWidgetController::height() const {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (tkwin_) {
         int h = Tk_Height(tkwin_);
+        if (h > 1) return h;
+        int req_h = Tk_ReqHeight(tkwin_);
+        if (req_h > 1) return req_h;
         if (h > 0) return h;
     }
     return internal_surface_->height();
@@ -174,7 +200,7 @@ void NativeWidgetController::blit_surface(Surface& surf) {
 
     int win_w = Tk_Width(tkwin_);
     int win_h = Tk_Height(tkwin_);
-    if (win_w <= 1 || win_h <= 1) return;
+    if (win_w <= 0 || win_h <= 0) return;
 
     surf.flush();
     Ttk_Box box{0, 0, win_w, win_h};
@@ -199,57 +225,186 @@ void NativeWidgetController::set_state(uint16_t s) {
             old_state = state_;
             state_ = s;
             changed = true;
+
+            target_hover_ = is_hovered() ? 1.0f : 0.0f;
+            target_press_ = is_pressed() ? 1.0f : 0.0f;
+            target_focus_ = is_focused() ? 1.0f : 0.0f;
+
+            if (!animated_) {
+                hover_t_ = target_hover_;
+                press_t_ = target_press_;
+                focus_t_ = target_focus_;
+            }
         }
     }
     if (changed) {
-        if (on_state_changed_.is_valid() && !on_state_changed_.is_none()) {
+        if (animated_) {
+            schedule_anim_step();
+        }
+        if (on_state_changed_.is_valid()) {
             nb::gil_scoped_acquire gil;
-            try {
-                on_state_changed_(s, old_state);
-            } catch (const nb::python_error&) {
-                PyErr_Print();
-            } catch (...) {}
+            // Copy so the callback may safely replace/clear itself while running.
+            nb::object cb = on_state_changed_;
+            if (cb.is_valid() && !cb.is_none()) {
+                try {
+                    cb(s, old_state);
+                } catch (const nb::python_error&) {
+                    PyErr_Print();
+                } catch (...) {}
+            }
         }
         request_redraw();
     }
 }
 
-void NativeWidgetController::set_hovered(bool hovered) {
-    uint16_t s = state_;
-    if (hovered) s |= StateHover;
-    else s &= ~StateHover;
+void NativeWidgetController::modify_state(uint16_t mask, bool on) {
+    uint16_t s;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        s = state_;
+    }
+    if (on) s |= mask;
+    else s &= static_cast<uint16_t>(~mask);
     set_state(s);
 }
 
-void NativeWidgetController::set_pressed(bool pressed) {
-    uint16_t s = state_;
-    if (pressed) s |= StateActive;
-    else s &= ~StateActive;
-    set_state(s);
+void NativeWidgetController::set_hovered(bool hovered) { modify_state(StateHover, hovered); }
+void NativeWidgetController::set_pressed(bool pressed) { modify_state(StateActive, pressed); }
+void NativeWidgetController::set_focused(bool focused) { modify_state(StateFocused, focused); }
+void NativeWidgetController::set_disabled(bool disabled) { modify_state(StateDisabled, disabled); }
+void NativeWidgetController::set_checked(bool checked) { modify_state(StateChecked, checked); }
+
+Color NativeWidgetController::parent_bg() const {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (has_explicit_parent_bg_) {
+        return parent_bg_;
+    }
+    return resolve_parent_bg();
 }
 
-void NativeWidgetController::set_focused(bool focused) {
-    uint16_t s = state_;
-    if (focused) s |= StateFocused;
-    else s &= ~StateFocused;
-    set_state(s);
+void NativeWidgetController::set_parent_bg(const Color& c) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        parent_bg_ = c;
+        has_explicit_parent_bg_ = (c.a > 0 || c.r > 0 || c.g > 0 || c.b > 0);
+    }
+    request_redraw();
 }
 
-void NativeWidgetController::set_disabled(bool disabled) {
-    uint16_t s = state_;
-    if (disabled) s |= StateDisabled;
-    else s &= ~StateDisabled;
-    set_state(s);
+void NativeWidgetController::clear_parent_bg() {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        parent_bg_ = Color{0, 0, 0, 0};
+        has_explicit_parent_bg_ = false;
+    }
+    request_redraw();
 }
 
-void NativeWidgetController::set_checked(bool checked) {
-    uint16_t s = state_;
-    if (checked) s |= StateChecked;
-    else s &= ~StateChecked;
-    set_state(s);
+Color NativeWidgetController::resolve_parent_bg() const {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (has_explicit_parent_bg_) {
+        return parent_bg_;
+    }
+    if (!tkwin_) {
+        return StyleEngine::instance().get_layer_color(ContainerLayer::Base);
+    }
+    Tk_Window curr = Tk_Parent(tkwin_);
+    while (curr != nullptr) {
+        ContainerLayer layer = StyleEngine::instance().resolve_window_layer(reinterpret_cast<uintptr_t>(curr));
+        if (layer == ContainerLayer::Base && Tk_WindowId(curr) != None) {
+            layer = StyleEngine::instance().resolve_window_layer(static_cast<uintptr_t>(Tk_WindowId(curr)));
+        }
+        if (layer != ContainerLayer::Base) {
+            return StyleEngine::instance().get_layer_color(layer);
+        }
+        curr = Tk_Parent(curr);
+    }
+    return StyleEngine::instance().get_layer_color(ContainerLayer::Base);
 }
+
+void NativeWidgetController::set_hover_t(float val) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        hover_t_ = std::clamp(val, 0.0f, 1.0f);
+        target_hover_ = hover_t_;
+    }
+    request_redraw();
+}
+
+void NativeWidgetController::set_press_t(float val) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        press_t_ = std::clamp(val, 0.0f, 1.0f);
+        target_press_ = press_t_;
+    }
+    request_redraw();
+}
+
+void NativeWidgetController::set_focus_t(float val) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        focus_t_ = std::clamp(val, 0.0f, 1.0f);
+        target_focus_ = focus_t_;
+    }
+    request_redraw();
+}
+
+void NativeWidgetController::schedule_anim_step() {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (!animated_ || anim_timer_ != nullptr || !interp_) return;
+    anim_timer_ = Tcl_CreateTimerHandler(16, AnimTimerCallback, this);
+}
+
+void NativeWidgetController::AnimTimerCallback(ClientData clientData) {
+    auto* ctrl = reinterpret_cast<NativeWidgetController*>(clientData);
+    if (ctrl) {
+        ctrl->on_anim_tick();
+    }
+}
+
+void NativeWidgetController::on_anim_tick() {
+    bool still_animating = false;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        anim_timer_ = nullptr;
+        // Hover lerp
+        float diff_h = target_hover_ - hover_t_;
+        if (std::abs(diff_h) > 0.01f) {
+            hover_t_ += diff_h * 0.25f;
+            still_animating = true;
+        } else {
+            hover_t_ = target_hover_;
+        }
+
+        // Press lerp
+        float diff_p = target_press_ - press_t_;
+        if (std::abs(diff_p) > 0.01f) {
+            press_t_ += diff_p * 0.35f;
+            still_animating = true;
+        } else {
+            press_t_ = target_press_;
+        }
+
+        // Focus lerp
+        float diff_f = target_focus_ - focus_t_;
+        if (std::abs(diff_f) > 0.01f) {
+            focus_t_ += diff_f * 0.25f;
+            still_animating = true;
+        } else {
+            focus_t_ = target_focus_;
+        }
+    }
+
+    request_redraw();
+
+    if (still_animating) {
+        schedule_anim_step();
+    }
+}
+
 
 void NativeWidgetController::request_redraw() {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (!tkwin_ || !interp_ || idle_scheduled_) {
         return;
     }
@@ -267,7 +422,10 @@ void NativeWidgetController::HandleTkEvent(ClientData clientData, XEvent* eventP
 void NativeWidgetController::IdleRedraw(ClientData clientData) {
     auto* self = static_cast<NativeWidgetController*>(clientData);
     if (self) {
-        self->idle_scheduled_ = false;
+        {
+            std::lock_guard<std::recursive_mutex> lock(self->mutex_);
+            self->idle_scheduled_ = false;
+        }
         self->paint_and_blit();
     }
 }
@@ -293,13 +451,16 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                     internal_surface_->resize(new_w, new_h);
                 }
             }
-            if (on_resize_.is_valid() && !on_resize_.is_none()) {
+            if (on_resize_.is_valid()) {
                 nb::gil_scoped_acquire gil;
-                try {
-                    on_resize_(new_w, new_h);
-                } catch (const nb::python_error&) {
-                    PyErr_Print();
-                } catch (...) {}
+                nb::object cb = on_resize_;
+                if (cb.is_valid() && !cb.is_none()) {
+                    try {
+                        cb(new_w, new_h);
+                    } catch (const nb::python_error&) {
+                        PyErr_Print();
+                    } catch (...) {}
+                }
             }
             request_redraw();
             break;
@@ -361,17 +522,25 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
         }
 
         case ButtonRelease: {
-            bool was_pressed = is_pressed();
-            if (auto_press_ && eventPtr->xbutton.button == 1) {
+            const unsigned int button = eventPtr->xbutton.button;
+            const bool primary = (button == 1);
+            const bool was_pressed = is_pressed();
+            if (auto_press_ && primary) {
                 set_pressed(false);
             }
-            if ((was_pressed || !auto_press_) && on_click_.is_valid() && !on_click_.is_none()) {
+            // With auto-press, a primary click requires a prior press on this widget;
+            // other buttons (right/middle click) always report.
+            const bool fire = !auto_press_ || !primary || was_pressed;
+            if (fire && on_click_.is_valid()) {
                 nb::gil_scoped_acquire gil;
-                try {
-                    on_click_(eventPtr->xbutton.x, eventPtr->xbutton.y, eventPtr->xbutton.button);
-                } catch (const nb::python_error&) {
-                    PyErr_Print();
-                } catch (...) {}
+                nb::object cb = on_click_;
+                if (cb.is_valid() && !cb.is_none()) {
+                    try {
+                        cb(eventPtr->xbutton.x, eventPtr->xbutton.y, button);
+                    } catch (const nb::python_error&) {
+                        PyErr_Print();
+                    } catch (...) {}
+                }
             }
             break;
         }
@@ -397,6 +566,12 @@ void NativeWidgetController::paint_and_blit() {
     int win_w = 0;
     int win_h = 0;
 
+    std::unordered_map<std::string, std::string> vars_copy;
+    std::string cls_str;
+    uint16_t current_state = 0;
+    std::shared_ptr<DrawBatch> local_batch;
+    std::vector<std::string> classes_copy;
+
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         if (tkwin_) {
@@ -409,33 +584,59 @@ void NativeWidgetController::paint_and_blit() {
                 surf->resize(win_w, win_h);
             }
         }
+
+        local_vars_["--hover-t"] = std::to_string(hover_t_);
+        local_vars_["--press-t"] = std::to_string(press_t_);
+        local_vars_["--focus-t"] = std::to_string(focus_t_);
+        if (win_w > 0 && win_h > 0) {
+            local_vars_["--width"] = std::to_string(win_w);
+            local_vars_["--height"] = std::to_string(win_h);
+            local_vars_["--w"] = std::to_string(win_w);
+            local_vars_["--h"] = std::to_string(win_h);
+        }
+        vars_copy = local_vars_;
+
+        for (size_t i = 0; i < classes_.size(); ++i) {
+            if (i > 0) cls_str += " ";
+            cls_str += classes_[i];
+        }
+        classes_copy = classes_;
+        current_state = state_;
+        local_batch = draw_batch_;
     }
+
     if (!surf || surf->width() <= 0 || surf->height() <= 0) {
         return;
     }
 
-    if (draw_batch_) {
-        surf->clear(parent_bg_);
-        std::string cls_str;
-        {
-            std::lock_guard<std::recursive_mutex> lock(mutex_);
-            for (size_t i = 0; i < classes_.size(); ++i) {
-                if (i > 0) cls_str += " ";
-                cls_str += classes_[i];
-            }
+    Color eff_parent_bg = resolve_parent_bg();
+
+    const DrawBatch* batch_to_run = local_batch.get();
+    if (!batch_to_run) {
+        for (const auto& c : classes_copy) {
+            batch_to_run = StyleEngine::instance().get_element_batch(c);
+            if (batch_to_run) break;
         }
-        surf->execute_batch(*draw_batch_, local_vars_, state_, cls_str);
-    } else if (on_paint_.is_valid() && !on_paint_.is_none()) {
+    }
+
+    if (batch_to_run) {
+        surf->clear(eff_parent_bg);
+        surf->execute_batch(*batch_to_run, vars_copy, current_state, cls_str);
+    } else {
         nb::gil_scoped_acquire gil;
-        try {
-            on_paint_(nb::cast(surf, nb::rv_policy::reference));
-        } catch (const nb::python_error&) {
-            PyErr_Print();
-        } catch (...) {}
+        if (on_paint_.is_valid() && !on_paint_.is_none()) {
+            surf->clear(eff_parent_bg);
+            try {
+                on_paint_(nb::cast(surf, nb::rv_policy::reference));
+            } catch (const nb::python_error&) {
+                PyErr_Print();
+            } catch (...) {}
+        }
     }
 
     blit_active_surface();
 }
+
 
 void NativeWidgetController::blit_active_surface() {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
@@ -470,35 +671,55 @@ void NativeWidgetController::blit_active_surface() {
 }
 
 void NativeWidgetController::set_on_paint(nb::object callback) {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     on_paint_ = callback;
 }
 
 void NativeWidgetController::clear_on_paint() {
-    on_paint_.reset();
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (on_paint_.is_valid()) {
+        nb::gil_scoped_acquire gil;
+        on_paint_.reset();
+    }
 }
 
 void NativeWidgetController::set_on_state_changed(nb::object callback) {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     on_state_changed_ = callback;
 }
 
 void NativeWidgetController::clear_on_state_changed() {
-    on_state_changed_.reset();
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (on_state_changed_.is_valid()) {
+        nb::gil_scoped_acquire gil;
+        on_state_changed_.reset();
+    }
 }
 
 void NativeWidgetController::set_on_click(nb::object callback) {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     on_click_ = callback;
 }
 
 void NativeWidgetController::clear_on_click() {
-    on_click_.reset();
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (on_click_.is_valid()) {
+        nb::gil_scoped_acquire gil;
+        on_click_.reset();
+    }
 }
 
 void NativeWidgetController::set_on_resize(nb::object callback) {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     on_resize_ = callback;
 }
 
 void NativeWidgetController::clear_on_resize() {
-    on_resize_.reset();
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (on_resize_.is_valid()) {
+        nb::gil_scoped_acquire gil;
+        on_resize_.reset();
+    }
 }
 
 void NativeWidgetController::add_class(const std::string& name) {

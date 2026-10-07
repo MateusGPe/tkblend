@@ -1,15 +1,23 @@
 #pragma once
 
 #include "color.hpp"
+#include "draw_batch.hpp"
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <utility>
 #include <unordered_map>
 #include <mutex>
 #include <memory>
 #include <optional>
 
 namespace tkblend {
+
+enum class ContainerLayer : uint8_t {
+    Base     = 0, // Root window / outer container (--bg)
+    Surface  = 1, // Card / panel / sheet container (--surface / --card-bg)
+    Elevated = 2  // Popover / dropdown / dialog container (--surface-elevated / --card-bg)
+};
 
 enum PseudoState : uint16_t {
     Normal   = 0,
@@ -52,7 +60,8 @@ struct StyleRule {
     std::string class_name;    // e.g. "btn-primary", "card", or ""
     uint16_t pseudo_state = 0; // bitmask of required PseudoState
     int specificity = 0;
-    std::unordered_map<std::string, std::string> declarations;
+    // Declarations in source order; later entries override earlier ones.
+    std::vector<std::pair<std::string, std::string>> declarations;
 };
 
 class StyleEngine {
@@ -72,8 +81,18 @@ public:
     std::unordered_map<std::string, std::string> get_all_variables(const std::string& theme_name = "") const;
     std::string resolve_var_string(const std::string& val, int depth = 0, const std::string& theme_name = "") const;
 
+    // Container Layer Registration & Hierarchy
+    void register_container_window(uintptr_t tkwin_ptr, ContainerLayer layer);
+    void unregister_container_window(uintptr_t tkwin_ptr);
+    ContainerLayer resolve_window_layer(uintptr_t tkwin_ptr) const;
+    Color get_layer_color(ContainerLayer layer, const std::string& theme_name = "") const;
+
+    // Element DrawBatch Template Registry
+    void register_element_batch(const std::string& element, const DrawBatch& batch);
+    const DrawBatch* get_element_batch(const std::string& element) const;
+
     // Color & Typed Variable resolution
-    Color resolve_color(const std::string& color_str) const;
+    Color resolve_color(const std::string& color_str, const std::string& theme_name = "") const;
     Color resolve_color_var(const std::string& val, const Color& fallback = Color{0, 0, 0, 0}, const std::string& theme_name = "") const;
     Color get_contrast_color(const Color& bg, const Color& light_fg = Color(255, 255, 255, 255), const Color& dark_fg = Color(15, 23, 42, 255)) const;
     double resolve_scalar(const std::string& val, double fallback = 0.0, const std::string& theme_name = "") const;
@@ -108,11 +127,19 @@ private:
     std::unordered_map<std::string, std::unordered_map<uint32_t, std::string>> theme_variables_;
     std::unordered_map<std::string, std::string> theme_stylesheets_;
 
-    // Parsed CSS Rules per theme (or shared)
-    std::vector<StyleRule> global_rules_;
+    // Parsed CSS rules: theme-agnostic rules (load_stylesheet) and per-theme rules.
+    std::vector<StyleRule> base_rules_;
+    std::unordered_map<std::string, std::vector<StyleRule>> theme_rules_;
 
-    // Resolution cache: combined key hash -> ComputedStyle
-    std::unordered_map<uint64_t, ComputedStyle> resolve_cache_;
+    // Resolution cache: exact composite key -> ComputedStyle (no hash collisions)
+    std::unordered_map<std::string, ComputedStyle> resolve_cache_;
+
+    // Container Window Registry: Tk_Window pointer (as uintptr_t) -> ContainerLayer
+    std::unordered_map<uintptr_t, ContainerLayer> container_windows_;
+
+    // Element DrawBatch template cache
+    std::unordered_map<std::string, DrawBatch> element_batches_;
 };
 
 } // namespace tkblend
+

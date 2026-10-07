@@ -12,10 +12,13 @@ from typing import Optional, Callable, Any, Union, Dict, Tuple
 
 from tkblend._tkblend import (
     ControllerPseudoState,
+    ContainerLayer,
+    StyleEngine,
     ease,
     spring,
     EasingType,
 )
+
 from tkblend.controller import NativeController
 from tkblend.surface import Surface, ColorLike, parse_color
 from tkblend.theme import (
@@ -235,8 +238,17 @@ class BaseControl(tk.Frame):
 
     @property
     def outer_bg(self) -> str:
-        """Return the active outer (parent container) background color."""
-        return self._resolved_outer_bg
+        """Return the active outer (parent container) background color from C++ or theme."""
+        if self._explicit_outer_bg is not None:
+            return resolve_color_failsafe(self._explicit_outer_bg, palette=self._palette)
+        if hasattr(self, "_controller") and self._controller.is_attached:
+            try:
+                col = self._controller.resolve_parent_bg()
+                if col.a > 0 or col.r > 0 or col.g > 0 or col.b > 0:
+                    return col.to_hex(include_alpha=False)
+            except Exception:
+                pass
+        return self._resolved_outer_bg or self._palette.bg
 
     @outer_bg.setter
     def outer_bg(self, color: ColorLike) -> None:
@@ -245,11 +257,12 @@ class BaseControl(tk.Frame):
     @property
     def parent_bg(self) -> str:
         """Deprecated alias for outer_bg."""
-        return self._resolved_outer_bg
+        return self.outer_bg
 
     @parent_bg.setter
     def parent_bg(self, color: ColorLike) -> None:
         self.set_outer_bg(color, render=True, explicit=True)
+
 
     @property
     def inner_bg(self) -> str:
@@ -273,7 +286,7 @@ class BaseControl(tk.Frame):
     def bg_color(self, color: ColorLike) -> None:
         self.set_inner_bg(color, render=True, explicit=True)
 
-    def set_outer_bg(self, color: ColorLike, render: bool = True, explicit: bool = False) -> None:
+    def set_outer_bg(self, color: ColorLike, render: bool = True, explicit: bool = True) -> None:
         """Update outer (parent container) background color."""
         if explicit:
             self._explicit_outer_bg = color
@@ -285,9 +298,10 @@ class BaseControl(tk.Frame):
         if render:
             self.request_redraw()
 
-    def set_parent_bg(self, color: ColorLike, render: bool = True, explicit: bool = False) -> None:
+    def set_parent_bg(self, color: ColorLike, render: bool = True, explicit: bool = True) -> None:
         """Deprecated alias for set_outer_bg."""
         self.set_outer_bg(color, render=render, explicit=explicit)
+
 
     def set_inner_bg(self, color: ColorLike, render: bool = True, explicit: bool = True) -> None:
         """Update inner fill background color."""

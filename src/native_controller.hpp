@@ -98,8 +98,21 @@ public:
     bool auto_focus() const { return auto_focus_; }
     void set_auto_focus(bool enable) { auto_focus_ = enable; }
 
-    const Color& parent_bg() const { return parent_bg_; }
-    void set_parent_bg(const Color& c) { parent_bg_ = c; }
+    Color parent_bg() const;
+    void set_parent_bg(const Color& c);
+    void clear_parent_bg();
+    bool has_explicit_parent_bg() const { return has_explicit_parent_bg_; }
+    Color resolve_parent_bg() const;
+
+    // Native Animation State (Hover, Press, Focus lerping at 60 FPS in C++)
+    bool animated() const { return animated_; }
+    void set_animated(bool anim) { animated_ = anim; }
+    float hover_t() const { return hover_t_; }
+    void set_hover_t(float val);
+    float press_t() const { return press_t_; }
+    void set_press_t(float val);
+    float focus_t() const { return focus_t_; }
+    void set_focus_t(float val);
 
     // GIL-Safe Python Callbacks
     void set_on_paint(nb::object callback);
@@ -139,11 +152,15 @@ public:
 private:
     static void HandleTkEvent(ClientData clientData, XEvent* eventPtr);
     static void IdleRedraw(ClientData clientData);
+    static void AnimTimerCallback(ClientData clientData);
 
     void on_tk_event(XEvent* eventPtr);
     void on_window_destroyed();
     void blit_active_surface();
     Surface* get_active_surface();
+    void schedule_anim_step();
+    void on_anim_tick();
+    void modify_state(uint16_t mask, bool on);
 
     Tk_Window tkwin_{nullptr};
     Tcl_Interp* interp_{nullptr};
@@ -161,6 +178,17 @@ private:
 
     uint16_t state_{StateNormal};
     Color parent_bg_{0, 0, 0, 0};
+    bool has_explicit_parent_bg_{false};
+
+    // Native Animation lerp parameters
+    bool animated_{true};
+    float hover_t_{0.0f};
+    float target_hover_{0.0f};
+    float press_t_{0.0f};
+    float target_press_{0.0f};
+    float focus_t_{0.0f};
+    float target_focus_{0.0f};
+    Tcl_TimerToken anim_timer_{nullptr};
 
     nb::object on_paint_;
     nb::object on_state_changed_;
@@ -174,3 +202,4 @@ private:
 };
 
 } // namespace tkblend
+
