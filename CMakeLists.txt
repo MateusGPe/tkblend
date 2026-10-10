@@ -355,6 +355,7 @@ set(TKBLEND_SOURCES
     src/shadow_engine.cpp
     src/emoji_engine.cpp
     src/draw_batch.cpp
+    src/draw_engine.cpp
     src/style_engine.cpp
     src/surface.cpp
     src/native_controller.cpp

@@ -27,12 +27,12 @@ def test_container_layer_enum_and_registration(root):
     assert surf_col.to_hex() in (pal.surface.lower(), pal.card_bg.lower())
 
     # Create a Card container and verify it registers its container layer
-    card = tb.Card(root, width=300, height=200)
+    card = tb.BaseControl(root, widget_class="card", width=300, height=200)
     card.pack()
     root.update_idletasks()
 
     # Create a button inside the Card without explicit outer_bg
-    btn = tb.Button(card, text="Child Button")
+    btn = tb.BaseControl(card, widget_class="button", width=120, height=36)
     btn.pack()
     root.update_idletasks()
 
@@ -52,7 +52,7 @@ def test_container_layer_enum_and_registration(root):
 
 def test_native_state_lerping_and_timer(root):
     tb.set_theme("dark")
-    btn = tb.Button(root, text="Animated Button")
+    btn = tb.BaseControl(root, widget_class="button", width=120, height=36)
     btn.pack()
     root.update_idletasks()
 
@@ -110,7 +110,7 @@ def test_theme_specific_color_and_drawbatch_dynamic_dims():
 
 
 def test_controller_responsive_dimensions(root):
-    card = tb.Card(root, width=120, height=80)
+    card = tb.BaseControl(root, widget_class="card", width=120, height=80)
     card.pack()
     root.update_idletasks()
 

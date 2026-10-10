@@ -17,9 +17,11 @@ from tkblend import (
     get_available_themes,
     apply_theme,
     flush_theme_queue,
-    Card,
-    BlendCanvas,
+    BaseControl,
+    NativeBlitCanvas,
 )
+Card = lambda master=None, **kw: BaseControl(master=master, widget_class="card", **kw)
+BlendCanvas = lambda master=None, **kw: NativeBlitCanvas(master=master, width=kw.get("width", 300), height=kw.get("height", 150))
 
 
 @pytest.fixture
@@ -76,9 +78,9 @@ def test_multistep_theme_cycling_colors(tk_root):
         # Verify root background matches active palette
         assert root.cget("background").lower() == cur_pal.bg.lower()
         
-        # Verify decorator background color matches
-        assert dec1.bg_color.lower() == cur_pal.card_bg.lower()
-        assert dec2.bg_color.lower() == cur_pal.card_bg.lower()
+        # Verify card background color matches
+        assert card1.inner_bg.lower() == cur_pal.card_bg.lower()
+        assert card2.inner_bg.lower() == cur_pal.card_bg.lower()
         
         # Capture screenshot via PIL and verify image properties
         x = root.winfo_rootx()

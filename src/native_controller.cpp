@@ -1,5 +1,6 @@
 #include "native_controller.hpp"
 #include "style_engine.hpp"
+#include "draw_engine.hpp"
 #include <algorithm>
 #include <sstream>
 #include <stdexcept>
@@ -12,12 +13,13 @@ NativeWidgetController::NativeWidgetController()
 
 NativeWidgetController::~NativeWidgetController() {
     detach();
-    if (on_paint_.is_valid() || on_state_changed_.is_valid() || on_click_.is_valid() || on_resize_.is_valid()) {
+    if (on_paint_.is_valid() || on_state_changed_.is_valid() || on_click_.is_valid() || on_resize_.is_valid() || on_change_.is_valid()) {
         nb::gil_scoped_acquire gil;
         on_paint_.reset();
         on_state_changed_.reset();
         on_click_.reset();
         on_resize_.reset();
+        on_change_.reset();
     }
 }
 
@@ -56,7 +58,8 @@ bool NativeWidgetController::attach(uintptr_t interp_addr, const std::string& wi
 
     const long mask = ExposureMask | StructureNotifyMask | VisibilityChangeMask |
                       EnterWindowMask | LeaveWindowMask |
-                      FocusChangeMask | ButtonPressMask | ButtonReleaseMask;
+                      FocusChangeMask | ButtonPressMask | ButtonReleaseMask |
+                      PointerMotionMask | KeyPressMask | KeyReleaseMask;
     Tk_CreateEventHandler(tkwin_, mask, HandleTkEvent, this);
 
     request_redraw();
@@ -77,7 +80,8 @@ void NativeWidgetController::detach() {
     if (tkwin_ && interp_) {
         const long mask = ExposureMask | StructureNotifyMask | VisibilityChangeMask |
                           EnterWindowMask | LeaveWindowMask |
-                          FocusChangeMask | ButtonPressMask | ButtonReleaseMask;
+                          FocusChangeMask | ButtonPressMask | ButtonReleaseMask |
+                          PointerMotionMask | KeyPressMask | KeyReleaseMask;
         Tk_DeleteEventHandler(tkwin_, mask, HandleTkEvent, this);
         StyleEngine::instance().unregister_container_window(reinterpret_cast<uintptr_t>(tkwin_));
         if (Tk_WindowId(tkwin_) != None) {
@@ -515,8 +519,55 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
         }
 
         case ButtonPress: {
-            if (auto_press_ && eventPtr->xbutton.button == 1) {
-                set_pressed(true);
+            if (auto_focus_ && interp_ && !widget_path_.empty()) {
+                std::string cmd = "catch {focus " + widget_path_ + "}";
+                Tcl_Eval(interp_, cmd.c_str());
+            }
+
+            if (eventPtr->xbutton.button == 1) {
+                if (auto_press_) {
+                    set_pressed(true);
+                }
+                if (widget_class_ == "slider") {
+                    int w = width();
+                    double track_w = w - 24.0;
+                    double pos = (track_w > 0) ? std::clamp((static_cast<double>(eventPtr->xbutton.x) - 12.0) / track_w, 0.0, 1.0) : 0.0;
+                    set_var("--thumb-pos", std::to_string(pos));
+                    if (on_change_.is_valid() && !on_change_.is_none()) {
+                        nb::gil_scoped_acquire gil;
+                        try { on_change_(nb::cast(pos)); } catch (...) {}
+                    }
+                    request_redraw();
+                } else if (widget_class_ == "switch" || widget_class_ == "checkbox") {
+                    set_checked(!is_checked());
+                    if (on_change_.is_valid() && !on_change_.is_none()) {
+                        nb::gil_scoped_acquire gil;
+                        try { on_change_(nb::cast(is_checked())); } catch (...) {}
+                    }
+                    request_redraw();
+                } else if (widget_class_ == "radio") {
+                    set_checked(true);
+                    if (on_change_.is_valid() && !on_change_.is_none()) {
+                        nb::gil_scoped_acquire gil;
+                        try { on_change_(nb::cast(true)); } catch (...) {}
+                    }
+                    request_redraw();
+                }
+            }
+            break;
+        }
+
+        case MotionNotify: {
+            if ((eventPtr->xmotion.state & Button1Mask) && widget_class_ == "slider") {
+                int w = width();
+                double track_w = w - 24.0;
+                double pos = (track_w > 0) ? std::clamp((static_cast<double>(eventPtr->xmotion.x) - 12.0) / track_w, 0.0, 1.0) : 0.0;
+                set_var("--thumb-pos", std::to_string(pos));
+                if (on_change_.is_valid() && !on_change_.is_none()) {
+                    nb::gil_scoped_acquire gil;
+                    try { on_change_(nb::cast(pos)); } catch (...) {}
+                }
+                request_redraw();
             }
             break;
         }
@@ -528,8 +579,6 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
             if (auto_press_ && primary) {
                 set_pressed(false);
             }
-            // With auto-press, a primary click requires a prior press on this widget;
-            // other buttons (right/middle click) always report.
             const bool fire = !auto_press_ || !primary || was_pressed;
             if (fire && on_click_.is_valid()) {
                 nb::gil_scoped_acquire gil;
@@ -541,6 +590,55 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                         PyErr_Print();
                     } catch (...) {}
                 }
+            }
+            break;
+        }
+
+        case KeyPress: {
+            char kbuf[32];
+            KeySym sym = NoSymbol;
+            XLookupString(&eventPtr->xkey, kbuf, sizeof(kbuf), &sym, nullptr);
+            if (sym == 0xFF09 /* Tab */) {
+                if (interp_ && !widget_path_.empty()) {
+                    bool shift = (eventPtr->xkey.state & ShiftMask) != 0;
+                    std::string cmd = shift ? ("catch {tk::TabToWindow [tk_focusPrev " + widget_path_ + "]}")
+                                            : ("catch {tk::TabToWindow [tk_focusNext " + widget_path_ + "]}");
+                    Tcl_Eval(interp_, cmd.c_str());
+                }
+            } else if (sym == 0x20 /* Space */ || sym == 0xFF0D /* Return */ || sym == 0xFF8D /* KP_Enter */) {
+                if (widget_class_ == "button") {
+                    set_pressed(true);
+                    if (on_click_.is_valid() && !on_click_.is_none()) {
+                        nb::gil_scoped_acquire gil;
+                        try { on_click_(width() / 2, height() / 2, 1); } catch (...) {}
+                    }
+                    request_redraw();
+                } else if (widget_class_ == "switch" || widget_class_ == "checkbox") {
+                    set_checked(!is_checked());
+                    if (on_change_.is_valid() && !on_change_.is_none()) {
+                        nb::gil_scoped_acquire gil;
+                        try { on_change_(nb::cast(is_checked())); } catch (...) {}
+                    }
+                    request_redraw();
+                } else if (widget_class_ == "radio") {
+                    set_checked(true);
+                    if (on_change_.is_valid() && !on_change_.is_none()) {
+                        nb::gil_scoped_acquire gil;
+                        try { on_change_(nb::cast(true)); } catch (...) {}
+                    }
+                    request_redraw();
+                }
+            }
+            break;
+        }
+
+        case KeyRelease: {
+            char kbuf[32];
+            KeySym sym = NoSymbol;
+            XLookupString(&eventPtr->xkey, kbuf, sizeof(kbuf), &sym, nullptr);
+            if ((sym == 0x20 || sym == 0xFF0D || sym == 0xFF8D) && widget_class_ == "button") {
+                set_pressed(false);
+                request_redraw();
             }
             break;
         }
@@ -593,6 +691,29 @@ void NativeWidgetController::paint_and_blit() {
             local_vars_["--height"] = std::to_string(win_h);
             local_vars_["--w"] = std::to_string(win_w);
             local_vars_["--h"] = std::to_string(win_h);
+            local_vars_["--w_fr"] = std::to_string(win_w + 4);
+            local_vars_["--h_fr"] = std::to_string(win_h + 4);
+            local_vars_["--text-x"] = std::to_string(win_w / 2.0);
+            float press_off = (press_t_ > 0.0f) ? (1.0f * press_t_) : 0.0f;
+            local_vars_["--text-y"] = std::to_string(win_h / 2.0 + 13.0 * 0.35 + press_off);
+        }
+        if (local_vars_.find("--focus-ring-width") == local_vars_.end()) {
+            local_vars_["--focus-ring-width"] = std::to_string(2.0f * focus_t_);
+        }
+        if (local_vars_.find("--thumb-pos") != local_vars_.end() && win_w > 0) {
+            try {
+                double t = std::clamp(std::stod(local_vars_["--thumb-pos"]), 0.0, 1.0);
+                double track_w = std::max(0.0, win_w - 24.0);
+                local_vars_["--active-w"] = std::to_string(track_w * t);
+                local_vars_["--thumb-x"] = std::to_string(12.0 + track_w * t);
+                local_vars_["--thumb-y"] = std::to_string(win_h / 2.0);
+            } catch (...) {}
+        }
+        if (local_vars_.find("--progress") != local_vars_.end() && win_w > 0) {
+            try {
+                double p = std::clamp(std::stod(local_vars_["--progress"]), 0.0, 1.0);
+                local_vars_["--progress-w"] = std::to_string(win_w * p);
+            } catch (...) {}
         }
         vars_copy = local_vars_;
 
@@ -610,10 +731,27 @@ void NativeWidgetController::paint_and_blit() {
     }
 
     Color eff_parent_bg = resolve_parent_bg();
+    vars_copy["--parent-bg"] = eff_parent_bg.to_hex();
 
+    DrawBatch dynamically_created_batch;
     const DrawBatch* batch_to_run = local_batch.get();
+    if (!batch_to_run && !widget_class_.empty()) {
+        dynamically_created_batch = DrawEngine::instance().create_control_batch(widget_class_, current_state, win_w, win_h, vars_copy);
+        if (dynamically_created_batch.size() > 0) {
+            batch_to_run = &dynamically_created_batch;
+        } else {
+            batch_to_run = DrawEngine::instance().get_batch(widget_class_, current_state);
+        }
+    }
     if (!batch_to_run) {
         for (const auto& c : classes_copy) {
+            dynamically_created_batch = DrawEngine::instance().create_control_batch(c, current_state, win_w, win_h, vars_copy);
+            if (dynamically_created_batch.size() > 0) {
+                batch_to_run = &dynamically_created_batch;
+                break;
+            }
+            batch_to_run = DrawEngine::instance().get_batch(c, current_state);
+            if (batch_to_run) break;
             batch_to_run = StyleEngine::instance().get_element_batch(c);
             if (batch_to_run) break;
         }
@@ -853,7 +991,30 @@ void NativeWidgetController::clear_batch() {
 
 bool NativeWidgetController::has_batch() const {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
-    return draw_batch_ != nullptr;
+    if (draw_batch_ != nullptr) return true;
+    if (!widget_class_.empty()) {
+        return DrawEngine::instance().has_batch(widget_class_, state_);
+    }
+    return false;
+}
+
+void NativeWidgetController::set_widget_class(const std::string& wc) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        widget_class_ = wc;
+    }
+    request_redraw();
+}
+
+void NativeWidgetController::set_on_change(nb::object callback) {
+    on_change_ = callback;
+}
+
+void NativeWidgetController::clear_on_change() {
+    if (on_change_.is_valid()) {
+        nb::gil_scoped_acquire gil;
+        on_change_.reset();
+    }
 }
 
 } // namespace tkblend

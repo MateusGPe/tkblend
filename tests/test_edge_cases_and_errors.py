@@ -52,12 +52,12 @@ class TestEdgeCasesAndErrors(unittest.TestCase):
 
     def test_card_class_hierarchy_and_panedwindow(self):
         import tkinter as tk
-        from tkblend.widgets import Card
-        from tkblend import is_inside_card
+        from tkblend import BaseControl, is_inside_card
+        Card = lambda master=None, **kw: BaseControl(master=master, widget_class="card", **kw)
         root = tk.Tk()
         try:
             card = Card(root)
-            self.assertIsInstance(card, Card)
+            self.assertIsInstance(card, BaseControl)
             lbl = tk.Label(card, text="Inside Card")
             self.assertTrue(is_inside_card(lbl))
 

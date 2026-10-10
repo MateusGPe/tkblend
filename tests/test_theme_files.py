@@ -19,10 +19,11 @@ from tkblend import (
     load_theme_dir,
     THEME_PRESETS,
     Palette,
-    Card,
+    BaseControl,
     get_contrast_color,
     SLATE_PALETTE,
 )
+Card = lambda master=None, **kw: BaseControl(master=master, widget_class="card", **kw)
 
 
 @pytest.fixture(scope="module")

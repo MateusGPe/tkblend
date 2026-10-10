@@ -81,6 +81,35 @@
 
   /* --- Fallback Verification Variable --- */
   --custom-accent-fallback: var(--non-existent-var, #38bdf8);
+
+  /* Explicit Component Tokens */
+  --btn-bg: #161b22;
+  --btn-fg: #f0f6fc;
+  --btn-border: #30363d;
+  --btn-shadow: var(--shadow-base);
+  --btn-hover-bg: #363c45;
+  --btn-hover-fg: #f0f6fc;
+  --btn-active-bg: #21262d;
+  --btn-active-fg: #f0f6fc;
+  --btn-disabled-bg: #21262d;
+  --btn-disabled-fg: #8b949e;
+  --card-shadow: var(--shadow-base);
+  --active-bg: hsl(212, 100%, 65%);
+  --active-track-bg: hsl(212, 100%, 65%);
+  --thumb-bg: hsl(212, 100%, 65%);
+  --thumb-active-bg: #ffffff;
+  --thumb-border: #ffffff;
+  --box-bg: #161b22;
+  --box-border: #30363d;
+  --check-color: #ffffff;
+  --radio-bg: #161b22;
+  --radio-border: #30363d;
+  --dot-color: hsl(212, 100%, 65%);
+  --bar-bg: hsl(212, 100%, 65%);
+  --badge-bg: #363c45;
+  --badge-fg: #f0f6fc;
+  --focus-ring-color: hsl(212, 100%, 65%);
+  --focus-ring-width: 2px;
 }
 
 /* =============================================================================

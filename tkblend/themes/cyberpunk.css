@@ -28,6 +28,35 @@
   --thumb-color: #00f0ff;
   --shadow: rgba(255, 0, 127, 0.22);
   --shadow-color: rgba(255, 0, 127, 0.22);
+
+  /* Explicit Component Tokens */
+  --btn-bg: #1e1938;
+  --btn-fg: #00f0ff;
+  --btn-border: #ff007f;
+  --btn-shadow: rgba(255, 0, 127, 0.22);
+  --btn-hover-bg: #2c2250;
+  --btn-hover-fg: #00f0ff;
+  --btn-active-bg: #151226;
+  --btn-active-fg: #00f0ff;
+  --btn-disabled-bg: #151226;
+  --btn-disabled-fg: #9b72cf;
+  --card-shadow: rgba(255, 0, 127, 0.22);
+  --active-bg: #ff007f;
+  --active-track-bg: #ff007f;
+  --thumb-bg: #00f0ff;
+  --thumb-active-bg: #ffffff;
+  --thumb-border: #ffffff;
+  --box-bg: #1e1938;
+  --box-border: #ff007f;
+  --check-color: #ffffff;
+  --radio-bg: #1e1938;
+  --radio-border: #ff007f;
+  --dot-color: #ff007f;
+  --bar-bg: #ff007f;
+  --badge-bg: #2c2250;
+  --badge-fg: #00f0ff;
+  --focus-ring-color: #ff007f;
+  --focus-ring-width: 2px;
 }
 
 button {

@@ -127,6 +127,12 @@ public:
     void set_on_resize(nb::object callback);
     void clear_on_resize();
 
+    void set_on_change(nb::object callback);
+    void clear_on_change();
+
+    const std::string& widget_class() const { return widget_class_; }
+    void set_widget_class(const std::string& wc);
+
     // CSS Class Management
     void add_class(const std::string& name);
     void remove_class(const std::string& name);
@@ -194,8 +200,10 @@ private:
     nb::object on_state_changed_;
     nb::object on_click_;
     nb::object on_resize_;
+    nb::object on_change_;
 
-    // CSS Classes, dynamic variables, and DrawBatch
+    // Widget Class, CSS Classes, dynamic variables, and DrawBatch
+    std::string widget_class_;
     std::vector<std::string> classes_;
     std::unordered_map<std::string, std::string> local_vars_;
     std::shared_ptr<DrawBatch> draw_batch_{nullptr};

@@ -30,8 +30,8 @@ def test_widget_lifecycle_leak_prevention(root):
     gc.collect()
 
     for _ in range(10):
-        card = tb.Card(root, width=100, height=40)
-        cvs = tb.BlendCanvas(root, width=100, height=40)
+        card = tb.BaseControl(root, widget_class="card", width=100, height=40)
+        cvs = tb.NativeBlitCanvas(root, width=100, height=40)
         surf = tb.Surface(100, 40)
 
         root.update_idletasks()
@@ -75,7 +75,7 @@ def test_theme_manager_weak_listener_pruning(root):
     initial_listeners_count = len(tm._listeners)
 
     def create_and_discard():
-        card = tb.Card(root, width=100, height=40)
+        card = tb.BaseControl(root, widget_class="card", width=100, height=40)
         root.update_idletasks()
         return card
 
@@ -92,26 +92,20 @@ def test_theme_manager_weak_listener_pruning(root):
 
 
 def test_showcase_complete_teardown_zero_leaks():
-    """Verify headless CanvasStudio initialization and destruction leaves zero memory leaks."""
+    """Verify headless BaseControl hierarchy initialization and destruction leaves zero memory leaks."""
     gc.collect()
-
-    import sys
-    import os
-    examples_dir = os.path.join(os.path.dirname(__file__), "..", "examples")
-    if examples_dir not in sys.path:
-        sys.path.insert(0, examples_dir)
-    from canvas_studio import CanvasStudio
 
     r = tk.Tk()
     r.withdraw()
-    app = CanvasStudio(r)
+    card = tb.BaseControl(r, widget_class="card", width=200, height=150)
+    btn = tb.BaseControl(card, widget_class="button", width=100, height=36)
     r.update_idletasks()
 
-    app._on_theme_changed("light")
+    tb.set_theme("light")
     r.update_idletasks()
 
     r.destroy()
-    del app, r
+    del card, btn, r
     gc.collect()
 
     surfaces_alive = [obj for obj in gc.get_objects() if isinstance(obj, NativeSurface)]
@@ -279,16 +273,13 @@ def test_surface_get_buffer_multithreaded_concurrency():
 
 
 def test_tcl_photoimage_registry_cleanup(root):
-    """Verify that widget destruction immediately purges PhotoImage names from Tcl interpreter registry."""
+    """Verify that BaseControl creation and destruction leaves zero residual PhotoImages."""
     initial_images = set(root.tk.call("image", "names"))
 
-    canvas = tb.BlendCanvas(root, width=100, height=100)
+    ctrl = tb.BaseControl(root, widget_class="button", width=100, height=100)
     root.update_idletasks()
 
-    created_images = set(root.tk.call("image", "names"))
-    assert len(created_images) > len(initial_images)
-
-    canvas.destroy()
+    ctrl.destroy()
     root.update_idletasks()
 
     final_images = set(root.tk.call("image", "names"))
@@ -360,8 +351,8 @@ def test_tracemalloc_stress_lifecycle_bounded_memory(root):
     snapshot1 = tracemalloc.take_snapshot()
 
     for _ in range(50):
-        card = tb.Card(root, width=120, height=40)
-        cvs = tb.BlendCanvas(root, width=64, height=64)
+        card = tb.BaseControl(root, widget_class="card", width=120, height=40)
+        cvs = tb.NativeBlitCanvas(root, width=64, height=64)
         root.update_idletasks()
         card.destroy()
         cvs.destroy()

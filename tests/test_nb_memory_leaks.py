@@ -408,15 +408,10 @@ def test_singleton_python_handle_stress_no_leak():
 # ===========================================================================
 
 def _photoimage_registry_pattern(root, n: int):
-    """Create and destroy widgets that back themselves with Tk PhotoImages.
-
-    If ``blit_to_photo`` registers a name in the Tcl interpreter but the widget
-    destructor doesn't call ``image delete``, the name leaks in the Tcl registry
-    and the image data is never freed.
-    """
+    """Create and destroy widgets that back themselves with NativeController."""
     for _ in range(n):
-        card = tb.Card(root, width=64, height=64)
-        canvas = tb.BlendCanvas(root, width=64, height=64)
+        card = tb.BaseControl(root, widget_class="card", width=64, height=64)
+        canvas = tb.NativeBlitCanvas(root, width=64, height=64)
         root.update_idletasks()
 
         card.destroy()
@@ -432,7 +427,7 @@ def test_photoimage_registry_teardown_no_leak(root):
     initial = set(root.tk.call("image", "names"))
 
     for _ in range(50):
-        canvas = tb.BlendCanvas(root, width=32, height=32)
+        canvas = tb.NativeBlitCanvas(root, width=32, height=32)
         root.update_idletasks()
         canvas.destroy()
         root.update_idletasks()
@@ -794,13 +789,13 @@ def test_buffer_slicing_and_resize_stress_no_leak():
 # ===========================================================================
 
 def _widget_swarm_pattern(root, n: int):
-    """Instantiate and destroy Card and BlendCanvas instances."""
+    """Instantiate and destroy Card and NativeBlitCanvas instances."""
     for _ in range(n):
         f = tk.Frame(root)
-        card = tb.Card(f, width=200, height=100)
+        card = tb.BaseControl(f, widget_class="card", width=200, height=100)
         btn = tk.Button(card, text="Button")
         lbl = tk.Label(card, text="Label")
-        canvas = tb.BlendCanvas(card, width=64, height=64)
+        canvas = tb.NativeBlitCanvas(card, width=64, height=64)
 
         root.update_idletasks()
 
@@ -829,7 +824,7 @@ def test_widget_swarm_lifecycle_no_leak(root):
 def _theme_storm_pattern(root, n: int):
     """Rapid theme switching with an active card hierarchy."""
     f = tk.Frame(root)
-    card = tb.Card(f, width=200, height=100)
+    card = tb.BaseControl(f, widget_class="card", width=200, height=100)
     btn = tk.Button(card, text="Button")
     root.update_idletasks()
 

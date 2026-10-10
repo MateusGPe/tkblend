@@ -12,11 +12,13 @@ from tkblend._tkblend import (  # type: ignore
     Color,
     Gradient,
     StyleEngine,
+    DrawEngine,
     PseudoState,
     ComputedStyle,
     DrawBatch,
     NativeWidgetController,
     ControllerPseudoState,
+    ContainerLayer,
     load_font_face,
     load_font,
     register_font,
@@ -70,7 +72,6 @@ try:
         GradientLike,
     )
 
-    from tkblend.canvas import BlendCanvas
     from tkblend.icons import Icons, parse_icon_markup, FA_SOLID, FA_REGULAR, FA_BRANDS, LUCIDE
     from tkblend.font import (
         FontConfig,
@@ -132,6 +133,7 @@ try:
         get_contrast_color,
         adjust_brightness,
         to_tk_hex,
+        to_tk_color,
         is_inside_card,
         is_ttkbootstrap_installed,
         cascade_bg_to_children,
@@ -147,39 +149,15 @@ try:
     from tkblend.widgets import (
         BaseControl,
         ScalingTracker,
-        Frame,
         Button,
         Switch,
-        Toggle,
+        Checkbox,
+        Radio,
         Slider,
-        CheckBox,
-        ProgressBar,
-        Progress,
         Progressbar,
-        CircularProgress,
-        Gauge,
-        RadioButton,
+        Badge,
         Card,
         Label,
-        Badge,
-        Avatar,
-        SegmentedButton,
-        SegmentedControl,
-        RangeSlider,
-        ComboBox,
-        OptionMenu,
-        Dropdown,
-        TextBox,
-        Text,
-        Entry,
-        SearchEntry,
-        ScrollableFrame,
-        VectorScrollbar,
-        ScrollBar,
-        Table,
-        Tabview,
-        TabView,
-        Sparkline,
     )
 except ImportError as _err:
     logging.getLogger("tkblend").debug(
@@ -192,13 +170,13 @@ __version__ = "0.3.0"
 __all__ = [
     # Core Graphics
     "Surface",
-    "BlendCanvas",
     "LinearGradient",
     "RadialGradient",
     "Path",
     "Color",
     "Gradient",
     "StyleEngine",
+    "DrawEngine",
     "PseudoState",
     "ComputedStyle",
     "DrawBatch",
@@ -265,43 +243,20 @@ __all__ = [
     "NativeController",
     "NativeWidgetController",
     "ControllerPseudoState",
+    "ContainerLayer",
     "NativeBlitCanvas",
-    # Native Vector Widgets
+    # Native Vector Widgets Base
     "BaseControl",
     "ScalingTracker",
-    "Frame",
     "Button",
     "Switch",
-    "Toggle",
+    "Checkbox",
+    "Radio",
     "Slider",
-    "CheckBox",
-    "ProgressBar",
-    "Progress",
     "Progressbar",
-    "CircularProgress",
-    "Gauge",
-    "RadioButton",
+    "Badge",
     "Card",
     "Label",
-    "Badge",
-    "Avatar",
-    "SegmentedButton",
-    "SegmentedControl",
-    "RangeSlider",
-    "ComboBox",
-    "OptionMenu",
-    "Dropdown",
-    "TextBox",
-    "Text",
-    "Entry",
-    "SearchEntry",
-    "ScrollableFrame",
-    "VectorScrollbar",
-    "ScrollBar",
-    "Table",
-    "Tabview",
-    "TabView",
-    "Sparkline",
     # Font Management & Typography
     "load_font_face",
     "load_font",
@@ -346,14 +301,4 @@ __all__ = [
     "EXTEND_PAD",
     "EXTEND_REPEAT",
     "EXTEND_REFLECT",
-    "ctk",
 ]
-
-
-def __getattr__(name: str):
-    if name == "ctk":
-        import importlib
-        mod = importlib.import_module("tkblend.ctk")
-        globals()["ctk"] = mod
-        return mod
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

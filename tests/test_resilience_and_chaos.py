@@ -20,17 +20,15 @@ from tkblend._tkblend import (
     Color as NativeColor,
     NativeWidgetController,
 )
-from tkblend.widgets import (
-    BaseControl,
-    Button,
-    Switch,
-    Slider,
-    CheckBox,
-    ProgressBar,
-    RadioButton,
-    Card,
-    Label,
-)
+from tkblend.widgets import BaseControl
+Card = lambda master=None, **kw: BaseControl(master=master, widget_class="card", **kw)
+Button = lambda master=None, **kw: BaseControl(master=master, widget_class="button", **kw)
+Switch = lambda master=None, **kw: BaseControl(master=master, widget_class="switch", **kw)
+Slider = lambda master=None, **kw: BaseControl(master=master, widget_class="slider", **kw)
+CheckBox = lambda master=None, **kw: BaseControl(master=master, widget_class="checkbox", **kw)
+ProgressBar = lambda master=None, **kw: BaseControl(master=master, widget_class="progressbar", **kw)
+RadioButton = lambda master=None, **kw: BaseControl(master=master, widget_class="radio", **kw)
+Label = lambda master=None, **kw: BaseControl(master=master, widget_class="label", **kw)
 
 
 @pytest.fixture
@@ -51,14 +49,14 @@ class TestAbruptTerminationAndLifecycleChaos:
 
         widgets: List[BaseControl] = []
         for i in range(25):
-            sw = Switch(root, text=f"Switch {i}", animated=True)
+            sw = Switch(root)
             sw.pack()
-            sw.toggle()  # starts property animation
+            sw.is_checked = True
             widgets.append(sw)
 
-            pb = ProgressBar(root, mode="indeterminate", animated=True)
+            pb = ProgressBar(root)
             pb.pack()
-            pb.start(interval_ms=10)  # starts recursive after() loop
+            pb.controller.is_focused = True
             widgets.append(pb)
 
         root.update_idletasks()
@@ -110,9 +108,8 @@ class TestAbruptTerminationAndLifecycleChaos:
             btn.pack()
             sl = Slider(card, from_=0, to=100, value=50)
             sl.pack()
-            pb = ProgressBar(card, mode="indeterminate")
+            pb = ProgressBar(card)
             pb.pack()
-            pb.start(5)
 
             top.update_idletasks()
 
@@ -167,20 +164,20 @@ class TestExceptionUnwindingAndErrorResilience:
         assert len(leaked) == 0
 
     def test_widget_render_error_recovery(self, clean_gc):
-        """Widget with a failing render method does not leak native controllers or surfaces."""
+        """Widget with a failing on_change hook does not leak native controllers or surfaces."""
         root = tk.Tk()
         root.withdraw()
 
-        class FaultyButton(Button):
-            def render(self, surf, pal, w, h, scale):
-                raise ValueError("Faulty render method")
+        class FaultyControl(BaseControl):
+            def on_change(self, val):
+                raise ValueError("Faulty on_change hook")
 
-        btn = FaultyButton(root, text="Crash")
+        btn = FaultyControl(root, widget_class="button")
         btn.pack()
         root.update_idletasks()
 
         try:
-            btn.paint_and_blit()
+            btn._on_controller_change("test")
         except ValueError:
             pass
 
@@ -296,25 +293,24 @@ class TestSubprocessIsolatedLeakProof:
 import gc
 import tkinter as tk
 import tkblend as tb
-from tkblend.widgets import Switch, Slider, Button, ProgressBar, CheckBox, RadioButton, Card
+from tkblend import BaseControl
 
 root = tk.Tk()
 root.withdraw()
 
 for _ in range(30):
-    c = Card(root, width=300, height=200)
+    c = BaseControl(root, widget_class="card", width=300, height=200)
     c.pack()
-    btn = Button(c, text="Click", icon="rocket")
+    btn = BaseControl(c, widget_class="button")
     btn.pack()
-    sw = Switch(c, text="Toggle", variable=tk.BooleanVar(value=True))
+    sw = BaseControl(c, widget_class="switch")
     sw.pack()
-    sl = Slider(c, variable=tk.DoubleVar(value=50.0))
+    sl = BaseControl(c, widget_class="slider")
     sl.pack()
-    cb = CheckBox(c, text="Check", variable=tk.BooleanVar(value=False))
+    cb = BaseControl(c, widget_class="checkbox")
     cb.pack()
-    pb = ProgressBar(c, mode="indeterminate")
+    pb = BaseControl(c, widget_class="progressbar")
     pb.pack()
-    pb.start(10)
     root.update_idletasks()
     c.destroy()
 

@@ -17,7 +17,7 @@ from tkblend import (
     LinearGradient,
     RadialGradient,
     Path,
-    BlendCanvas,
+    NativeBlitCanvas,
     resolve_theme_color,
 )
 
@@ -141,12 +141,10 @@ class TestTkinterIntegration(unittest.TestCase):
         if not self.root:
             self.skipTest("Tkinter display not available")
 
-        def draw(s: Surface):
-            s.clear("#181825")
-            s.fill_rounded_rect(10, 10, 80, 40, 8, 8, "#89b4fa")
-
-        canvas = BlendCanvas(self.root, width=100, height=60, on_draw=draw)
-        canvas.redraw()
+        canvas = NativeBlitCanvas(self.root, width=100, height=60)
+        canvas.surface.clear("#181825")
+        canvas.surface.fill_rounded_rect(10, 10, 80, 40, 8, 8, "#89b4fa")
+        canvas.blit()
         canvas.destroy()
 
 

@@ -38,6 +38,8 @@ class NativeController:
         on_state_changed: Optional[Callable[[int, int], None]] = None,
         on_click: Optional[Callable[[int, int, int], None]] = None,
         on_resize: Optional[Callable[[int, int], None]] = None,
+        on_change: Optional[Callable[[Any], None]] = None,
+        widget_class: str = "",
         auto_hover: bool = True,
         auto_press: bool = True,
         auto_focus: bool = True,
@@ -51,10 +53,14 @@ class NativeController:
         self._on_state_changed_user = on_state_changed
         self._on_click_user = on_click
         self._on_resize_user = on_resize
+        self._on_change_user = on_change
 
         self.auto_hover = auto_hover
         self.auto_press = auto_press
         self.auto_focus = auto_focus
+
+        if widget_class:
+            self.widget_class = widget_class
 
         if parent_bg is not None:
             self.parent_bg = parent_bg
@@ -67,6 +73,8 @@ class NativeController:
             self.set_on_click(on_click)
         if on_resize is not None:
             self.set_on_resize(on_resize)
+        if on_change is not None:
+            self.set_on_change(on_change)
 
         if widget is not None:
             self.attach(widget)
@@ -386,6 +394,38 @@ class NativeController:
         self._on_resize_user = None
         self._native.clear_on_resize()
 
+    def set_on_change(self, callback: Callable[[Any], None]) -> None:
+        self._on_change_user = callback
+        if hasattr(callback, "__self__"):
+            obj_ref = weakref.ref(callback.__self__)
+            func = callback.__func__
+            def _thunk(val: Any):
+                obj = obj_ref()
+                if obj is not None:
+                    func(obj, val)
+        else:
+            try:
+                cb_ref = weakref.ref(callback)
+                def _thunk(val: Any):
+                    cb = cb_ref()
+                    if cb is not None:
+                        cb(val)
+            except TypeError:
+                _thunk = callback
+        self._native.set_on_change(_thunk)
+
+    def clear_on_change(self) -> None:
+        self._on_change_user = None
+        self._native.clear_on_change()
+
+    @property
+    def widget_class(self) -> str:
+        return self._native.widget_class
+
+    @widget_class.setter
+    def widget_class(self, val: str) -> None:
+        self._native.widget_class = str(val)
+
     # CSS Class Management
     def add_class(self, name: str) -> NativeController:
         """Add a CSS class to the controller and trigger auto-redraw."""
@@ -506,4 +546,7 @@ class NativeBlitCanvas(tk.Frame):
         self.controller.request_redraw()
 
     def paint_and_blit(self) -> None:
+        self.controller.paint_and_blit()
+
+    def blit(self) -> None:
         self.controller.paint_and_blit()

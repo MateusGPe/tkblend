@@ -387,13 +387,70 @@ Color StyleEngine::resolve_color(const std::string& color_str, const std::string
 
 Color StyleEngine::resolve_color_var(const std::string& val, const Color& fallback, const std::string& theme_name) const {
     if (val.empty()) return fallback;
+    if (val.rfind("--", 0) == 0) {
+        std::string v = get_variable(val, theme_name);
+        if (!v.empty()) {
+            return resolve_color_var(v, fallback, theme_name);
+        }
+        // Semantic component variable fallbacks
+        if (val == "--btn-hover-bg" || val == "--btn-active-bg" || val == "--btn-disabled-bg") {
+            std::string base = get_variable("--btn-bg", theme_name);
+            if (base.empty()) base = get_variable("--card-bg", theme_name);
+            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+        }
+        if (val == "--btn-hover-fg" || val == "--btn-active-fg" || val == "--btn-disabled-fg") {
+            std::string base = get_variable("--btn-fg", theme_name);
+            if (base.empty()) base = get_variable("--fg", theme_name);
+            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+        }
+        if (val == "--card-shadow" || val == "--btn-shadow") {
+            std::string base = get_variable("--shadow", theme_name);
+            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+        }
+        if (val == "--box-bg" || val == "--radio-bg") {
+            std::string base = get_variable("--card-bg", theme_name);
+            if (base.empty()) base = get_variable("--surface", theme_name);
+            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+        }
+        if (val == "--box-border" || val == "--radio-border") {
+            std::string base = get_variable("--card-border", theme_name);
+            if (base.empty()) base = get_variable("--input-border", theme_name);
+            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+        }
+        if (val == "--active-bg" || val == "--active-track-bg" || val == "--bar-bg" || val == "--dot-color") {
+            std::string base = get_variable("--primary", theme_name);
+            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+        }
+        if (val == "--check-color") {
+            std::string base = get_variable("--primary-fg", theme_name);
+            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+        }
+        if (val == "--thumb-bg" || val == "--thumb-active-bg") {
+            std::string base = get_variable("--thumb-color", theme_name);
+            if (base.empty()) base = get_variable("--primary", theme_name);
+            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+        }
+        if (val == "--badge-bg") {
+            std::string base = get_variable("--surface", theme_name);
+            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+        }
+        if (val == "--badge-fg") {
+            std::string base = get_variable("--fg", theme_name);
+            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+        }
+        if (val == "--focus-ring-color") {
+            std::string base = get_variable("--primary", theme_name);
+            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+        }
+        return fallback;
+    }
     std::string s = resolve_var_string(val, 0, theme_name);
     s = trim(s);
     if (s.empty()) return fallback;
     Color c = resolve_color(s, theme_name);
     if (c.a == 0 && c.r == 0 && c.g == 0 && c.b == 0) {
         std::string low = to_lower(s);
-        if (low != "transparent" && low != "none" && low != "#00000000" && low != "#0000") {
+        if (low != "transparent" && low != "none" && low != "#00000000" && low != "#0000" && low != "rgba(0,0,0,0)" && low != "rgba(0, 0, 0, 0)") {
             return fallback;
         }
     }
@@ -406,6 +463,11 @@ Color StyleEngine::get_contrast_color(const Color& bg, const Color& light_fg, co
 
 double StyleEngine::resolve_scalar(const std::string& val, double fallback, const std::string& theme_name) const {
     if (val.empty()) return fallback;
+    if (val.rfind("--", 0) == 0) {
+        std::string v = get_variable(val, theme_name);
+        if (!v.empty()) return resolve_scalar(v, fallback, theme_name);
+        return fallback;
+    }
     if (val.find("var(") == std::string::npos) {
         try {
             size_t idx = 0;
@@ -427,6 +489,11 @@ double StyleEngine::resolve_scalar(const std::string& val, double fallback, cons
 
 std::string StyleEngine::resolve_string(const std::string& val, const std::string& fallback, const std::string& theme_name) const {
     if (val.empty()) return fallback;
+    if (val.rfind("--", 0) == 0) {
+        std::string v = get_variable(val, theme_name);
+        if (!v.empty()) return resolve_string(v, fallback, theme_name);
+        return fallback;
+    }
     std::string s = resolve_var_string(val, 0, theme_name);
     s = trim(s);
     if (s.empty()) return fallback;

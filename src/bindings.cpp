@@ -1,5 +1,6 @@
 #include "tkblend.hpp"
 #include "style_engine.hpp"
+#include "draw_engine.hpp"
 #include "surface_registry.hpp"
 #include "native_controller.hpp"
 
@@ -1285,6 +1286,9 @@ void bind_native_controller(nb::module_& m) {
         .def("clear_on_click", &NativeWidgetController::clear_on_click)
         .def("set_on_resize", &NativeWidgetController::set_on_resize, nb::arg("callback"))
         .def("clear_on_resize", &NativeWidgetController::clear_on_resize)
+        .def("set_on_change", &NativeWidgetController::set_on_change, nb::arg("callback"))
+        .def("clear_on_change", &NativeWidgetController::clear_on_change)
+        .def_prop_rw("widget_class", &NativeWidgetController::widget_class, &NativeWidgetController::set_widget_class)
         // CSS Classes, dynamic vars, and DrawBatch
         .def("add_class", &NativeWidgetController::add_class, nb::arg("name"))
         .def("remove_class", &NativeWidgetController::remove_class, nb::arg("name"))
@@ -1302,6 +1306,33 @@ void bind_native_controller(nb::module_& m) {
         .def_prop_ro("has_batch", &NativeWidgetController::has_batch);
 }
 
+void bind_draw_engine(nb::module_& m) {
+    nb::class_<DrawEngine>(m, "DrawEngine")
+        .def_static("register_batch", [](const std::string& widget_class, uint16_t state_mask, const DrawBatch& batch) {
+            DrawEngine::instance().register_batch(widget_class, state_mask, batch);
+        }, nb::arg("widget_class"), nb::arg("state_mask") = 0, nb::arg("batch"))
+        .def_static("unregister_batch", [](const std::string& widget_class, uint16_t state_mask) {
+            DrawEngine::instance().unregister_batch(widget_class, state_mask);
+        }, nb::arg("widget_class"), nb::arg("state_mask") = 0)
+        .def_static("get_batch", [](const std::string& widget_class, uint16_t state) -> std::optional<DrawBatch> {
+            const auto* b = DrawEngine::instance().get_batch(widget_class, state);
+            if (b) return *b;
+            return std::nullopt;
+        }, nb::arg("widget_class"), nb::arg("state") = 0)
+        .def_static("has_batch", [](const std::string& widget_class, uint16_t state) {
+            return DrawEngine::instance().has_batch(widget_class, state);
+        }, nb::arg("widget_class"), nb::arg("state") = 0)
+        .def_static("get_registered_classes", []() {
+            return DrawEngine::instance().get_registered_classes();
+        })
+        .def_static("clear", []() {
+            DrawEngine::instance().clear();
+        })
+        .def_static("reset_defaults", []() {
+            DrawEngine::instance().reset_defaults();
+        });
+}
+
 } // anonymous namespace
 
 } // namespace tkblend
@@ -1315,6 +1346,7 @@ NB_MODULE(_tkblend, m) {
     tkblend::bind_animation(m);
     tkblend::bind_text_metrics(m);
     tkblend::bind_draw_batch(m);
+    tkblend::bind_draw_engine(m);
     tkblend::bind_gradient(m);
     tkblend::bind_path(m);
     tkblend::bind_font_manager(m);

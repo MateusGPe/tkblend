@@ -742,7 +742,7 @@ def is_inside_card(widget: Optional[tk.Misc]) -> bool:
     """Return True if widget is nested within a Card container."""
     curr = widget
     while curr is not None:
-        if getattr(curr, "__class__", None).__name__ == "Card":
+        if getattr(curr, "__class__", None).__name__ == "Card" or getattr(curr, "widget_class", "") == "card":
             return True
         curr = getattr(curr, "master", None)
     return False

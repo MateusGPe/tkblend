@@ -45,3 +45,4 @@ snapshots/
 *.tar.*
 log/
 artifacts/
+screenshots/
