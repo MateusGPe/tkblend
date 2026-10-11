@@ -141,6 +141,20 @@ void bind_text_metrics(nb::module_& m) {
         });
 }
 
+namespace {
+
+inline const Gradient& unwrap_gradient_handle(nb::handle obj) {
+    if (nb::isinstance<Gradient>(obj)) {
+        return nb::cast<const Gradient&>(obj);
+    }
+    if (nb::hasattr(obj, "native")) {
+        return nb::cast<const Gradient&>(obj.attr("native"));
+    }
+    throw nb::type_error("Expected Gradient, LinearGradient, or RadialGradient");
+}
+
+} // namespace
+
 void bind_draw_batch(nb::module_& m) {
     nb::class_<DrawBatch>(m, "DrawBatch")
         .def(nb::init<>())
@@ -148,16 +162,28 @@ void bind_draw_batch(nb::module_& m) {
         .def("clear_var", &DrawBatch::clear_var, nb::arg("c_var"), nb::arg("fallback") = Color(0, 0, 0, 0))
         .def("fill_rect", &DrawBatch::fill_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("color"))
         .def("fill_rect_var", &DrawBatch::fill_rect_var, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("c_var"), nb::arg("fallback") = Color(0, 0, 0, 255), nb::arg("w_var") = "", nb::arg("h_var") = "")
+        .def("fill_rect_gradient", [](DrawBatch& b, double x, double y, double w, double h, nb::handle grad_obj, bool bbox_relative, const std::string& w_var, const std::string& h_var) {
+            const Gradient& g = unwrap_gradient_handle(grad_obj);
+            b.fill_rect_gradient(x, y, w, h, g, bbox_relative, w_var, h_var);
+        }, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("gradient"), nb::arg("bbox_relative") = false, nb::arg("w_var") = "", nb::arg("h_var") = "")
         .def("stroke_rect", &DrawBatch::stroke_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
         .def("stroke_rect_var", &DrawBatch::stroke_rect_var, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("c_var"), nb::arg("stroke_width") = 1.0, nb::arg("sw_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255), nb::arg("w_var") = "", nb::arg("h_var") = "")
         .def("fill_rounded_rect", &DrawBatch::fill_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"))
         .def("fill_rounded_rect_var", &DrawBatch::fill_rounded_rect_var, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("c_var"), nb::arg("rx_var") = "", nb::arg("ry_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255), nb::arg("w_var") = "", nb::arg("h_var") = "")
+        .def("fill_rounded_rect_gradient", [](DrawBatch& b, double x, double y, double w, double h, double rx, double ry, nb::handle grad_obj, bool bbox_relative, const std::string& rx_var, const std::string& ry_var, const std::string& w_var, const std::string& h_var) {
+            const Gradient& g = unwrap_gradient_handle(grad_obj);
+            b.fill_rounded_rect_gradient(x, y, w, h, rx, ry, g, bbox_relative, rx_var, ry_var, w_var, h_var);
+        }, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("gradient"), nb::arg("bbox_relative") = false, nb::arg("rx_var") = "", nb::arg("ry_var") = "", nb::arg("w_var") = "", nb::arg("h_var") = "")
         .def("stroke_rounded_rect", &DrawBatch::stroke_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
         .def("stroke_rounded_rect_var", &DrawBatch::stroke_rounded_rect_var, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"), nb::arg("c_var"), nb::arg("stroke_width") = 1.0, nb::arg("rx_var") = "", nb::arg("ry_var") = "", nb::arg("sw_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255), nb::arg("w_var") = "", nb::arg("h_var") = "")
         .def("fill_circle", &DrawBatch::fill_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("color"))
-        .def("fill_circle_var", &DrawBatch::fill_circle_var, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("c_var"), nb::arg("r_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255))
+        .def("fill_circle_var", &DrawBatch::fill_circle_var, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("c_var"), nb::arg("r_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255), nb::arg("cx_var") = "", nb::arg("cy_var") = "")
+        .def("fill_circle_gradient", [](DrawBatch& b, double cx, double cy, double r, nb::handle grad_obj, bool bbox_relative, const std::string& r_var) {
+            const Gradient& g = unwrap_gradient_handle(grad_obj);
+            b.fill_circle_gradient(cx, cy, r, g, bbox_relative, r_var);
+        }, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("gradient"), nb::arg("bbox_relative") = false, nb::arg("r_var") = "")
         .def("stroke_circle", &DrawBatch::stroke_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
-        .def("stroke_circle_var", &DrawBatch::stroke_circle_var, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("c_var"), nb::arg("stroke_width") = 1.0, nb::arg("r_var") = "", nb::arg("sw_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255))
+        .def("stroke_circle_var", &DrawBatch::stroke_circle_var, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("c_var"), nb::arg("stroke_width") = 1.0, nb::arg("r_var") = "", nb::arg("sw_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255), nb::arg("cx_var") = "", nb::arg("cy_var") = "")
         .def("draw_line", &DrawBatch::draw_line, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
         .def("draw_line_var", &DrawBatch::draw_line_var, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::arg("c_var"), nb::arg("stroke_width") = 1.0, nb::arg("sw_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255))
         .def("draw_text", [](DrawBatch& b,
@@ -177,7 +203,8 @@ void bind_draw_batch(nb::module_& m) {
              nb::arg("font_size") = 14.0f, nb::arg("font_family") = "default",
              nb::arg("c_var") = "", nb::arg("text_var") = "",
              nb::arg("size_var") = "", nb::arg("fallback") = Color(255, 255, 255, 255),
-             nb::arg("align") = 0, nb::arg("weight") = 400, nb::arg("italic") = false)
+             nb::arg("align") = 0, nb::arg("weight") = 400, nb::arg("italic") = false,
+             nb::arg("x_var") = "", nb::arg("y_var") = "")
         .def("draw_shadow_rounded_rect", [](DrawBatch& b,
                                             double x, double y, double w, double h,
                                             double rx, double ry,

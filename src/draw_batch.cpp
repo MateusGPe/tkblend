@@ -19,6 +19,10 @@ void DrawBatch::fill_rect_var(double x, double y, double w, double h, const std:
     DrawOp op; op.type = DrawOpType::FillRect; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.c1=fallback; op.c1_var = c_var; op.d_vars[2] = w_var; op.d_vars[3] = h_var; ops.push_back(std::move(op));
 }
 
+void DrawBatch::fill_rect_gradient(double x, double y, double w, double h, const Gradient& g, bool bbox_relative, const std::string& w_var, const std::string& h_var) {
+    DrawOp op; op.type = DrawOpType::FillRectGradient; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.grad = g; op.bbox_relative = bbox_relative; op.d_vars[2] = w_var; op.d_vars[3] = h_var; ops.push_back(std::move(op));
+}
+
 void DrawBatch::stroke_rect(double x, double y, double w, double h, const Color& c, double stroke_width) {
     DrawOp op; op.type = DrawOpType::StrokeRect; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=stroke_width; op.c1=c; ops.push_back(std::move(op));
 }
@@ -35,6 +39,10 @@ void DrawBatch::fill_rounded_rect_var(double x, double y, double w, double h, do
     DrawOp op; op.type = DrawOpType::FillRoundedRect; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=rx; op.d[5]=ry; op.c1=fallback; op.c1_var = c_var; op.d_vars[2] = w_var; op.d_vars[3] = h_var; op.d_vars[4] = rx_var; op.d_vars[5] = ry_var; ops.push_back(std::move(op));
 }
 
+void DrawBatch::fill_rounded_rect_gradient(double x, double y, double w, double h, double rx, double ry, const Gradient& g, bool bbox_relative, const std::string& rx_var, const std::string& ry_var, const std::string& w_var, const std::string& h_var) {
+    DrawOp op; op.type = DrawOpType::FillRoundedRectGradient; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=rx; op.d[5]=ry; op.grad = g; op.bbox_relative = bbox_relative; op.d_vars[2] = w_var; op.d_vars[3] = h_var; op.d_vars[4] = rx_var; op.d_vars[5] = ry_var; ops.push_back(std::move(op));
+}
+
 void DrawBatch::stroke_rounded_rect(double x, double y, double w, double h, double rx, double ry, const Color& c, double stroke_width) {
     DrawOp op; op.type = DrawOpType::StrokeRoundedRect; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=rx; op.d[5]=ry; op.d[6]=stroke_width; op.c1=c; ops.push_back(std::move(op));
 }
@@ -47,16 +55,20 @@ void DrawBatch::fill_circle(double cx, double cy, double r, const Color& c) {
     DrawOp op; op.type = DrawOpType::FillCircle; op.d[0]=cx; op.d[1]=cy; op.d[2]=r; op.c1=c; ops.push_back(std::move(op));
 }
 
-void DrawBatch::fill_circle_var(double cx, double cy, double r, const std::string& c_var, const std::string& r_var, const Color& fallback) {
-    DrawOp op; op.type = DrawOpType::FillCircle; op.d[0]=cx; op.d[1]=cy; op.d[2]=r; op.c1=fallback; op.c1_var = c_var; op.d_vars[2] = r_var; ops.push_back(std::move(op));
+void DrawBatch::fill_circle_var(double cx, double cy, double r, const std::string& c_var, const std::string& r_var, const Color& fallback, const std::string& cx_var, const std::string& cy_var) {
+    DrawOp op; op.type = DrawOpType::FillCircle; op.d[0]=cx; op.d[1]=cy; op.d[2]=r; op.c1=fallback; op.c1_var = c_var; op.d_vars[2] = r_var; op.d_vars[0] = cx_var; op.d_vars[1] = cy_var; ops.push_back(std::move(op));
+}
+
+void DrawBatch::fill_circle_gradient(double cx, double cy, double r, const Gradient& g, bool bbox_relative, const std::string& r_var) {
+    DrawOp op; op.type = DrawOpType::FillCircleGradient; op.d[0]=cx; op.d[1]=cy; op.d[2]=r; op.grad = g; op.bbox_relative = bbox_relative; op.d_vars[2] = r_var; ops.push_back(std::move(op));
 }
 
 void DrawBatch::stroke_circle(double cx, double cy, double r, const Color& c, double stroke_width) {
     DrawOp op; op.type = DrawOpType::StrokeCircle; op.d[0]=cx; op.d[1]=cy; op.d[2]=r; op.d[3]=stroke_width; op.c1=c; ops.push_back(std::move(op));
 }
 
-void DrawBatch::stroke_circle_var(double cx, double cy, double r, const std::string& c_var, double stroke_width, const std::string& r_var, const std::string& sw_var, const Color& fallback) {
-    DrawOp op; op.type = DrawOpType::StrokeCircle; op.d[0]=cx; op.d[1]=cy; op.d[2]=r; op.d[3]=stroke_width; op.c1=fallback; op.c1_var = c_var; op.d_vars[2] = r_var; op.d_vars[3] = sw_var; ops.push_back(std::move(op));
+void DrawBatch::stroke_circle_var(double cx, double cy, double r, const std::string& c_var, double stroke_width, const std::string& r_var, const std::string& sw_var, const Color& fallback, const std::string& cx_var, const std::string& cy_var) {
+    DrawOp op; op.type = DrawOpType::StrokeCircle; op.d[0]=cx; op.d[1]=cy; op.d[2]=r; op.d[3]=stroke_width; op.c1=fallback; op.c1_var = c_var; op.d_vars[2] = r_var; op.d_vars[3] = sw_var; op.d_vars[0] = cx_var; op.d_vars[1] = cy_var; ops.push_back(std::move(op));
 }
 
 void DrawBatch::draw_line(double x1, double y1, double x2, double y2, const Color& c, double stroke_width) {
@@ -72,8 +84,8 @@ void DrawBatch::draw_text(const std::string& text, double x, double y, float fon
     ops.push_back(std::move(op));
 }
 
-void DrawBatch::draw_text_var(const std::string& text, double x, double y, float font_size, const std::string& font_family, const std::string& c_var, const std::string& text_var, const std::string& size_var, const Color& fallback, int align, int weight, bool italic) {
-    DrawOp op; op.type = DrawOpType::DrawText; op.str = text; op.d[0]=x; op.d[1]=y; op.d[2]=font_size; op.c1=fallback; op.c1_var = c_var; op.str_var = text_var; op.d_vars[2] = size_var; op.i1=align; op.i2=weight; op.i3=italic ? 1 : 0;
+void DrawBatch::draw_text_var(const std::string& text, double x, double y, float font_size, const std::string& font_family, const std::string& c_var, const std::string& text_var, const std::string& size_var, const Color& fallback, int align, int weight, bool italic, const std::string& x_var, const std::string& y_var) {
+    DrawOp op; op.type = DrawOpType::DrawText; op.str = text; op.d[0]=x; op.d[1]=y; op.d[2]=font_size; op.c1=fallback; op.c1_var = c_var; op.str_var = text_var; op.d_vars[2] = size_var; op.d_vars[0] = x_var; op.d_vars[1] = y_var; op.i1=align; op.i2=weight; op.i3=italic ? 1 : 0;
     ops.push_back(std::move(op));
 }
 

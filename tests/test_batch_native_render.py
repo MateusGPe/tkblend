@@ -89,3 +89,48 @@ def test_base_control_batch_binding(root):
     root.update_idletasks()
     control.clear_batch()
     assert not control.has_batch
+
+
+def test_draw_batch_gradient_execution():
+    from tkblend import LinearGradient, RadialGradient
+    surf = Surface(width=200, height=100)
+
+    # 1. Absolute gradient batch
+    batch = DrawBatch()
+    lg = LinearGradient(0.0, 0.0, 200.0, 100.0)
+    lg.add_stop(0.0, "#ff007f").add_stop(1.0, "#00e5ff")
+    batch.fill_rect_gradient(0.0, 0.0, 200.0, 100.0, lg, bbox_relative=False)
+
+    rg = RadialGradient(100.0, 50.0, 40.0)
+    rg.add_stop(0.0, "#ffffff").add_stop(1.0, "#000000")
+    batch.fill_circle_gradient(100.0, 50.0, 40.0, rg, bbox_relative=False)
+
+    surf.execute_batch(batch)
+    surf.flush()
+    assert len(batch) == 2
+
+
+def test_draw_batch_gradient_bbox_relative():
+    from tkblend import LinearGradient, RadialGradient
+    surf = Surface(width=150, height=60)
+
+    batch = DrawBatch()
+    # Normalized coords 0.0 to 1.0 spanning the shape bounds
+    lg = LinearGradient(0.0, 0.0, 1.0, 1.0)
+    lg.add_stop(0.0, "#6366f1").add_stop(1.0, "#ec4899")
+
+    # With dynamic dimension variables --w and --h
+    batch.fill_rounded_rect_gradient(
+        0.0, 0.0, 0.0, 0.0, 8.0, 8.0, lg,
+        bbox_relative=True, rx_var="", ry_var="", w_var="--w", h_var="--h"
+    )
+
+    rg = RadialGradient(0.5, 0.5, 0.5)
+    rg.add_stop(0.0, "#fbbf24").add_stop(1.0, "#d97706")
+    batch.fill_circle_gradient(75.0, 30.0, 0.0, rg, bbox_relative=True, r_var="--r")
+
+    local_vars = {"--w": "150.0", "--h": "60.0", "--r": "25.0"}
+    surf.execute_batch(batch, local_vars=local_vars)
+    surf.flush()
+    assert len(batch) == 2
+

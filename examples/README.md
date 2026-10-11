@@ -88,6 +88,14 @@ uv run python examples/canvas_studio.py
 
 ---
 
+### 9. [Custom Gradient Widgets Showcase](file:///home/mateusgp/projects/tsurf/examples/gradient_widgets.py) (`examples/gradient_widgets.py`)
+* **What it demonstrates**: Blueprint implementation of custom pure vector widgets powered by C++ `DrawBatch` display lists with multi-stop linear and radial shaders, bounding-box relative coordinates, dynamic state transitions (hover sheens, pressed insets), metric container cards, progress bars, and spectrum sliders.
+```bash
+uv run python examples/gradient_widgets.py
+```
+
+---
+
 ## 🏗️ Architectural Highlights ("The New Ways")
 
 * **Zero TTK Dependencies**: Pure `BaseControl` subclasses with native Blend2D zero-copy blitting directly into Tk window drawables.

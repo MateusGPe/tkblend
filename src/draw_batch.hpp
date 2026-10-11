@@ -1,6 +1,7 @@
 #pragma once
 
 #include "color.hpp"
+#include "gradient.hpp"
 #include <vector>
 #include <string>
 #include <cstddef>
@@ -14,6 +15,9 @@ enum class DrawOpType {
     FillRoundedRect, StrokeRoundedRect,
     FillCircle, StrokeCircle,
     FillEllipse, StrokeEllipse,
+    FillRectGradient,
+    FillRoundedRectGradient,
+    FillCircleGradient,
     DrawLine,
     DrawText,
     DrawShadowRoundedRect,
@@ -30,6 +34,8 @@ struct DrawOp {
     Color c3;
     std::string str;
     int i1 = 0, i2 = 0, i3 = 0;
+    bool bbox_relative = false;
+    Gradient grad;
 
     // Dynamic variable bindings
     std::string c1_var;
@@ -48,27 +54,30 @@ public:
 
     void fill_rect(double x, double y, double w, double h, const Color& c);
     void fill_rect_var(double x, double y, double w, double h, const std::string& c_var, const Color& fallback = Color(0, 0, 0, 255), const std::string& w_var = "", const std::string& h_var = "");
+    void fill_rect_gradient(double x, double y, double w, double h, const Gradient& g, bool bbox_relative = false, const std::string& w_var = "", const std::string& h_var = "");
 
     void stroke_rect(double x, double y, double w, double h, const Color& c, double stroke_width = 1.0);
     void stroke_rect_var(double x, double y, double w, double h, const std::string& c_var, double stroke_width = 1.0, const std::string& sw_var = "", const Color& fallback = Color(0, 0, 0, 255), const std::string& w_var = "", const std::string& h_var = "");
 
     void fill_rounded_rect(double x, double y, double w, double h, double rx, double ry, const Color& c);
     void fill_rounded_rect_var(double x, double y, double w, double h, double rx, double ry, const std::string& c_var, const std::string& rx_var = "", const std::string& ry_var = "", const Color& fallback = Color(0, 0, 0, 255), const std::string& w_var = "", const std::string& h_var = "");
+    void fill_rounded_rect_gradient(double x, double y, double w, double h, double rx, double ry, const Gradient& g, bool bbox_relative = false, const std::string& rx_var = "", const std::string& ry_var = "", const std::string& w_var = "", const std::string& h_var = "");
 
     void stroke_rounded_rect(double x, double y, double w, double h, double rx, double ry, const Color& c, double stroke_width = 1.0);
     void stroke_rounded_rect_var(double x, double y, double w, double h, double rx, double ry, const std::string& c_var, double stroke_width = 1.0, const std::string& rx_var = "", const std::string& ry_var = "", const std::string& sw_var = "", const Color& fallback = Color(0, 0, 0, 255), const std::string& w_var = "", const std::string& h_var = "");
 
     void fill_circle(double cx, double cy, double r, const Color& c);
-    void fill_circle_var(double cx, double cy, double r, const std::string& c_var, const std::string& r_var = "", const Color& fallback = Color(0, 0, 0, 255));
+    void fill_circle_var(double cx, double cy, double r, const std::string& c_var, const std::string& r_var = "", const Color& fallback = Color(0, 0, 0, 255), const std::string& cx_var = "", const std::string& cy_var = "");
+    void fill_circle_gradient(double cx, double cy, double r, const Gradient& g, bool bbox_relative = false, const std::string& r_var = "");
 
     void stroke_circle(double cx, double cy, double r, const Color& c, double stroke_width = 1.0);
-    void stroke_circle_var(double cx, double cy, double r, const std::string& c_var, double stroke_width = 1.0, const std::string& r_var = "", const std::string& sw_var = "", const Color& fallback = Color(0, 0, 0, 255));
+    void stroke_circle_var(double cx, double cy, double r, const std::string& c_var, double stroke_width = 1.0, const std::string& r_var = "", const std::string& sw_var = "", const Color& fallback = Color(0, 0, 0, 255), const std::string& cx_var = "", const std::string& cy_var = "");
 
     void draw_line(double x1, double y1, double x2, double y2, const Color& c, double stroke_width = 1.0);
     void draw_line_var(double x1, double y1, double x2, double y2, const std::string& c_var, double stroke_width = 1.0, const std::string& sw_var = "", const Color& fallback = Color(0, 0, 0, 255));
 
     void draw_text(const std::string& text, double x, double y, float font_size, const std::string& font_family, const Color& c, int align = 0, int weight = 400, bool italic = false);
-    void draw_text_var(const std::string& text, double x, double y, float font_size, const std::string& font_family, const std::string& c_var, const std::string& text_var = "", const std::string& size_var = "", const Color& fallback = Color(255, 255, 255, 255), int align = 0, int weight = 400, bool italic = false);
+    void draw_text_var(const std::string& text, double x, double y, float font_size, const std::string& font_family, const std::string& c_var, const std::string& text_var = "", const std::string& size_var = "", const Color& fallback = Color(255, 255, 255, 255), int align = 0, int weight = 400, bool italic = false, const std::string& x_var = "", const std::string& y_var = "");
 
     void draw_shadow_rounded_rect(double x, double y, double w, double h, double rx, double ry, double blur_radius, double spread, double offset_x, double offset_y, const Color& shadow_color);
     void draw_shadow_rounded_rect_var(double x, double y, double w, double h, double rx, double ry, double blur_radius, double spread, double offset_x, double offset_y, const std::string& shadow_color_var, const std::string& rx_var = "", const std::string& ry_var = "", const std::string& blur_var = "", const Color& fallback = Color(0, 0, 0, 30), const std::string& w_var = "", const std::string& h_var = "");

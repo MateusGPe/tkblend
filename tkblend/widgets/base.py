@@ -483,7 +483,7 @@ class BaseControl(tk.Frame):
 
     def _on_controller_click(self, x: int, y: int, button: int) -> None:
         if not self.is_disabled:
-            if callable(self._command):
+            if callable(self._command) and self._widget_class not in ("switch", "checkbox", "radio", "slider"):
                 try:
                     self._command()
                 except Exception:

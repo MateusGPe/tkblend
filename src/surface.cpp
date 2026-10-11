@@ -1611,18 +1611,90 @@ void Surface::execute_batch(
             case DrawOpType::FillRect:
                 fill_rect(d[0], d[1], d[2], d[3], c1);
                 break;
+            case DrawOpType::FillRectGradient: {
+                if (op.bbox_relative) {
+                    Gradient mapped = op.grad;
+                    double x = d[0], y = d[1], w = d[2], h = d[3];
+                    if (mapped.type == Gradient::Type::Linear) {
+                        mapped.x0 = x + op.grad.x0 * w;
+                        mapped.y0 = y + op.grad.y0 * h;
+                        mapped.x1 = x + op.grad.x1 * w;
+                        mapped.y1 = y + op.grad.y1 * h;
+                    } else {
+                        mapped.x0 = x + op.grad.x0 * w;
+                        mapped.y0 = y + op.grad.y0 * h;
+                        mapped.x1 = x + op.grad.x1 * w;
+                        mapped.y1 = y + op.grad.y1 * h;
+                        double span = std::min(w, h);
+                        mapped.r0 = op.grad.r0 * span;
+                        mapped.r1 = op.grad.r1 * span;
+                    }
+                    fill_rect_gradient(x, y, w, h, mapped);
+                } else {
+                    fill_rect_gradient(d[0], d[1], d[2], d[3], op.grad);
+                }
+                break;
+            }
             case DrawOpType::StrokeRect:
                 stroke_rect(d[0], d[1], d[2], d[3], c1, d[4]);
                 break;
             case DrawOpType::FillRoundedRect:
                 fill_rounded_rect(d[0], d[1], d[2], d[3], d[4], d[5], c1);
                 break;
+            case DrawOpType::FillRoundedRectGradient: {
+                if (op.bbox_relative) {
+                    Gradient mapped = op.grad;
+                    double x = d[0], y = d[1], w = d[2], h = d[3];
+                    if (mapped.type == Gradient::Type::Linear) {
+                        mapped.x0 = x + op.grad.x0 * w;
+                        mapped.y0 = y + op.grad.y0 * h;
+                        mapped.x1 = x + op.grad.x1 * w;
+                        mapped.y1 = y + op.grad.y1 * h;
+                    } else {
+                        mapped.x0 = x + op.grad.x0 * w;
+                        mapped.y0 = y + op.grad.y0 * h;
+                        mapped.x1 = x + op.grad.x1 * w;
+                        mapped.y1 = y + op.grad.y1 * h;
+                        double span = std::min(w, h);
+                        mapped.r0 = op.grad.r0 * span;
+                        mapped.r1 = op.grad.r1 * span;
+                    }
+                    fill_rounded_rect_gradient(x, y, w, h, d[4], d[5], mapped);
+                } else {
+                    fill_rounded_rect_gradient(d[0], d[1], d[2], d[3], d[4], d[5], op.grad);
+                }
+                break;
+            }
             case DrawOpType::StrokeRoundedRect:
                 stroke_rounded_rect(d[0], d[1], d[2], d[3], d[4], d[5], c1, d[6]);
                 break;
             case DrawOpType::FillCircle:
                 fill_circle(d[0], d[1], d[2], c1);
                 break;
+            case DrawOpType::FillCircleGradient: {
+                if (op.bbox_relative) {
+                    Gradient mapped = op.grad;
+                    double cx = d[0], cy = d[1], r = d[2];
+                    double x = cx - r, y = cy - r, diam = 2.0 * r;
+                    if (mapped.type == Gradient::Type::Linear) {
+                        mapped.x0 = x + op.grad.x0 * diam;
+                        mapped.y0 = y + op.grad.y0 * diam;
+                        mapped.x1 = x + op.grad.x1 * diam;
+                        mapped.y1 = y + op.grad.y1 * diam;
+                    } else {
+                        mapped.x0 = x + op.grad.x0 * diam;
+                        mapped.y0 = y + op.grad.y0 * diam;
+                        mapped.x1 = x + op.grad.x1 * diam;
+                        mapped.y1 = y + op.grad.y1 * diam;
+                        mapped.r0 = op.grad.r0 * r;
+                        mapped.r1 = op.grad.r1 * r;
+                    }
+                    fill_circle_gradient(cx, cy, r, mapped);
+                } else {
+                    fill_circle_gradient(d[0], d[1], d[2], op.grad);
+                }
+                break;
+            }
             case DrawOpType::StrokeCircle:
                 stroke_circle(d[0], d[1], d[2], c1, d[3]);
                 break;
