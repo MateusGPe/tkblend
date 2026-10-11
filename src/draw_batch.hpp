@@ -15,6 +15,7 @@ enum class DrawOpType {
     FillRoundedRect, StrokeRoundedRect,
     FillCircle, StrokeCircle,
     FillEllipse, StrokeEllipse,
+    StrokeArc,
     FillRectGradient,
     FillRoundedRectGradient,
     FillCircleGradient,
@@ -72,6 +73,8 @@ public:
 
     void stroke_circle(double cx, double cy, double r, const Color& c, double stroke_width = 1.0);
     void stroke_circle_var(double cx, double cy, double r, const std::string& c_var, double stroke_width = 1.0, const std::string& r_var = "", const std::string& sw_var = "", const Color& fallback = Color(0, 0, 0, 255), const std::string& cx_var = "", const std::string& cy_var = "");
+    void stroke_arc(double cx, double cy, double r, double start_angle, double sweep_angle, const Color& c, double stroke_width = 1.0);
+    void stroke_arc_var(double cx, double cy, double r, double start_angle, double sweep_angle, const std::string& c_var, double stroke_width = 1.0, const std::string& sw_var = "", const Color& fallback = Color(0, 0, 0, 255), const std::string& cx_var = "", const std::string& cy_var = "", const std::string& r_var = "", const std::string& sa_var = "", const std::string& sweep_var = "");
 
     void draw_line(double x1, double y1, double x2, double y2, const Color& c, double stroke_width = 1.0);
     void draw_line_var(double x1, double y1, double x2, double y2, const std::string& c_var, double stroke_width = 1.0, const std::string& sw_var = "", const Color& fallback = Color(0, 0, 0, 255));

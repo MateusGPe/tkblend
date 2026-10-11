@@ -408,6 +408,9 @@ public:
     void stroke_path(const Path& path, const Color& color, double stroke_width = 1.0) {
         surface().stroke_path(path, color, stroke_width);
     }
+    void stroke_arc(double cx, double cy, double r, double start_angle, double sweep_angle, const Color& color, double stroke_width = 1.0) {
+        surface().stroke_arc(cx, cy, r, start_angle, sweep_angle, color, stroke_width);
+    }
 
     TextMetrics measure_text(
         const std::string& text,

@@ -455,17 +455,6 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                     internal_surface_->resize(new_w, new_h);
                 }
             }
-            if (on_resize_.is_valid()) {
-                nb::gil_scoped_acquire gil;
-                nb::object cb = on_resize_;
-                if (cb.is_valid() && !cb.is_none()) {
-                    try {
-                        cb(new_w, new_h);
-                    } catch (const nb::python_error&) {
-                        PyErr_Print();
-                    } catch (...) {}
-                }
-            }
             request_redraw();
             break;
         }
@@ -538,6 +527,53 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                         try { on_change_(nb::cast(pos)); } catch (...) {}
                     }
                     request_redraw();
+                } else if (widget_class_ == "range_slider") {
+                    int w = width();
+                    double track_w = w - 28.0;
+                    double pos = (track_w > 0) ? std::clamp((static_cast<double>(eventPtr->xbutton.x) - 14.0) / track_w, 0.0, 1.0) : 0.0;
+                    double min_p = 0.25, max_p = 0.75;
+                    auto it_min = local_vars_.find("--thumb-min-pos");
+                    if (it_min != local_vars_.end()) { try { min_p = std::stod(it_min->second); } catch (...) {} }
+                    auto it_max = local_vars_.find("--thumb-max-pos");
+                    if (it_max != local_vars_.end()) { try { max_p = std::stod(it_max->second); } catch (...) {} }
+                    if (std::abs(pos - min_p) <= std::abs(pos - max_p)) {
+                        active_thumb_ = 0;
+                        min_p = std::min(pos, max_p);
+                        set_var("--thumb-min-pos", std::to_string(min_p));
+                    } else {
+                        active_thumb_ = 1;
+                        max_p = std::max(pos, min_p);
+                        set_var("--thumb-max-pos", std::to_string(max_p));
+                    }
+                    if (on_change_.is_valid() && !on_change_.is_none()) {
+                        nb::gil_scoped_acquire gil;
+                        try { on_change_(nb::make_tuple(min_p, max_p)); } catch (...) {}
+                    }
+                    request_redraw();
+                } else if (widget_class_ == "segmented_button") {
+                    int w = width();
+                    int count = 2;
+                    auto it_c = local_vars_.find("--count");
+                    if (it_c != local_vars_.end()) {
+                        try { count = std::max(1, std::stoi(it_c->second)); } catch (...) {}
+                    }
+                    int idx = std::clamp(static_cast<int>(eventPtr->xbutton.x * count / (w > 0 ? w : 1)), 0, count - 1);
+                    set_var("--selected-index", std::to_string(idx));
+                    if (on_change_.is_valid() && !on_change_.is_none()) {
+                        nb::gil_scoped_acquire gil;
+                        try { on_change_(nb::cast(idx)); } catch (...) {}
+                    }
+                    request_redraw();
+                } else if (widget_class_ == "scrollbar") {
+                    int h_dim = height();
+                    double track_h = h_dim - 16.0;
+                    double pos = (track_h > 0) ? std::clamp((static_cast<double>(eventPtr->xbutton.y) - 8.0) / track_h, 0.0, 1.0) : 0.0;
+                    set_var("--thumb-pos", std::to_string(pos));
+                    if (on_change_.is_valid() && !on_change_.is_none()) {
+                        nb::gil_scoped_acquire gil;
+                        try { on_change_(nb::cast(pos)); } catch (...) {}
+                    }
+                    request_redraw();
                 } else if (widget_class_ == "switch" || widget_class_ == "checkbox") {
                     set_checked(!is_checked());
                     if (on_change_.is_valid() && !on_change_.is_none()) {
@@ -558,16 +594,49 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
         }
 
         case MotionNotify: {
-            if ((eventPtr->xmotion.state & Button1Mask) && widget_class_ == "slider") {
-                int w = width();
-                double track_w = w - 24.0;
-                double pos = (track_w > 0) ? std::clamp((static_cast<double>(eventPtr->xmotion.x) - 12.0) / track_w, 0.0, 1.0) : 0.0;
-                set_var("--thumb-pos", std::to_string(pos));
-                if (on_change_.is_valid() && !on_change_.is_none()) {
-                    nb::gil_scoped_acquire gil;
-                    try { on_change_(nb::cast(pos)); } catch (...) {}
+            if (eventPtr->xmotion.state & Button1Mask) {
+                if (widget_class_ == "slider") {
+                    int w = width();
+                    double track_w = w - 24.0;
+                    double pos = (track_w > 0) ? std::clamp((static_cast<double>(eventPtr->xmotion.x) - 12.0) / track_w, 0.0, 1.0) : 0.0;
+                    set_var("--thumb-pos", std::to_string(pos));
+                    if (on_change_.is_valid() && !on_change_.is_none()) {
+                        nb::gil_scoped_acquire gil;
+                        try { on_change_(nb::cast(pos)); } catch (...) {}
+                    }
+                    request_redraw();
+                } else if (widget_class_ == "range_slider") {
+                    int w = width();
+                    double track_w = w - 28.0;
+                    double pos = (track_w > 0) ? std::clamp((static_cast<double>(eventPtr->xmotion.x) - 14.0) / track_w, 0.0, 1.0) : 0.0;
+                    double min_p = 0.25, max_p = 0.75;
+                    auto it_min = local_vars_.find("--thumb-min-pos");
+                    if (it_min != local_vars_.end()) { try { min_p = std::stod(it_min->second); } catch (...) {} }
+                    auto it_max = local_vars_.find("--thumb-max-pos");
+                    if (it_max != local_vars_.end()) { try { max_p = std::stod(it_max->second); } catch (...) {} }
+                    if (active_thumb_ == 0) {
+                        min_p = std::min(pos, max_p);
+                        set_var("--thumb-min-pos", std::to_string(min_p));
+                    } else {
+                        max_p = std::max(pos, min_p);
+                        set_var("--thumb-max-pos", std::to_string(max_p));
+                    }
+                    if (on_change_.is_valid() && !on_change_.is_none()) {
+                        nb::gil_scoped_acquire gil;
+                        try { on_change_(nb::make_tuple(min_p, max_p)); } catch (...) {}
+                    }
+                    request_redraw();
+                } else if (widget_class_ == "scrollbar") {
+                    int h_dim = height();
+                    double track_h = h_dim - 16.0;
+                    double pos = (track_h > 0) ? std::clamp((static_cast<double>(eventPtr->xmotion.y) - 8.0) / track_h, 0.0, 1.0) : 0.0;
+                    set_var("--thumb-pos", std::to_string(pos));
+                    if (on_change_.is_valid() && !on_change_.is_none()) {
+                        nb::gil_scoped_acquire gil;
+                        try { on_change_(nb::cast(pos)); } catch (...) {}
+                    }
+                    request_redraw();
                 }
-                request_redraw();
             }
             break;
         }

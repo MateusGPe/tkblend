@@ -13,6 +13,16 @@ from tkblend.widgets.progressbar import Progressbar
 from tkblend.widgets.badge import Badge
 from tkblend.widgets.card import Card
 from tkblend.widgets.label import Label
+from tkblend.widgets.frame import Frame
+from tkblend.widgets.circular_progress import CircularProgress, Gauge
+from tkblend.widgets.segmented_button import SegmentedButton
+from tkblend.widgets.range_slider import RangeSlider
+from tkblend.widgets.sparkline import Sparkline
+from tkblend.widgets.combobox import ComboBox, OptionMenu
+from tkblend.widgets.textbox import Entry, SearchEntry, TextBox
+from tkblend.widgets.scrollable_frame import ScrollableFrame, VectorScrollbar
+from tkblend.widgets.tabview import Tabview
+from tkblend.widgets.table import Table
 from tkblend.widgets import constants
 from tkblend.widgets import utils
 
@@ -28,6 +38,21 @@ __all__ = [
     "Badge",
     "Card",
     "Label",
+    "Frame",
+    "CircularProgress",
+    "Gauge",
+    "SegmentedButton",
+    "RangeSlider",
+    "Sparkline",
+    "ComboBox",
+    "OptionMenu",
+    "Entry",
+    "SearchEntry",
+    "TextBox",
+    "ScrollableFrame",
+    "VectorScrollbar",
+    "Tabview",
+    "Table",
     "constants",
     "utils",
 ]

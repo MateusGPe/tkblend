@@ -251,6 +251,16 @@ void Surface::stroke_path(const Path& path, const Color& color, double stroke_wi
     ctx_.stroke_path(path.path);
 }
 
+void Surface::stroke_arc(double cx, double cy, double r, double start_angle, double sweep_angle, const Color& color, double stroke_width) {
+    if (r <= 0.0 || stroke_width <= 0.0) return;
+    std::lock_guard<std::mutex> lock(mutex_);
+    BLPath p;
+    p.arc_to(cx, cy, r, r, start_angle, sweep_angle);
+    ctx_.set_stroke_style(color.to_bl_rgba32());
+    ctx_.set_stroke_width(stroke_width);
+    ctx_.stroke_path(p);
+}
+
 namespace {
 inline uint32_t decode_utf8(const char*& p, const char* end) {
     if (p >= end) return 0;
@@ -1697,6 +1707,9 @@ void Surface::execute_batch(
             }
             case DrawOpType::StrokeCircle:
                 stroke_circle(d[0], d[1], d[2], c1, d[3]);
+                break;
+            case DrawOpType::StrokeArc:
+                stroke_arc(d[0], d[1], d[2], d[3], d[4], c1, d[5]);
                 break;
             case DrawOpType::DrawLine:
                 draw_line(d[0], d[1], d[2], d[3], c1, d[4]);

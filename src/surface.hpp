@@ -84,6 +84,7 @@ public:
 
     void fill_ellipse(double cx, double cy, double rx, double ry, const Color& color);
     void stroke_ellipse(double cx, double cy, double rx, double ry, const Color& color, double stroke_width = 1.0);
+    void stroke_arc(double cx, double cy, double r, double start_angle, double sweep_angle, const Color& color, double stroke_width = 1.0);
 
     // Lines & Paths
     void draw_line(double x1, double y1, double x2, double y2, const Color& color, double stroke_width = 1.0);

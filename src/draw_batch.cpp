@@ -71,6 +71,14 @@ void DrawBatch::stroke_circle_var(double cx, double cy, double r, const std::str
     DrawOp op; op.type = DrawOpType::StrokeCircle; op.d[0]=cx; op.d[1]=cy; op.d[2]=r; op.d[3]=stroke_width; op.c1=fallback; op.c1_var = c_var; op.d_vars[2] = r_var; op.d_vars[3] = sw_var; op.d_vars[0] = cx_var; op.d_vars[1] = cy_var; ops.push_back(std::move(op));
 }
 
+void DrawBatch::stroke_arc(double cx, double cy, double r, double start_angle, double sweep_angle, const Color& c, double stroke_width) {
+    DrawOp op; op.type = DrawOpType::StrokeArc; op.d[0]=cx; op.d[1]=cy; op.d[2]=r; op.d[3]=start_angle; op.d[4]=sweep_angle; op.d[5]=stroke_width; op.c1=c; ops.push_back(std::move(op));
+}
+
+void DrawBatch::stroke_arc_var(double cx, double cy, double r, double start_angle, double sweep_angle, const std::string& c_var, double stroke_width, const std::string& sw_var, const Color& fallback, const std::string& cx_var, const std::string& cy_var, const std::string& r_var, const std::string& sa_var, const std::string& sweep_var) {
+    DrawOp op; op.type = DrawOpType::StrokeArc; op.d[0]=cx; op.d[1]=cy; op.d[2]=r; op.d[3]=start_angle; op.d[4]=sweep_angle; op.d[5]=stroke_width; op.c1=fallback; op.c1_var = c_var; op.d_vars[0] = cx_var; op.d_vars[1] = cy_var; op.d_vars[2] = r_var; op.d_vars[3] = sa_var; op.d_vars[4] = sweep_var; op.d_vars[5] = sw_var; ops.push_back(std::move(op));
+}
+
 void DrawBatch::draw_line(double x1, double y1, double x2, double y2, const Color& c, double stroke_width) {
     DrawOp op; op.type = DrawOpType::DrawLine; op.d[0]=x1; op.d[1]=y1; op.d[2]=x2; op.d[3]=y2; op.d[4]=stroke_width; op.c1=c; ops.push_back(std::move(op));
 }

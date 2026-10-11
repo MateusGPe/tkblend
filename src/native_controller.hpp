@@ -207,6 +207,7 @@ private:
     std::vector<std::string> classes_;
     std::unordered_map<std::string, std::string> local_vars_;
     std::shared_ptr<DrawBatch> draw_batch_{nullptr};
+    int active_thumb_{0};
 };
 
 } // namespace tkblend

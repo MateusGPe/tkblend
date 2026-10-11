@@ -117,51 +117,193 @@ DrawBatch DrawEngine::create_control_batch(
     b.clear_var("--parent-bg");
 
     if (key_cls == "button") {
-        double pad_x = 3.0;
+        double pad_x = 4.0;
         double pad_top = 2.0;
-        double pad_bottom = 4.0;
+        double pad_bottom = 6.0;
         double bx = pad_x;
         double by = pad_top;
         double bw = std::max(4.0, w - 2.0 * pad_x);
         double bh = std::max(4.0, h - pad_top - pad_bottom);
 
+        std::string variant = "";
+        auto it_v = vars.find("--variant");
+        if (it_v == vars.end()) {
+            it_v = vars.find("variant");
+        }
+        if (it_v != vars.end()) {
+            variant = to_lower_trim(it_v->second);
+        }
+
         std::string bg_var = "--btn-bg";
         std::string fg_var = "--btn-fg";
-        double shadow_blur = 3.0;
-        double shadow_off_y = 1.0;
+        std::string border_var = "--btn-border";
+        std::string shadow_var = "--btn-shadow";
+        double border_w = 0.0;
+        double shadow_blur = 2.0;
+        double shadow_off_y = 0.8;
+        Color fallback_bg(37, 35, 42);
+        Color fallback_fg(230, 224, 233);
+        Color fallback_border(73, 69, 79);
+        Color fallback_shadow(0, 0, 0, 28);
 
-        if ((state & ControllerPseudoState::StateDisabled) != 0) {
-            bg_var = "--btn-disabled-bg";
-            fg_var = "--btn-disabled-fg";
+        if (variant == "primary") {
+            bg_var = "--primary";
+            fg_var = "--primary-fg";
+            border_var = "--primary";
+            border_w = 0.0;
+            shadow_blur = 2.2;
+            shadow_off_y = 0.8;
+            fallback_bg = Color(139, 92, 246);
+            fallback_fg = Color(255, 255, 255);
+            fallback_border = Color(124, 58, 237);
+            fallback_shadow = Color(0, 0, 0, 36);
+
+            if ((state & ControllerPseudoState::StateDisabled) != 0) {
+                bg_var = "--btn-disabled-bg";
+                fg_var = "--btn-disabled-fg";
+                shadow_blur = 0.0;
+                shadow_off_y = 0.0;
+            } else if ((state & ControllerPseudoState::StateActive) != 0) {
+                bg_var = "--primary-active";
+                shadow_blur = 1.0;
+                shadow_off_y = 0.4;
+                by += 1.0;
+            } else if ((state & ControllerPseudoState::StateHover) != 0) {
+                bg_var = "--primary-hover";
+                shadow_blur = 3.2;
+                shadow_off_y = 1.2;
+            }
+        } else if (variant == "tonal" || variant == "secondary") {
+            bg_var = "--secondary";
+            fg_var = "--secondary-fg";
+            border_var = "--secondary";
+            border_w = 0.0;
+            shadow_blur = 1.8;
+            shadow_off_y = 0.6;
+            fallback_bg = Color(6, 182, 212);
+            fallback_fg = Color(255, 255, 255);
+            fallback_border = Color(8, 145, 178);
+
+            if ((state & ControllerPseudoState::StateDisabled) != 0) {
+                bg_var = "--btn-disabled-bg";
+                fg_var = "--btn-disabled-fg";
+                shadow_blur = 0.0;
+                shadow_off_y = 0.0;
+            } else if ((state & ControllerPseudoState::StateActive) != 0) {
+                bg_var = "--secondary-active";
+                shadow_blur = 0.8;
+                shadow_off_y = 0.3;
+                by += 1.0;
+            } else if ((state & ControllerPseudoState::StateHover) != 0) {
+                bg_var = "--secondary-hover";
+                shadow_blur = 2.6;
+                shadow_off_y = 1.0;
+            }
+        } else if (variant == "outline") {
+            bg_var = "--parent-bg";
+            fg_var = "--primary";
+            border_var = "--btn-border";
+            border_w = 1.0;
             shadow_blur = 0.0;
             shadow_off_y = 0.0;
-        } else if ((state & ControllerPseudoState::StateActive) != 0) {
-            bg_var = "--btn-active-bg";
-            fg_var = "--btn-active-fg";
-            shadow_blur = 1.0;
-            shadow_off_y = 0.5;
-            by += 1.0;
-        } else if ((state & ControllerPseudoState::StateHover) != 0) {
-            bg_var = "--btn-hover-bg";
-            fg_var = "--btn-hover-fg";
-            shadow_blur = 4.0;
-            shadow_off_y = 1.5;
+            fallback_bg = Color(0, 0, 0, 0);
+            fallback_fg = Color(139, 92, 246);
+            fallback_border = Color(73, 69, 79);
+            fallback_shadow = Color(0, 0, 0, 0);
+
+            if ((state & ControllerPseudoState::StateDisabled) != 0) {
+                fg_var = "--btn-disabled-fg";
+                border_var = "--btn-border";
+            } else if ((state & ControllerPseudoState::StateActive) != 0) {
+                bg_var = "--btn-active-bg";
+                by += 1.0;
+            } else if ((state & ControllerPseudoState::StateHover) != 0) {
+                bg_var = "--btn-hover-bg";
+                shadow_blur = 1.5;
+                shadow_off_y = 0.5;
+                fallback_shadow = Color(0, 0, 0, 18);
+            }
+        } else if (variant == "ghost" || variant == "flat") {
+            bg_var = "--parent-bg";
+            fg_var = "--primary";
+            border_var = "--parent-bg";
+            border_w = 0.0;
+            shadow_blur = 0.0;
+            shadow_off_y = 0.0;
+            fallback_bg = Color(0, 0, 0, 0);
+            fallback_fg = Color(139, 92, 246);
+            fallback_border = Color(0, 0, 0, 0);
+            fallback_shadow = Color(0, 0, 0, 0);
+
+            if ((state & ControllerPseudoState::StateDisabled) != 0) {
+                fg_var = "--btn-disabled-fg";
+            } else if ((state & ControllerPseudoState::StateActive) != 0) {
+                bg_var = "--btn-active-bg";
+                by += 1.0;
+            } else if ((state & ControllerPseudoState::StateHover) != 0) {
+                bg_var = "--btn-hover-bg";
+            }
+        } else if (variant == "destructive" || variant == "danger") {
+            bg_var = "--destructive";
+            fg_var = "#ffffff";
+            border_var = "--destructive";
+            border_w = 0.0;
+            shadow_blur = 2.0;
+            shadow_off_y = 0.8;
+            fallback_bg = Color(239, 68, 68);
+            fallback_fg = Color(255, 255, 255);
+            fallback_border = Color(220, 38, 38);
+            fallback_shadow = Color(0, 0, 0, 32);
+
+            if ((state & ControllerPseudoState::StateDisabled) != 0) {
+                bg_var = "--btn-disabled-bg";
+                fg_var = "--btn-disabled-fg";
+                shadow_blur = 0.0;
+                shadow_off_y = 0.0;
+            } else if ((state & ControllerPseudoState::StateActive) != 0) {
+                by += 1.0;
+                shadow_blur = 1.0;
+                shadow_off_y = 0.4;
+            } else if ((state & ControllerPseudoState::StateHover) != 0) {
+                shadow_blur = 3.2;
+                shadow_off_y = 1.2;
+            }
+        } else {
+            // Default M3 filled tonal / elevated surface button (borderless)
+            border_w = 0.0;
+            if ((state & ControllerPseudoState::StateDisabled) != 0) {
+                bg_var = "--btn-disabled-bg";
+                fg_var = "--btn-disabled-fg";
+                shadow_blur = 0.0;
+                shadow_off_y = 0.0;
+            } else if ((state & ControllerPseudoState::StateActive) != 0) {
+                bg_var = "--btn-active-bg";
+                fg_var = "--btn-active-fg";
+                shadow_blur = 1.0;
+                shadow_off_y = 0.4;
+                by += 1.0;
+            } else if ((state & ControllerPseudoState::StateHover) != 0) {
+                bg_var = "--btn-hover-bg";
+                fg_var = "--btn-hover-fg";
+                shadow_blur = 2.8;
+                shadow_off_y = 1.0;
+            }
         }
 
         b.draw_card_var(
             bx, by, bw, bh,
             8.0, 8.0,
-            bg_var, "--btn-border",
-            1.0, shadow_blur, 0.0, 0.0, shadow_off_y,
-            "--btn-shadow",
+            bg_var, border_var,
+            border_w, shadow_blur, 0.0, 0.0, shadow_off_y,
+            shadow_var,
             "--rx", "--ry", "--bw",
-            Color(37, 35, 42), Color(73, 69, 79), Color(0, 0, 0, 40)
+            fallback_bg, fallback_border, fallback_shadow
         );
 
         b.draw_text_var(
             "", bx + bw / 2.0, by + bh / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
             fg_var, "--text", "--font-size",
-            Color(255, 255, 255),
+            fallback_fg,
             1 /* center */, 500
         );
 
@@ -373,7 +515,256 @@ DrawBatch DrawEngine::create_control_batch(
     }
 
     if (key_cls == "frame") {
-        b.fill_rounded_rect_var(0.0, 0.0, w, h, 0.0, 0.0, "--frame-bg", "--rx", "--ry", Color(29, 27, 32));
+        double rx = 12.0;
+        auto it_rx = vars.find("--rx");
+        if (it_rx != vars.end()) {
+            try { rx = std::stod(it_rx->second); } catch (...) {}
+        }
+        double bw = 0.0;
+        auto it_bw = vars.find("--bw");
+        if (it_bw != vars.end()) {
+            try { bw = std::stod(it_bw->second); } catch (...) {}
+        }
+        b.fill_rounded_rect_var(0.0, 0.0, w, h, rx, rx, "--bg", "--rx", "--ry", Color(29, 27, 32));
+        if (bw > 0.0) {
+            b.stroke_rounded_rect_var(0.0, 0.0, w, h, rx, rx, "--border", bw, "--rx", "--ry", "--bw", Color(73, 69, 79));
+        }
+        return b;
+    }
+
+    if (key_cls == "circular_progress" || key_cls == "gauge") {
+        double cx = w / 2.0;
+        double cy = h / 2.0;
+        double sw = 8.0;
+        auto it_sw = vars.find("--stroke-width");
+        if (it_sw != vars.end()) {
+            try { sw = std::stod(it_sw->second); } catch (...) {}
+        }
+        double r = std::max(2.0, std::min(cx, cy) - sw / 2.0 - 2.0);
+
+        double start_angle = -1.5707963267948966; // -90 deg
+        double sweep_angle = 6.283185307179586;   // 360 deg
+        auto it_sa = vars.find("--start-angle");
+        if (it_sa != vars.end()) {
+            try { start_angle = std::stod(it_sa->second) * 3.141592653589793 / 180.0; } catch (...) {}
+        }
+        auto it_swp = vars.find("--sweep-angle");
+        if (it_swp != vars.end()) {
+            try { sweep_angle = std::stod(it_swp->second) * 3.141592653589793 / 180.0; } catch (...) {}
+        }
+
+        double progress = 0.0;
+        auto it_p = vars.find("--progress");
+        if (it_p != vars.end()) {
+            try { progress = std::clamp(std::stod(it_p->second), 0.0, 1.0); } catch (...) {}
+        }
+
+        if (std::abs(sweep_angle) >= 6.28) {
+            b.stroke_circle_var(cx, cy, r, "--track-bg", sw, "", "--stroke-width", Color(39, 39, 42));
+        } else {
+            b.stroke_arc_var(cx, cy, r, start_angle, sweep_angle, "--track-bg", sw, "--stroke-width", Color(39, 39, 42));
+        }
+
+        if (progress > 0.001) {
+            double arc_swp = sweep_angle * progress;
+            b.stroke_arc_var(cx, cy, r, start_angle, arc_swp, "--primary", sw, "--stroke-width", Color(139, 92, 246));
+        }
+
+        std::string show_val = "1";
+        auto it_sv = vars.find("--show-value");
+        if (it_sv != vars.end()) show_val = it_sv->second;
+        if (show_val != "0" && show_val != "false") {
+            float font_sz = static_cast<float>(std::max(10.0, r * 0.42));
+            std::string title = "";
+            auto it_t = vars.find("--title");
+            if (it_t != vars.end()) title = it_t->second;
+
+            if (!title.empty()) {
+                b.draw_text_var("", cx, cy - font_sz * 0.1, font_sz, "sans-serif", "--fg", "--text", "", Color(230, 224, 233), 1 /* center */, 700);
+                b.draw_text_var(title, cx, cy + font_sz * 0.55, font_sz * 0.45f, "sans-serif", "--text-muted", "--title", "", Color(161, 161, 170), 1 /* center */, 400);
+            } else {
+                b.draw_text_var("", cx, cy + font_sz * 0.35, font_sz, "sans-serif", "--fg", "--text", "", Color(230, 224, 233), 1 /* center */, 700);
+            }
+        }
+        return b;
+    }
+
+    if (key_cls == "segmented_button") {
+        int count = 2;
+        auto it_c = vars.find("--count");
+        if (it_c != vars.end()) {
+            try { count = std::max(1, std::stoi(it_c->second)); } catch (...) {}
+        }
+        int selected = 0;
+        auto it_s = vars.find("--selected-index");
+        if (it_s != vars.end()) {
+            try { selected = std::clamp(std::stoi(it_s->second), 0, count - 1); } catch (...) {}
+        }
+
+        double rx = h / 2.0;
+        // Background capsule container
+        b.fill_rounded_rect_var(0.0, 0.0, w, h, rx, rx, "--card-bg", "", "", Color(37, 35, 42));
+        b.stroke_rounded_rect_var(0.0, 0.0, w, h, rx, rx, "--card-border", 1.0, "", "", "", Color(73, 69, 79));
+
+        double seg_w = w / static_cast<double>(count);
+
+        // Active segment indicator pill
+        double act_x = selected * seg_w + 3.0;
+        double act_w = std::max(10.0, seg_w - 6.0);
+        double act_h = h - 6.0;
+        double act_rx = act_h / 2.0;
+        b.fill_rounded_rect_var(act_x, 3.0, act_w, act_h, act_rx, act_rx, "--primary", "", "", Color(139, 92, 246));
+
+        // Dividers between segments (skip borders adjacent to active segment)
+        for (int i = 1; i < count; ++i) {
+            if (i != selected && i != selected + 1) {
+                double div_x = i * seg_w;
+                b.draw_line_var(div_x, 6.0, div_x, h - 6.0, "--card-border", 1.0, "", Color(73, 69, 79));
+            }
+        }
+
+        // Segment labels
+        for (int i = 0; i < count; ++i) {
+            std::string var_name = "--seg-" + std::to_string(i) + "-text";
+            std::string txt = "";
+            auto it_txt = vars.find(var_name);
+            if (it_txt != vars.end()) txt = it_txt->second;
+            double seg_cx = (i + 0.5) * seg_w;
+            double txt_y = h / 2.0 + 13.0 * 0.35;
+            std::string col_var = (i == selected) ? "--primary-fg" : "--fg";
+            Color fallback_col = (i == selected) ? Color(255, 255, 255) : Color(230, 224, 233);
+            b.draw_text_var(txt, seg_cx, txt_y, 13.0f, "sans-serif", col_var, var_name, "", fallback_col, 1 /* center */, (i == selected) ? 600 : 500);
+        }
+        return b;
+    }
+
+    if (key_cls == "range_slider") {
+        double pad_x = 14.0;
+        double th = 8.0;
+        double ty = (h - th) / 2.0;
+        double track_w = std::max(10.0, w - 2.0 * pad_x);
+
+        double min_p = 0.25, max_p = 0.75;
+        auto it_min = vars.find("--thumb-min-pos");
+        if (it_min != vars.end()) { try { min_p = std::clamp(std::stod(it_min->second), 0.0, 1.0); } catch (...) {} }
+        auto it_max = vars.find("--thumb-max-pos");
+        if (it_max != vars.end()) { try { max_p = std::clamp(std::stod(it_max->second), 0.0, 1.0); } catch (...) {} }
+        if (min_p > max_p) std::swap(min_p, max_p);
+
+        // Inactive background track
+        b.fill_rounded_rect_var(pad_x, ty, track_w, th, th / 2.0, th / 2.0, "--track-bg", "", "", Color(39, 39, 42));
+
+        // Active range highlight track
+        double act_x = pad_x + min_p * track_w;
+        double act_w = std::max(4.0, (max_p - min_p) * track_w);
+        b.fill_rounded_rect_var(act_x, ty, act_w, th, th / 2.0, th / 2.0, "--primary", "", "", Color(139, 92, 246));
+
+        // Left thumb circle
+        double t1_cx = pad_x + min_p * track_w;
+        b.fill_circle_var(t1_cx, h / 2.0, 10.0, "--thumb-color", "", Color(139, 92, 246));
+        b.stroke_circle_var(t1_cx, h / 2.0, 10.0, "--thumb-border", 2.0, "", "", Color(255, 255, 255));
+
+        // Right thumb circle
+        double t2_cx = pad_x + max_p * track_w;
+        b.fill_circle_var(t2_cx, h / 2.0, 10.0, "--thumb-color", "", Color(139, 92, 246));
+        b.stroke_circle_var(t2_cx, h / 2.0, 10.0, "--thumb-border", 2.0, "", "", Color(255, 255, 255));
+        return b;
+    }
+
+    if (key_cls == "sparkline") {
+        std::string raw_data = "";
+        auto it_d = vars.find("--data");
+        if (it_d != vars.end()) raw_data = it_d->second;
+
+        std::vector<double> pts;
+        std::size_t start = 0;
+        while (start < raw_data.size()) {
+            auto pos = raw_data.find(',', start);
+            std::string tok = (pos == std::string::npos) ? raw_data.substr(start) : raw_data.substr(start, pos - start);
+            try { if (!tok.empty()) pts.push_back(std::stod(tok)); } catch (...) {}
+            if (pos == std::string::npos) break;
+            start = pos + 1;
+        }
+
+        double pad = 6.0;
+        double pw = std::max(10.0, w - 2.0 * pad);
+        double ph = std::max(10.0, h - 2.0 * pad);
+
+        if (pts.size() >= 2) {
+            double min_v = *std::min_element(pts.begin(), pts.end());
+            double max_v = *std::max_element(pts.begin(), pts.end());
+            double span = std::max(0.001, max_v - min_v);
+
+            double step_x = pw / static_cast<double>(pts.size() - 1);
+            double prev_x = pad;
+            double prev_y = pad + ph - ((pts[0] - min_v) / span) * ph;
+
+            for (std::size_t i = 1; i < pts.size(); ++i) {
+                double cur_x = pad + i * step_x;
+                double cur_y = pad + ph - ((pts[i] - min_v) / span) * ph;
+                b.draw_line_var(prev_x, prev_y, cur_x, cur_y, "--primary", 2.0, "", Color(139, 92, 246));
+                prev_x = cur_x;
+                prev_y = cur_y;
+            }
+
+            // Endpoint glowing dot
+            b.fill_circle_var(prev_x, prev_y, 4.0, "--primary", "", Color(139, 92, 246));
+            b.fill_circle_var(prev_x, prev_y, 2.0, "--card-bg", "", Color(37, 35, 42));
+        }
+        return b;
+    }
+
+    if (key_cls == "combobox") {
+        std::string border_col = ((state & ControllerPseudoState::StateFocused) != 0) ? "--input-focus"
+                               : ((state & ControllerPseudoState::StateHover) != 0)   ? "--card-border"
+                               : "--input-border";
+        double border_w = ((state & ControllerPseudoState::StateFocused) != 0) ? 1.5 : 1.0;
+        Color fallback_border = ((state & ControllerPseudoState::StateFocused) != 0) ? Color(208, 188, 255) : Color(73, 69, 79);
+
+        // Container with M3 10px rounded corners
+        b.fill_rounded_rect_var(0.0, 0.0, w, h, 10.0, 10.0, "--input-bg", "--rx", "--ry", Color(29, 27, 32));
+        b.stroke_rounded_rect_var(0.0, 0.0, w, h, 10.0, 10.0, border_col, border_w, "--rx", "--ry", "--bw", fallback_border);
+
+        // Value text
+        b.draw_text_var("", 14.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif", "--fg", "--text", "", Color(230, 224, 233), 0 /* left */, 500);
+
+        // Chevron arrow indicator at right
+        double arr_cx = w - 18.0;
+        double arr_cy = h / 2.0;
+        b.draw_line(arr_cx - 5.0, arr_cy - 2.5, arr_cx, arr_cy + 2.5, Color(161, 161, 170), 1.8);
+        b.draw_line(arr_cx, arr_cy + 2.5, arr_cx + 5.0, arr_cy - 2.5, Color(161, 161, 170), 1.8);
+        return b;
+    }
+
+    if (key_cls == "scrollbar") {
+        // Track
+        b.fill_rounded_rect_var(0.0, 0.0, w, h, w / 2.0, w / 2.0, "--track-bg", "", "", Color(39, 39, 42));
+
+        // Capsule thumb
+        double thumb_pos = 0.0;
+        double thumb_sz = 0.3;
+        auto it_pos = vars.find("--thumb-pos");
+        if (it_pos != vars.end()) { try { thumb_pos = std::clamp(std::stod(it_pos->second), 0.0, 1.0); } catch (...) {} }
+        auto it_sz = vars.find("--thumb-size");
+        if (it_sz != vars.end()) { try { thumb_sz = std::clamp(std::stod(it_sz->second), 0.05, 1.0); } catch (...) {} }
+
+        double thumb_h = std::max(16.0, h * thumb_sz);
+        double thumb_y = thumb_pos * (h - thumb_h);
+        b.fill_rounded_rect_var(1.5, thumb_y, w - 3.0, thumb_h, (w - 3.0) / 2.0, (w - 3.0) / 2.0, "--thumb-color", "", "", Color(139, 92, 246));
+        return b;
+    }
+
+    if (key_cls == "table") {
+        double header_h = 38.0;
+        auto it_hh = vars.find("--header-height");
+        if (it_hh != vars.end()) { try { header_h = std::stod(it_hh->second); } catch (...) {} }
+
+        // Background
+        b.fill_rounded_rect_var(0.0, 0.0, w, h, 8.0, 8.0, "--card-bg", "", "", Color(37, 35, 42));
+        b.stroke_rounded_rect_var(0.0, 0.0, w, h, 8.0, 8.0, "--card-border", 1.0, "", "", "", Color(73, 69, 79));
+
+        // Header bottom divider line
+        b.draw_line_var(0.0, header_h, w, header_h, "--card-border", 1.0, "", Color(73, 69, 79));
         return b;
     }
 
@@ -390,8 +781,8 @@ DrawBatch DrawEngine::create_control_batch(
         std::string border_col = ((state & ControllerPseudoState::StateFocused) != 0) ? "--input-focus" : "--input-border";
         double border_w = ((state & ControllerPseudoState::StateFocused) != 0) ? 1.5 : 1.0;
         Color fallback_border = ((state & ControllerPseudoState::StateFocused) != 0) ? Color(208, 188, 255) : Color(73, 69, 79);
-        b.fill_rounded_rect_var(0.0, 0.0, w, h, 6.0, 6.0, "--input-bg", "--rx", "--ry", Color(29, 27, 32));
-        b.stroke_rounded_rect_var(0.0, 0.0, w, h, 6.0, 6.0, border_col, border_w, "--rx", "--ry", "--bw", fallback_border);
+        b.fill_rounded_rect_var(0.0, 0.0, w, h, 8.0, 8.0, "--input-bg", "--rx", "--ry", Color(29, 27, 32));
+        b.stroke_rounded_rect_var(0.0, 0.0, w, h, 8.0, 8.0, border_col, border_w, "--rx", "--ry", "--bw", fallback_border);
         return b;
     }
 
@@ -432,10 +823,10 @@ void DrawEngine::init_default_batches() {
             0.0, 0.0, 0.0, 0.0,
             8.0, 8.0,
             "--btn-bg", "--btn-border",
-            1.0, 3.0, 0.0, 0.0, 1.0,
+            0.0, 2.0, 0.0, 0.0, 0.8,
             "--btn-shadow",
             "--rx", "--ry", "--bw",
-            Color(37, 35, 42), Color(73, 69, 79), Color(0, 0, 0, 40),
+            Color(37, 35, 42), Color(73, 69, 79), Color(0, 0, 0, 28),
             "--w", "--h"
         );
         // Centered typography

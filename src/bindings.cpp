@@ -184,6 +184,8 @@ void bind_draw_batch(nb::module_& m) {
         }, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("gradient"), nb::arg("bbox_relative") = false, nb::arg("r_var") = "")
         .def("stroke_circle", &DrawBatch::stroke_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
         .def("stroke_circle_var", &DrawBatch::stroke_circle_var, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("c_var"), nb::arg("stroke_width") = 1.0, nb::arg("r_var") = "", nb::arg("sw_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255), nb::arg("cx_var") = "", nb::arg("cy_var") = "")
+        .def("stroke_arc", &DrawBatch::stroke_arc, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("start_angle"), nb::arg("sweep_angle"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("stroke_arc_var", &DrawBatch::stroke_arc_var, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("start_angle"), nb::arg("sweep_angle"), nb::arg("c_var"), nb::arg("stroke_width") = 1.0, nb::arg("sw_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255), nb::arg("cx_var") = "", nb::arg("cy_var") = "", nb::arg("r_var") = "", nb::arg("sa_var") = "", nb::arg("sweep_var") = "")
         .def("draw_line", &DrawBatch::draw_line, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
         .def("draw_line_var", &DrawBatch::draw_line_var, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::arg("c_var"), nb::arg("stroke_width") = 1.0, nb::arg("sw_var") = "", nb::arg("fallback") = Color(0, 0, 0, 255))
         .def("draw_text", [](DrawBatch& b,
@@ -516,6 +518,7 @@ void bind_surface(nb::module_& m) {
         .def("stroke_circle", &Surface::stroke_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
         .def("fill_ellipse", &Surface::fill_ellipse, nb::arg("cx"), nb::arg("cy"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"))
         .def("stroke_ellipse", &Surface::stroke_ellipse, nb::arg("cx"), nb::arg("cy"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("stroke_arc", &Surface::stroke_arc, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("start_angle"), nb::arg("sweep_angle"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
 
         // Lines & Paths
         .def("draw_line", &Surface::draw_line, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
@@ -1218,6 +1221,7 @@ void bind_surface_handle(nb::module_& m) {
         .def("stroke_circle", &SurfaceHandle::stroke_circle, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
         .def("fill_ellipse", &SurfaceHandle::fill_ellipse, nb::arg("cx"), nb::arg("cy"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"))
         .def("stroke_ellipse", &SurfaceHandle::stroke_ellipse, nb::arg("cx"), nb::arg("cy"), nb::arg("rx"), nb::arg("ry"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
+        .def("stroke_arc", &SurfaceHandle::stroke_arc, nb::arg("cx"), nb::arg("cy"), nb::arg("r"), nb::arg("start_angle"), nb::arg("sweep_angle"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
         .def("draw_line", &SurfaceHandle::draw_line, nb::arg("x1"), nb::arg("y1"), nb::arg("x2"), nb::arg("y2"), nb::arg("color"), nb::arg("stroke_width") = 1.0)
         .def("fill_path", &SurfaceHandle::fill_path, nb::arg("path"), nb::arg("color"))
         .def("fill_path_gradient", &SurfaceHandle::fill_path_gradient, nb::arg("path"), nb::arg("gradient"))
