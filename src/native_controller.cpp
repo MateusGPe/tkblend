@@ -566,8 +566,13 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                     request_redraw();
                 } else if (widget_class_ == "scrollbar") {
                     int h_dim = height();
-                    double track_h = h_dim - 16.0;
-                    double pos = (track_h > 0) ? std::clamp((static_cast<double>(eventPtr->xbutton.y) - 8.0) / track_h, 0.0, 1.0) : 0.0;
+                    double thumb_sz = 0.3;
+                    auto it_sz = local_vars_.find("--thumb-size");
+                    if (it_sz != local_vars_.end()) { try { thumb_sz = std::clamp(std::stod(it_sz->second), 0.05, 1.0); } catch (...) {} }
+                    double thumb_h = std::max(16.0, h_dim * thumb_sz);
+                    double available_h = h_dim - thumb_h;
+                    double norm = (available_h > 0) ? std::clamp((static_cast<double>(eventPtr->xbutton.y) - thumb_h / 2.0) / available_h, 0.0, 1.0) : 0.0;
+                    double pos = norm * (1.0 - thumb_sz);
                     set_var("--thumb-pos", std::to_string(pos));
                     if (on_change_.is_valid() && !on_change_.is_none()) {
                         nb::gil_scoped_acquire gil;
@@ -628,8 +633,13 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                     request_redraw();
                 } else if (widget_class_ == "scrollbar") {
                     int h_dim = height();
-                    double track_h = h_dim - 16.0;
-                    double pos = (track_h > 0) ? std::clamp((static_cast<double>(eventPtr->xmotion.y) - 8.0) / track_h, 0.0, 1.0) : 0.0;
+                    double thumb_sz = 0.3;
+                    auto it_sz = local_vars_.find("--thumb-size");
+                    if (it_sz != local_vars_.end()) { try { thumb_sz = std::clamp(std::stod(it_sz->second), 0.05, 1.0); } catch (...) {} }
+                    double thumb_h = std::max(16.0, h_dim * thumb_sz);
+                    double available_h = h_dim - thumb_h;
+                    double norm = (available_h > 0) ? std::clamp((static_cast<double>(eventPtr->xmotion.y) - thumb_h / 2.0) / available_h, 0.0, 1.0) : 0.0;
+                    double pos = norm * (1.0 - thumb_sz);
                     set_var("--thumb-pos", std::to_string(pos));
                     if (on_change_.is_valid() && !on_change_.is_none()) {
                         nb::gil_scoped_acquire gil;

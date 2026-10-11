@@ -118,10 +118,13 @@ class ShowcaseApp(tk.Tk):
         main_content = scroll_container.content
 
         # 2-column responsive layout
-        col_left = tk.Frame(main_content, bg=pal.bg)
+        cols_row = tk.Frame(main_content, bg=pal.bg)
+        cols_row.pack(fill="x", expand=True)
+
+        col_left = tk.Frame(cols_row, bg=pal.bg)
         col_left.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
-        col_right = tk.Frame(main_content, bg=pal.bg)
+        col_right = tk.Frame(cols_row, bg=pal.bg)
         col_right.pack(side="right", fill="both", expand=True, padx=(10, 0))
 
         # -------------------------------------------------------------

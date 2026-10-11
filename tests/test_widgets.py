@@ -250,11 +250,26 @@ def test_entry_and_textbox(root):
     search.pack()
     root.update_idletasks()
 
+    # Test focus handling
+    entry._on_entry_focus_in()
+    root.update_idletasks()
+    assert entry.controller.is_focused
+    entry._on_entry_focus_out()
+    root.update_idletasks()
+    assert not entry.controller.is_focused
+
     tb_widget = TextBox(root, width=200, height=100)
     tb_widget.pack()
     root.update_idletasks()
     tb_widget.insert("1.0", "Multiline text")
     assert "Multiline text" in tb_widget.get()
+
+    tb_widget._on_text_focus_in()
+    root.update_idletasks()
+    assert tb_widget.controller.is_focused
+    tb_widget._on_text_focus_out()
+    root.update_idletasks()
+    assert not tb_widget.controller.is_focused
 
 
 def test_scrollable_frame_and_scrollbar(root):

@@ -187,6 +187,9 @@ class NativeController:
     def is_hovered(self, val: bool) -> None:
         self._native.is_hovered = bool(val)
 
+    def set_hovered(self, val: bool) -> None:
+        self.is_hovered = val
+
     @property
     def is_pressed(self) -> bool:
         return self._native.is_pressed
@@ -194,6 +197,9 @@ class NativeController:
     @is_pressed.setter
     def is_pressed(self, val: bool) -> None:
         self._native.is_pressed = bool(val)
+
+    def set_pressed(self, val: bool) -> None:
+        self.is_pressed = val
 
     @property
     def is_focused(self) -> bool:
@@ -203,6 +209,9 @@ class NativeController:
     def is_focused(self, val: bool) -> None:
         self._native.is_focused = bool(val)
 
+    def set_focused(self, val: bool) -> None:
+        self.is_focused = val
+
     @property
     def is_disabled(self) -> bool:
         return self._native.is_disabled
@@ -211,6 +220,9 @@ class NativeController:
     def is_disabled(self, val: bool) -> None:
         self._native.is_disabled = bool(val)
 
+    def set_disabled(self, val: bool) -> None:
+        self.is_disabled = val
+
     @property
     def is_checked(self) -> bool:
         return self._native.is_checked
@@ -218,6 +230,9 @@ class NativeController:
     @is_checked.setter
     def is_checked(self, val: bool) -> None:
         self._native.is_checked = bool(val)
+
+    def set_checked(self, val: bool) -> None:
+        self.is_checked = val
 
     @property
     def auto_hover(self) -> bool:

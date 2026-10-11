@@ -99,3 +99,11 @@ class CustomGauge(BaseControl):
    - Objective-C++ sources (macOS window shaping) must be pinned to `-fobjc-arc` and treat native view handles as borrowed references.
    - Dynamic asset and font resolution must never use hardcoded user paths; dynamic `$HOME` / `$WINDIR` lookups must be used.
    - Global native types (e.g. `SurfaceBufferType`) must be initialized via `std::call_once` or module init.
+
+## Embedded Sub-widget State Bridging & Controller Parity
+
+When developing compound vector widgets that embed native Tk elements (e.g., `Entry`, `TextBox` embedding `tk.Entry` or `tk.Text`):
+1. **Property & Method Dual Parity**: `NativeController` and widget controllers must provide both property syntax (`controller.is_focused = True`) and method syntax (`controller.set_focused(True)`) for state mutators (`hovered`, `pressed`, `focused`, `disabled`, `checked`).
+2. **Focus Event Delegation**: Child Tk widgets must delegate `<FocusIn>` and `<FocusOut>` events to update the controller state and immediately trigger `self.request_redraw()` so focus rings and border colors render responsively.
+3. **Headless & CI Test Verification**: When testing focus state transitions in pytest fixtures, invoke the widget's focus callback hooks directly (`widget._on_entry_focus_in()`) to ensure reliable assertion across headless and unmapped X11 windows.
+

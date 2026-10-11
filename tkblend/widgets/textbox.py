@@ -20,13 +20,22 @@ class Entry(BaseControl):
         text: str = "",
         width: int = 180,
         height: int = 38,
+        corner_radius: float = 8.0,
+        border_width: float = 1.0,
+        font: Any = ("sans-serif", 11),
+        widget_class: Optional[str] = None,
         **kwargs,
     ):
-        self._placeholder = placeholder
+        self._placeholder = str(placeholder or "")
+        self._is_showing_placeholder = False
+        self._corner_radius = float(corner_radius)
+        self._border_width = float(border_width)
+        self._font_spec = font
+        effective_cls = widget_class or self.WIDGET_CLASS
 
         super().__init__(
             master=master,
-            widget_class="entry",
+            widget_class=effective_cls,
             width=width,
             height=height,
             cursor="xterm",
@@ -45,55 +54,121 @@ class Entry(BaseControl):
             relief="flat",
             borderwidth=0,
             highlightthickness=0,
-            font=("sans-serif", 11),
+            font=self._font_spec,
         )
-        self._entry.place(relx=0.0, rely=0.0, relwidth=1.0, relheight=1.0, x=12, width=-24)
+
+        self._apply_layout()
 
         if text:
             self._entry.insert(0, str(text))
+        elif self._placeholder:
+            self._show_placeholder()
 
         self._entry.bind("<FocusIn>", self._on_entry_focus_in, add="+")
         self._entry.bind("<FocusOut>", self._on_entry_focus_out, add="+")
+        self.bind("<Button-1>", self._on_container_click, add="+")
+
+    def _calc_padding(self) -> tuple[int, int]:
+        """Compute horizontal insets dynamically based on corner radius, border width, and scale factor."""
+        scale = self._scale_factor
+        pad_x = max(int(self._corner_radius * scale + 4), int(self._border_width * scale + 8))
+        return pad_x, pad_x
+
+    def _apply_layout(self) -> None:
+        pad_left, pad_right = self._calc_padding()
+        self._entry.place(
+            x=pad_left,
+            rely=0.5,
+            anchor="w",
+            relwidth=1.0,
+            width=-(pad_left + pad_right),
+        )
+
+    def _on_container_click(self, event: Optional[tk.Event] = None) -> None:
+        self._entry.focus_set()
+
+    def _show_placeholder(self) -> None:
+        if self._placeholder and not self._entry.get() and not self._controller.is_focused:
+            self._is_showing_placeholder = True
+            self._entry.delete(0, "end")
+            self._entry.insert(0, self._placeholder)
+            pal = self._palette
+            muted_hex = to_tk_hex(getattr(pal, "text_muted", "#71717a"))
+            self._entry.configure(foreground=muted_hex)
+
+    def _hide_placeholder(self) -> None:
+        if self._is_showing_placeholder:
+            self._is_showing_placeholder = False
+            self._entry.delete(0, "end")
+            pal = self._palette
+            self._entry.configure(foreground=to_tk_hex(pal.fg))
 
     def _on_entry_focus_in(self, event: Optional[tk.Event] = None) -> None:
-        self._controller.set_focused(True)
+        self._controller.is_focused = True
+        self._hide_placeholder()
         self.request_redraw()
 
     def _on_entry_focus_out(self, event: Optional[tk.Event] = None) -> None:
-        self._controller.set_focused(False)
+        self._controller.is_focused = False
+        if not self._entry.get():
+            self._show_placeholder()
         self.request_redraw()
 
     @property
+    def placeholder(self) -> str:
+        return self._placeholder
+
+    @placeholder.setter
+    def placeholder(self, val: str) -> None:
+        was_showing = self._is_showing_placeholder
+        self._placeholder = str(val or "")
+        if was_showing or not self._entry.get():
+            self._hide_placeholder()
+            self._show_placeholder()
+
+    @property
     def text(self) -> str:
-        return self._entry.get()
+        return "" if self._is_showing_placeholder else self._entry.get()
 
     @text.setter
     def text(self, val: str) -> None:
+        self._hide_placeholder()
         self._entry.delete(0, "end")
-        self._entry.insert(0, str(val))
+        if val:
+            self._entry.configure(foreground=to_tk_hex(self._palette.fg))
+            self._entry.insert(0, str(val))
+        else:
+            self._show_placeholder()
 
     def get(self) -> str:
-        return self._entry.get()
+        return "" if self._is_showing_placeholder else self._entry.get()
 
     def insert(self, index: Any, string: str) -> None:
+        self._hide_placeholder()
         self._entry.insert(index, string)
 
     def delete(self, first: Any, last: Any = None) -> None:
         self._entry.delete(first, last)
+        if not self._entry.get() and not self._controller.is_focused:
+            self._show_placeholder()
 
     @property
     def entry(self) -> tk.Entry:
         return self._entry
 
+    @property
+    def entry_widget(self) -> tk.Entry:
+        return self._entry
+
     def on_theme_update(self, pal: Palette) -> None:
         super().on_theme_update(pal)
         bg_hex = to_tk_hex(pal.input_bg)
-        fg_hex = to_tk_hex(pal.fg)
+        fg_hex = to_tk_hex(getattr(pal, "text_muted", "#71717a") if self._is_showing_placeholder else pal.fg)
         try:
             self._entry.configure(
                 background=bg_hex,
                 foreground=fg_hex,
-                insertbackground=fg_hex,
+                insertbackground=to_tk_hex(pal.fg),
             )
         except Exception:
             pass
@@ -101,11 +176,21 @@ class Entry(BaseControl):
 
 class SearchEntry(Entry):
     """
-    Material Design 3 Search input pre-configured with search placeholder.
+    Material Design 3 Search input with integrated vector magnifying glass icon and placeholder.
     """
 
+    WIDGET_CLASS = "search_entry"
+
     def __init__(self, master: Optional[tk.Misc] = None, placeholder: str = "Search...", **kwargs):
-        super().__init__(master=master, placeholder=placeholder, **kwargs)
+        super().__init__(master=master, placeholder=placeholder, widget_class="search_entry", **kwargs)
+
+    def _calc_padding(self) -> tuple[int, int]:
+        """Account for the vector search icon on the left while computing insets."""
+        scale = self._scale_factor
+        pad_right = max(int(self._corner_radius * scale + 4), int(self._border_width * scale + 8))
+        # Icon center is at ~16px, diameter 12px; inset text comfortably past the icon
+        pad_left = max(int(self._corner_radius * scale + 20), int(28 * scale))
+        return pad_left, pad_right
 
 
 class TextBox(BaseControl):
@@ -120,8 +205,15 @@ class TextBox(BaseControl):
         master: Optional[tk.Misc] = None,
         width: int = 280,
         height: int = 140,
+        corner_radius: float = 8.0,
+        border_width: float = 1.0,
+        font: Any = ("sans-serif", 10),
         **kwargs,
     ):
+        self._corner_radius = float(corner_radius)
+        self._border_width = float(border_width)
+        self._font_spec = font
+
         super().__init__(
             master=master,
             widget_class="textbox_frame",
@@ -135,6 +227,10 @@ class TextBox(BaseControl):
         bg_hex = to_tk_hex(pal.input_bg)
         fg_hex = to_tk_hex(pal.fg)
 
+        scale = self._scale_factor
+        pad_x = max(int(self._corner_radius * scale + 2), int(self._border_width * scale + 6))
+        pad_y = max(int(self._corner_radius * scale * 0.75), int(self._border_width * scale + 4))
+
         self._text = tk.Text(
             self,
             background=bg_hex,
@@ -143,13 +239,34 @@ class TextBox(BaseControl):
             relief="flat",
             borderwidth=0,
             highlightthickness=0,
-            font=("sans-serif", 10),
+            font=self._font_spec,
             wrap="word",
+            padx=2,
+            pady=2,
         )
-        self._text.place(relx=0.0, rely=0.0, relwidth=1.0, relheight=1.0, x=10, y=8, width=-20, height=-16)
+        self._text.place(
+            x=pad_x,
+            y=pad_y,
+            relwidth=1.0,
+            relheight=1.0,
+            width=-(pad_x * 2),
+            height=-(pad_y * 2),
+        )
 
-        self._text.bind("<FocusIn>", lambda e: (self._controller.set_focused(True), self.request_redraw()), add="+")
-        self._text.bind("<FocusOut>", lambda e: (self._controller.set_focused(False), self.request_redraw()), add="+")
+        self._text.bind("<FocusIn>", self._on_text_focus_in, add="+")
+        self._text.bind("<FocusOut>", self._on_text_focus_out, add="+")
+        self.bind("<Button-1>", self._on_container_click, add="+")
+
+    def _on_container_click(self, event: Optional[tk.Event] = None) -> None:
+        self._text.focus_set()
+
+    def _on_text_focus_in(self, event: Optional[tk.Event] = None) -> None:
+        self._controller.is_focused = True
+        self.request_redraw()
+
+    def _on_text_focus_out(self, event: Optional[tk.Event] = None) -> None:
+        self._controller.is_focused = False
+        self.request_redraw()
 
     @property
     def text_widget(self) -> tk.Text:

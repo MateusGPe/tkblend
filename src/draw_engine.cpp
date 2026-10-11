@@ -737,6 +737,7 @@ DrawBatch DrawEngine::create_control_batch(
     }
 
     if (key_cls == "scrollbar") {
+        b.clear_var("--parent-bg");
         // Track
         b.fill_rounded_rect_var(0.0, 0.0, w, h, w / 2.0, w / 2.0, "--track-bg", "", "", Color(39, 39, 42));
 
@@ -749,7 +750,9 @@ DrawBatch DrawEngine::create_control_batch(
         if (it_sz != vars.end()) { try { thumb_sz = std::clamp(std::stod(it_sz->second), 0.05, 1.0); } catch (...) {} }
 
         double thumb_h = std::max(16.0, h * thumb_sz);
-        double thumb_y = thumb_pos * (h - thumb_h);
+        double max_f = std::max(0.001, 1.0 - thumb_sz);
+        double norm_f = std::clamp(thumb_pos / max_f, 0.0, 1.0);
+        double thumb_y = norm_f * (h - thumb_h);
         b.fill_rounded_rect_var(1.5, thumb_y, w - 3.0, thumb_h, (w - 3.0) / 2.0, (w - 3.0) / 2.0, "--thumb-color", "", "", Color(139, 92, 246));
         return b;
     }
@@ -777,12 +780,20 @@ DrawBatch DrawEngine::create_control_batch(
         return b;
     }
 
-    if (key_cls == "entry" || key_cls == "textbox_frame") {
+    if (key_cls == "entry" || key_cls == "textbox_frame" || key_cls == "search_entry") {
+        b.clear_var("--parent-bg");
         std::string border_col = ((state & ControllerPseudoState::StateFocused) != 0) ? "--input-focus" : "--input-border";
         double border_w = ((state & ControllerPseudoState::StateFocused) != 0) ? 1.5 : 1.0;
         Color fallback_border = ((state & ControllerPseudoState::StateFocused) != 0) ? Color(208, 188, 255) : Color(73, 69, 79);
         b.fill_rounded_rect_var(0.0, 0.0, w, h, 8.0, 8.0, "--input-bg", "--rx", "--ry", Color(29, 27, 32));
         b.stroke_rounded_rect_var(0.0, 0.0, w, h, 8.0, 8.0, border_col, border_w, "--rx", "--ry", "--bw", fallback_border);
+
+        if (key_cls == "search_entry") {
+            double icon_cx = 16.0;
+            double icon_cy = h / 2.0;
+            b.stroke_circle_var(icon_cx - 2.0, icon_cy - 2.0, 4.5, "--text-muted", 1.5, "", "", Color(160, 160, 175));
+            b.draw_line_var(icon_cx + 1.2, icon_cy + 1.2, icon_cx + 5.5, icon_cy + 5.5, "--text-muted", 1.8, "", Color(160, 160, 175));
+        }
         return b;
     }
 

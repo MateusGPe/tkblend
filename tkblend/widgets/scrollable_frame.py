@@ -52,6 +52,14 @@ class VectorScrollbar(BaseControl):
         self.set_var("--thumb-size", str(size))
         self.request_redraw()
 
+    def get(self) -> tuple[float, float]:
+        try:
+            pos = float(self.get_var("--thumb-pos", "0.0"))
+            size = float(self.get_var("--thumb-size", "0.3"))
+            return pos, pos + size
+        except Exception:
+            return 0.0, 1.0
+
     def on_change(self, val: Any) -> None:
         try:
             pos = float(val)
@@ -66,7 +74,8 @@ class VectorScrollbar(BaseControl):
 
 class ScrollableFrame(BaseControl):
     """
-    High-performance Material Design 3 scrollable container with integrated vector scrollbar.
+    High-performance Material Design 3 scrollable container with integrated vector scrollbar
+    and smooth animated mouse-wheel interpolation.
     """
 
     WIDGET_CLASS = "frame"
@@ -98,6 +107,11 @@ class ScrollableFrame(BaseControl):
         pal = self._palette
         bg_hex = to_tk_hex(self.inner_bg)
 
+        self._scrollbar_width = int(scrollbar_width)
+        self._target_y = 0.0
+        self._anim_timer: Optional[str] = None
+        self._is_hovered_for_scroll = False
+
         # Canvas viewport
         self._canvas = tk.Canvas(
             self,
@@ -106,7 +120,7 @@ class ScrollableFrame(BaseControl):
             highlightthickness=0,
             relief="flat",
         )
-        self._canvas.place(x=0, y=0, relwidth=1.0, relheight=1.0, width=-scrollbar_width)
+        self._canvas.place(x=0, y=0, relwidth=1.0, relheight=1.0, width=-self._scrollbar_width)
 
         # Inner scrollable content frame
         self._content = tk.Frame(self._canvas, background=bg_hex)
@@ -116,25 +130,34 @@ class ScrollableFrame(BaseControl):
         self._scrollbar = VectorScrollbar(
             self,
             orientation="vertical",
-            command=self._canvas.yview,
-            width=scrollbar_width,
+            command=self._on_scrollbar_move,
+            width=self._scrollbar_width,
             height=height,
         )
-        self._scrollbar.place(relx=1.0, rely=0.0, relheight=1.0, x=-scrollbar_width, width=scrollbar_width)
+        self._scrollbar.place(relx=1.0, rely=0.0, relheight=1.0, x=-self._scrollbar_width, width=self._scrollbar_width)
 
         self._canvas.configure(xscrollcommand=None, yscrollcommand=self._scrollbar.set)
 
-        # Events
+        # Content configure event
         self._content.bind("<Configure>", self._on_content_configure)
         self._canvas.bind("<Configure>", self._on_canvas_configure)
-        self.bind("<MouseWheel>", self._on_mousewheel)
-        self.bind("<Button-4>", self._on_mousewheel)
-        self.bind("<Button-5>", self._on_mousewheel)
+
+        # Enter / Leave bindings for responsive mouse wheel routing
+        self.bind("<Enter>", self._on_mouse_enter, add="+")
+        self.bind("<Leave>", self._on_mouse_leave, add="+")
+        self._canvas.bind("<Enter>", self._on_mouse_enter, add="+")
+        self._canvas.bind("<Leave>", self._on_mouse_leave, add="+")
+        self._content.bind("<Enter>", self._on_mouse_enter, add="+")
+        self._content.bind("<Leave>", self._on_mouse_leave, add="+")
 
     @property
     def content(self) -> tk.Frame:
         """Inner frame where children should be added."""
         return self._content
+
+    @property
+    def scrollbar(self) -> VectorScrollbar:
+        return self._scrollbar
 
     def _on_content_configure(self, event: Optional[tk.Event] = None) -> None:
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
@@ -143,7 +166,46 @@ class ScrollableFrame(BaseControl):
         # Match content width to canvas width
         self._canvas.itemconfig(self._content_window, width=event.width)
 
+    def _on_scrollbar_move(self, *args) -> None:
+        if self._anim_timer is not None:
+            try:
+                self.after_cancel(self._anim_timer)
+            except Exception:
+                pass
+            self._anim_timer = None
+        self._canvas.yview(*args)
+        view = self._canvas.yview()
+        if view:
+            self._target_y = view[0]
+
+    def _on_mouse_enter(self, event: Optional[tk.Event] = None) -> None:
+        self._is_hovered_for_scroll = True
+        self.bind_all("<MouseWheel>", self._on_mousewheel, add="+")
+        self.bind_all("<Button-4>", self._on_mousewheel, add="+")
+        self.bind_all("<Button-5>", self._on_mousewheel, add="+")
+
+    def _on_mouse_leave(self, event: Optional[tk.Event] = None) -> None:
+        try:
+            x, y = self.winfo_pointerxy()
+            rx = self.winfo_rootx()
+            ry = self.winfo_rooty()
+            rw = self.winfo_width()
+            rh = self.winfo_height()
+            if rx <= x <= rx + rw and ry <= y <= ry + rh:
+                return  # Still inside container bounds
+        except Exception:
+            pass
+        self._is_hovered_for_scroll = False
+        try:
+            self.unbind_all("<MouseWheel>")
+            self.unbind_all("<Button-4>")
+            self.unbind_all("<Button-5>")
+        except Exception:
+            pass
+
     def _on_mousewheel(self, event: tk.Event) -> None:
+        if not self._is_hovered_for_scroll:
+            return
         if sys.platform == "darwin":
             delta = -1 * event.delta
         elif event.num == 5:
@@ -152,7 +214,44 @@ class ScrollableFrame(BaseControl):
             delta = -1
         else:
             delta = -1 * int(event.delta / 120)
-        self._canvas.yview_scroll(delta, "units")
+
+        view = self._canvas.yview()
+        if not view:
+            return
+        first, last = view
+        visible_span = max(0.001, last - first)
+        if visible_span >= 0.999:
+            return
+
+        max_pos = max(0.0, 1.0 - visible_span)
+        bbox = self._canvas.bbox("all")
+        total_h = max(1, bbox[3] - bbox[1]) if bbox else self.winfo_height()
+        step_px = 40.0
+        step_frac = (step_px / total_h) * delta
+
+        if self._anim_timer is None:
+            self._target_y = first
+
+        self._target_y = max(0.0, min(max_pos, self._target_y + step_frac))
+
+        if self._anim_timer is None:
+            self._step_smooth_scroll()
+
+    def _step_smooth_scroll(self) -> None:
+        view = self._canvas.yview()
+        if not view:
+            self._anim_timer = None
+            return
+        curr_y = view[0]
+        diff = self._target_y - curr_y
+
+        if abs(diff) < 0.001:
+            self._canvas.yview_moveto(self._target_y)
+            self._anim_timer = None
+        else:
+            new_y = curr_y + diff * 0.35
+            self._canvas.yview_moveto(new_y)
+            self._anim_timer = self.after(16, self._step_smooth_scroll)
 
     def on_theme_update(self, pal: Palette) -> None:
         super().on_theme_update(pal)
@@ -163,3 +262,18 @@ class ScrollableFrame(BaseControl):
         except Exception:
             pass
         cascade_bg_to_children(self._content, self.inner_bg, palette=pal)
+
+    def destroy(self) -> None:
+        if self._anim_timer is not None:
+            try:
+                self.after_cancel(self._anim_timer)
+            except Exception:
+                pass
+            self._anim_timer = None
+        try:
+            self.unbind_all("<MouseWheel>")
+            self.unbind_all("<Button-4>")
+            self.unbind_all("<Button-5>")
+        except Exception:
+            pass
+        super().destroy()
