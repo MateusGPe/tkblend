@@ -163,7 +163,7 @@ class TableDemoApp(tk.Tk):
 
         self.table_header_lbl = tk.Label(
             main_card_inner,
-            text="System Telemetry & Architecture Services",
+            text="System Telemetry & Architecture Services (Double-click Service Name, Status, or Latency to edit)",
             font=("sans-serif", 12, "bold"),
             fg=pal.fg,
             bg=pal.card_bg,
@@ -185,6 +185,16 @@ class TableDemoApp(tk.Tk):
             ],
             data=[],
             command=self._on_table_select,
+            editable_columns=["Service Name", "Status", "Latency (ms)"],
+            column_editors={
+                "Status": {
+                    "type": "combobox",
+                    "values": ["HEALTHY", "WARNING", "CRITICAL", "OFFLINE"],
+                },
+                "Service Name": "entry",
+                "Latency (ms)": "entry",
+            },
+            on_cell_edit=self._on_cell_edit,
             height=320,
             corner_radius=8.0,
             row_height=34,
@@ -295,6 +305,11 @@ class TableDemoApp(tk.Tk):
             sel = self.table.get_selected()
             if sel:
                 self.lbl_status.config(text=f"Selected row #{self.table.selected_row}: {sel[0]} - {sel[1]} [{sel[4]}] ({sel[5]}ms)")
+
+    def _on_cell_edit(self, row: int, col: int, old_val: Any, new_val: Any) -> bool:
+        col_name = self.table.columns[col] if col < len(self.table.columns) else f"Col {col}"
+        self.lbl_status.config(text=f"Edited row #{row} [{col_name}]: '{old_val}' → '{new_val}'")
+        return True
 
     def _update_counter_label(self):
         self.lbl_row_count.config(text=f"Total Rows: {len(self.table.data)}")

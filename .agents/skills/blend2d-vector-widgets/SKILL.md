@@ -107,3 +107,28 @@ When developing compound vector widgets that embed native Tk elements (e.g., `En
 2. **Focus Event Delegation**: Child Tk widgets must delegate `<FocusIn>` and `<FocusOut>` events to update the controller state and immediately trigger `self.request_redraw()` so focus rings and border colors render responsively.
 3. **Headless & CI Test Verification**: When testing focus state transitions in pytest fixtures, invoke the widget's focus callback hooks directly (`widget._on_entry_focus_in()`) to ensure reliable assertion across headless and unmapped X11 windows.
 
+## Compound Vector Widget Event Isolation & GIL Safety Protocol
+
+When developing compound, virtualized, or multi-element vector widgets subclassing `BaseControl` (such as `Table`, `CanvasContainer`, or composite charts) that define custom mouse event bindings (`self.bind("<Button-1>", ...)`, `self.bind("<ButtonRelease-1>", ...)`):
+
+1. **Decouple `command` from `BaseControl`**:
+   - Always pass `command=None` to `super().__init__(..., command=None)` so `BaseControl` does not register a generic button-click callback.
+   - Store the user's callback in a widget-specific attribute (e.g., `self._command = command`) and expose it via `@property def command`.
+
+2. **Neutralize C++ Controller Click Interception**:
+   - Explicitly disable button press state tracking and clear native click handlers during `__init__`:
+     ```python
+     self.controller.auto_press = False
+     self.controller.clear_on_click()
+     ```
+   - Override `_on_controller_click` as a no-op:
+     ```python
+     def _on_controller_click(self, x: int, y: int, button: int) -> None:
+         """No-op: Compound widgets manage clicks and interactions internally."""
+         pass
+     ```
+
+3. **Prevent `_tkinter` `tsdPtr->tstate` Desynchronization**:
+   - Never allow C++ `on_tk_event` callbacks to execute arbitrary user callbacks synchronously if the widget also binds Tk events for the same event type.
+   - A nested `Tcl_Eval` executed from a C++ event handler clears `_tkinter`'s saved thread state to `NULL`, triggering a fatal `PyEval_RestoreThread` crash when Tk dispatches downstream Python event bindings for that event.
+

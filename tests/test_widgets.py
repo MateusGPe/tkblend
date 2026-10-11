@@ -332,6 +332,15 @@ def test_tabview(root):
 
 def test_table(root):
     set_theme("dark")
+    selected_calls = []
+
+    def on_select(idx, row):
+        selected_calls.append((idx, row))
+        status_lbl.configure(text=f"Selected {row[0]}")
+
+    status_lbl = tk.Label(root, text="Ready")
+    status_lbl.pack()
+
     tbl = Table(
         root,
         columns=["Name", "Role", "Score"],
@@ -340,6 +349,7 @@ def test_table(root):
             ["Bob", "User", 82],
             ["Charlie", "Guest", 68],
         ],
+        command=on_select,
         width=300,
         height=180,
     )
@@ -347,3 +357,103 @@ def test_table(root):
     root.update_idletasks()
     assert len(tbl.data) == 3
     assert tbl.columns == ["Name", "Role", "Score"]
+
+    # Verify mouse button press and release does not crash and triggers command
+    tbl.event_generate("<Button-1>", x=50, y=50)
+    tbl.event_generate("<ButtonRelease-1>", x=50, y=50)
+    root.update_idletasks()
+
+    assert len(selected_calls) == 1
+    assert selected_calls[0][0] == 0
+    assert selected_calls[0][1][0] == "Alice"
+    assert status_lbl.cget("text") == "Selected Alice"
+
+
+def test_table_editable_cells(root):
+    edit_events = []
+
+    def on_edit_callback(row, col, old_val, new_val):
+        edit_events.append((row, col, old_val, new_val))
+        if new_val == "REJECT_ME":
+            return False
+        return True
+
+    virtual_events = []
+
+    def on_virtual_event(e):
+        virtual_events.append((e.x, e.y))
+
+    tbl = Table(
+        root,
+        columns=["Name", "Role", "Score"],
+        data=[
+            ["Alice", "Admin", 95],
+            ["Bob", "User", 82],
+        ],
+        editable_columns=["Role", 2],
+        column_editors={"Role": {"type": "combobox", "values": ["Admin", "User", "Manager"]}},
+        on_cell_edit=on_edit_callback,
+        width=300,
+        height=180,
+    )
+    tbl.pack()
+    tbl.bind("<<TableCellEdited>>", on_virtual_event)
+    root.update_idletasks()
+
+    # Column 0 ("Name") is not editable
+    assert not tbl.is_column_editable(0)
+    assert tbl.is_column_editable(1)
+    assert tbl.is_column_editable(2)
+    assert not tbl.start_edit(0, 0)
+
+    # Edit column 2 ("Score") - Entry editor
+    assert tbl.start_edit(0, 2)
+    assert tbl.is_editing
+    assert tbl.editing_cell == (0, 2)
+
+    # Commit with numeric string -> auto-converts to int
+    assert tbl.commit_edit("99")
+    assert not tbl.is_editing
+    assert tbl.data[0][2] == 99
+    assert len(edit_events) == 1
+    assert edit_events[0] == (0, 2, 95, 99)
+    assert len(virtual_events) == 1
+    assert virtual_events[0] == (2, 0)
+
+    # Test rejection via on_cell_edit returning False
+    assert tbl.start_edit(1, 2)
+    assert not tbl.commit_edit("REJECT_ME")
+    assert tbl.data[1][2] == 82
+
+    # Test cancel edit
+    assert tbl.start_edit(0, 1)
+    assert tbl.is_editing
+    tbl.cancel_edit()
+    assert not tbl.is_editing
+    assert tbl.data[0][1] == "Admin"
+
+    # Test custom callable factory editor
+    custom_created = []
+
+    def custom_editor_factory(table, r, c, val, commit, cancel):
+        custom_created.append((r, c, val))
+        ent = tk.Entry(table)
+        ent.insert(0, f"Custom_{val}")
+        return ent
+
+    tbl.column_editors = {"Name": custom_editor_factory}
+    tbl.editable_columns = ["Name", "Role", "Score"]
+    assert tbl.is_column_editable(0)
+    assert tbl.start_edit(0, 0)
+    assert len(custom_created) == 1
+    assert custom_created[0] == (0, 0, "Alice")
+    assert tbl.commit_edit()
+    assert tbl.data[0][0] == "Custom_Alice"
+
+    # Test Tab navigation calculation
+    next_cell = tbl._find_next_editable_cell(0, 0, forward=True)
+    assert next_cell == (0, 1)
+    next_cell_rev = tbl._find_next_editable_cell(0, 1, forward=False)
+    assert next_cell_rev == (0, 0)
+
+
