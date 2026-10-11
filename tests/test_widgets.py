@@ -280,10 +280,40 @@ def test_scrollable_frame_and_scrollbar(root):
     lbl.pack()
     root.update_idletasks()
 
-    vs = VectorScrollbar(root, width=8, height=80)
+    moved_to = []
+    def on_scroll(action, val):
+        moved_to.append((action, float(val)))
+
+    vs = VectorScrollbar(root, orientation="vertical", command=on_scroll, width=8, height=100)
     vs.pack()
-    vs.set(0.2, 0.6)
+
+    # Top position
+    vs.set(0.0, 0.4)
     root.update_idletasks()
+    assert float(vs.get_var("--thumb-pos")) == 0.0
+    assert float(vs.get_var("--thumb-size")) == 0.4
+    assert not vs.get_var("--thumb-hidden")
+
+    # Bottom position: progress should reach 1.0
+    vs.set(0.6, 1.0)
+    root.update_idletasks()
+    assert abs(float(vs.get_var("--thumb-pos")) - 1.0) < 1e-4
+
+    # Dragging to bottom (progress 1.0) should command moveto 0.6
+    vs.on_change(1.0)
+    assert moved_to[-1] == ("moveto", 0.6)
+
+    # Content fits completely (span >= 1.0) -> auto-hide
+    vs.set(0.0, 1.0)
+    root.update_idletasks()
+    assert vs.get_var("--thumb-hidden") == "1"
+
+    # Horizontal scrollbar support
+    hs = VectorScrollbar(root, orientation="horizontal", width=120, height=8)
+    hs.pack()
+    hs.set(0.2, 0.6)
+    root.update_idletasks()
+    assert abs(float(hs.get_var("--thumb-pos")) - (1.0 / 3.0)) < 1e-4
 
 
 def test_tabview(root):

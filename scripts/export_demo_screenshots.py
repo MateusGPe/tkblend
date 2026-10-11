@@ -83,8 +83,7 @@ def main():
 
     # 2. Toggle to Light Theme
     print("=== Toggling to Light Mode ===")
-    app.theme_switch.is_checked = False
-    app._on_theme_toggle()
+    app._select_theme("light")
     app.update()
 
     light_path = dest_dir / "showcase_light.png"
@@ -98,9 +97,9 @@ def main():
     app.btn_counter.on_click(0, 0, 1)
     app.slider.set(85.0)
     app._on_slider_moved(85.0)
-    app.radio_quality.select()
-    app.sw_sound.is_checked = True
-    app.sw_sound.request_redraw()
+    app.sw_notif.is_checked = True
+    app.sw_notif.request_redraw()
+    app.table.selected_row = 1
     app.update()
 
     interactive_path = dest_dir / "showcase_interactive.png"

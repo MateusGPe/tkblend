@@ -26,6 +26,7 @@ class VectorScrollbar(BaseControl):
     ):
         self._orientation = orientation
         self._command = command
+        self._visible_span = 0.3
 
         super().__init__(
             master=master,
@@ -37,7 +38,9 @@ class VectorScrollbar(BaseControl):
             **kwargs,
         )
 
+        self.set_var("--orientation", str(orientation))
         self.set_var("--thumb-pos", "0.0")
+        self.set_var("--thumb-progress", "0.0")
         self.set_var("--thumb-size", "0.3")
 
     def set(self, first: float, last: float) -> None:
@@ -46,28 +49,41 @@ class VectorScrollbar(BaseControl):
             l = float(last)
         except Exception:
             return
-        size = max(0.05, min(1.0, l - f))
-        pos = max(0.0, min(1.0 - size, f))
-        self.set_var("--thumb-pos", str(pos))
-        self.set_var("--thumb-size", str(size))
+        span = max(0.0001, min(1.0, l - f))
+        self._visible_span = span
+        if span >= 0.999:
+            self.set_var("--thumb-hidden", "1")
+            self.set_var("--thumb-pos", "0.0")
+            self.set_var("--thumb-progress", "0.0")
+            self.set_var("--thumb-size", "1.0")
+        else:
+            self.remove_var("--thumb-hidden")
+            max_first = max(0.0001, 1.0 - span)
+            progress = max(0.0, min(1.0, f / max_first))
+            self.set_var("--thumb-pos", str(progress))
+            self.set_var("--thumb-progress", str(progress))
+            self.set_var("--thumb-size", str(span))
         self.request_redraw()
 
     def get(self) -> tuple[float, float]:
         try:
-            pos = float(self.get_var("--thumb-pos", "0.0"))
-            size = float(self.get_var("--thumb-size", "0.3"))
-            return pos, pos + size
+            progress = float(self.get_var("--thumb-pos", "0.0"))
+            max_first = max(0.0001, 1.0 - self._visible_span)
+            f = progress * max_first
+            return f, min(1.0, f + self._visible_span)
         except Exception:
             return 0.0, 1.0
 
     def on_change(self, val: Any) -> None:
         try:
-            pos = float(val)
+            progress = float(val)
         except Exception:
-            pos = 0.0
+            progress = 0.0
+        max_first = max(0.0, 1.0 - self._visible_span)
+        target_f = progress * max_first
         if callable(self._command):
             try:
-                self._command("moveto", pos)
+                self._command("moveto", target_f)
             except Exception:
                 pass
 

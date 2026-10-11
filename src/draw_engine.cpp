@@ -738,10 +738,24 @@ DrawBatch DrawEngine::create_control_batch(
 
     if (key_cls == "scrollbar") {
         b.clear_var("--parent-bg");
-        // Track
-        b.fill_rounded_rect_var(0.0, 0.0, w, h, w / 2.0, w / 2.0, "--track-bg", "", "", Color(39, 39, 42));
+        // Thumb / scrollbar auto-hide when content completely fits without scrolling
+        auto it_hid = vars.find("--thumb-hidden");
+        if (it_hid != vars.end() && it_hid->second == "1") {
+            return b;
+        }
 
-        // Capsule thumb
+        bool is_horiz = false;
+        auto it_ori = vars.find("--orientation");
+        if (it_ori != vars.end() && it_ori->second == "horizontal") {
+            is_horiz = true;
+        } else if (w > h * 1.5) {
+            is_horiz = true;
+        }
+
+        // Draw track
+        double track_r = is_horiz ? (h / 2.0) : (w / 2.0);
+        b.fill_rounded_rect_var(0.0, 0.0, w, h, track_r, track_r, "--track-bg", "", "", Color(39, 39, 42));
+
         double thumb_pos = 0.0;
         double thumb_sz = 0.3;
         auto it_pos = vars.find("--thumb-pos");
@@ -749,11 +763,25 @@ DrawBatch DrawEngine::create_control_batch(
         auto it_sz = vars.find("--thumb-size");
         if (it_sz != vars.end()) { try { thumb_sz = std::clamp(std::stod(it_sz->second), 0.05, 1.0); } catch (...) {} }
 
-        double thumb_h = std::max(16.0, h * thumb_sz);
-        double max_f = std::max(0.001, 1.0 - thumb_sz);
-        double norm_f = std::clamp(thumb_pos / max_f, 0.0, 1.0);
-        double thumb_y = norm_f * (h - thumb_h);
-        b.fill_rounded_rect_var(1.5, thumb_y, w - 3.0, thumb_h, (w - 3.0) / 2.0, (w - 3.0) / 2.0, "--thumb-color", "", "", Color(139, 92, 246));
+        if (thumb_sz >= 0.999) {
+            return b; // Content fits without scrolling
+        }
+
+        if (is_horiz) {
+            double min_sz = std::min(w, 28.0);
+            double max_sz = std::max(min_sz, w * 0.30);
+            double thumb_w = std::clamp(w * thumb_sz, min_sz, max_sz);
+            double available_w = std::max(0.0, w - thumb_w);
+            double thumb_x = std::clamp(thumb_pos * available_w, 0.0, available_w);
+            b.fill_rounded_rect_var(thumb_x, 1.5, thumb_w, h - 3.0, (h - 3.0) / 2.0, (h - 3.0) / 2.0, "--thumb-color", "", "", Color(139, 92, 246));
+        } else {
+            double min_sz = std::min(h, 28.0);
+            double max_sz = std::max(min_sz, h * 0.30);
+            double thumb_h = std::clamp(h * thumb_sz, min_sz, max_sz);
+            double available_h = std::max(0.0, h - thumb_h);
+            double thumb_y = std::clamp(thumb_pos * available_h, 0.0, available_h);
+            b.fill_rounded_rect_var(1.5, thumb_y, w - 3.0, thumb_h, (w - 3.0) / 2.0, (w - 3.0) / 2.0, "--thumb-color", "", "", Color(139, 92, 246));
+        }
         return b;
     }
 

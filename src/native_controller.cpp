@@ -565,18 +565,28 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                     }
                     request_redraw();
                 } else if (widget_class_ == "scrollbar") {
-                    int h_dim = height();
+                    bool is_horiz = false;
+                    auto it_ori = local_vars_.find("--orientation");
+                    if (it_ori != local_vars_.end() && it_ori->second == "horizontal") {
+                        is_horiz = true;
+                    } else if (width() > height() * 1.5) {
+                        is_horiz = true;
+                    }
+                    int total_len = is_horiz ? width() : height();
+                    double mouse_coord = is_horiz ? static_cast<double>(eventPtr->xbutton.x) : static_cast<double>(eventPtr->xbutton.y);
                     double thumb_sz = 0.3;
                     auto it_sz = local_vars_.find("--thumb-size");
                     if (it_sz != local_vars_.end()) { try { thumb_sz = std::clamp(std::stod(it_sz->second), 0.05, 1.0); } catch (...) {} }
-                    double thumb_h = std::max(16.0, h_dim * thumb_sz);
-                    double available_h = h_dim - thumb_h;
-                    double norm = (available_h > 0) ? std::clamp((static_cast<double>(eventPtr->xbutton.y) - thumb_h / 2.0) / available_h, 0.0, 1.0) : 0.0;
-                    double pos = norm * (1.0 - thumb_sz);
-                    set_var("--thumb-pos", std::to_string(pos));
+                    double min_sz = std::min(static_cast<double>(total_len), 28.0);
+                    double max_sz = std::max(min_sz, total_len * 0.30);
+                    double thumb_len = std::clamp(total_len * thumb_sz, min_sz, max_sz);
+                    double available_len = std::max(1.0, total_len - thumb_len);
+                    double progress = std::clamp((mouse_coord - thumb_len / 2.0) / available_len, 0.0, 1.0);
+                    set_var("--thumb-pos", std::to_string(progress));
+                    set_var("--thumb-progress", std::to_string(progress));
                     if (on_change_.is_valid() && !on_change_.is_none()) {
                         nb::gil_scoped_acquire gil;
-                        try { on_change_(nb::cast(pos)); } catch (...) {}
+                        try { on_change_(nb::cast(progress)); } catch (...) {}
                     }
                     request_redraw();
                 } else if (widget_class_ == "switch" || widget_class_ == "checkbox") {
@@ -632,18 +642,28 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                     }
                     request_redraw();
                 } else if (widget_class_ == "scrollbar") {
-                    int h_dim = height();
+                    bool is_horiz = false;
+                    auto it_ori = local_vars_.find("--orientation");
+                    if (it_ori != local_vars_.end() && it_ori->second == "horizontal") {
+                        is_horiz = true;
+                    } else if (width() > height() * 1.5) {
+                        is_horiz = true;
+                    }
+                    int total_len = is_horiz ? width() : height();
+                    double mouse_coord = is_horiz ? static_cast<double>(eventPtr->xmotion.x) : static_cast<double>(eventPtr->xmotion.y);
                     double thumb_sz = 0.3;
                     auto it_sz = local_vars_.find("--thumb-size");
                     if (it_sz != local_vars_.end()) { try { thumb_sz = std::clamp(std::stod(it_sz->second), 0.05, 1.0); } catch (...) {} }
-                    double thumb_h = std::max(16.0, h_dim * thumb_sz);
-                    double available_h = h_dim - thumb_h;
-                    double norm = (available_h > 0) ? std::clamp((static_cast<double>(eventPtr->xmotion.y) - thumb_h / 2.0) / available_h, 0.0, 1.0) : 0.0;
-                    double pos = norm * (1.0 - thumb_sz);
-                    set_var("--thumb-pos", std::to_string(pos));
+                    double min_sz = std::min(static_cast<double>(total_len), 28.0);
+                    double max_sz = std::max(min_sz, total_len * 0.30);
+                    double thumb_len = std::clamp(total_len * thumb_sz, min_sz, max_sz);
+                    double available_len = std::max(1.0, total_len - thumb_len);
+                    double progress = std::clamp((mouse_coord - thumb_len / 2.0) / available_len, 0.0, 1.0);
+                    set_var("--thumb-pos", std::to_string(progress));
+                    set_var("--thumb-progress", std::to_string(progress));
                     if (on_change_.is_valid() && !on_change_.is_none()) {
                         nb::gil_scoped_acquire gil;
-                        try { on_change_(nb::cast(pos)); } catch (...) {}
+                        try { on_change_(nb::cast(progress)); } catch (...) {}
                     }
                     request_redraw();
                 }
