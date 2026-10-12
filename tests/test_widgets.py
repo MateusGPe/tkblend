@@ -457,3 +457,246 @@ def test_table_editable_cells(root):
     assert next_cell_rev == (0, 0)
 
 
+def test_table_sorting_and_initial_sort(root):
+    data = [
+        ["SRV-0001", "Worker-A", "98.5%"],
+        ["SRV-0002", "Worker-B", "99.9%"],
+        ["SRV-0003", "Worker-C", "95.0%"],
+    ]
+    tbl = Table(
+        root,
+        columns=["ID", "Name", "Uptime"],
+        data=data,
+        sort_column=0,
+        sort_ascending=True,
+        width=300,
+        height=180,
+    )
+    tbl.pack()
+    root.update_idletasks()
+
+    assert tbl.sort_column == 0
+    assert tbl.sort_ascending is True
+    assert tbl.data[0][0] == "SRV-0001"
+    assert tbl.data[-1][0] == "SRV-0003"
+
+    # Header click on column 0 toggles to descending
+    tbl._sort_by_column(0)
+    root.update_idletasks()
+    assert tbl.sort_column == 0
+    assert tbl.sort_ascending is False
+    assert tbl.data[0][0] == "SRV-0003"
+    assert tbl.data[-1][0] == "SRV-0001"
+
+    # Sort numeric column with percent units (Uptime)
+    tbl._sort_by_column(2)
+    assert tbl.sort_column == 2
+    assert tbl.sort_ascending is True
+    assert tbl.data[0][2] == "95.0%"
+    assert tbl.data[-1][2] == "99.9%"
+
+
+def test_table_horizontal_scroll(root):
+    cols = [f"VeryLongColumnName_{i}" for i in range(8)]
+    row = [f"Value_{i}" for i in range(8)]
+    tbl = Table(
+        root,
+        columns=cols,
+        data=[row, row],
+        width=250,
+        height=150,
+    )
+    tbl.pack()
+    root.update_idletasks()
+
+    # Trigger layout calculation
+    w, h = tbl._get_size()
+    tbl._calc_column_widths_for(w - 10)
+
+    h_needed, hx, hy, hw, hh, track_w = tbl._get_hbar_bounds(w, h)
+    assert h_needed is True
+    assert hw > 0
+    assert hh == tbl._scrollbar_w
+
+    # Test shift mousewheel scrolls horizontally
+    assert tbl._scroll_x == 0.0
+    fake_wheel_event = tk.Event()
+    fake_wheel_event.delta = -120
+    fake_wheel_event.num = 0
+    fake_wheel_event.state = 0
+    tbl._on_shift_mousewheel(fake_wheel_event)
+    assert tbl._scroll_x > 0.0
+
+    # Test dragging horizontal scrollbar thumb
+    _, hx, hy, hw, hh, _ = tbl._get_hbar_bounds(w, h)
+    drag_event_press = tk.Event()
+    drag_event_press.x = int(hx + 2)
+    drag_event_press.y = int(hy + 2)
+    drag_event_press.state = 0
+    tbl._on_button_press(drag_event_press)
+    assert tbl._hbar_dragging is True
+
+    # Drag forward
+    drag_motion = tk.Event()
+    drag_motion.x = int(hx + 20)
+    drag_motion.y = int(hy + 2)
+    drag_motion.state = 0
+    prev_scroll_x = tbl._scroll_x
+    tbl._on_drag(drag_motion)
+    assert tbl._scroll_x >= prev_scroll_x
+
+    # Release
+    tbl._on_button_release(drag_motion)
+    assert tbl._hbar_dragging is False
+
+
+def test_combobox_popup_lifecycle_and_selection(root):
+    set_theme("dark")
+    selected_vals = []
+    cb = ComboBox(
+        root,
+        values=["Option 1", "Option 2", "Option 3"],
+        value="Option 1",
+        command=lambda v: selected_vals.append(v),
+        width=150,
+        height=36,
+    )
+    cb.pack(padx=20, pady=20)
+    root.update()
+
+    # Open popup
+    cb.on_click(10, 10, 1)
+    root.update()
+    assert cb._popup is not None
+    assert cb._popup.winfo_exists()
+
+    # Check popup geometry is positioned at or below combobox, not at (0, 0)
+    px = cb._popup.winfo_rootx()
+    py = cb._popup.winfo_rooty()
+    rx = cb.winfo_rootx()
+    ry = cb.winfo_rooty()
+    assert py >= ry + cb.winfo_height() or py < ry
+    assert px >= 0
+
+    # Click on Option 2
+    lbl_opt2 = cb._popup._labels[1]
+    lbl_opt2.event_generate("<Button-1>", x=5, y=5)
+    root.update()
+
+    assert cb.get() == "Option 2"
+    assert selected_vals == ["Option 2"]
+    assert cb._popup is None or not cb._popup.winfo_exists()
+
+
+def test_combobox_popup_keyboard_navigation(root):
+    set_theme("dark")
+    cb = ComboBox(
+        root,
+        values=["Item A", "Item B", "Item C"],
+        value="Item A",
+        width=150,
+        height=36,
+    )
+    cb.pack(padx=20, pady=20)
+    root.update()
+
+    cb.on_click(10, 10, 1)
+    root.update()
+    popup = cb._popup
+    assert popup is not None
+
+    # Press Down arrow to move to Item B
+    popup._on_key_nav(1)
+    assert popup._highlighted_idx == 1
+
+    # Press Down arrow again to move to Item C
+    popup._on_key_nav(1)
+    assert popup._highlighted_idx == 2
+
+    # Press Up arrow to move back to Item B
+    popup._on_key_nav(-1)
+    assert popup._highlighted_idx == 1
+
+    # Press Select (Enter)
+    popup._on_key_select()
+    root.update()
+
+    assert cb.get() == "Item B"
+    assert cb._popup is None or not cb._popup.winfo_exists()
+
+
+def test_combobox_popup_outside_click_and_toggle(root):
+    set_theme("dark")
+    cb = ComboBox(
+        root,
+        values=["Red", "Green", "Blue"],
+        value="Red",
+        width=150,
+        height=36,
+    )
+    cb.pack(padx=20, pady=20)
+    root.update()
+
+    # Open popup
+    cb.on_click(10, 10, 1)
+    root.update()
+    assert cb._popup is not None and cb._popup.winfo_exists()
+
+    # Outside click dismisses
+    root.event_generate("<Button-1>", x=1, y=1)
+    root.update()
+    assert cb._popup is None or not cb._popup.winfo_exists()
+
+    # Reopen popup
+    cb.on_click(10, 10, 1)
+    root.update()
+    assert cb._popup is not None and cb._popup.winfo_exists()
+
+    # Clicking combobox again toggles it closed
+    cb.on_click(10, 10, 1)
+    root.update()
+    assert cb._popup is None or not cb._popup.winfo_exists()
+
+
+def test_combobox_popup_scrolling_long_list(root):
+    set_theme("dark")
+    long_list = [f"Choice {i}" for i in range(25)]
+    cb = ComboBox(
+        root,
+        values=long_list,
+        value="Choice 0",
+        max_visible_items=8,
+        width=150,
+        height=36,
+    )
+    cb.pack(padx=20, pady=20)
+    root.update()
+
+    cb.on_click(10, 10, 1)
+    root.update()
+    popup = cb._popup
+    assert popup is not None
+    assert popup._needs_scroll is True
+    assert popup._canvas is not None
+    assert popup._scrollbar is not None
+
+    # Check height is bounded by max_visible_items rather than 25 items
+    single_item_h = popup._labels[0].winfo_reqheight()
+    expected_max_h = single_item_h * 8 + 40
+    assert popup.winfo_reqheight() <= expected_max_h
+
+    # Test mousewheel scroll
+    initial_yview = popup._canvas.yview()[0]
+    scroll_event = tk.Event()
+    scroll_event.delta = -120
+    scroll_event.num = 5
+    popup._on_mousewheel(scroll_event)
+    root.update()
+    assert popup._canvas.yview()[0] >= initial_yview
+
+    popup.dismiss()
+    root.update()
+
+
+
+

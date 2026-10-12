@@ -421,13 +421,13 @@ public:
 private:
     void init_context();
 
-    int width_ = 1;
-    int height_ = 1;
+    std::atomic<int> width_{1};
+    std::atomic<int> height_{1};
     BLImage image_;
     BLContext ctx_;
     mutable std::mutex mutex_;
     std::atomic<int> active_buffers_{0};
-    bool is_closed_{false};
+    std::atomic<bool> is_closed_{false};
 };
 
 } // namespace tkblend

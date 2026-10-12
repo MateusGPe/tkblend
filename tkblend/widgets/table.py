@@ -8,7 +8,10 @@ from tkblend.theme import Palette, to_tk_hex, get_theme
 from tkblend.surface import Surface
 
 
-class _TableCellDropdownPopup(tk.Toplevel):
+from tkblend.widgets.combobox import DropdownPopup
+
+
+class _TableCellDropdownPopup(DropdownPopup):
     """Floating Material Design 3 vector styled dropdown list for Table cell editing."""
 
     def __init__(
@@ -22,87 +25,18 @@ class _TableCellDropdownPopup(tk.Toplevel):
         current_value: str,
         on_select: Callable[[str], None],
         on_dismiss: Optional[Callable[[], None]] = None,
+        max_visible_items: int = 8,
     ):
-        super().__init__(table)
-        self._table = table
-        self._on_select = on_select
-        self._on_dismiss = on_dismiss
-        self._values = list(values)
-        self._current_value = current_value
-        self._selected = False
-
-        self.overrideredirect(True)
-        self.attributes("-topmost", True)
-
-        pal = table._palette
-        bg_hex = to_tk_hex(getattr(pal, "card_bg", "#25232a"))
-        border_hex = to_tk_hex(getattr(pal, "card_border", "#49454f"))
-        fg_hex = to_tk_hex(getattr(pal, "fg", "#e6e0e9"))
-        primary_hex = to_tk_hex(getattr(pal, "primary", "#8b5cf6"))
-        hover_hex = to_tk_hex(getattr(pal, "surface", "#2f2d38"))
-
-        self.configure(bg=border_hex, padx=1, pady=1)
-
-        container = tk.Frame(self, bg=bg_hex)
-        container.pack(fill="both", expand=True)
-
-        for val in self._values:
-            is_active = (val == current_value)
-            item_fg = primary_hex if is_active else fg_hex
-            item_font = ("sans-serif", 10, "bold" if is_active else "normal")
-            lbl = tk.Label(
-                container,
-                text=str(val),
-                bg=bg_hex,
-                fg=item_fg,
-                font=item_font,
-                anchor="w",
-                padx=10,
-                pady=6,
-                cursor="hand2",
-            )
-            lbl.pack(fill="x")
-
-            def _make_callbacks(v: str, label_widget: tk.Label):
-                def _on_enter(e):
-                    label_widget.configure(bg=hover_hex)
-
-                def _on_leave(e):
-                    label_widget.configure(bg=bg_hex)
-
-                def _on_click(e):
-                    self._selected = True
-                    self.dismiss()
-                    self._on_select(v)
-
-                label_widget.bind("<Enter>", _on_enter)
-                label_widget.bind("<Leave>", _on_leave)
-                label_widget.bind("<Button-1>", _on_click)
-
-            _make_callbacks(val, lbl)
-
-        # Position below the cell
-        self.update_idletasks()
-        rx = table.winfo_rootx() + cell_x
-        ry = table.winfo_rooty() + cell_y + cell_h + 1
-        rw = max(cell_w, self.winfo_reqwidth(), 100)
-        rh = self.winfo_reqheight()
-        self.geometry(f"{rw}x{rh}+{rx}+{ry}")
-
-        self.bind("<Escape>", lambda e: self.dismiss())
-        self.bind("<FocusOut>", lambda e: self.dismiss())
-        self.focus_set()
-
-    def dismiss(self) -> None:
-        try:
-            self.destroy()
-        except Exception:
-            pass
-        if not self._selected and callable(self._on_dismiss):
-            try:
-                self._on_dismiss()
-            except Exception:
-                pass
+        super().__init__(
+            master=table,
+            values=values,
+            current_value=current_value,
+            on_select=on_select,
+            on_dismiss=on_dismiss,
+            target_bounds=(cell_x, cell_y, cell_w, cell_h),
+            max_visible_items=max_visible_items,
+            min_width=max(cell_w, 100),
+        )
 
 
 class Table(BaseControl):
@@ -139,6 +73,8 @@ class Table(BaseControl):
         editable_columns: Optional[Sequence[Union[int, str]]] = None,
         column_editors: Optional[Dict[Union[int, str], Any]] = None,
         on_cell_edit: Optional[Callable[[int, int, Any, Any], Optional[bool]]] = None,
+        sort_column: Optional[int] = None,
+        sort_ascending: bool = True,
         **kwargs,
     ):
         self._columns: List[str] = list(columns) if columns else ["Column 1", "Column 2", "Column 3"]
@@ -168,8 +104,8 @@ class Table(BaseControl):
         self._selected_rows: Set[int] = set()
         self._last_clicked_row: Optional[int] = None
         self._hovered_row: Optional[int] = None
-        self._sort_col: Optional[int] = None
-        self._sort_asc: bool = True
+        self._sort_col: Optional[int] = sort_column
+        self._sort_asc: bool = bool(sort_ascending)
         self._command = command
 
         # Scroll positions (in pixels)
@@ -228,6 +164,8 @@ class Table(BaseControl):
         self.bind("<Button-4>", self._on_mousewheel, add="+")
         self.bind("<Button-5>", self._on_mousewheel, add="+")
         self.bind("<Shift-MouseWheel>", self._on_shift_mousewheel, add="+")
+        self.bind("<Shift-Button-4>", self._on_shift_mousewheel, add="+")
+        self.bind("<Shift-Button-5>", self._on_shift_mousewheel, add="+")
         self.bind("<Configure>", self._on_configure, add="+")
 
     @property
@@ -271,27 +209,41 @@ class Table(BaseControl):
             if diff != 0:
                 widths[-1] += diff
         else:
-            # Scale down proportionally to fill available_w
-            scale = available_w / max(1, sum_mins)
-            widths = [max(45, int(bm * scale)) for bm in base_mins]
-            diff = available_w - sum(widths)
-            if diff != 0:
-                widths[-1] += diff
+            # Preserve comfortable minimum widths so columns remain readable and overflow horizontally
+            widths = list(base_mins)
 
         self._col_widths = widths
 
+    def _get_size(self) -> Tuple[int, int]:
+        w = self.winfo_width()
+        h = self.winfo_height()
+        req_w = getattr(self, "_requested_width", None) or self.winfo_reqwidth()
+        req_h = getattr(self, "_requested_height", None) or self.winfo_reqheight()
+        w = max(w, req_w, 100)
+        h = max(h, req_h, 60)
+        return w, h
+
     def _find_column_divider(self, x: int) -> Optional[int]:
         """Check if x is within resize tolerance of any column separator."""
+        w, h = self._get_size()
+        v_needed, _, _, _, _, _ = self._get_vbar_bounds(w, h)
+        available_w = w - (self._scrollbar_w + 6 if v_needed else 4)
+        if x >= available_w:
+            return None
         curr_x = -self._scroll_x
         for i in range(len(self._col_widths) - 1):
             curr_x += self._col_widths[i]
-            if abs(x - curr_x) <= 6:
+            if abs(x - curr_x) <= 6 and curr_x < available_w:
                 return i
         return None
 
     def _get_vbar_bounds(self, w: int, h: int) -> Tuple[bool, float, float, float, float, float]:
+        total_content_w = sum(self._col_widths) if self._col_widths else w
         total_content_h = len(self._data) * self._row_h
-        viewport_h = h - self._header_h - 2
+
+        # Check preliminary h_needed to adjust viewport_h
+        h_needed = total_content_w > (w - 4)
+        viewport_h = h - self._header_h - (self._scrollbar_w + 6 if h_needed else 2)
         v_needed = total_content_h > viewport_h
         if not v_needed or viewport_h <= 0 or total_content_h <= 0:
             return False, 0.0, 0.0, 0.0, 0.0, 0.0
@@ -306,8 +258,13 @@ class Table(BaseControl):
 
     def _get_hbar_bounds(self, w: int, h: int) -> Tuple[bool, float, float, float, float, float]:
         total_content_w = sum(self._col_widths) if self._col_widths else w
-        viewport_w = w - (self._scrollbar_w + 6)
-        h_needed = self._user_resized_cols and (total_content_w > (viewport_w + 4))
+        total_content_h = len(self._data) * self._row_h
+
+        prelim_viewport_h = h - self._header_h - 2
+        v_needed = total_content_h > prelim_viewport_h
+
+        viewport_w = w - (self._scrollbar_w + 6 if v_needed else 4)
+        h_needed = total_content_w > viewport_w
         if not h_needed or viewport_w <= 0 or total_content_w <= 0:
             return False, 0.0, 0.0, 0.0, 0.0, 0.0
 
@@ -323,10 +280,9 @@ class Table(BaseControl):
         if self._resizing_col_idx is not None or self._vbar_dragging or self._hbar_dragging:
             return
 
-        w = self.winfo_width()
-        h = self.winfo_height()
+        w, h = self._get_size()
 
-        # Check scrollbar hover
+        # Check vertical scrollbar hover
         v_needed, vx, vy, vw, vh, _ = self._get_vbar_bounds(w, h)
         if v_needed and (event.x >= w - self._scrollbar_w - 8) and (event.y >= self._header_h):
             if not self._vbar_hovered:
@@ -335,6 +291,17 @@ class Table(BaseControl):
             return
         elif self._vbar_hovered:
             self._vbar_hovered = False
+            self.request_redraw()
+
+        # Check horizontal scrollbar hover
+        h_needed, hx, hy, hw, hh, _ = self._get_hbar_bounds(w, h)
+        if h_needed and (event.y >= h - self._scrollbar_w - 8) and (event.x <= w - (self._scrollbar_w + 8 if v_needed else 0)):
+            if not self._hbar_hovered:
+                self._hbar_hovered = True
+                self.request_redraw()
+            return
+        elif self._hbar_hovered:
+            self._hbar_hovered = False
             self.request_redraw()
 
         if event.y <= self._header_h:
@@ -369,14 +336,14 @@ class Table(BaseControl):
         if self._active_editor:
             self._commit_cell_edit()
 
-        w = self.winfo_width()
-        h = self.winfo_height()
+        w, h = self._get_size()
 
         # Check vertical scrollbar interaction
         v_needed, vx, vy, vw, vh, track_h = self._get_vbar_bounds(w, h)
+        h_needed, hx, hy, hw, hh, track_w = self._get_hbar_bounds(w, h)
         if v_needed and event.x >= w - self._scrollbar_w - 8 and event.y >= self._header_h:
             total_content_h = len(self._data) * self._row_h
-            viewport_h = h - self._header_h - 2
+            viewport_h = h - self._header_h - (self._scrollbar_w + 6 if h_needed else 2)
             max_scroll = max(1.0, float(total_content_h - viewport_h))
 
             if vy <= event.y <= vy + vh:
@@ -391,6 +358,24 @@ class Table(BaseControl):
                 self.request_redraw()
             return
 
+        # Check horizontal scrollbar interaction
+        if h_needed and event.y >= h - self._scrollbar_w - 8 and event.x <= (w - (self._scrollbar_w + 8 if v_needed else 0)):
+            total_content_w = sum(self._col_widths) if self._col_widths else w
+            viewport_w = w - (self._scrollbar_w + 6 if v_needed else 4)
+            max_scroll = max(1.0, float(total_content_w - viewport_w))
+
+            if hx <= event.x <= hx + hw:
+                # Dragging thumb
+                self._hbar_dragging = True
+                self._hbar_drag_x = event.x
+                self._hbar_drag_start_scroll = self._scroll_x
+            else:
+                # Jump click on track
+                click_ratio = max(0.0, min(1.0, (event.x - 4) / max(1.0, track_w)))
+                self._scroll_x = max(0.0, min(max_scroll, click_ratio * max_scroll))
+                self.request_redraw()
+            return
+
         # Check header interaction
         if event.y <= self._header_h:
             divider_idx = self._find_column_divider(event.x)
@@ -401,13 +386,15 @@ class Table(BaseControl):
                 self._resize_start_w = self._col_widths[divider_idx]
                 return
 
-            # Header column click: Sort
-            curr_x = -self._scroll_x
-            for col_idx, col_w in enumerate(self._col_widths):
-                if curr_x <= event.x < curr_x + col_w:
-                    self._sort_by_column(col_idx)
-                    break
-                curr_x += col_w
+            # Header column click: Sort (only within available header width)
+            available_w = w - (self._scrollbar_w + 6 if v_needed else 4)
+            if event.x < available_w:
+                curr_x = -self._scroll_x
+                for col_idx, col_w in enumerate(self._col_widths):
+                    if curr_x <= event.x < curr_x + col_w:
+                        self._sort_by_column(col_idx)
+                        break
+                    curr_x += col_w
         else:
             # Body row click
             row_idx = int((event.y - self._header_h + self._scroll_y) // self._row_h)
@@ -446,17 +433,32 @@ class Table(BaseControl):
 
     def _on_drag(self, event: tk.Event) -> None:
         if self._vbar_dragging:
-            w = self.winfo_width()
-            h = self.winfo_height()
+            w, h = self._get_size()
             _, _, _, _, vh, track_h = self._get_vbar_bounds(w, h)
+            h_needed, _, _, _, _, _ = self._get_hbar_bounds(w, h)
             total_content_h = len(self._data) * self._row_h
-            viewport_h = h - self._header_h - 2
+            viewport_h = h - self._header_h - (self._scrollbar_w + 6 if h_needed else 2)
             max_scroll = max(1.0, float(total_content_h - viewport_h))
             available_track = max(1.0, track_h - vh)
 
             delta_y = event.y - self._vbar_drag_y
             scroll_delta = delta_y * (max_scroll / available_track)
             self._scroll_y = max(0.0, min(max_scroll, self._vbar_drag_start_scroll + scroll_delta))
+            self.request_redraw()
+            return
+
+        if self._hbar_dragging:
+            w, h = self._get_size()
+            v_needed, _, _, _, _, _ = self._get_vbar_bounds(w, h)
+            _, _, _, hw, _, track_w = self._get_hbar_bounds(w, h)
+            total_content_w = sum(self._col_widths) if self._col_widths else w
+            viewport_w = w - (self._scrollbar_w + 6 if v_needed else 4)
+            max_scroll = max(1.0, float(total_content_w - viewport_w))
+            available_track = max(1.0, track_w - hw)
+
+            delta_x = event.x - self._hbar_drag_x
+            scroll_delta = delta_x * (max_scroll / available_track)
+            self._scroll_x = max(0.0, min(max_scroll, self._hbar_drag_start_scroll + scroll_delta))
             self.request_redraw()
             return
 
@@ -470,15 +472,18 @@ class Table(BaseControl):
     def _on_button_release(self, event: tk.Event) -> None:
         if self._vbar_dragging:
             self._vbar_dragging = False
+        if self._hbar_dragging:
+            self._hbar_dragging = False
         if self._resizing_col_idx is not None:
             self._resizing_col_idx = None
             self.request_redraw()
 
     def _on_leave(self, event: tk.Event) -> None:
-        if self._hovered_row is not None or self._hovered_divider_idx is not None or self._vbar_hovered:
+        if self._hovered_row is not None or self._hovered_divider_idx is not None or self._vbar_hovered or self._hbar_hovered:
             self._hovered_row = None
             self._hovered_divider_idx = None
             self._vbar_hovered = False
+            self._hbar_hovered = False
             self.request_redraw()
 
     def _on_mousewheel(self, event: tk.Event) -> None:
@@ -487,22 +492,26 @@ class Table(BaseControl):
 
         if sys.platform == "darwin":
             delta = -1 * event.delta
-        elif event.num == 5:
+        elif getattr(event, "num", None) == 5:
             delta = 1
-        elif event.num == 4:
+        elif getattr(event, "num", None) == 4:
             delta = -1
         else:
-            delta = -1 * int(event.delta / 120)
+            delta = -1 * int(event.delta / 120) if getattr(event, "delta", 0) else 1
+
+        w, h = self._get_size()
+        v_needed, _, _, _, _, _ = self._get_vbar_bounds(w, h)
+        h_needed, _, _, _, _, _ = self._get_hbar_bounds(w, h)
 
         # Check if Shift is held down -> horizontal scroll
         if event.state & 0x0001:
-            total_content_w = sum(self._col_widths)
-            viewport_w = self.winfo_width() - (self._scrollbar_w + 6)
+            total_content_w = sum(self._col_widths) if self._col_widths else w
+            viewport_w = w - (self._scrollbar_w + 6 if v_needed else 4)
             max_scroll_x = max(0.0, float(total_content_w - viewport_w))
             self._scroll_x = max(0.0, min(max_scroll_x, self._scroll_x + delta * 24.0))
         else:
             total_content_h = len(self._data) * self._row_h
-            viewport_h = self.winfo_height() - self._header_h - 2
+            viewport_h = h - self._header_h - (self._scrollbar_w + 6 if h_needed else 2)
             max_scroll_y = max(0.0, float(total_content_h - viewport_h))
             self._scroll_y = max(0.0, min(max_scroll_y, self._scroll_y + delta * (self._row_h * 1.5)))
 
@@ -512,9 +521,19 @@ class Table(BaseControl):
         if self._active_editor:
             self._commit_cell_edit()
 
-        delta = -1 * int(event.delta / 120) if event.delta else 1
-        total_content_w = sum(self._col_widths)
-        viewport_w = self.winfo_width() - (self._scrollbar_w + 6)
+        if sys.platform == "darwin":
+            delta = -1 * event.delta
+        elif getattr(event, "num", None) in (5, 7):
+            delta = 1
+        elif getattr(event, "num", None) in (4, 6):
+            delta = -1
+        else:
+            delta = -1 * int(event.delta / 120) if getattr(event, "delta", 0) else 1
+
+        w, h = self._get_size()
+        v_needed, _, _, _, _, _ = self._get_vbar_bounds(w, h)
+        total_content_w = sum(self._col_widths) if self._col_widths else w
+        viewport_w = w - (self._scrollbar_w + 6 if v_needed else 4)
         max_scroll_x = max(0.0, float(total_content_w - viewport_w))
         self._scroll_x = max(0.0, min(max_scroll_x, self._scroll_x + delta * 24.0))
         self.request_redraw()
@@ -534,12 +553,24 @@ class Table(BaseControl):
 
         def _sort_val(row: List[Any]) -> Tuple[int, Any]:
             if col_idx >= len(row):
-                return (1, "")
+                return (2, "")
             val = row[col_idx]
-            try:
+            if val is None:
+                return (2, "")
+            if isinstance(val, (int, float)):
                 return (0, float(val))
+            s_val = str(val).strip()
+            try:
+                return (0, float(s_val))
             except (ValueError, TypeError):
-                return (1, str(val).lower())
+                pass
+            clean = s_val.rstrip("%").rstrip("MB").rstrip("KB").rstrip("GB").lstrip("$€£¥").strip()
+            if clean:
+                try:
+                    return (0, float(clean))
+                except (ValueError, TypeError):
+                    pass
+            return (1, s_val.lower())
 
         try:
             self._data.sort(key=_sort_val, reverse=not self._sort_asc)
@@ -980,10 +1011,13 @@ class Table(BaseControl):
         hover_col = getattr(pal, "card_hover", "#383542")
 
         total_content_h = len(self._data) * self._row_h
-        viewport_h = max(0, h - self._header_h - 2)
-        v_needed = total_content_h > viewport_h
+        base_available_w = w - 4
 
-        available_w = w - 4
+        # Preliminary check for vertical scrollbar
+        prelim_viewport_h = max(0, h - self._header_h - 2)
+        v_needed = total_content_h > prelim_viewport_h
+
+        available_w = base_available_w
         if v_needed:
             available_w -= (self._scrollbar_w + 6)
 
@@ -992,11 +1026,20 @@ class Table(BaseControl):
             self._calc_column_widths_for(available_w)
             self._last_calc_w = available_w
 
+        total_content_w = sum(self._col_widths) if self._col_widths else available_w
+        h_needed = total_content_w > available_w
+
+        # Adjust viewport_h and re-verify v_needed if horizontal scrollbar is present
+        viewport_h = max(0, h - self._header_h - (self._scrollbar_w + 6 if h_needed else 2))
+        v_needed = total_content_h > viewport_h
+        if v_needed and available_w == base_available_w:
+            available_w -= (self._scrollbar_w + 6)
+            h_needed = total_content_w > available_w
+
         # Clamp scroll ranges
         max_scroll_y = max(0.0, float(total_content_h - viewport_h))
         self._scroll_y = max(0.0, min(max_scroll_y, self._scroll_y))
 
-        total_content_w = sum(self._col_widths) if self._col_widths else available_w
         max_scroll_x = max(0.0, float(total_content_w - available_w))
         self._scroll_x = max(0.0, min(max_scroll_x, self._scroll_x))
 
@@ -1011,7 +1054,10 @@ class Table(BaseControl):
         surf.fill_rect(0, 0, w, self._header_h, card_bg)
         surf.draw_line(0, self._header_h, w, self._header_h, card_border, 1.0)
 
-        # Header Columns
+        # Header Columns (clipped to available_w so they do not bleed into vertical scrollbar track)
+        surf.save()
+        surf.clip_rect(0, 0, available_w, self._header_h)
+
         curr_x = -self._scroll_x
         for col_idx, col_name in enumerate(self._columns):
             col_w = self._col_widths[col_idx] if col_idx < len(self._col_widths) else 100
@@ -1044,6 +1090,8 @@ class Table(BaseControl):
             # Column vertical separator
             surf.draw_line(curr_x + col_w, 6, curr_x + col_w, self._header_h - 6, card_border, 0.75)
             curr_x += col_w
+
+        surf.restore()  # End header clip
 
         # 4. Virtualized Row Rendering
         surf.save()
@@ -1109,12 +1157,18 @@ class Table(BaseControl):
 
         surf.restore()  # End body clip
 
-        # 5. Draw Pure Blend2D Scrollbar
+        # 5. Draw Pure Blend2D Scrollbars
         if v_needed:
             has_vbar, vx, vy, vw, vh, _ = self._get_vbar_bounds(w, h)
             if has_vbar:
                 bar_color = primary if (self._vbar_hovered or self._vbar_dragging) else primary
                 surf.fill_rounded_rect(vx, vy, vw, vh, vw / 2.0, vw / 2.0, bar_color)
+
+        if h_needed:
+            has_hbar, hx, hy, hw, hh, _ = self._get_hbar_bounds(w, h)
+            if has_hbar:
+                bar_color = primary if (self._hbar_hovered or self._hbar_dragging) else primary
+                surf.fill_rounded_rect(hx, hy, hw, hh, hh / 2.0, hh / 2.0, bar_color)
 
         surf.restore()  # End card clip
 
@@ -1124,6 +1178,26 @@ class Table(BaseControl):
     def _on_controller_click(self, x: int, y: int, button: int) -> None:
         """No-op: Table manages cell, row, and scrollbar clicks internally."""
         pass
+
+    @property
+    def sort_column(self) -> Optional[int]:
+        return self._sort_col
+
+    @sort_column.setter
+    def sort_column(self, col: Optional[int]) -> None:
+        if col != self._sort_col:
+            self._sort_col = col
+            self.request_redraw()
+
+    @property
+    def sort_ascending(self) -> bool:
+        return self._sort_asc
+
+    @sort_ascending.setter
+    def sort_ascending(self, asc: bool) -> None:
+        if asc != self._sort_asc:
+            self._sort_asc = bool(asc)
+            self.request_redraw()
 
     @property
     def command(self) -> Optional[Callable[..., Any]]:

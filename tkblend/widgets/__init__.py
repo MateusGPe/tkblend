@@ -18,7 +18,7 @@ from tkblend.widgets.circular_progress import CircularProgress, Gauge
 from tkblend.widgets.segmented_button import SegmentedButton
 from tkblend.widgets.range_slider import RangeSlider
 from tkblend.widgets.sparkline import Sparkline
-from tkblend.widgets.combobox import ComboBox, OptionMenu
+from tkblend.widgets.combobox import ComboBox, OptionMenu, DropdownPopup
 from tkblend.widgets.textbox import Entry, SearchEntry, TextBox
 from tkblend.widgets.scrollable_frame import ScrollableFrame, VectorScrollbar
 from tkblend.widgets.tabview import Tabview
@@ -46,6 +46,7 @@ __all__ = [
     "Sparkline",
     "ComboBox",
     "OptionMenu",
+    "DropdownPopup",
     "Entry",
     "SearchEntry",
     "TextBox",

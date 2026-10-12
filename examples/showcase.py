@@ -266,7 +266,7 @@ class ShowcaseApp(tk.Tk):
         # -------------------------------------------------------------
         # Card 4: Metrics, Circular Gauges & Sliders (Right)
         # -------------------------------------------------------------
-        c3 = Card(col_right, width=460, height=360)
+        c3 = Card(col_right, width=460, height=400)
         c3.pack(fill="x", pady=(0, 16))
 
         c3_content = tk.Frame(c3, bg=pal.card_bg)
@@ -349,10 +349,10 @@ class ShowcaseApp(tk.Tk):
         prog_btns = tk.Frame(c3_content, bg=pal.card_bg)
         prog_btns.pack(fill="x")
 
-        btn_step = Button(prog_btns, text="+10% Step", variant="primary", command=self._on_step_progress, width=110, height=34)
+        btn_step = Button(prog_btns, text="+10% Step", variant="primary", command=self._on_step_progress, width=110, height=40)
         btn_step.pack(side="left", padx=(0, 8))
 
-        btn_reset_prog = Button(prog_btns, text="Reset", variant="outline", command=self._on_reset_progress, width=90, height=34)
+        btn_reset_prog = Button(prog_btns, text="Reset", variant="outline", command=self._on_reset_progress, width=90, height=40)
         btn_reset_prog.pack(side="left")
 
         # -------------------------------------------------------------

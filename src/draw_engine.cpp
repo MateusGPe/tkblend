@@ -1,11 +1,27 @@
 #include "draw_engine.hpp"
 #include "native_controller.hpp"
+#include "style_engine.hpp"
 #include <algorithm>
 #include <cctype>
 
 namespace tkblend {
 
 namespace {
+
+static inline double resolve_token(
+    const std::string& token,
+    const std::unordered_map<std::string, std::string>& vars,
+    double fallback
+) {
+    auto it = vars.find(token);
+    if (it != vars.end() && !it->second.empty()) {
+        try {
+            size_t idx = 0;
+            return std::stod(it->second, &idx);
+        } catch (...) {}
+    }
+    return StyleEngine::instance().resolve_scalar(token, fallback);
+}
 
 static std::string to_lower_trim(const std::string& str) {
     auto start = str.find_first_not_of(" \t\n\r");
@@ -117,9 +133,10 @@ DrawBatch DrawEngine::create_control_batch(
     b.clear_var("--parent-bg");
 
     if (key_cls == "button") {
-        double pad_x = 4.0;
-        double pad_top = 2.0;
-        double pad_bottom = 6.0;
+        double pad_x = resolve_token("--btn-pad-x", vars, 4.0);
+        double pad_top = resolve_token("--btn-pad-top", vars, 2.0);
+        double pad_bottom = resolve_token("--btn-pad-bottom", vars, 6.0);
+        double btn_radius = resolve_token("--btn-radius", vars, 8.0);
         double bx = pad_x;
         double by = pad_top;
         double bw = std::max(4.0, w - 2.0 * pad_x);
@@ -139,8 +156,8 @@ DrawBatch DrawEngine::create_control_batch(
         std::string border_var = "--btn-border";
         std::string shadow_var = "--btn-shadow";
         double border_w = 0.0;
-        double shadow_blur = 2.0;
-        double shadow_off_y = 0.8;
+        double shadow_blur = resolve_token("--btn-shadow-blur", vars, 2.0);
+        double shadow_off_y = resolve_token("--btn-shadow-y", vars, 0.8);
         Color fallback_bg(37, 35, 42);
         Color fallback_fg(230, 224, 233);
         Color fallback_border(73, 69, 79);
@@ -285,14 +302,14 @@ DrawBatch DrawEngine::create_control_batch(
             } else if ((state & ControllerPseudoState::StateHover) != 0) {
                 bg_var = "--btn-hover-bg";
                 fg_var = "--btn-hover-fg";
-                shadow_blur = 2.8;
-                shadow_off_y = 1.0;
+                shadow_blur = resolve_token("--btn-shadow-blur-hover", vars, 2.8);
+                shadow_off_y = resolve_token("--btn-shadow-y-hover", vars, 1.0);
             }
         }
 
         b.draw_card_var(
             bx, by, bw, bh,
-            8.0, 8.0,
+            btn_radius, btn_radius,
             bg_var, border_var,
             border_w, shadow_blur, 0.0, 0.0, shadow_off_y,
             shadow_var,
@@ -310,7 +327,7 @@ DrawBatch DrawEngine::create_control_batch(
         if ((state & ControllerPseudoState::StateFocused) != 0) {
             b.stroke_rounded_rect_var(
                 bx - 1.5, by - 1.5, bw + 3.0, bh + 3.0,
-                9.5, 9.5,
+                btn_radius + 1.5, btn_radius + 1.5,
                 "--focus-ring-color", 2.0,
                 "--rx", "--ry", "--focus-ring-width",
                 Color(208, 188, 255)
@@ -715,24 +732,59 @@ DrawBatch DrawEngine::create_control_batch(
     }
 
     if (key_cls == "combobox") {
+        b.clear_var("--parent-bg");
+
+        double pad_x = resolve_token("--input-pad-x", vars, 3.0);
+        double pad_top = resolve_token("--input-pad-top", vars, 2.0);
+        double pad_bottom = resolve_token("--input-pad-bottom", vars, 4.0);
+        double input_radius = resolve_token("--input-radius", vars, 8.0);
+        double bx = pad_x;
+        double by = pad_top;
+        double bw = std::max(4.0, w - 2.0 * pad_x);
+        double bh = std::max(4.0, h - pad_top - pad_bottom);
+
         std::string border_col = ((state & ControllerPseudoState::StateFocused) != 0) ? "--input-focus"
                                : ((state & ControllerPseudoState::StateHover) != 0)   ? "--card-border"
                                : "--input-border";
-        double border_w = ((state & ControllerPseudoState::StateFocused) != 0) ? 1.5 : 1.0;
+        double border_w = ((state & ControllerPseudoState::StateFocused) != 0)
+            ? resolve_token("--input-border-width-focus", vars, 1.5)
+            : resolve_token("--input-border-width", vars, 1.0);
         Color fallback_border = ((state & ControllerPseudoState::StateFocused) != 0) ? Color(208, 188, 255) : Color(73, 69, 79);
 
-        // Container with M3 10px rounded corners
-        b.fill_rounded_rect_var(0.0, 0.0, w, h, 10.0, 10.0, "--input-bg", "--rx", "--ry", Color(29, 27, 32));
-        b.stroke_rounded_rect_var(0.0, 0.0, w, h, 10.0, 10.0, border_col, border_w, "--rx", "--ry", "--bw", fallback_border);
+        double shadow_blur = resolve_token("--input-shadow-blur", vars, 2.0);
+        double shadow_off_y = resolve_token("--input-shadow-y", vars, 0.8);
+        Color fallback_shadow(0, 0, 0, 24);
+
+        if ((state & ControllerPseudoState::StateFocused) != 0) {
+            shadow_blur = resolve_token("--input-shadow-blur-focus", vars, 3.2);
+            shadow_off_y = resolve_token("--input-shadow-y-focus", vars, 1.0);
+            fallback_shadow = Color(0, 0, 0, 36);
+        } else if ((state & ControllerPseudoState::StateHover) != 0) {
+            shadow_blur = resolve_token("--input-shadow-blur-hover", vars, 2.6);
+            shadow_off_y = resolve_token("--input-shadow-y-focus", vars, 1.0);
+            fallback_shadow = Color(0, 0, 0, 30);
+        }
+
+        b.draw_card_var(
+            bx, by, bw, bh,
+            input_radius, input_radius,
+            "--input-bg", border_col,
+            border_w, shadow_blur, 0.0, 0.0, shadow_off_y,
+            "--input-shadow",
+            "--rx", "--ry", "--bw",
+            Color(29, 27, 32), fallback_border, fallback_shadow
+        );
 
         // Value text
-        b.draw_text_var("", 14.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif", "--fg", "--text", "", Color(230, 224, 233), 0 /* left */, 500);
+        double txt_x = bx + 12.0;
+        double txt_y = by + bh / 2.0 + 13.0 * 0.35;
+        b.draw_text_var("", txt_x, txt_y, 13.0f, "sans-serif", "--fg", "--text", "", Color(230, 224, 233), 0 /* left */, 500);
 
         // Chevron arrow indicator at right
-        double arr_cx = w - 18.0;
-        double arr_cy = h / 2.0;
-        b.draw_line(arr_cx - 5.0, arr_cy - 2.5, arr_cx, arr_cy + 2.5, Color(161, 161, 170), 1.8);
-        b.draw_line(arr_cx, arr_cy + 2.5, arr_cx + 5.0, arr_cy - 2.5, Color(161, 161, 170), 1.8);
+        double arr_cx = bx + bw - 14.0;
+        double arr_cy = by + bh / 2.0;
+        b.draw_line(arr_cx - 4.5, arr_cy - 2.5, arr_cx, arr_cy + 2.5, Color(161, 161, 170), 1.6);
+        b.draw_line(arr_cx, arr_cy + 2.5, arr_cx + 4.5, arr_cy - 2.5, Color(161, 161, 170), 1.6);
         return b;
     }
 
@@ -810,15 +862,51 @@ DrawBatch DrawEngine::create_control_batch(
 
     if (key_cls == "entry" || key_cls == "textbox_frame" || key_cls == "search_entry") {
         b.clear_var("--parent-bg");
-        std::string border_col = ((state & ControllerPseudoState::StateFocused) != 0) ? "--input-focus" : "--input-border";
-        double border_w = ((state & ControllerPseudoState::StateFocused) != 0) ? 1.5 : 1.0;
+
+        double pad_x = resolve_token("--input-pad-x", vars, 3.0);
+        double pad_top = resolve_token("--input-pad-top", vars, 2.0);
+        double pad_bottom = resolve_token("--input-pad-bottom", vars, 4.0);
+        double input_radius = resolve_token("--input-radius", vars, 8.0);
+        double bx = pad_x;
+        double by = pad_top;
+        double bw = std::max(4.0, w - 2.0 * pad_x);
+        double bh = std::max(4.0, h - pad_top - pad_bottom);
+
+        std::string border_col = ((state & ControllerPseudoState::StateFocused) != 0) ? "--input-focus"
+                               : ((state & ControllerPseudoState::StateHover) != 0)   ? "--card-border"
+                               : "--input-border";
+        double border_w = ((state & ControllerPseudoState::StateFocused) != 0)
+            ? resolve_token("--input-border-width-focus", vars, 1.5)
+            : resolve_token("--input-border-width", vars, 1.0);
         Color fallback_border = ((state & ControllerPseudoState::StateFocused) != 0) ? Color(208, 188, 255) : Color(73, 69, 79);
-        b.fill_rounded_rect_var(0.0, 0.0, w, h, 8.0, 8.0, "--input-bg", "--rx", "--ry", Color(29, 27, 32));
-        b.stroke_rounded_rect_var(0.0, 0.0, w, h, 8.0, 8.0, border_col, border_w, "--rx", "--ry", "--bw", fallback_border);
+
+        double shadow_blur = resolve_token("--input-shadow-blur", vars, 2.0);
+        double shadow_off_y = resolve_token("--input-shadow-y", vars, 0.8);
+        Color fallback_shadow(0, 0, 0, 24);
+
+        if ((state & ControllerPseudoState::StateFocused) != 0) {
+            shadow_blur = resolve_token("--input-shadow-blur-focus", vars, 3.2);
+            shadow_off_y = resolve_token("--input-shadow-y-focus", vars, 1.0);
+            fallback_shadow = Color(0, 0, 0, 36);
+        } else if ((state & ControllerPseudoState::StateHover) != 0) {
+            shadow_blur = resolve_token("--input-shadow-blur-hover", vars, 2.6);
+            shadow_off_y = resolve_token("--input-shadow-y-focus", vars, 1.0);
+            fallback_shadow = Color(0, 0, 0, 30);
+        }
+
+        b.draw_card_var(
+            bx, by, bw, bh,
+            input_radius, input_radius,
+            "--input-bg", border_col,
+            border_w, shadow_blur, 0.0, 0.0, shadow_off_y,
+            "--input-shadow",
+            "--rx", "--ry", "--bw",
+            Color(29, 27, 32), fallback_border, fallback_shadow
+        );
 
         if (key_cls == "search_entry") {
-            double icon_cx = 16.0;
-            double icon_cy = h / 2.0;
+            double icon_cx = bx + 14.0;
+            double icon_cy = by + bh / 2.0;
             b.stroke_circle_var(icon_cx - 2.0, icon_cy - 2.0, 4.5, "--text-muted", 1.5, "", "", Color(160, 160, 175));
             b.draw_line_var(icon_cx + 1.2, icon_cy + 1.2, icon_cx + 5.5, icon_cy + 5.5, "--text-muted", 1.8, "", Color(160, 160, 175));
         }

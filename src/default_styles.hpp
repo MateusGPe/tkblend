@@ -33,6 +33,37 @@ inline const char* DEFAULT_DARK_THEME_CSS = R"css(
   --input-focus: #d0bcff;
   --track-bg: #36343b;
   --thumb-color: #d0bcff;
+
+  /* Global Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius: var(--radius-md);
+
+  /* Input & ComboBox Tokens */
+  --input-radius: var(--radius-md);
+  --input-pad-x: 3px;
+  --input-pad-top: 2px;
+  --input-pad-bottom: 4px;
+  --input-border-width: 1px;
+  --input-border-width-focus: 1.5px;
+  --input-shadow: var(--shadow);
+  --input-shadow-blur: 2px;
+  --input-shadow-blur-hover: 2.6px;
+  --input-shadow-blur-focus: 3.2px;
+  --input-shadow-y: 0.8px;
+  --input-shadow-y-focus: 1px;
+
+  /* Button Tokens */
+  --btn-radius: var(--radius-md);
+  --btn-pad-x: 4px;
+  --btn-pad-top: 2px;
+  --btn-pad-bottom: 6px;
+  --btn-shadow: var(--shadow);
+  --btn-shadow-blur: 2px;
+  --btn-shadow-blur-hover: 2.8px;
+  --btn-shadow-y: 0.8px;
+  --btn-shadow-y-hover: 1px;
 }
 
 button {
@@ -271,6 +302,37 @@ inline const char* DEFAULT_LIGHT_THEME_CSS = R"css(
   --input-focus: #6366f1;
   --track-bg: #e2e8f0;
   --thumb-color: #6366f1;
+
+  /* Global Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius: var(--radius-md);
+
+  /* Input & ComboBox Tokens */
+  --input-radius: var(--radius-md);
+  --input-pad-x: 3px;
+  --input-pad-top: 2px;
+  --input-pad-bottom: 4px;
+  --input-border-width: 1px;
+  --input-border-width-focus: 1.5px;
+  --input-shadow: var(--shadow);
+  --input-shadow-blur: 2px;
+  --input-shadow-blur-hover: 2.6px;
+  --input-shadow-blur-focus: 3.2px;
+  --input-shadow-y: 0.8px;
+  --input-shadow-y-focus: 1px;
+
+  /* Button Tokens */
+  --btn-radius: var(--radius-md);
+  --btn-pad-x: 4px;
+  --btn-pad-top: 2px;
+  --btn-pad-bottom: 6px;
+  --btn-shadow: var(--shadow);
+  --btn-shadow-blur: 2px;
+  --btn-shadow-blur-hover: 2.8px;
+  --btn-shadow-y: 0.8px;
+  --btn-shadow-y-hover: 1px;
 }
 
 button {

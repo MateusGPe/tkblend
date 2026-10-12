@@ -200,6 +200,8 @@ class TableDemoApp(tk.Tk):
             row_height=34,
             header_height=38,
             scrollbar_width=9,
+            sort_column=0,
+            sort_ascending=True,
         )
         self.table.pack(fill="both", expand=True)
 

@@ -71,14 +71,20 @@ class Entry(BaseControl):
     def _calc_padding(self) -> tuple[int, int]:
         """Compute horizontal insets dynamically based on corner radius, border width, and scale factor."""
         scale = self._scale_factor
-        pad_x = max(int(self._corner_radius * scale + 4), int(self._border_width * scale + 8))
+        margin_x = int(self._palette.get_scalar("input_pad_x", 3.0) * scale)
+        pad_x = margin_x + max(int(self._corner_radius * scale + 4), int(self._border_width * scale + 8))
         return pad_x, pad_x
 
     def _apply_layout(self) -> None:
         pad_left, pad_right = self._calc_padding()
+        scale = self._scale_factor
+        pad_top = self._palette.get_scalar("input_pad_top", 2.0)
+        pad_bottom = self._palette.get_scalar("input_pad_bottom", 4.0)
+        y_offset = -int(((pad_bottom - pad_top) / 2.0) * scale)
         self._entry.place(
             x=pad_left,
             rely=0.5,
+            y=y_offset,
             anchor="w",
             relwidth=1.0,
             width=-(pad_left + pad_right),
@@ -162,6 +168,7 @@ class Entry(BaseControl):
 
     def on_theme_update(self, pal: Palette) -> None:
         super().on_theme_update(pal)
+        self._apply_layout()
         bg_hex = to_tk_hex(pal.input_bg)
         fg_hex = to_tk_hex(getattr(pal, "text_muted", "#71717a") if self._is_showing_placeholder else pal.fg)
         try:
@@ -187,9 +194,10 @@ class SearchEntry(Entry):
     def _calc_padding(self) -> tuple[int, int]:
         """Account for the vector search icon on the left while computing insets."""
         scale = self._scale_factor
-        pad_right = max(int(self._corner_radius * scale + 4), int(self._border_width * scale + 8))
-        # Icon center is at ~16px, diameter 12px; inset text comfortably past the icon
-        pad_left = max(int(self._corner_radius * scale + 20), int(28 * scale))
+        margin_x = int(self._palette.get_scalar("input_pad_x", 3.0) * scale)
+        pad_right = margin_x + max(int(self._corner_radius * scale + 4), int(self._border_width * scale + 8))
+        # Icon center is at margin_x + 14px, diameter ~9px; inset text comfortably past the icon
+        pad_left = margin_x + max(int(self._corner_radius * scale + 24), int(32 * scale))
         return pad_left, pad_right
 
 
@@ -228,8 +236,12 @@ class TextBox(BaseControl):
         fg_hex = to_tk_hex(pal.fg)
 
         scale = self._scale_factor
-        pad_x = max(int(self._corner_radius * scale + 2), int(self._border_width * scale + 6))
-        pad_y = max(int(self._corner_radius * scale * 0.75), int(self._border_width * scale + 4))
+        margin_x = int(3.0 * scale)
+        margin_top = int(2.0 * scale)
+        margin_bottom = int(4.0 * scale)
+        pad_x = margin_x + max(int(self._corner_radius * scale + 2), int(self._border_width * scale + 6))
+        pad_top = margin_top + max(int(self._corner_radius * scale * 0.75), int(self._border_width * scale + 4))
+        pad_bottom = margin_bottom + max(int(self._corner_radius * scale * 0.75), int(self._border_width * scale + 4))
 
         self._text = tk.Text(
             self,
@@ -244,18 +256,29 @@ class TextBox(BaseControl):
             padx=2,
             pady=2,
         )
-        self._text.place(
-            x=pad_x,
-            y=pad_y,
-            relwidth=1.0,
-            relheight=1.0,
-            width=-(pad_x * 2),
-            height=-(pad_y * 2),
-        )
+        self._apply_layout()
 
         self._text.bind("<FocusIn>", self._on_text_focus_in, add="+")
         self._text.bind("<FocusOut>", self._on_text_focus_out, add="+")
         self.bind("<Button-1>", self._on_container_click, add="+")
+
+    def _apply_layout(self) -> None:
+        scale = self._scale_factor
+        margin_x = int(self._palette.get_scalar("input_pad_x", 3.0) * scale)
+        margin_top = int(self._palette.get_scalar("input_pad_top", 2.0) * scale)
+        margin_bottom = int(self._palette.get_scalar("input_pad_bottom", 4.0) * scale)
+        pad_x = margin_x + max(int(self._corner_radius * scale + 2), int(self._border_width * scale + 6))
+        pad_top = margin_top + max(int(self._corner_radius * scale * 0.75), int(self._border_width * scale + 4))
+        pad_bottom = margin_bottom + max(int(self._corner_radius * scale * 0.75), int(self._border_width * scale + 4))
+
+        self._text.place(
+            x=pad_x,
+            y=pad_top,
+            relwidth=1.0,
+            relheight=1.0,
+            width=-(pad_x * 2),
+            height=-(pad_top + pad_bottom),
+        )
 
     def _on_container_click(self, event: Optional[tk.Event] = None) -> None:
         self._text.focus_set()
@@ -283,6 +306,7 @@ class TextBox(BaseControl):
 
     def on_theme_update(self, pal: Palette) -> None:
         super().on_theme_update(pal)
+        self._apply_layout()
         bg_hex = to_tk_hex(pal.input_bg)
         fg_hex = to_tk_hex(pal.fg)
         try:

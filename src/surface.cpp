@@ -7,6 +7,98 @@
 
 namespace tkblend {
 
+namespace {
+
+// Advance width of a UTF-8 run, falling back to the ink bounds when the advance is empty.
+double run_width(const BLFont& font, const char* text, size_t size) {
+    BLTextMetrics tm;
+    BLGlyphBuffer gb;
+    gb.set_utf8_text(text, size);
+    font.get_text_metrics(gb, tm);
+    return (tm.advance.x > 0.0) ? tm.advance.x : (tm.bounding_box.x1 - tm.bounding_box.x0);
+}
+
+// Baseline that visually centers text of the given size inside a box of height h starting at y.
+inline double centered_baseline(double y, double h, double font_size) {
+    return y + h / 2.0 + font_size * 0.35;
+}
+
+constexpr double kFocusRingPad = 1.5;
+
+inline bool has_pseudo(uint16_t state, PseudoState flag) {
+    return (state & static_cast<uint16_t>(flag)) != 0;
+}
+
+void stroke_focus_ring(
+    BLContext& ctx, double x, double y, double w, double h, double rx, double ry,
+    const Color& color, double width
+) {
+    if (color.a == 0 || width <= 0.0) return;
+    ctx.set_stroke_style(color.to_bl_rgba32());
+    ctx.set_stroke_width(width);
+    ctx.stroke_round_rect(BLRoundRect(
+        x - kFocusRingPad, y - kFocusRingPad,
+        w + kFocusRingPad * 2.0, h + kFocusRingPad * 2.0,
+        rx + kFocusRingPad, ry + kFocusRingPad
+    ));
+}
+
+// Strokes a rounded rect inset by half the stroke width so the border stays inside the box.
+void stroke_inset_round_rect(
+    BLContext& ctx, double x, double y, double w, double h, double rx, double ry,
+    const Color& color, double stroke_width
+) {
+    if (color.a == 0 || stroke_width <= 0.0) return;
+    double half = stroke_width * 0.5;
+    ctx.set_stroke_style(color.to_bl_rgba32());
+    ctx.set_stroke_width(stroke_width);
+    ctx.stroke_round_rect(BLRoundRect(
+        x + half, y + half,
+        std::max(0.0, w - stroke_width), std::max(0.0, h - stroke_width),
+        std::max(0.0, rx - half), std::max(0.0, ry - half)
+    ));
+}
+
+void fill_round_rect_if_visible(
+    BLContext& ctx, double x, double y, double w, double h, double rx, double ry, const Color& color
+) {
+    if (color.a == 0) return;
+    ctx.set_fill_style(color.to_bl_rgba32());
+    ctx.fill_round_rect(BLRoundRect(x, y, w, h, rx, ry));
+}
+
+// Applies scale and optional caller overrides on top of the CSS-resolved font.
+void apply_font_overrides(
+    ComputedStyle& style, const std::string& family, float size, int weight, double scale
+) {
+    style.font_size = size > 0.0f
+        ? size * static_cast<float>(scale)
+        : static_cast<float>(style.font_size * scale);
+    if (!family.empty() && family != "default") style.font_family = family;
+    if (weight > 0) style.font_weight = weight;
+}
+
+Color focus_color_if(bool focused, const Color& color) {
+    return focused ? color : Color(0, 0, 0, 0);
+}
+
+// Maps a bounding-box-relative gradient (0..1 coordinates) into absolute space.
+// `radius_span` scales the radial radii.
+Gradient map_bbox_gradient(const Gradient& g, double x, double y, double w, double h, double radius_span) {
+    Gradient mapped = g;
+    mapped.x0 = x + g.x0 * w;
+    mapped.y0 = y + g.y0 * h;
+    mapped.x1 = x + g.x1 * w;
+    mapped.y1 = y + g.y1 * h;
+    if (g.type != Gradient::Type::Linear) {
+        mapped.r0 = g.r0 * radius_span;
+        mapped.r1 = g.r1 * radius_span;
+    }
+    return mapped;
+}
+
+} // anonymous namespace
+
 Surface::Surface(int width, int height)
     : width_(std::max(1, width)), height_(std::max(1, height)) {
     init_context();
@@ -46,9 +138,9 @@ void Surface::init_context() {
 void Surface::resize(int width, int height) {
     int w = std::max(1, width);
     int h = std::max(1, height);
-    if (w == width_ && h == height_) return;
 
     std::lock_guard<std::mutex> lock(mutex_);
+    if (w == width_ && h == height_) return;
     if (is_closed_) {
         throw std::runtime_error("Cannot resize a closed Surface");
     }
@@ -318,12 +410,7 @@ void Surface::draw_text(
         double draw_y = y;
 
         if (align != 0) {
-            BLTextMetrics tm;
-            BLGlyphBuffer gb;
-            gb.set_utf8_text(text.data(), text.size());
-            font.get_text_metrics(gb, tm);
-            double text_w = tm.advance.x;
-            if (text_w <= 0.0) text_w = tm.bounding_box.x1 - tm.bounding_box.x0;
+            double text_w = run_width(font, text.data(), text.size());
             if (align == 1) {
                 draw_x -= text_w / 2.0;
             } else if (align == 2) {
@@ -352,14 +439,7 @@ void Surface::draw_text(
 
     auto flush_text = [&]() {
         if (!cur_text.empty()) {
-            BLTextMetrics tm;
-            BLGlyphBuffer gb;
-            gb.set_utf8_text(cur_text.data(), cur_text.size());
-            font.get_text_metrics(gb, tm);
-            double w = tm.advance.x;
-            if (w <= 0.0) {
-                w = tm.bounding_box.x1 - tm.bounding_box.x0;
-            }
+            double w = run_width(font, cur_text.data(), cur_text.size());
             if (w <= 0.0) {
                 w = cur_text.size() * (font_size * 0.3);
             }
@@ -400,12 +480,7 @@ void Surface::draw_text(
             if (!fb.is_empty()) {
                 flush_text();
                 std::string fb_str(prev_p, p - prev_p);
-                BLTextMetrics tm;
-                BLGlyphBuffer gb;
-                gb.set_utf8_text(fb_str.data(), fb_str.size());
-                fb.get_text_metrics(gb, tm);
-                double w = tm.advance.x;
-                if (w <= 0.0) w = tm.bounding_box.x1 - tm.bounding_box.x0;
+                double w = run_width(fb, fb_str.data(), fb_str.size());
                 if (w <= 0.0) w = font_size * 0.8;
                 runs.push_back(TextRun{RunType::FallbackFont, fb_str, fb, BLImage(), w, 0.0});
             } else {
@@ -504,24 +579,11 @@ void Surface::render_box(
     // 3. Border stroke (stroke_rounded_rect) inset by half stroke-width to avoid edge clipping
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (style.bg_color.a > 0) {
-            ctx_.set_fill_style(style.bg_color.to_bl_rgba32());
-            ctx_.fill_round_rect(BLRoundRect(x, y, w, h, style.border_radius, style.border_radius));
-        }
-
-        if (style.border_color.a > 0 && style.border_width > 0.0f) {
-            ctx_.set_stroke_style(style.border_color.to_bl_rgba32());
-            ctx_.set_stroke_width(style.border_width);
-            double half_bw = style.border_width * 0.5;
-            ctx_.stroke_round_rect(BLRoundRect(
-                x + half_bw,
-                y + half_bw,
-                std::max(0.0, w - style.border_width),
-                std::max(0.0, h - style.border_width),
-                std::max(0.0, static_cast<double>(style.border_radius) - half_bw),
-                std::max(0.0, static_cast<double>(style.border_radius) - half_bw)
-            ));
-        }
+        fill_round_rect_if_visible(ctx_, x, y, w, h, style.border_radius, style.border_radius, style.bg_color);
+        stroke_inset_round_rect(
+            ctx_, x, y, w, h, style.border_radius, style.border_radius,
+            style.border_color, style.border_width
+        );
     }
 
     // 4. Antialiased text rendering with vertical centering
@@ -534,7 +596,7 @@ void Surface::render_box(
         } else { // left
             text_x = x + 8.0;
         }
-        double text_y = y + h / 2.0 + static_cast<double>(style.font_size) * 0.35;
+        double text_y = centered_baseline(y, h, style.font_size);
         draw_text(text, text_x, text_y, style.font_size, style.font_family, style.fg_color, text_align, style.font_weight, false);
     }
 }
@@ -557,7 +619,6 @@ void Surface::render_styled_box(
     float font_size,
     int font_weight
 ) {
-    if (width_ <= 0 || height_ <= 0) return;
 
     // 1. Clear background to parent bg
     clear(parent_bg);
@@ -568,18 +629,7 @@ void Surface::render_styled_box(
     ComputedStyle style = StyleEngine::instance().resolve(element, class_name, state);
 
     // 3. Apply font configuration & scaling
-    if (font_size > 0.0f) {
-        style.font_size = font_size * static_cast<float>(scale);
-    } else {
-        style.font_size = static_cast<float>(style.font_size * scale);
-    }
-
-    if (!font_family.empty() && font_family != "default") {
-        style.font_family = font_family;
-    }
-    if (font_weight > 0) {
-        style.font_weight = font_weight;
-    }
+    apply_font_overrides(style, font_family, font_size, font_weight, scale);
 
     // 4. Scale geometry
     if (custom_rx.has_value()) {
@@ -642,23 +692,13 @@ void Surface::render_styled_badge(
     float font_size,
     int font_weight
 ) {
-    if (width_ <= 0 || height_ <= 0) return;
     clear(parent_bg);
     if (scale <= 0.0) scale = 1.0;
 
     ComputedStyle style = StyleEngine::instance().resolve(element, class_name, state);
 
-    if (font_size > 0.0f) {
-        style.font_size = font_size * static_cast<float>(scale);
-    } else {
-        style.font_size = static_cast<float>(11.0f * scale);
-    }
-    if (!font_family.empty() && font_family != "default") {
-        style.font_family = font_family;
-    }
-    if (font_weight > 0) {
-        style.font_weight = font_weight;
-    }
+    if (font_size <= 0.0f) style.font_size = 11.0f;
+    apply_font_overrides(style, font_family, font_size, font_weight, scale);
 
     double pad = 1.5 * scale;
     double w = static_cast<double>(width_);
@@ -685,7 +725,7 @@ void Surface::render_styled_badge(
         fill_circle(dot_cx, dot_cy, 3.0 * scale, d_col);
 
         double text_x = dot_cx + 8.0 * scale + (box_w - 18.0 * scale) / 2.0;
-        double text_y = h / 2.0 + static_cast<double>(style.font_size) * 0.35;
+        double text_y = centered_baseline(0.0, h, style.font_size);
         draw_text(text, text_x, text_y, style.font_size, style.font_family, style.fg_color, 1, style.font_weight, false);
     } else {
         render_box(pad, pad, box_w, box_h, style, text, 1);
@@ -711,23 +751,12 @@ void Surface::render_styled_checkbox(
     float font_size,
     int font_weight
 ) {
-    if (width_ <= 0 || height_ <= 0) return;
     clear(parent_bg);
     if (scale <= 0.0) scale = 1.0;
 
     ComputedStyle style = StyleEngine::instance().resolve(element, class_name, state);
 
-    if (font_size > 0.0f) {
-        style.font_size = font_size * static_cast<float>(scale);
-    } else {
-        style.font_size = static_cast<float>(style.font_size * scale);
-    }
-    if (!font_family.empty() && font_family != "default") {
-        style.font_family = font_family;
-    }
-    if (font_weight > 0) {
-        style.font_weight = font_weight;
-    }
+    apply_font_overrides(style, font_family, font_size, font_weight, scale);
 
     double h = static_cast<double>(height_);
     double box_sz = box_size * scale;
@@ -741,9 +770,9 @@ void Surface::render_styled_checkbox(
     Color check_col = explicit_check_color.value_or(is_checked ? style.fg_color : Color(0, 0, 0, 0));
     Color text_col = explicit_fg.value_or(style.fg_color);
 
-    bool is_hovered = (state & static_cast<uint16_t>(PseudoState::Hover)) != 0;
-    bool has_focus = (state & static_cast<uint16_t>(PseudoState::Focused)) != 0;
-    Color focus_ring_color = has_focus ? style.border_color : Color(0, 0, 0, 0);
+    bool is_hovered = has_pseudo(state, PseudoState::Hover);
+    bool has_focus = has_pseudo(state, PseudoState::Focused);
+    Color focus_ring_color = focus_color_if(has_focus, style.border_color);
     double focus_ring_width = has_focus ? (2.0 * scale) : 0.0;
 
     draw_checkbox(
@@ -761,7 +790,7 @@ void Surface::render_styled_checkbox(
 
     if (!text.empty()) {
         double text_x = box_x + box_sz + 8.0 * scale;
-        double text_y = h / 2.0 + static_cast<double>(style.font_size) * 0.35;
+        double text_y = centered_baseline(0.0, h, style.font_size);
         draw_text(text, text_x, text_y, style.font_size, style.font_family, text_col, 0 /* left */, style.font_weight, false);
     }
 }
@@ -783,23 +812,12 @@ void Surface::render_styled_radio(
     float font_size,
     int font_weight
 ) {
-    if (width_ <= 0 || height_ <= 0) return;
     clear(parent_bg);
     if (scale <= 0.0) scale = 1.0;
 
     ComputedStyle style = StyleEngine::instance().resolve(element, class_name, state);
 
-    if (font_size > 0.0f) {
-        style.font_size = font_size * static_cast<float>(scale);
-    } else {
-        style.font_size = static_cast<float>(style.font_size * scale);
-    }
-    if (!font_family.empty() && font_family != "default") {
-        style.font_family = font_family;
-    }
-    if (font_weight > 0) {
-        style.font_weight = font_weight;
-    }
+    apply_font_overrides(style, font_family, font_size, font_weight, scale);
 
     double h = static_cast<double>(height_);
     double d = circle_size * scale;
@@ -812,7 +830,7 @@ void Surface::render_styled_radio(
     Color dot_col = explicit_dot_color.value_or(style.fg_color);
     Color text_col = explicit_fg.value_or(style.fg_color);
 
-    bool has_focus = (state & static_cast<uint16_t>(PseudoState::Focused)) != 0;
+    bool has_focus = has_pseudo(state, PseudoState::Focused);
     if (has_focus) {
         stroke_circle(cx, cy, r + 2.0 * scale, border_col, 2.0 * scale);
     }
@@ -830,7 +848,7 @@ void Surface::render_styled_radio(
 
     if (!text.empty()) {
         double text_x = cx + r + 8.0 * scale;
-        double text_y = h / 2.0 + static_cast<double>(style.font_size) * 0.35;
+        double text_y = centered_baseline(0.0, h, style.font_size);
         draw_text(text, text_x, text_y, style.font_size, style.font_family, text_col, 0 /* left */, style.font_weight, false);
     }
 }
@@ -853,7 +871,6 @@ void Surface::render_styled_switch(
     float font_size,
     int font_weight
 ) {
-    if (width_ <= 0 || height_ <= 0) return;
     clear(parent_bg);
     if (scale <= 0.0) scale = 1.0;
 
@@ -877,8 +894,8 @@ void Surface::render_styled_switch(
     Color active_track(tr_r, tr_g, tr_b, tr_a);
 
     Color thumb_col = explicit_thumb.value_or(Color(255, 255, 255, 255));
-    bool has_focus = (state & static_cast<uint16_t>(PseudoState::Focused)) != 0;
-    Color focus_ring_color = has_focus ? style_on.bg_color : Color(0, 0, 0, 0);
+    bool has_focus = has_pseudo(state, PseudoState::Focused);
+    Color focus_ring_color = focus_color_if(has_focus, style_on.bg_color);
     double focus_ring_width = has_focus ? (2.0 * scale) : 0.0;
 
     draw_switch(
@@ -899,7 +916,7 @@ void Surface::render_styled_switch(
         Color text_col = explicit_fg.value_or(style_off.fg_color);
 
         double text_x = sx + sw + 8.0 * scale;
-        double text_y = h / 2.0 + static_cast<double>(fsz) * 0.35;
+        double text_y = centered_baseline(0.0, h, fsz);
         draw_text(text, text_x, text_y, fsz, ff, text_col, 0 /* left */, fw, false);
     }
 }
@@ -919,7 +936,6 @@ void Surface::render_styled_slider(
     std::optional<Color> explicit_thumb_color,
     std::optional<Color> explicit_border_color
 ) {
-    if (width_ <= 0 || height_ <= 0) return;
     clear(parent_bg);
     if (scale <= 0.0) scale = 1.0;
 
@@ -936,8 +952,8 @@ void Surface::render_styled_slider(
     Color thumb_col = explicit_thumb_color.value_or(Color(255, 255, 255, 255));
     Color border_col = explicit_border_color.value_or(style.border_color);
 
-    bool has_focus = (state & static_cast<uint16_t>(PseudoState::Focused)) != 0;
-    Color focus_ring_color = has_focus ? active_bg : Color(0, 0, 0, 0);
+    bool has_focus = has_pseudo(state, PseudoState::Focused);
+    Color focus_ring_color = focus_color_if(has_focus, active_bg);
     double focus_ring_width = has_focus ? (2.0 * scale) : 0.0;
 
     draw_slider(
@@ -970,7 +986,6 @@ void Surface::render_styled_progress(
     std::optional<Color> explicit_track_bg,
     std::optional<Color> explicit_fill_color
 ) {
-    if (width_ <= 0 || height_ <= 0) return;
     clear(parent_bg);
     if (scale <= 0.0) scale = 1.0;
 
@@ -1009,7 +1024,6 @@ void Surface::render_styled_separator(
     double thickness,
     std::optional<Color> explicit_color
 ) {
-    if (width_ <= 0 || height_ <= 0) return;
     clear(parent_bg);
     if (scale <= 0.0) scale = 1.0;
 
@@ -1051,24 +1065,10 @@ void Surface::draw_card(
     std::lock_guard<std::mutex> lock(mutex_);
 
     // 2. Draw card background
-    if (bg_color.a > 0) {
-        ctx_.set_fill_style(bg_color.to_bl_rgba32());
-        ctx_.fill_round_rect(BLRoundRect(x, y, w, h, rx, ry));
-    }
+    fill_round_rect_if_visible(ctx_, x, y, w, h, rx, ry, bg_color);
 
     // 3. Draw border stroke
-    if (border_color.a > 0 && border_width > 0.0) {
-        ctx_.set_stroke_style(border_color.to_bl_rgba32());
-        ctx_.set_stroke_width(border_width);
-        ctx_.stroke_round_rect(BLRoundRect(
-            x + border_width * 0.5,
-            y + border_width * 0.5,
-            w - border_width,
-            h - border_width,
-            std::max(0.0, rx - border_width * 0.5),
-            std::max(0.0, ry - border_width * 0.5)
-        ));
-    }
+    stroke_inset_round_rect(ctx_, x, y, w, h, rx, ry, border_color, border_width);
 }
 
 TextMetrics Surface::measure_text(
@@ -1127,12 +1127,7 @@ std::vector<std::string> Surface::break_lines(
     }
 
     auto get_width = [&](const std::string& s) -> double {
-        if (s.empty()) return 0.0;
-        BLTextMetrics tm;
-        BLGlyphBuffer gb;
-        gb.set_utf8_text(s.data(), s.size());
-        font.get_text_metrics(gb, tm);
-        return (tm.advance.x > 0.0) ? tm.advance.x : (tm.bounding_box.x1 - tm.bounding_box.x0);
+        return s.empty() ? 0.0 : run_width(font, s.data(), s.size());
     };
 
     std::stringstream text_stream(text);
@@ -1243,44 +1238,17 @@ void Surface::draw_button(
     // 2. Button container & border
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (bg_color.a > 0) {
-            ctx_.set_fill_style(bg_color.to_bl_rgba32());
-            ctx_.fill_round_rect(BLRoundRect(x, y + press_offset, w, h, rx, ry));
-        }
-
-        if (border_color.a > 0 && border_width > 0.0) {
-            ctx_.set_stroke_style(border_color.to_bl_rgba32());
-            ctx_.set_stroke_width(border_width);
-            ctx_.stroke_round_rect(BLRoundRect(
-                x + border_width * 0.5,
-                y + press_offset + border_width * 0.5,
-                w - border_width,
-                h - border_width,
-                std::max(0.0, rx - border_width * 0.5),
-                std::max(0.0, ry - border_width * 0.5)
-            ));
-        }
+        fill_round_rect_if_visible(ctx_, x, y + press_offset, w, h, rx, ry, bg_color);
+        stroke_inset_round_rect(ctx_, x, y + press_offset, w, h, rx, ry, border_color, border_width);
 
         // 3. Focus ring
-        if (focus_ring_color.a > 0 && focus_ring_width > 0.0) {
-            ctx_.set_stroke_style(focus_ring_color.to_bl_rgba32());
-            ctx_.set_stroke_width(focus_ring_width);
-            double fr_pad = 1.5;
-            ctx_.stroke_round_rect(BLRoundRect(
-                x - fr_pad,
-                y + press_offset - fr_pad,
-                w + fr_pad * 2.0,
-                h + fr_pad * 2.0,
-                rx + fr_pad,
-                ry + fr_pad
-            ));
-        }
+        stroke_focus_ring(ctx_, x, y + press_offset, w, h, rx, ry, focus_ring_color, focus_ring_width);
     }
 
     // 4. Centered Button Typography
     if (!text.empty()) {
         double text_x = x + w / 2.0;
-        double text_y = y + h / 2.0 + static_cast<double>(font_size) * 0.35 + press_offset;
+        double text_y = centered_baseline(y, h, font_size) + press_offset;
         draw_text(text, text_x, text_y, font_size, font_family, fg_color, 1 /* center */, weight, italic);
     }
 }
@@ -1302,17 +1270,8 @@ void Surface::draw_switch(
     // Track
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (track_color.a > 0) {
-            ctx_.set_fill_style(track_color.to_bl_rgba32());
-            ctx_.fill_round_rect(BLRoundRect(x, y, w, h, r, r));
-        }
-
-        if (focus_ring_color.a > 0 && focus_ring_width > 0.0) {
-            ctx_.set_stroke_style(focus_ring_color.to_bl_rgba32());
-            ctx_.set_stroke_width(focus_ring_width);
-            double fr_pad = 1.5;
-            ctx_.stroke_round_rect(BLRoundRect(x - fr_pad, y - fr_pad, w + fr_pad * 2.0, h + fr_pad * 2.0, r + fr_pad, r + fr_pad));
-        }
+        fill_round_rect_if_visible(ctx_, x, y, w, h, r, r, track_color);
+        stroke_focus_ring(ctx_, x, y, w, h, r, r, focus_ring_color, focus_ring_width);
     }
 
     // Sliding Thumb
@@ -1455,32 +1414,13 @@ void Surface::draw_checkbox(
     {
         std::lock_guard<std::mutex> lock(mutex_);
         // Box fill
-        if (box_bg.a > 0) {
-            ctx_.set_fill_style(box_bg.to_bl_rgba32());
-            ctx_.fill_round_rect(BLRoundRect(x, y, size, size, rx, ry));
-        }
+        fill_round_rect_if_visible(ctx_, x, y, size, size, rx, ry, box_bg);
 
         // Box border
-        if (border_color.a > 0 && border_width > 0.0) {
-            ctx_.set_stroke_style(border_color.to_bl_rgba32());
-            ctx_.set_stroke_width(border_width);
-            ctx_.stroke_round_rect(BLRoundRect(
-                x + border_width * 0.5,
-                y + border_width * 0.5,
-                size - border_width,
-                size - border_width,
-                std::max(0.0, rx - border_width * 0.5),
-                std::max(0.0, ry - border_width * 0.5)
-            ));
-        }
+        stroke_inset_round_rect(ctx_, x, y, size, size, rx, ry, border_color, border_width);
 
         // Focus ring
-        if (focus_ring_color.a > 0 && focus_ring_width > 0.0) {
-            ctx_.set_stroke_style(focus_ring_color.to_bl_rgba32());
-            ctx_.set_stroke_width(focus_ring_width);
-            double fr_pad = 1.5;
-            ctx_.stroke_round_rect(BLRoundRect(x - fr_pad, y - fr_pad, size + fr_pad * 2.0, size + fr_pad * 2.0, rx + fr_pad, ry + fr_pad));
-        }
+        stroke_focus_ring(ctx_, x, y, size, size, rx, ry, focus_ring_color, focus_ring_width);
 
         // Checkmark vector path
         if (is_checked && check_color.a > 0) {
@@ -1500,97 +1440,52 @@ void Surface::draw_checkbox(
 
 namespace {
 
-static Color resolve_op_color(
+// Resolves the local variable referenced by `var_name` ("--x", "x" or "var(--x[, fallback])").
+const std::string* find_local_var(
     const std::string& var_name,
-    const Color& fallback,
     const std::unordered_map<std::string, std::string>& local_vars
 ) {
-    if (var_name.empty()) return fallback;
-    std::string clean_var = var_name;
-    if (clean_var.rfind("var(", 0) == 0 && clean_var.back() == ')') {
-        clean_var = clean_var.substr(4, clean_var.size() - 5);
-        size_t comma = clean_var.find(',');
-        if (comma != std::string::npos) {
-            clean_var = clean_var.substr(0, comma);
-        }
-        auto s = clean_var.find_first_not_of(" \t\n\r");
-        auto e = clean_var.find_last_not_of(" \t\n\r");
-        if (s != std::string::npos) clean_var = clean_var.substr(s, e - s + 1);
+    std::string name = var_name;
+    if (name.rfind("var(", 0) == 0 && name.back() == ')') {
+        name = name.substr(4, name.size() - 5);
+        size_t comma = name.find(',');
+        if (comma != std::string::npos) name.resize(comma);
+        auto s = name.find_first_not_of(" \t\n\r");
+        auto e = name.find_last_not_of(" \t\n\r");
+        if (s != std::string::npos) name = name.substr(s, e - s + 1);
     }
-    auto it = local_vars.find(clean_var);
-    if (it != local_vars.end()) {
-        return StyleEngine::instance().resolve_color_var(it->second, fallback);
+    auto it = local_vars.find(name);
+    if (it == local_vars.end()) {
+        it = local_vars.find(name.rfind("--", 0) == 0 ? name.substr(2) : "--" + name);
     }
-    if (clean_var.rfind("--", 0) == 0) {
-        it = local_vars.find(clean_var.substr(2));
-        if (it != local_vars.end()) return StyleEngine::instance().resolve_color_var(it->second, fallback);
-    } else {
-        it = local_vars.find("--" + clean_var);
-        if (it != local_vars.end()) return StyleEngine::instance().resolve_color_var(it->second, fallback);
-    }
-    return StyleEngine::instance().resolve_color_var(var_name, fallback);
+    return it != local_vars.end() ? &it->second : nullptr;
 }
 
-static double resolve_op_scalar(
-    const std::string& var_name,
-    double fallback,
+Color resolve_op_color(
+    const std::string& var_name, const Color& fallback,
     const std::unordered_map<std::string, std::string>& local_vars
 ) {
     if (var_name.empty()) return fallback;
-    std::string clean_var = var_name;
-    if (clean_var.rfind("var(", 0) == 0 && clean_var.back() == ')') {
-        clean_var = clean_var.substr(4, clean_var.size() - 5);
-        size_t comma = clean_var.find(',');
-        if (comma != std::string::npos) {
-            clean_var = clean_var.substr(0, comma);
-        }
-        auto s = clean_var.find_first_not_of(" \t\n\r");
-        auto e = clean_var.find_last_not_of(" \t\n\r");
-        if (s != std::string::npos) clean_var = clean_var.substr(s, e - s + 1);
-    }
-    auto it = local_vars.find(clean_var);
-    if (it != local_vars.end()) {
-        return StyleEngine::instance().resolve_scalar(it->second, fallback);
-    }
-    if (clean_var.rfind("--", 0) == 0) {
-        it = local_vars.find(clean_var.substr(2));
-        if (it != local_vars.end()) return StyleEngine::instance().resolve_scalar(it->second, fallback);
-    } else {
-        it = local_vars.find("--" + clean_var);
-        if (it != local_vars.end()) return StyleEngine::instance().resolve_scalar(it->second, fallback);
-    }
-    return StyleEngine::instance().resolve_scalar(var_name, fallback);
+    const std::string* v = find_local_var(var_name, local_vars);
+    return StyleEngine::instance().resolve_color_var(v ? *v : var_name, fallback);
 }
 
-static std::string resolve_op_string(
-    const std::string& var_name,
-    const std::string& fallback,
+double resolve_op_scalar(
+    const std::string& var_name, double fallback,
     const std::unordered_map<std::string, std::string>& local_vars
 ) {
     if (var_name.empty()) return fallback;
-    std::string clean_var = var_name;
-    if (clean_var.rfind("var(", 0) == 0 && clean_var.back() == ')') {
-        clean_var = clean_var.substr(4, clean_var.size() - 5);
-        size_t comma = clean_var.find(',');
-        if (comma != std::string::npos) {
-            clean_var = clean_var.substr(0, comma);
-        }
-        auto s = clean_var.find_first_not_of(" \t\n\r");
-        auto e = clean_var.find_last_not_of(" \t\n\r");
-        if (s != std::string::npos) clean_var = clean_var.substr(s, e - s + 1);
-    }
-    auto it = local_vars.find(clean_var);
-    if (it != local_vars.end()) {
-        return StyleEngine::instance().resolve_string(it->second, fallback);
-    }
-    if (clean_var.rfind("--", 0) == 0) {
-        it = local_vars.find(clean_var.substr(2));
-        if (it != local_vars.end()) return StyleEngine::instance().resolve_string(it->second, fallback);
-    } else {
-        it = local_vars.find("--" + clean_var);
-        if (it != local_vars.end()) return StyleEngine::instance().resolve_string(it->second, fallback);
-    }
-    return StyleEngine::instance().resolve_string(var_name, fallback);
+    const std::string* v = find_local_var(var_name, local_vars);
+    return StyleEngine::instance().resolve_scalar(v ? *v : var_name, fallback);
+}
+
+std::string resolve_op_string(
+    const std::string& var_name, const std::string& fallback,
+    const std::unordered_map<std::string, std::string>& local_vars
+) {
+    if (var_name.empty()) return fallback;
+    const std::string* v = find_local_var(var_name, local_vars);
+    return StyleEngine::instance().resolve_string(v ? *v : var_name, fallback);
 }
 
 } // namespace
@@ -1622,27 +1517,9 @@ void Surface::execute_batch(
                 fill_rect(d[0], d[1], d[2], d[3], c1);
                 break;
             case DrawOpType::FillRectGradient: {
-                if (op.bbox_relative) {
-                    Gradient mapped = op.grad;
-                    double x = d[0], y = d[1], w = d[2], h = d[3];
-                    if (mapped.type == Gradient::Type::Linear) {
-                        mapped.x0 = x + op.grad.x0 * w;
-                        mapped.y0 = y + op.grad.y0 * h;
-                        mapped.x1 = x + op.grad.x1 * w;
-                        mapped.y1 = y + op.grad.y1 * h;
-                    } else {
-                        mapped.x0 = x + op.grad.x0 * w;
-                        mapped.y0 = y + op.grad.y0 * h;
-                        mapped.x1 = x + op.grad.x1 * w;
-                        mapped.y1 = y + op.grad.y1 * h;
-                        double span = std::min(w, h);
-                        mapped.r0 = op.grad.r0 * span;
-                        mapped.r1 = op.grad.r1 * span;
-                    }
-                    fill_rect_gradient(x, y, w, h, mapped);
-                } else {
-                    fill_rect_gradient(d[0], d[1], d[2], d[3], op.grad);
-                }
+                fill_rect_gradient(d[0], d[1], d[2], d[3], op.bbox_relative
+                    ? map_bbox_gradient(op.grad, d[0], d[1], d[2], d[3], std::min(d[2], d[3]))
+                    : op.grad);
                 break;
             }
             case DrawOpType::StrokeRect:
@@ -1652,27 +1529,9 @@ void Surface::execute_batch(
                 fill_rounded_rect(d[0], d[1], d[2], d[3], d[4], d[5], c1);
                 break;
             case DrawOpType::FillRoundedRectGradient: {
-                if (op.bbox_relative) {
-                    Gradient mapped = op.grad;
-                    double x = d[0], y = d[1], w = d[2], h = d[3];
-                    if (mapped.type == Gradient::Type::Linear) {
-                        mapped.x0 = x + op.grad.x0 * w;
-                        mapped.y0 = y + op.grad.y0 * h;
-                        mapped.x1 = x + op.grad.x1 * w;
-                        mapped.y1 = y + op.grad.y1 * h;
-                    } else {
-                        mapped.x0 = x + op.grad.x0 * w;
-                        mapped.y0 = y + op.grad.y0 * h;
-                        mapped.x1 = x + op.grad.x1 * w;
-                        mapped.y1 = y + op.grad.y1 * h;
-                        double span = std::min(w, h);
-                        mapped.r0 = op.grad.r0 * span;
-                        mapped.r1 = op.grad.r1 * span;
-                    }
-                    fill_rounded_rect_gradient(x, y, w, h, d[4], d[5], mapped);
-                } else {
-                    fill_rounded_rect_gradient(d[0], d[1], d[2], d[3], d[4], d[5], op.grad);
-                }
+                fill_rounded_rect_gradient(d[0], d[1], d[2], d[3], d[4], d[5], op.bbox_relative
+                    ? map_bbox_gradient(op.grad, d[0], d[1], d[2], d[3], std::min(d[2], d[3]))
+                    : op.grad);
                 break;
             }
             case DrawOpType::StrokeRoundedRect:
@@ -1682,27 +1541,10 @@ void Surface::execute_batch(
                 fill_circle(d[0], d[1], d[2], c1);
                 break;
             case DrawOpType::FillCircleGradient: {
-                if (op.bbox_relative) {
-                    Gradient mapped = op.grad;
-                    double cx = d[0], cy = d[1], r = d[2];
-                    double x = cx - r, y = cy - r, diam = 2.0 * r;
-                    if (mapped.type == Gradient::Type::Linear) {
-                        mapped.x0 = x + op.grad.x0 * diam;
-                        mapped.y0 = y + op.grad.y0 * diam;
-                        mapped.x1 = x + op.grad.x1 * diam;
-                        mapped.y1 = y + op.grad.y1 * diam;
-                    } else {
-                        mapped.x0 = x + op.grad.x0 * diam;
-                        mapped.y0 = y + op.grad.y0 * diam;
-                        mapped.x1 = x + op.grad.x1 * diam;
-                        mapped.y1 = y + op.grad.y1 * diam;
-                        mapped.r0 = op.grad.r0 * r;
-                        mapped.r1 = op.grad.r1 * r;
-                    }
-                    fill_circle_gradient(cx, cy, r, mapped);
-                } else {
-                    fill_circle_gradient(d[0], d[1], d[2], op.grad);
-                }
+                const double r = d[2];
+                fill_circle_gradient(d[0], d[1], r, op.bbox_relative
+                    ? map_bbox_gradient(op.grad, d[0] - r, d[1] - r, 2.0 * r, 2.0 * r, r)
+                    : op.grad);
                 break;
             }
             case DrawOpType::StrokeCircle:

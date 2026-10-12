@@ -303,6 +303,15 @@ class Palette:
         val = getattr(self, key.replace("-", "_"), default)
         return val if val != "#00000000" else default
 
+    def get_scalar(self, key: str, fallback: float = 0.0) -> float:
+        """Retrieve scalar value from StyleEngine, resolving any var() chains and stripping CSS units."""
+        k = key.replace("_", "-")
+        query_key = f"--{k}" if not k.startswith("--") else k
+        try:
+            return float(StyleEngine.resolve_scalar(query_key, fallback, self._theme_name))
+        except Exception:
+            return fallback
+
     @classmethod
     def from_theme(cls, theme_name: str) -> Palette:
         return cls(theme_name)

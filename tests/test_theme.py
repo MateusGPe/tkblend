@@ -369,3 +369,42 @@ def test_contrast_across_all_registered_presets():
     set_theme("dark")
 
 
+def test_theme_metric_tokens():
+    from tkblend.theme import get_theme, set_theme, register_theme
+    set_theme("dark")
+    pal = get_theme()
+
+    # Default tokens from CSS
+    assert pal.get_scalar("input_pad_x", 0.0) == 3.0
+    assert pal.get_scalar("input_pad_top", 0.0) == 2.0
+    assert pal.get_scalar("input_pad_bottom", 0.0) == 4.0
+    assert pal.get_scalar("input_radius", 0.0) == 8.0
+    assert pal.get_scalar("btn_pad_x", 0.0) == 4.0
+    assert pal.get_scalar("btn_radius", 0.0) == 8.0
+    assert pal.get_scalar("nonexistent_token", fallback=42.5) == 42.5
+
+    # Register custom theme with overrides
+    custom_css = """
+    :root {
+      --bg: #111111;
+      --fg: #eeeeee;
+      --input-pad-x: 6px;
+      --input-radius: 14px;
+      --btn-pad-x: 10px;
+      --btn-radius: 16px;
+    }
+    """
+    register_theme("custom_metric_test", custom_css)
+    set_theme("custom_metric_test")
+    custom_pal = get_theme()
+
+    assert custom_pal.get_scalar("input_pad_x") == 6.0
+    assert custom_pal.get_scalar("input_radius") == 14.0
+    assert custom_pal.get_scalar("btn_pad_x") == 10.0
+    assert custom_pal.get_scalar("btn_radius") == 16.0
+
+    # Reset back to dark
+    set_theme("dark")
+
+
+
