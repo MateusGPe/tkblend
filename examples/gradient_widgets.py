@@ -1020,7 +1020,7 @@ class GradientShowcaseApp(tk.Tk):
             preset="cyberpunk",
             command=lambda: self._on_btn_click("Cyberpunk"),
             width=122,
-            height=,
+            height=50,
         )
         self.btn_cyber.pack(side="left", padx=(0, 10))
 
@@ -1030,7 +1030,7 @@ class GradientShowcaseApp(tk.Tk):
             preset="sunset",
             command=lambda: self._on_btn_click("Sunset"),
             width=122,
-            height=,
+            height=50,
         )
         self.btn_sunset.pack(side="left", padx=(0, 10))
 
@@ -1040,7 +1040,7 @@ class GradientShowcaseApp(tk.Tk):
             preset="ocean",
             command=lambda: self._on_btn_click("Ocean"),
             width=122,
-            height=,
+            height=50,
         )
         self.btn_ocean.pack(side="left")
 
@@ -1053,7 +1053,7 @@ class GradientShowcaseApp(tk.Tk):
             preset="emerald",
             command=lambda: self._on_btn_click("Emerald"),
             width=132,
-            height=,
+            height=50,
         )
         self.btn_emerald.pack(side="left", padx=(0, 10))
 
@@ -1063,7 +1063,7 @@ class GradientShowcaseApp(tk.Tk):
             preset="aurora",
             command=lambda: self._on_btn_click("Aurora"),
             width=132,
-            height=,
+            height=50,
         )
         self.btn_aurora.pack(side="left")
 

@@ -13,6 +13,7 @@ dist/
 *.egg-info/
 .eggs/
 _skbuild/
+CMakeLocalConfig.cmake
 
 # Virtual environments
 .venv/

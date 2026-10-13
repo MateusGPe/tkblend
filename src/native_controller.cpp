@@ -434,6 +434,30 @@ void NativeWidgetController::IdleRedraw(ClientData clientData) {
     }
 }
 
+static KeySym lookup_keysym(XKeyEvent* xkey) {
+    KeySym sym = NoSymbol;
+#if defined(_WIN32)
+    switch (xkey->keycode) {
+        case 0x09: /* VK_TAB */    sym = 0xFF09; break;
+        case 0x0D: /* VK_RETURN */ sym = 0xFF0D; break;
+        case 0x20: /* VK_SPACE */  sym = 0x20;   break;
+        default:                   sym = static_cast<KeySym>(xkey->keycode); break;
+    }
+#elif defined(__APPLE__)
+    switch (xkey->keycode) {
+        case 48: /* Tab */      sym = 0xFF09; break;
+        case 36: /* Return */   sym = 0xFF0D; break;
+        case 76: /* KP_Enter */ sym = 0xFF8D; break;
+        case 49: /* Space */    sym = 0x20;   break;
+        default:                sym = static_cast<KeySym>(xkey->keycode); break;
+    }
+#else
+    char kbuf[32];
+    XLookupString(xkey, kbuf, sizeof(kbuf), &sym, nullptr);
+#endif
+    return sym;
+}
+
 void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
     if (!eventPtr || !tkwin_) return;
 
@@ -510,7 +534,7 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
         case ButtonPress: {
             if (auto_focus_ && interp_ && !widget_path_.empty()) {
                 std::string cmd = "catch {focus " + widget_path_ + "}";
-                Tcl_Eval(interp_, cmd.c_str());
+                TkBlend_Eval(interp_, cmd.c_str());
             }
 
             if (eventPtr->xbutton.button == 1) {
@@ -694,17 +718,15 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
         }
 
         case KeyPress: {
-            char kbuf[32];
-            KeySym sym = NoSymbol;
-            XLookupString(&eventPtr->xkey, kbuf, sizeof(kbuf), &sym, nullptr);
-            if (sym == 0xFF09 /* Tab */) {
+            KeySym sym = lookup_keysym(&eventPtr->xkey);
+            if (sym == 0xFF09 || sym == 0x09 /* Tab */) {
                 if (interp_ && !widget_path_.empty()) {
                     bool shift = (eventPtr->xkey.state & ShiftMask) != 0;
                     std::string cmd = shift ? ("catch {tk::TabToWindow [tk_focusPrev " + widget_path_ + "]}")
                                             : ("catch {tk::TabToWindow [tk_focusNext " + widget_path_ + "]}");
-                    Tcl_Eval(interp_, cmd.c_str());
+                    TkBlend_Eval(interp_, cmd.c_str());
                 }
-            } else if (sym == 0x20 /* Space */ || sym == 0xFF0D /* Return */ || sym == 0xFF8D /* KP_Enter */) {
+            } else if (sym == 0x20 /* Space */ || sym == 0xFF0D || sym == 0x0D /* Return */ || sym == 0xFF8D /* KP_Enter */) {
                 if (widget_class_ == "button") {
                     set_pressed(true);
                     if (on_click_.is_valid() && !on_click_.is_none()) {
@@ -732,10 +754,8 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
         }
 
         case KeyRelease: {
-            char kbuf[32];
-            KeySym sym = NoSymbol;
-            XLookupString(&eventPtr->xkey, kbuf, sizeof(kbuf), &sym, nullptr);
-            if ((sym == 0x20 || sym == 0xFF0D || sym == 0xFF8D) && widget_class_ == "button") {
+            KeySym sym = lookup_keysym(&eventPtr->xkey);
+            if ((sym == 0x20 || sym == 0xFF0D || sym == 0x0D || sym == 0xFF8D) && widget_class_ == "button") {
                 set_pressed(false);
                 request_redraw();
             }

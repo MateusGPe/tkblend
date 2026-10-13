@@ -14,6 +14,20 @@
 #include <tk.h>
 #include <limits.h>
 
+#if defined(_WIN32)
+  #ifndef WIN32_LEAN_AND_MEAN
+    #define WIN32_LEAN_AND_MEAN
+  #endif
+  #ifndef NOMINMAX
+    #define NOMINMAX
+  #endif
+  #include <windows.h>
+  #include <tkPlatDecls.h>
+  #ifdef DrawText
+    #undef DrawText
+  #endif
+#endif
+
 #ifdef __cplusplus
 #define TKBLEND_EXTERN_C extern "C"
 #else
@@ -123,21 +137,83 @@ static inline void TkBlend_SetClassProcs(Tk_Window tkwin,
 #endif
 }
 
-/* Unified stubs initialization: supports Tcl/Tk 8.6 through 9.0+ ("8.6-") */
+/* Cross-version Tcl evaluation shim: Tcl_EvalEx exists in slot 291 across both Tcl 8.6 and 9.0+ */
+static inline int TkBlend_Eval(Tcl_Interp *interp, const char *script) {
+    if (!interp || !script) return TCL_ERROR;
+    return Tcl_EvalEx(interp, script, -1, 0);
+}
+
+#define TKBLEND_TCL_STUB_MAGIC_86 ((int)0xFCA3BACF)
+#define TKBLEND_TCL_STUB_MAGIC_90 ((int)0xFCA3BAD3)
+
+struct TkStubInfoShim {
+    int magic;
+    const struct TkStubs *tkStubsPtr;
+    const struct TkPlatStubs *tkPlatStubsPtr;
+    const struct TkIntStubs *tkIntStubsPtr;
+};
+
+/* Unified stubs initialization: supports Tcl/Tk 8.6 through 9.0+ */
 static inline int TkBlend_InitStubs(Tcl_Interp *interp) {
     if (interp == NULL) {
         return TCL_ERROR;
     }
+
 #ifdef USE_TCL_STUBS
-    if (Tcl_InitStubs(interp, "8.6-", 0) == NULL) {
-        return TCL_ERROR;
+    // 1. Try standard Tcl_InitStubs from tclstub
+    if (Tcl_InitStubs(interp, "8.6-", 0) == NULL && Tcl_InitStubs(interp, "8.6", 0) == NULL) {
+        // Fallback: If host is Tcl 9.0+ and tclstub86 rejected 0xFCA3BAD3 magic:
+        // Offset 0x18 in Tcl_Interp is stubTable across both Tcl 8.6 and Tcl 9.0 (TIP #590)
+        struct InterpHeader {
+            void *result;
+            void *freeProc;
+            int errorLine;
+            const struct TclStubs *stubTable;
+        };
+        const struct TclStubs *stubs = reinterpret_cast<const InterpHeader*>(interp)->stubTable;
+        if (!stubs || (stubs->magic != TKBLEND_TCL_STUB_MAGIC_86 && stubs->magic != TKBLEND_TCL_STUB_MAGIC_90)) {
+            return TCL_ERROR;
+        }
+        tclStubsPtr = stubs;
+        void *pkgData = nullptr;
+        const char *actualVersion = tclStubsPtr->tcl_PkgRequireEx(interp, "Tcl", "8.6-", 0, &pkgData);
+        if (!actualVersion) {
+            actualVersion = tclStubsPtr->tcl_PkgRequireEx(interp, "Tcl", "8.6", 0, &pkgData);
+            if (!actualVersion) {
+                return TCL_ERROR;
+            }
+        }
+        if (stubs->magic == TKBLEND_TCL_STUB_MAGIC_90 && pkgData) {
+            tclStubsPtr = reinterpret_cast<const struct TclStubs*>(pkgData);
+        }
     }
 #endif
+
 #ifdef USE_TK_STUBS
-    if (Tk_InitStubs(interp, "8.6-", 0) == NULL) {
-        return TCL_ERROR;
+    // 2. Initialize Tk stubs
+    if (Tk_InitStubs(interp, "8.6-", 0) == NULL && Tk_InitStubs(interp, "8.6", 0) == NULL) {
+        if (!tclStubsPtr) {
+            return TCL_ERROR;
+        }
+        void *pkgData = nullptr;
+        const char *actualVersion = tclStubsPtr->tcl_PkgRequireEx(interp, "Tk", "8.6-", 0, &pkgData);
+        if (!actualVersion) {
+            actualVersion = tclStubsPtr->tcl_PkgRequireEx(interp, "Tk", "8.6", 0, &pkgData);
+            if (!actualVersion) {
+                return TCL_ERROR;
+            }
+        }
+        if (!pkgData) {
+            return TCL_ERROR;
+        }
+        const auto *tkInfo = reinterpret_cast<const TkStubInfoShim*>(pkgData);
+        tkStubsPtr = tkInfo->tkStubsPtr;
+#if defined(_WIN32) || defined(__CYGWIN__)
+        tkPlatStubsPtr = tkInfo->tkPlatStubsPtr;
+#endif
     }
 #endif
+
     return TCL_OK;
 }
 
@@ -237,8 +313,14 @@ static inline int TkBlend_InitStubs(Tcl_Interp *interp) {
   #ifndef WIN32_LEAN_AND_MEAN
     #define WIN32_LEAN_AND_MEAN
   #endif
+  #ifndef NOMINMAX
+    #define NOMINMAX
+  #endif
   #include <windows.h>
   #include <tkPlatDecls.h>
+  #ifdef DrawText
+    #undef DrawText
+  #endif
 #elif defined(__APPLE__)
   #undef panic
   #include <CoreGraphics/CoreGraphics.h>

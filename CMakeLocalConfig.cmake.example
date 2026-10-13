@@ -1,0 +1,57 @@
+# ==============================================================================
+# tkblend - Local Machine CMake Configuration (Machine-Specific)
+# ==============================================================================
+# This file is loaded by CMakeLists.txt before project() is declared.
+# It allows developers to customize compiler paths, build generators, and
+# dependency locations specific to their local workstation.
+#
+# This file is ignored by Git. Modify settings below according to your machine.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. C & C++ Compilers
+# ------------------------------------------------------------------------------
+# Uncomment and set if CMake is unable to find your compilers automatically,
+# or if you have multiple compilers installed (e.g. GCC/MinGW, Clang, MSVC).
+
+# Example: MinGW / GCC (e.g., w64devkit or MSYS2)
+# set(CMAKE_C_COMPILER "C:/w64devkit/bin/gcc.exe" CACHE FILEPATH "C compiler" FORCE)
+# set(CMAKE_CXX_COMPILER "C:/w64devkit/bin/g++.exe" CACHE FILEPATH "C++ compiler" FORCE)
+
+# Example: LLVM / Clang
+# set(CMAKE_C_COMPILER "clang" CACHE FILEPATH "C compiler" FORCE)
+# set(CMAKE_CXX_COMPILER "clang++" CACHE FILEPATH "C++ compiler" FORCE)
+
+# Example: Visual Studio / MSVC
+# set(CMAKE_C_COMPILER "cl" CACHE FILEPATH "C compiler" FORCE)
+# set(CMAKE_CXX_COMPILER "cl" CACHE FILEPATH "C++ compiler" FORCE)
+
+# ------------------------------------------------------------------------------
+# 2. Tcl / Tk 8.6 Installation Paths (Windows)
+# ------------------------------------------------------------------------------
+# If building on Windows without Conda, specify your Tcl/Tk 8.6 directory.
+
+# Example: CMAKE_PREFIX_PATH to conda, system Tcl, or local Tcl86
+# list(APPEND CMAKE_PREFIX_PATH "C:/Users/username/AppData/Local/Apps/Tcl86")
+# list(APPEND CMAKE_PREFIX_PATH "C:/Users/username/miniconda3/Library")
+
+# Or specify individual paths directly:
+# set(TK_INCLUDE_PATH "C:/Users/username/AppData/Local/Apps/Tcl86/include" CACHE PATH "Tk include directory" FORCE)
+# set(TCL_INCLUDE_PATH "C:/Users/username/AppData/Local/Apps/Tcl86/include" CACHE PATH "Tcl include directory" FORCE)
+# set(TK_LIBRARY "C:/Users/username/AppData/Local/Apps/Tcl86/lib/tk86t.lib" CACHE FILEPATH "Tk import library" FORCE)
+# set(TCL_LIBRARY "C:/Users/username/AppData/Local/Apps/Tcl86/lib/tcl86t.lib" CACHE FILEPATH "Tcl import library" FORCE)
+# set(TK_STUB_LIBRARY "C:/Users/username/AppData/Local/Apps/Tcl86/lib/tkstub86.lib" CACHE FILEPATH "Tk stub library" FORCE)
+# set(TCL_STUB_LIBRARY "C:/Users/username/AppData/Local/Apps/Tcl86/lib/tclstub86.lib" CACHE FILEPATH "Tcl stub library" FORCE)
+
+# ------------------------------------------------------------------------------
+# 3. Build Type and Optimization
+# ------------------------------------------------------------------------------
+# set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type (Debug, Release, RelWithDebInfo)" FORCE)
+
+# ------------------------------------------------------------------------------
+# 4. Diagnostics & Testing Options
+# ------------------------------------------------------------------------------
+# set(ENABLE_SANITIZERS OFF CACHE BOOL "Enable AddressSanitizer and UndefinedBehaviorSanitizer" FORCE)
+# set(ENABLE_COVERAGE OFF CACHE BOOL "Enable code coverage instrumentation" FORCE)
+# set(ENABLE_NANOBIND_LEAK_CHECK OFF CACHE BOOL "Enable nanobind leak tracking" FORCE)
+# set(TKBLEND_FETCH_FREETYPE OFF CACHE BOOL "Force FetchContent for FreeType" FORCE)

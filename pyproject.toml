@@ -57,6 +57,7 @@ build-dir = "build/{wheel_tag}"
 
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE = "Release"
+CMAKE_GENERATOR = "Ninja"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

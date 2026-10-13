@@ -11,12 +11,116 @@ struct TkWinDCState {
     int bkmode;
 };
 
+#if !defined(TKBLEND_PURE_STUBS)
 extern "C" {
 EXTERN HDC TkWinGetDrawableDC(Display* display, Drawable drawable, TkWinDCState* state);
 EXTERN void TkWinReleaseDrawableDC(Drawable drawable, HDC dc, TkWinDCState* state);
 }
+#endif
 
 namespace tkblend {
+
+namespace {
+
+struct Win32DCHandle {
+    HDC hdc{nullptr};
+    HWND hwnd{nullptr};
+    bool used_tk_release{false};
+    TkWinDCState dc_state{};
+};
+
+static inline Win32DCHandle AcquireDrawableDC(Tk_Window tkwin, Drawable drawable) {
+    Win32DCHandle res;
+
+    // 1. Primary path (Pure Tk Stubs): Retrieve HWND via public stub table
+    HWND hwnd = Tk_GetHWND(drawable);
+    if (hwnd) {
+        res.hwnd = hwnd;
+        res.hdc = GetDC(hwnd);
+        if (res.hdc) {
+            return res;
+        }
+    }
+
+#if !defined(TKBLEND_PURE_STUBS)
+    // Direct-link dev mode: call internal TkWinGetDrawableDC directly
+    res.hdc = TkWinGetDrawableDC(Tk_Display(tkwin), drawable, &res.dc_state);
+    if (res.hdc) {
+        res.used_tk_release = true;
+        return res;
+    }
+#else
+    // 2. Fallback path (Off-screen pixmaps or non-HWND drawables):
+    // Dynamically query loaded Tk runtime in host process (e.g. tk90.dll, tk86t.dll)
+    // without introducing any compile-time or load-time PE DLL dependency.
+    using PFN_TkWinGetDrawableDC = HDC (*)(Display*, Drawable, TkWinDCState*);
+    static PFN_TkWinGetDrawableDC s_fnGetDC = []() -> PFN_TkWinGetDrawableDC {
+        const char* const candidate_modules[] = {
+            "tk90.dll", "tk86t.dll", "tk86.dll", "tk.dll"
+        };
+        for (const char* mod_name : candidate_modules) {
+            HMODULE h = GetModuleHandleA(mod_name);
+            if (h) {
+                auto fn = reinterpret_cast<PFN_TkWinGetDrawableDC>(
+                    GetProcAddress(h, "TkWinGetDrawableDC")
+                );
+                if (fn) return fn;
+            }
+        }
+        return nullptr;
+    }();
+
+    if (s_fnGetDC) {
+        res.hdc = s_fnGetDC(Tk_Display(tkwin), drawable, &res.dc_state);
+        if (res.hdc) {
+            res.used_tk_release = true;
+            return res;
+        }
+    }
+#endif
+
+    return res;
+}
+
+static inline void ReleaseDrawableDC(Drawable drawable, const Win32DCHandle& handle) {
+    if (!handle.hdc) return;
+
+    if (handle.hwnd && !handle.used_tk_release) {
+        ReleaseDC(handle.hwnd, handle.hdc);
+        return;
+    }
+
+#if !defined(TKBLEND_PURE_STUBS)
+    if (handle.used_tk_release) {
+        TkWinReleaseDrawableDC(drawable, handle.hdc, const_cast<TkWinDCState*>(&handle.dc_state));
+    }
+#else
+    if (handle.used_tk_release) {
+        using PFN_TkWinReleaseDrawableDC = void (*)(Drawable, HDC, TkWinDCState*);
+        static PFN_TkWinReleaseDrawableDC s_fnReleaseDC = []() -> PFN_TkWinReleaseDrawableDC {
+            const char* const candidate_modules[] = {
+                "tk90.dll", "tk86t.dll", "tk86.dll", "tk.dll"
+            };
+            for (const char* mod_name : candidate_modules) {
+                HMODULE h = GetModuleHandleA(mod_name);
+                if (h) {
+                    auto fn = reinterpret_cast<PFN_TkWinReleaseDrawableDC>(
+                        GetProcAddress(h, "TkWinReleaseDrawableDC")
+                    );
+                    if (fn) return fn;
+                }
+            }
+            return nullptr;
+        }();
+
+        if (s_fnReleaseDC) {
+            s_fnReleaseDC(drawable, handle.hdc, const_cast<TkWinDCState*>(&handle.dc_state));
+        }
+    }
+#endif
+}
+
+} // anonymous namespace
 
 bool NativeBlit(
     Tk_Window tkwin,
@@ -34,9 +138,8 @@ bool NativeBlit(
         return false;
     }
 
-    TkWinDCState dcState;
-    HDC hdc = TkWinGetDrawableDC(Tk_Display(tkwin), drawable, &dcState);
-    if (!hdc) {
+    Win32DCHandle dcHandle = AcquireDrawableDC(tkwin, drawable);
+    if (!dcHandle.hdc) {
         return false;
     }
 
@@ -51,12 +154,12 @@ bool NativeBlit(
 
     BlitClipResult clip = ComputeBlitClip(tkwin, box, width, height);
     if (!clip.visible) {
-        TkWinReleaseDrawableDC(drawable, hdc, &dcState);
+        ReleaseDrawableDC(drawable, dcHandle);
         return true; // Completely clipped out
     }
 
     SetDIBitsToDevice(
-        hdc,
+        dcHandle.hdc,
         clip.dst_x, clip.dst_y,
         clip.req_w, clip.req_h,
         clip.src_x, clip.src_y,
@@ -66,7 +169,7 @@ bool NativeBlit(
         DIB_RGB_COLORS
     );
 
-    TkWinReleaseDrawableDC(drawable, hdc, &dcState);
+    ReleaseDrawableDC(drawable, dcHandle);
     return true;
 }
 

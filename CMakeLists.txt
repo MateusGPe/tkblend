@@ -3,6 +3,23 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "Darwi
 endif()
 
 cmake_minimum_required(VERSION 3.20)
+
+# ------------------------------------------------------------------------------
+# Local Machine Configuration (optional, machine-specific)
+# ------------------------------------------------------------------------------
+set(_TKBLEND_LOCAL_CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLocalConfig.cmake")
+set(_TKBLEND_LOCAL_CONFIG_EXAMPLE "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLocalConfig.cmake.example")
+
+if(NOT EXISTS "${_TKBLEND_LOCAL_CONFIG}" AND EXISTS "${_TKBLEND_LOCAL_CONFIG_EXAMPLE}")
+    message(STATUS "Instantiating default CMakeLocalConfig.cmake from template...")
+    configure_file("${_TKBLEND_LOCAL_CONFIG_EXAMPLE}" "${_TKBLEND_LOCAL_CONFIG}" COPYONLY)
+endif()
+
+if(EXISTS "${_TKBLEND_LOCAL_CONFIG}")
+    message(STATUS "Loading local machine configuration from: ${_TKBLEND_LOCAL_CONFIG}")
+    include("${_TKBLEND_LOCAL_CONFIG}")
+endif()
+
 project(tkblend LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -155,6 +172,8 @@ find_path(TK_INCLUDE_PATH
         /usr/include
         "C:/Program Files/Tcl"
         "C:/Program Files/Tcl/include"
+        "$ENV{LOCALAPPDATA}/Apps/Tcl86"
+        "$ENV{LOCALAPPDATA}/Apps/Tcl86/include"
         "C:/msys64/ucrt64/include"
         "C:/msys64/mingw64/include"
         "C:/msys64/clang64/include"
@@ -175,6 +194,8 @@ find_path(TCL_INCLUDE_PATH
         /usr/include
         "C:/Program Files/Tcl"
         "C:/Program Files/Tcl/include"
+        "$ENV{LOCALAPPDATA}/Apps/Tcl86"
+        "$ENV{LOCALAPPDATA}/Apps/Tcl86/include"
         "C:/msys64/ucrt64/include"
         "C:/msys64/mingw64/include"
         "C:/msys64/clang64/include"
@@ -194,6 +215,7 @@ find_library(TK_LIBRARY
         /usr/lib/x86_64-linux-gnu
         /usr/lib/aarch64-linux-gnu
         "C:/Program Files/Tcl/lib"
+        "$ENV{LOCALAPPDATA}/Apps/Tcl86/lib"
         "C:/msys64/ucrt64/lib"
         "C:/msys64/mingw64/lib"
         "C:/msys64/clang64/lib"
@@ -212,6 +234,7 @@ find_library(TCL_LIBRARY
         /usr/lib/x86_64-linux-gnu
         /usr/lib/aarch64-linux-gnu
         "C:/Program Files/Tcl/lib"
+        "$ENV{LOCALAPPDATA}/Apps/Tcl86/lib"
         "C:/msys64/ucrt64/lib"
         "C:/msys64/mingw64/lib"
         "C:/msys64/clang64/lib"
@@ -230,6 +253,7 @@ find_library(TK_STUB_LIBRARY
         /usr/lib/x86_64-linux-gnu
         /usr/lib/aarch64-linux-gnu
         "C:/Program Files/Tcl/lib"
+        "$ENV{LOCALAPPDATA}/Apps/Tcl86/lib"
         "C:/msys64/ucrt64/lib"
         "C:/msys64/mingw64/lib"
         "C:/msys64/clang64/lib"
@@ -248,6 +272,7 @@ find_library(TCL_STUB_LIBRARY
         /usr/lib/x86_64-linux-gnu
         /usr/lib/aarch64-linux-gnu
         "C:/Program Files/Tcl/lib"
+        "$ENV{LOCALAPPDATA}/Apps/Tcl86/lib"
         "C:/msys64/ucrt64/lib"
         "C:/msys64/mingw64/lib"
         "C:/msys64/clang64/lib"
@@ -260,21 +285,28 @@ message(STATUS "TCL_LIBRARY: ${TCL_LIBRARY}")
 message(STATUS "TK_STUB_LIBRARY: ${TK_STUB_LIBRARY}")
 message(STATUS "TCL_STUB_LIBRARY: ${TCL_STUB_LIBRARY}")
 
+option(TKBLEND_PURE_STUBS "Build using pure Tcl/Tk stubs (recommended for portable wheels and Tk 8.6/9.0+ compat)" ON)
+
 if(WIN32)
     if(NOT TK_INCLUDE_PATH OR NOT TCL_INCLUDE_PATH
         OR NOT EXISTS "${TK_INCLUDE_PATH}/tkPlatDecls.h")
         message(FATAL_ERROR
-            "Windows builds require Tcl/Tk 8.6 development headers. "
-            "Install the tk=8.6.13 conda-forge package and set "
-            "CMAKE_PREFIX_PATH to its Library directory."
+            "Windows builds require Tcl/Tk development headers. "
+            "Install the tk development package and set "
+            "CMAKE_PREFIX_PATH or TK_INCLUDE_PATH/TCL_INCLUDE_PATH."
         )
     endif()
-    if(NOT TK_LIBRARY OR NOT TCL_LIBRARY
-        OR NOT TK_STUB_LIBRARY OR NOT TCL_STUB_LIBRARY)
+    if(NOT TK_STUB_LIBRARY OR NOT TCL_STUB_LIBRARY)
         message(FATAL_ERROR
-            "Windows builds require Tcl/Tk 8.6 import and stub libraries. "
-            "Install the tk=8.6.13 conda-forge package and set "
-            "CMAKE_PREFIX_PATH to its Library directory."
+            "Windows builds require Tcl/Tk stub libraries (tkstub/tclstub). "
+            "Install the tk stub libraries and set "
+            "CMAKE_PREFIX_PATH or TK_STUB_LIBRARY/TCL_STUB_LIBRARY."
+        )
+    endif()
+    if(NOT TKBLEND_PURE_STUBS AND (NOT TK_LIBRARY OR NOT TCL_LIBRARY))
+        message(FATAL_ERROR
+            "Direct-link development mode requires Tcl/Tk import libraries. "
+            "Install Tcl/Tk import libraries (tk86t.lib/tcl86t.lib) or enable TKBLEND_PURE_STUBS."
         )
     endif()
 endif()
@@ -420,15 +452,26 @@ if(UNIX AND NOT APPLE)
         message(FATAL_ERROR "Tcl/Tk stub libraries are required on Linux")
     endif()
     target_compile_definitions(_tkblend PRIVATE USE_TCL_STUBS USE_TK_STUBS)
+    if(TKBLEND_PURE_STUBS)
+        target_compile_definitions(_tkblend PRIVATE TKBLEND_PURE_STUBS=1)
+    endif()
     target_link_libraries(_tkblend PRIVATE ${TK_STUB_LIBRARY} ${TCL_STUB_LIBRARY})
 elseif(WIN32)
     target_compile_definitions(_tkblend PRIVATE USE_TCL_STUBS USE_TK_STUBS)
-    target_link_libraries(_tkblend PRIVATE
-        ${TK_STUB_LIBRARY}
-        ${TCL_STUB_LIBRARY}
-        ${TK_LIBRARY}
-        ${TCL_LIBRARY}
-    )
+    if(TKBLEND_PURE_STUBS)
+        target_compile_definitions(_tkblend PRIVATE TKBLEND_PURE_STUBS=1)
+        target_link_libraries(_tkblend PRIVATE
+            ${TK_STUB_LIBRARY}
+            ${TCL_STUB_LIBRARY}
+        )
+    else()
+        target_link_libraries(_tkblend PRIVATE
+            ${TK_STUB_LIBRARY}
+            ${TCL_STUB_LIBRARY}
+            ${TK_LIBRARY}
+            ${TCL_LIBRARY}
+        )
+    endif()
 else()
     if(NOT TK_STUB_LIBRARY OR NOT TCL_STUB_LIBRARY)
         message(FATAL_ERROR
@@ -437,6 +480,9 @@ else()
         )
     endif()
     target_compile_definitions(_tkblend PRIVATE USE_TCL_STUBS USE_TK_STUBS)
+    if(TKBLEND_PURE_STUBS)
+        target_compile_definitions(_tkblend PRIVATE TKBLEND_PURE_STUBS=1)
+    endif()
     target_link_libraries(_tkblend PRIVATE ${TK_STUB_LIBRARY} ${TCL_STUB_LIBRARY})
 endif()
 
