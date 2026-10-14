@@ -21,9 +21,41 @@
 #include <mutex>
 #include <cstdint>
 
+#include "fnv1a.hpp"
+#include "string_utils.hpp"
+
 namespace nb = nanobind;
 
 namespace tkblend {
+
+// Strongly-typed widget class for fast zero-string event dispatch
+enum class WidgetKind : uint8_t {
+    Generic = 0,
+    Button,
+    Slider,
+    RangeSlider,
+    SegmentedButton,
+    Scrollbar,
+    Switch,
+    Checkbox,
+    Radio
+};
+
+inline constexpr WidgetKind parse_widget_kind(std::string_view sv) noexcept {
+    switch (fnv1a64_lower(sv)) {
+        case "button"_hash:           return WidgetKind::Button;
+        case "slider"_hash:           return WidgetKind::Slider;
+        case "range_slider"_hash:     return WidgetKind::RangeSlider;
+        case "range-slider"_hash:     return WidgetKind::RangeSlider;
+        case "segmented_button"_hash: return WidgetKind::SegmentedButton;
+        case "segmented-button"_hash: return WidgetKind::SegmentedButton;
+        case "scrollbar"_hash:        return WidgetKind::Scrollbar;
+        case "switch"_hash:           return WidgetKind::Switch;
+        case "checkbox"_hash:         return WidgetKind::Checkbox;
+        case "radio"_hash:            return WidgetKind::Radio;
+        default:                      return WidgetKind::Generic;
+    }
+}
 
 // Bitmask flags for native widget state
 enum ControllerPseudoState : uint16_t {
@@ -133,6 +165,7 @@ public:
 
     const std::string& widget_class() const { return widget_class_; }
     void set_widget_class(const std::string& wc);
+    WidgetKind widget_kind() const { return widget_kind_; }
 
     // CSS Class Management
     void add_class(const std::string& name);
@@ -210,6 +243,7 @@ private:
 
     // Widget Class, CSS Classes, dynamic variables, and DrawBatch
     std::string widget_class_;
+    WidgetKind widget_kind_{WidgetKind::Generic};
     std::vector<std::string> classes_;
     std::unordered_map<std::string, std::string> local_vars_;
     std::shared_ptr<DrawBatch> draw_batch_{nullptr};

@@ -100,6 +100,55 @@ inline std::vector<std::string> split_top_level(const std::string& s, char delim
     return out;
 }
 
+// Fast match of named CSS colors via compile-time FNV-1a switch
+static constexpr std::optional<Color> match_named_color(std::string_view name) noexcept {
+    switch (fnv1a64_lower(name)) {
+        case "transparent"_hash: return Color(0, 0, 0, 0);
+        case "none"_hash:        return Color(0, 0, 0, 0);
+        case "white"_hash:       return Color(255, 255, 255, 255);
+        case "black"_hash:       return Color(0, 0, 0, 255);
+        case "red"_hash:         return Color(255, 0, 0, 255);
+        case "green"_hash:       return Color(0, 255, 0, 255);
+        case "blue"_hash:        return Color(0, 0, 255, 255);
+        case "yellow"_hash:      return Color(255, 255, 0, 255);
+        case "cyan"_hash:
+        case "aqua"_hash:        return Color(0, 255, 255, 255);
+        case "magenta"_hash:     return Color(255, 0, 255, 255);
+        case "gray"_hash:
+        case "grey"_hash:        return Color(128, 128, 128, 255);
+        case "silver"_hash:      return Color(192, 192, 192, 255);
+        case "maroon"_hash:      return Color(128, 0, 0, 255);
+        case "olive"_hash:       return Color(128, 128, 0, 255);
+        case "lime"_hash:        return Color(0, 255, 0, 255);
+        case "teal"_hash:        return Color(0, 128, 128, 255);
+        case "navy"_hash:        return Color(0, 0, 128, 255);
+        case "purple"_hash:      return Color(128, 0, 128, 255);
+        case "orange"_hash:      return Color(255, 165, 0, 255);
+        default:                 return std::nullopt;
+    }
+}
+
+static bool parse_css_func_args(std::string_view sv, double out_vals[4], size_t& count) noexcept {
+    count = 0;
+    while (!sv.empty() && count < 4) {
+        sv = trim_view(sv);
+        if (sv.empty()) break;
+        size_t comma = sv.find(',');
+        std::string_view token = (comma != std::string_view::npos) ? sv.substr(0, comma) : sv;
+        if (comma != std::string_view::npos) {
+            sv = sv.substr(comma + 1);
+        } else {
+            sv = {};
+        }
+        token = trim_view(token);
+        if (!token.empty() && token.back() == '%') {
+            token.remove_suffix(1);
+        }
+        out_vals[count++] = fast_parse_double(token, 0.0);
+    }
+    return count >= 3;
+}
+
 } // anonymous namespace
 
 StyleEngine& StyleEngine::instance() {
@@ -287,58 +336,31 @@ Color StyleEngine::resolve_color(const std::string& color_str, const std::string
     }
 
     std::string s = resolve_var_string(color_str, 0, theme_name);
-    s = trim(s);
-    if (s.empty()) return Color(0, 0, 0, 0);
+    std::string_view sv = trim_view(s);
+    if (sv.empty()) return Color(0, 0, 0, 0);
 
     // Hex format
-    if (s.front() == '#') {
-        return Color::from_hex(s);
+    if (sv.front() == '#') {
+        return Color::from_hex(sv);
     }
 
-    std::string low = to_lower(s);
-
-    if (low == "transparent") return Color(0, 0, 0, 0);
-    if (low == "none") return Color(0, 0, 0, 0);
-    if (low == "white") return Color(255, 255, 255, 255);
-    if (low == "black") return Color(0, 0, 0, 255);
-    if (low == "red") return Color(255, 0, 0, 255);
-    if (low == "green") return Color(0, 255, 0, 255);
-    if (low == "blue") return Color(0, 0, 255, 255);
-    if (low == "yellow") return Color(255, 255, 0, 255);
-    if (low == "cyan" || low == "aqua") return Color(0, 255, 255, 255);
-    if (low == "magenta") return Color(255, 0, 255, 255);
-    if (low == "gray" || low == "grey") return Color(128, 128, 128, 255);
-    if (low == "silver") return Color(192, 192, 192, 255);
-    if (low == "maroon") return Color(128, 0, 0, 255);
-    if (low == "olive") return Color(128, 128, 0, 255);
-    if (low == "lime") return Color(0, 255, 0, 255);
-    if (low == "teal") return Color(0, 128, 128, 255);
-    if (low == "navy") return Color(0, 0, 128, 255);
-    if (low == "purple") return Color(128, 0, 128, 255);
-    if (low == "orange") return Color(255, 165, 0, 255);
+    // Named color via compile-time FNV-1a switch
+    auto named = match_named_color(sv);
+    if (named.has_value()) return *named;
 
     // rgb(...) / rgba(...)
-    if (low.rfind("rgb", 0) == 0) {
-        size_t open_p = low.find('(');
-        size_t close_p = low.rfind(')');
-        if (open_p != std::string::npos && close_p != std::string::npos && close_p > open_p) {
-            std::string args = low.substr(open_p + 1, close_p - open_p - 1);
-            std::stringstream ss(args);
-            std::string item;
-            std::vector<double> vals;
-            while (std::getline(ss, item, ',')) {
-                item = trim(item);
-                if (item.empty()) continue;
-                try {
-                    vals.push_back(std::stod(item));
-                } catch (...) {}
-            }
-            if (vals.size() >= 3) {
+    if (sv.starts_with("rgb(") || sv.starts_with("rgba(")) {
+        size_t open_p = sv.find('(');
+        size_t close_p = sv.rfind(')');
+        if (open_p != std::string_view::npos && close_p != std::string_view::npos && close_p > open_p) {
+            double vals[4]{0};
+            size_t count = 0;
+            if (parse_css_func_args(sv.substr(open_p + 1, close_p - open_p - 1), vals, count)) {
                 uint8_t r = static_cast<uint8_t>(std::clamp(vals[0], 0.0, 255.0));
                 uint8_t g = static_cast<uint8_t>(std::clamp(vals[1], 0.0, 255.0));
                 uint8_t b = static_cast<uint8_t>(std::clamp(vals[2], 0.0, 255.0));
                 uint8_t a = 255;
-                if (vals.size() >= 4) {
+                if (count >= 4) {
                     double a_val = vals[3];
                     if (a_val <= 1.0) a_val *= 255.0;
                     a = static_cast<uint8_t>(std::clamp(a_val + 0.5, 0.0, 255.0));
@@ -349,29 +371,19 @@ Color StyleEngine::resolve_color(const std::string& color_str, const std::string
     }
 
     // hsl(...) / hsla(...)
-    if (low.rfind("hsl", 0) == 0) {
-        size_t open_p = low.find('(');
-        size_t close_p = low.rfind(')');
-        if (open_p != std::string::npos && close_p != std::string::npos && close_p > open_p) {
-            std::string args = low.substr(open_p + 1, close_p - open_p - 1);
-            std::stringstream ss(args);
-            std::string item;
-            std::vector<double> vals;
-            while (std::getline(ss, item, ',')) {
-                item = trim(item);
-                if (item.empty()) continue;
-                if (!item.empty() && item.back() == '%') item.pop_back();
-                try {
-                    vals.push_back(std::stod(item));
-                } catch (...) {}
-            }
-            if (vals.size() >= 3) {
+    if (sv.starts_with("hsl(") || sv.starts_with("hsla(")) {
+        size_t open_p = sv.find('(');
+        size_t close_p = sv.rfind(')');
+        if (open_p != std::string_view::npos && close_p != std::string_view::npos && close_p > open_p) {
+            double vals[4]{0};
+            size_t count = 0;
+            if (parse_css_func_args(sv.substr(open_p + 1, close_p - open_p - 1), vals, count)) {
                 double h = vals[0];
-                double s = vals[1] / 100.0;
+                double sl = vals[1] / 100.0;
                 double l = vals[2] / 100.0;
                 double a = 1.0;
-                if (vals.size() >= 4) a = vals[3] <= 1.0 ? vals[3] : vals[3] / 100.0;
-                return hsl_to_color(h, s, l, a);
+                if (count >= 4) a = (vals[3] <= 1.0) ? vals[3] : vals[3] / 100.0;
+                return hsl_to_color(h, sl, l, a);
             }
         }
     }
@@ -396,55 +408,81 @@ Color StyleEngine::resolve_color_var(const std::string& val, const Color& fallba
         if (!v.empty()) {
             return resolve_color_var(v, fallback, theme_name);
         }
-        // Semantic component variable fallbacks
-        if (val == "--btn-hover-bg" || val == "--btn-active-bg" || val == "--btn-disabled-bg") {
-            std::string base = get_variable("--btn-bg", theme_name);
-            if (base.empty()) base = get_variable("--card-bg", theme_name);
-            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
-        }
-        if (val == "--btn-hover-fg" || val == "--btn-active-fg" || val == "--btn-disabled-fg") {
-            std::string base = get_variable("--btn-fg", theme_name);
-            if (base.empty()) base = get_variable("--fg", theme_name);
-            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
-        }
-        if (val == "--card-shadow" || val == "--btn-shadow") {
-            std::string base = get_variable("--shadow", theme_name);
-            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
-        }
-        if (val == "--box-bg" || val == "--radio-bg") {
-            std::string base = get_variable("--card-bg", theme_name);
-            if (base.empty()) base = get_variable("--surface", theme_name);
-            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
-        }
-        if (val == "--box-border" || val == "--radio-border") {
-            std::string base = get_variable("--card-border", theme_name);
-            if (base.empty()) base = get_variable("--input-border", theme_name);
-            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
-        }
-        if (val == "--active-bg" || val == "--active-track-bg" || val == "--bar-bg" || val == "--dot-color") {
-            std::string base = get_variable("--primary", theme_name);
-            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
-        }
-        if (val == "--check-color") {
-            std::string base = get_variable("--primary-fg", theme_name);
-            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
-        }
-        if (val == "--thumb-bg" || val == "--thumb-active-bg") {
-            std::string base = get_variable("--thumb-color", theme_name);
-            if (base.empty()) base = get_variable("--primary", theme_name);
-            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
-        }
-        if (val == "--badge-bg") {
-            std::string base = get_variable("--surface", theme_name);
-            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
-        }
-        if (val == "--badge-fg") {
-            std::string base = get_variable("--fg", theme_name);
-            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
-        }
-        if (val == "--focus-ring-color") {
-            std::string base = get_variable("--primary", theme_name);
-            if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+        // Semantic component variable fallbacks via compile-time FNV-1a switch
+        switch (fnv1a64(val)) {
+            case "--btn-hover-bg"_hash:
+            case "--btn-active-bg"_hash:
+            case "--btn-disabled-bg"_hash: {
+                std::string base = get_variable("--btn-bg", theme_name);
+                if (base.empty()) base = get_variable("--card-bg", theme_name);
+                if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+                break;
+            }
+            case "--btn-hover-fg"_hash:
+            case "--btn-active-fg"_hash:
+            case "--btn-disabled-fg"_hash: {
+                std::string base = get_variable("--btn-fg", theme_name);
+                if (base.empty()) base = get_variable("--fg", theme_name);
+                if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+                break;
+            }
+            case "--card-shadow"_hash:
+            case "--btn-shadow"_hash: {
+                std::string base = get_variable("--shadow", theme_name);
+                if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+                break;
+            }
+            case "--box-bg"_hash:
+            case "--radio-bg"_hash: {
+                std::string base = get_variable("--card-bg", theme_name);
+                if (base.empty()) base = get_variable("--surface", theme_name);
+                if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+                break;
+            }
+            case "--box-border"_hash:
+            case "--radio-border"_hash: {
+                std::string base = get_variable("--card-border", theme_name);
+                if (base.empty()) base = get_variable("--input-border", theme_name);
+                if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+                break;
+            }
+            case "--active-bg"_hash:
+            case "--active-track-bg"_hash:
+            case "--bar-bg"_hash:
+            case "--dot-color"_hash: {
+                std::string base = get_variable("--primary", theme_name);
+                if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+                break;
+            }
+            case "--check-color"_hash: {
+                std::string base = get_variable("--primary-fg", theme_name);
+                if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+                break;
+            }
+            case "--thumb-bg"_hash:
+            case "--thumb-active-bg"_hash: {
+                std::string base = get_variable("--thumb-color", theme_name);
+                if (base.empty()) base = get_variable("--primary", theme_name);
+                if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+                break;
+            }
+            case "--badge-bg"_hash: {
+                std::string base = get_variable("--surface", theme_name);
+                if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+                break;
+            }
+            case "--badge-fg"_hash: {
+                std::string base = get_variable("--fg", theme_name);
+                if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+                break;
+            }
+            case "--focus-ring-color"_hash: {
+                std::string base = get_variable("--primary", theme_name);
+                if (!base.empty()) return resolve_color_var(base, fallback, theme_name);
+                break;
+            }
+            default:
+                break;
         }
         return fallback;
     }
@@ -453,9 +491,16 @@ Color StyleEngine::resolve_color_var(const std::string& val, const Color& fallba
     if (s.empty()) return fallback;
     Color c = resolve_color(s, theme_name);
     if (c.a == 0 && c.r == 0 && c.g == 0 && c.b == 0) {
-        std::string low = to_lower(s);
-        if (low != "transparent" && low != "none" && low != "#00000000" && low != "#0000" && low != "rgba(0,0,0,0)" && low != "rgba(0, 0, 0, 0)") {
-            return fallback;
+        switch (fnv1a64_lower(trim_view(s))) {
+            case "transparent"_hash:
+            case "none"_hash:
+            case "#00000000"_hash:
+            case "#0000"_hash:
+            case "rgba(0,0,0,0)"_hash:
+            case "rgba(0, 0, 0, 0)"_hash:
+                break;
+            default:
+                return fallback;
         }
     }
     return c;
@@ -556,7 +601,7 @@ void StyleEngine::parse_and_apply_css(const std::string& css_text, const std::st
         if (selector_group.front() == '@') continue; // unsupported at-rule
 
         // Parse declarations (source order preserved)
-        std::vector<std::pair<std::string, std::string>> decls;
+        std::vector<StyleDeclaration> decls;
         for (const std::string& raw_item : split_top_level(body, ';')) {
             std::string item = trim(raw_item);
             if (item.empty()) continue;
@@ -570,7 +615,8 @@ void StyleEngine::parse_and_apply_css(const std::string& css_text, const std::st
                 val = trim(val.substr(0, val.size() - kImportant.size()));
             }
             if (!prop.empty() && !val.empty()) {
-                decls.emplace_back(to_lower(prop), val);
+                CssProperty cp = parse_css_property(prop);
+                decls.push_back(StyleDeclaration{cp, std::move(prop), std::move(val)});
             }
         }
 
@@ -582,13 +628,13 @@ void StyleEngine::parse_and_apply_css(const std::string& css_text, const std::st
             if (single_sel == ":root") {
                 // Store custom properties into target_theme variables
                 std::string theme_key = target_theme.empty() ? current_theme_ : target_theme;
-                for (const auto& [prop, val] : decls) {
-                    if (prop.rfind("--", 0) == 0) {
-                        uint32_t id = intern_token(prop);
-                        theme_variables_[theme_key][id] = val;
+                for (const auto& decl : decls) {
+                    if (decl.name.rfind("--", 0) == 0) {
+                        uint32_t id = intern_token(decl.name);
+                        theme_variables_[theme_key][id] = decl.value;
                         // Also store under alias without dashes if helpful
-                        std::string alias = prop.substr(2);
-                        theme_variables_[theme_key][intern_token(alias)] = val;
+                        std::string alias = decl.name.substr(2);
+                        theme_variables_[theme_key][intern_token(alias)] = decl.value;
                     }
                 }
                 continue;
@@ -600,21 +646,30 @@ void StyleEngine::parse_and_apply_css(const std::string& css_text, const std::st
             // Parse selector components: element, .class, :pseudo
             std::string sel = single_sel;
             
-            // Check pseudo-class
+            // Check pseudo-class via compile-time FNV-1a switch
             size_t pseudo_pos = sel.find(':');
             if (pseudo_pos != std::string::npos) {
-                std::string pseudo = to_lower(sel.substr(pseudo_pos + 1));
+                std::string pseudo = sel.substr(pseudo_pos + 1);
                 sel = sel.substr(0, pseudo_pos);
-                if (pseudo == "hover") {
-                    rule.pseudo_state |= PseudoState::Hover;
-                } else if (pseudo == "active") {
-                    rule.pseudo_state |= PseudoState::Active;
-                } else if (pseudo == "focus" || pseudo == "focused") {
-                    rule.pseudo_state |= PseudoState::Focused;
-                } else if (pseudo == "disabled") {
-                    rule.pseudo_state |= PseudoState::Disabled;
-                } else if (pseudo == "checked") {
-                    rule.pseudo_state |= PseudoState::Checked;
+                switch (fnv1a64_lower(trim_view(pseudo))) {
+                    case "hover"_hash:
+                        rule.pseudo_state |= PseudoState::Hover;
+                        break;
+                    case "active"_hash:
+                        rule.pseudo_state |= PseudoState::Active;
+                        break;
+                    case "focus"_hash:
+                    case "focused"_hash:
+                        rule.pseudo_state |= PseudoState::Focused;
+                        break;
+                    case "disabled"_hash:
+                        rule.pseudo_state |= PseudoState::Disabled;
+                        break;
+                    case "checked"_hash:
+                        rule.pseudo_state |= PseudoState::Checked;
+                        break;
+                    default:
+                        break;
                 }
                 rule.specificity += 100;
             }
@@ -759,102 +814,132 @@ ComputedStyle StyleEngine::resolve(
 
     // Apply matched declarations in order
     for (const auto& m : matches) {
-        for (const auto& [prop, val] : m.rule->declarations) {
-            if (prop == "background" || prop == "background-color" || prop == "bg") {
-                cs.bg_color = resolve_color(val);
-            } else if (prop == "color" || prop == "foreground" || prop == "fg") {
-                cs.fg_color = resolve_color(val);
-            } else if (prop == "border-color") {
-                cs.border_color = resolve_color(val);
-            } else if (prop == "border-width") {
-                cs.border_width = parse_length(val);
-            } else if (prop == "border-radius" || prop == "radius" || prop == "rx" || prop == "ry") {
-                cs.border_radius = parse_length(val);
-            } else if (prop == "border") {
-                std::string b_str = trim(val);
-                if (b_str == "none" || b_str == "0" || b_str == "0px") {
-                    cs.border_width = 0.0f;
-                    cs.border_color = Color(0, 0, 0, 0);
-                } else {
-                    std::stringstream b_ss(b_str);
-                    std::string token;
-                    while (b_ss >> token) {
-                        token = trim(token);
-                        if (token.empty()) continue;
-                        if (std::isdigit(static_cast<unsigned char>(token.front())) || token.front() == '.') {
-                            cs.border_width = parse_length(token);
-                        } else if (token == "solid" || token == "dashed" || token == "dotted") {
-                            // style indicator
-                        } else {
-                            // Color token or var(...)
-                            // If rest of string has var or rgba, read rest
-                            std::string rest = token;
-                            std::string next;
-                            while (b_ss >> next) {
-                                rest += " " + next;
+        for (const auto& decl : m.rule->declarations) {
+            switch (decl.property) {
+                case CssProperty::BgColor:
+                    cs.bg_color = resolve_color(decl.value);
+                    break;
+                case CssProperty::FgColor:
+                    cs.fg_color = resolve_color(decl.value);
+                    break;
+                case CssProperty::BorderColor:
+                    cs.border_color = resolve_color(decl.value);
+                    break;
+                case CssProperty::BorderWidth:
+                    cs.border_width = fast_parse_length(decl.value);
+                    break;
+                case CssProperty::BorderRadius:
+                    cs.border_radius = fast_parse_length(decl.value);
+                    break;
+                case CssProperty::Border: {
+                    std::string_view b_sv = trim_view(decl.value);
+                    if (b_sv == "none" || b_sv == "0" || b_sv == "0px") {
+                        cs.border_width = 0.0f;
+                        cs.border_color = Color(0, 0, 0, 0);
+                    } else {
+                        std::stringstream b_ss(decl.value);
+                        std::string token;
+                        while (b_ss >> token) {
+                            token = trim(token);
+                            if (token.empty()) continue;
+                            if (std::isdigit(static_cast<unsigned char>(token.front())) || token.front() == '.') {
+                                cs.border_width = fast_parse_length(token);
+                            } else if (token == "solid" || token == "dashed" || token == "dotted") {
+                                // style indicator
+                            } else {
+                                std::string rest = token;
+                                std::string next;
+                                while (b_ss >> next) {
+                                    rest += " " + next;
+                                }
+                                cs.border_color = resolve_color(rest);
+                                break;
                             }
-                            cs.border_color = resolve_color(rest);
+                        }
+                    }
+                    break;
+                }
+                case CssProperty::BoxShadow: {
+                    std::string_view s_sv = trim_view(decl.value);
+                    if (s_sv == "none" || s_sv == "0" || s_sv == "0px") {
+                        cs.shadow_blur = 0.0f;
+                        cs.shadow_offset_x = 0.0f;
+                        cs.shadow_offset_y = 0.0f;
+                        cs.shadow_color = Color(0, 0, 0, 0);
+                    } else {
+                        std::stringstream s_ss(decl.value);
+                        std::vector<std::string> tokens;
+                        std::string t;
+                        while (s_ss >> t) {
+                            tokens.push_back(t);
+                        }
+                        if (tokens.size() >= 3) {
+                            cs.shadow_offset_x = fast_parse_length(tokens[0]);
+                            cs.shadow_offset_y = fast_parse_length(tokens[1]);
+                            cs.shadow_blur = fast_parse_length(tokens[2]);
+
+                            size_t color_idx = 3;
+                            auto is_num_start = [](char ch) {
+                                return std::isdigit(static_cast<unsigned char>(ch)) || ch == '-' || ch == '.';
+                            };
+                            if (tokens.size() >= 4 && is_num_start(tokens[3].front())) {
+                                // 4th token is spread radius
+                                color_idx = 4;
+                            }
+
+                            std::string col_part;
+                            for (size_t k = color_idx; k < tokens.size(); ++k) {
+                                if (!col_part.empty()) col_part += " ";
+                                col_part += tokens[k];
+                            }
+                            if (!col_part.empty()) {
+                                cs.shadow_color = resolve_color(col_part);
+                            }
+                        }
+                    }
+                    break;
+                }
+                case CssProperty::ShadowBlur:
+                    cs.shadow_blur = fast_parse_length(decl.value);
+                    break;
+                case CssProperty::ShadowColor:
+                    cs.shadow_color = resolve_color(decl.value);
+                    break;
+                case CssProperty::ShadowOffsetX:
+                    cs.shadow_offset_x = fast_parse_length(decl.value);
+                    break;
+                case CssProperty::ShadowOffsetY:
+                    cs.shadow_offset_y = fast_parse_length(decl.value);
+                    break;
+                case CssProperty::FontSize:
+                    cs.font_size = fast_parse_length(decl.value, 13.0f);
+                    break;
+                case CssProperty::FontFamily:
+                    cs.font_family = std::string(strip_quotes_view(decl.value));
+                    break;
+                case CssProperty::FontWeight: {
+                    std::string_view fw = trim_view(decl.value);
+                    switch (fnv1a64_lower(fw)) {
+                        case "bold"_hash:
+                            cs.font_weight = 700;
                             break;
-                        }
+                        case "normal"_hash:
+                            cs.font_weight = 400;
+                            break;
+                        case "medium"_hash:
+                            cs.font_weight = 500;
+                            break;
+                        case "semibold"_hash:
+                            cs.font_weight = 600;
+                            break;
+                        default:
+                            cs.font_weight = fast_parse_int(fw, 400);
+                            break;
                     }
+                    break;
                 }
-            } else if (prop == "box-shadow") {
-                std::string s_str = trim(val);
-                if (s_str == "none" || s_str == "0" || s_str == "0px") {
-                    cs.shadow_blur = 0.0f;
-                    cs.shadow_offset_x = 0.0f;
-                    cs.shadow_offset_y = 0.0f;
-                    cs.shadow_color = Color(0, 0, 0, 0);
-                } else {
-                    std::stringstream s_ss(s_str);
-                    std::vector<std::string> tokens;
-                    std::string t;
-                    while (s_ss >> t) {
-                        tokens.push_back(t);
-                    }
-                    if (tokens.size() >= 3) {
-                        cs.shadow_offset_x = parse_length(tokens[0]);
-                        cs.shadow_offset_y = parse_length(tokens[1]);
-                        cs.shadow_blur = parse_length(tokens[2]);
-
-                        size_t color_idx = 3;
-                        auto is_num_start = [](char ch) {
-                            return std::isdigit(static_cast<unsigned char>(ch)) || ch == '-' || ch == '.';
-                        };
-                        if (tokens.size() >= 4 && is_num_start(tokens[3].front())) {
-                            // 4th token is spread radius
-                            color_idx = 4;
-                        }
-
-                        std::string col_part;
-                        for (size_t k = color_idx; k < tokens.size(); ++k) {
-                            if (!col_part.empty()) col_part += " ";
-                            col_part += tokens[k];
-                        }
-                        if (!col_part.empty()) {
-                            cs.shadow_color = resolve_color(col_part);
-                        }
-                    }
-                }
-            } else if (prop == "shadow-blur") {
-                cs.shadow_blur = parse_length(val);
-            } else if (prop == "shadow-color") {
-                cs.shadow_color = resolve_color(val);
-            } else if (prop == "shadow-offset-x") {
-                cs.shadow_offset_x = parse_length(val);
-            } else if (prop == "shadow-offset-y") {
-                cs.shadow_offset_y = parse_length(val);
-            } else if (prop == "font-size") {
-                cs.font_size = parse_length(val);
-            } else if (prop == "font-family") {
-                cs.font_family = strip_quotes(val);
-            } else if (prop == "font-weight") {
-                std::string fw = to_lower(trim(val));
-                if (fw == "bold") cs.font_weight = 700;
-                else if (fw == "normal") cs.font_weight = 400;
-                else if (fw == "medium") cs.font_weight = 500;
-                else if (fw == "semibold") cs.font_weight = 600;
-                else cs.font_weight = static_cast<int>(parse_length(val));
+                default:
+                    break;
             }
         }
     }

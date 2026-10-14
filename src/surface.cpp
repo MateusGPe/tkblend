@@ -1,6 +1,7 @@
 #include "surface.hpp"
 #include "style_engine.hpp"
 #include "compiled_draw_batch.hpp"
+#include "string_utils.hpp"
 #include <algorithm>
 #include <cmath>
 #include <sstream>
@@ -1452,20 +1453,18 @@ const std::string* find_local_var(
     const std::string& var_name,
     const std::unordered_map<std::string, std::string>& local_vars
 ) {
-    std::string name = var_name;
-    if (name.rfind("var(", 0) == 0 && name.back() == ')') {
-        name = name.substr(4, name.size() - 5);
-        size_t comma = name.find(',');
-        if (comma != std::string::npos) name.resize(comma);
-        auto s = name.find_first_not_of(" \t\n\r");
-        auto e = name.find_last_not_of(" \t\n\r");
-        if (s != std::string::npos) name = name.substr(s, e - s + 1);
-    }
-    auto it = local_vars.find(name);
-    if (it == local_vars.end()) {
-        it = local_vars.find(name.rfind("--", 0) == 0 ? name.substr(2) : "--" + name);
-    }
-    return it != local_vars.end() ? &it->second : nullptr;
+    if (var_name.empty()) return nullptr;
+    std::string_view name = extract_var_view(var_name);
+
+    std::string with_dash = "--";
+    with_dash.append(name);
+    auto it = local_vars.find(with_dash);
+    if (it != local_vars.end()) return &it->second;
+
+    auto it2 = local_vars.find(std::string(name));
+    if (it2 != local_vars.end()) return &it2->second;
+
+    return nullptr;
 }
 
 Color resolve_op_color(

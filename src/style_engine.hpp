@@ -2,8 +2,11 @@
 
 #include "color.hpp"
 #include "draw_batch.hpp"
+#include "fnv1a.hpp"
+#include "string_utils.hpp"
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <utility>
 #include <unordered_map>
@@ -55,13 +58,81 @@ struct ComputedStyle {
     std::string font_family{"sans-serif"};
 };
 
+enum class CssProperty : uint8_t {
+    Unknown = 0,
+    BgColor,
+    FgColor,
+    BorderColor,
+    BorderWidth,
+    BorderRadius,
+    Border,
+    BoxShadow,
+    ShadowBlur,
+    ShadowColor,
+    ShadowOffsetX,
+    ShadowOffsetY,
+    FontSize,
+    FontWeight,
+    FontFamily,
+    CustomVar
+};
+
+inline constexpr CssProperty parse_css_property(std::string_view prop) noexcept {
+    if (prop.starts_with("--")) return CssProperty::CustomVar;
+    switch (fnv1a64_lower(prop)) {
+        case "background"_hash:
+        case "background-color"_hash:
+        case "bg"_hash:
+            return CssProperty::BgColor;
+        case "color"_hash:
+        case "foreground"_hash:
+        case "fg"_hash:
+            return CssProperty::FgColor;
+        case "border-color"_hash:
+            return CssProperty::BorderColor;
+        case "border-width"_hash:
+            return CssProperty::BorderWidth;
+        case "border-radius"_hash:
+        case "radius"_hash:
+        case "rx"_hash:
+        case "ry"_hash:
+            return CssProperty::BorderRadius;
+        case "border"_hash:
+            return CssProperty::Border;
+        case "box-shadow"_hash:
+            return CssProperty::BoxShadow;
+        case "shadow-blur"_hash:
+            return CssProperty::ShadowBlur;
+        case "shadow-color"_hash:
+            return CssProperty::ShadowColor;
+        case "shadow-offset-x"_hash:
+            return CssProperty::ShadowOffsetX;
+        case "shadow-offset-y"_hash:
+            return CssProperty::ShadowOffsetY;
+        case "font-size"_hash:
+            return CssProperty::FontSize;
+        case "font-weight"_hash:
+            return CssProperty::FontWeight;
+        case "font-family"_hash:
+            return CssProperty::FontFamily;
+        default:
+            return CssProperty::Unknown;
+    }
+}
+
+struct StyleDeclaration {
+    CssProperty property{CssProperty::Unknown};
+    std::string name; // raw name or custom property name (--var)
+    std::string value;
+};
+
 struct StyleRule {
     std::string element;       // e.g. "button", "card", "*" or ""
     std::string class_name;    // e.g. "btn-primary", "card", or ""
     uint16_t pseudo_state = 0; // bitmask of required PseudoState
     int specificity = 0;
     // Declarations in source order; later entries override earlier ones.
-    std::vector<std::pair<std::string, std::string>> declarations;
+    std::vector<StyleDeclaration> declarations;
 };
 
 class StyleEngine {

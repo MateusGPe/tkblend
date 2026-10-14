@@ -1,5 +1,7 @@
 #include "compiled_draw_batch.hpp"
 #include "style_engine.hpp"
+#include "fnv1a.hpp"
+#include "string_utils.hpp"
 #include <optional>
 #include <algorithm>
 
@@ -7,52 +9,61 @@ namespace tkblend {
 
 namespace {
 
-static std::optional<ScalarSlot> match_scalar_slot(const std::string& raw_var) {
+static constexpr std::optional<ScalarSlot> match_scalar_slot(std::string_view raw_var) noexcept {
     if (raw_var.empty()) return std::nullopt;
-    std::string s = raw_var;
-    if (s.rfind("var(", 0) == 0 && s.back() == ')') {
-        s = s.substr(4, s.size() - 5);
-        size_t comma = s.find(',');
-        if (comma != std::string::npos) s.resize(comma);
-        auto first = s.find_first_not_of(" \t\n\r");
-        auto last = s.find_last_not_of(" \t\n\r");
-        if (first != std::string::npos) s = s.substr(first, last - first + 1);
-    }
-    if (s.rfind("--", 0) == 0) s = s.substr(2);
+    std::string_view s = extract_var_view(raw_var);
 
-    if (s == "hover-t") return SLOT_HOVER_T;
-    if (s == "press-t") return SLOT_PRESS_T;
-    if (s == "focus-t") return SLOT_FOCUS_T;
-    if (s == "w" || s == "width") return SLOT_WIDTH;
-    if (s == "h" || s == "height") return SLOT_HEIGHT;
-    if (s == "active-w") return SLOT_ACTIVE_W;
-    if (s == "thumb-x") return SLOT_THUMB_X;
-    if (s == "thumb-y") return SLOT_THUMB_Y;
-    if (s == "progress-w") return SLOT_PROGRESS_W;
-    if (s == "focus-ring-width") return SLOT_FOCUS_RING_W;
-    if (s == "text-x") return SLOT_TEXT_X;
-    if (s == "text-y") return SLOT_TEXT_Y;
-    if (s == "w_fr") return SLOT_W_FR;
-    if (s == "h_fr") return SLOT_H_FR;
-    return std::nullopt;
+    switch (fnv1a64(s)) {
+        case "hover-t"_hash:           return SLOT_HOVER_T;
+        case "press-t"_hash:           return SLOT_PRESS_T;
+        case "focus-t"_hash:           return SLOT_FOCUS_T;
+        case "w"_hash:
+        case "width"_hash:             return SLOT_WIDTH;
+        case "h"_hash:
+        case "height"_hash:            return SLOT_HEIGHT;
+        case "active-w"_hash:          return SLOT_ACTIVE_W;
+        case "thumb-x"_hash:           return SLOT_THUMB_X;
+        case "thumb-y"_hash:           return SLOT_THUMB_Y;
+        case "progress-w"_hash:        return SLOT_PROGRESS_W;
+        case "focus-ring-width"_hash:  return SLOT_FOCUS_RING_W;
+        case "text-x"_hash:            return SLOT_TEXT_X;
+        case "text-y"_hash:            return SLOT_TEXT_Y;
+        case "w_fr"_hash:              return SLOT_W_FR;
+        case "h_fr"_hash:              return SLOT_H_FR;
+        default:                       return std::nullopt;
+    }
 }
 
-static std::optional<ColorSlot> match_color_slot(const std::string& raw_var) {
+static constexpr std::optional<ColorSlot> match_color_slot(std::string_view raw_var) noexcept {
     if (raw_var.empty()) return std::nullopt;
-    std::string s = raw_var;
-    if (s.rfind("var(", 0) == 0 && s.back() == ')') {
-        s = s.substr(4, s.size() - 5);
-        size_t comma = s.find(',');
-        if (comma != std::string::npos) s.resize(comma);
-        auto first = s.find_first_not_of(" \t\n\r");
-        auto last = s.find_last_not_of(" \t\n\r");
-        if (first != std::string::npos) s = s.substr(first, last - first + 1);
-    }
-    if (s.rfind("--", 0) == 0) s = s.substr(2);
+    std::string_view s = extract_var_view(raw_var);
 
-    if (s == "parent-bg") return SLOT_COLOR_PARENT_BG;
-    if (s == "accent") return SLOT_COLOR_ACCENT;
-    return std::nullopt;
+    switch (fnv1a64(s)) {
+        case "parent-bg"_hash: return SLOT_COLOR_PARENT_BG;
+        case "accent"_hash:    return SLOT_COLOR_ACCENT;
+        default:               return std::nullopt;
+    }
+}
+
+static const std::string* lookup_local_var(
+    const std::unordered_map<std::string, std::string>& vars,
+    std::string_view key
+) noexcept {
+    // 1. Direct search
+    auto it = vars.find(std::string(key));
+    if (it != vars.end()) return &it->second;
+
+    // 2. Try stripped / prepended prefix
+    if (key.starts_with("--")) {
+        auto it2 = vars.find(std::string(key.substr(2)));
+        if (it2 != vars.end()) return &it2->second;
+    } else {
+        std::string with_dash = "--";
+        with_dash.append(key);
+        auto it3 = vars.find(with_dash);
+        if (it3 != vars.end()) return &it3->second;
+    }
+    return nullptr;
 }
 
 } // anonymous namespace
@@ -86,22 +97,13 @@ std::shared_ptr<CompiledDrawBatch> DrawBatchCompiler::compile(
                 } else {
                     bool resolved_local = false;
                     if (local_vars) {
-                        auto it = local_vars->find(op.d_vars[i]);
-                        if (it != local_vars->end() && !it->second.empty()) {
+                        const std::string* val = lookup_local_var(*local_vars, op.d_vars[i]);
+                        if (val && !val->empty()) {
                             try {
                                 size_t idx = 0;
-                                cop.d[i] = std::stod(it->second, &idx);
+                                cop.d[i] = std::stod(*val, &idx);
                                 resolved_local = true;
                             } catch (...) {}
-                        } else if (op.d_vars[i].rfind("--", 0) == 0) {
-                            auto it2 = local_vars->find(op.d_vars[i].substr(2));
-                            if (it2 != local_vars->end() && !it2->second.empty()) {
-                                try {
-                                    size_t idx = 0;
-                                    cop.d[i] = std::stod(it2->second, &idx);
-                                    resolved_local = true;
-                                } catch (...) {}
-                            }
                         }
                     }
                     if (!resolved_local) {
@@ -121,16 +123,10 @@ std::shared_ptr<CompiledDrawBatch> DrawBatchCompiler::compile(
             } else {
                 bool resolved_local = false;
                 if (local_vars) {
-                    auto it = local_vars->find(op.c1_var);
-                    if (it != local_vars->end() && !it->second.empty()) {
-                        cop.c1 = se.resolve_color(it->second);
+                    const std::string* val = lookup_local_var(*local_vars, op.c1_var);
+                    if (val && !val->empty()) {
+                        cop.c1 = se.resolve_color(*val);
                         resolved_local = true;
-                    } else if (op.c1_var.rfind("--", 0) == 0) {
-                        auto it2 = local_vars->find(op.c1_var.substr(2));
-                        if (it2 != local_vars->end() && !it2->second.empty()) {
-                            cop.c1 = se.resolve_color(it2->second);
-                            resolved_local = true;
-                        }
                     }
                 }
                 if (!resolved_local) {
@@ -149,16 +145,10 @@ std::shared_ptr<CompiledDrawBatch> DrawBatchCompiler::compile(
             } else {
                 bool resolved_local = false;
                 if (local_vars) {
-                    auto it = local_vars->find(op.c2_var);
-                    if (it != local_vars->end() && !it->second.empty()) {
-                        cop.c2 = se.resolve_color(it->second);
+                    const std::string* val = lookup_local_var(*local_vars, op.c2_var);
+                    if (val && !val->empty()) {
+                        cop.c2 = se.resolve_color(*val);
                         resolved_local = true;
-                    } else if (op.c2_var.rfind("--", 0) == 0) {
-                        auto it2 = local_vars->find(op.c2_var.substr(2));
-                        if (it2 != local_vars->end() && !it2->second.empty()) {
-                            cop.c2 = se.resolve_color(it2->second);
-                            resolved_local = true;
-                        }
                     }
                 }
                 if (!resolved_local) {
@@ -177,16 +167,10 @@ std::shared_ptr<CompiledDrawBatch> DrawBatchCompiler::compile(
             } else {
                 bool resolved_local = false;
                 if (local_vars) {
-                    auto it = local_vars->find(op.c3_var);
-                    if (it != local_vars->end() && !it->second.empty()) {
-                        cop.c3 = se.resolve_color(it->second);
+                    const std::string* val = lookup_local_var(*local_vars, op.c3_var);
+                    if (val && !val->empty()) {
+                        cop.c3 = se.resolve_color(*val);
                         resolved_local = true;
-                    } else if (op.c3_var.rfind("--", 0) == 0) {
-                        auto it2 = local_vars->find(op.c3_var.substr(2));
-                        if (it2 != local_vars->end() && !it2->second.empty()) {
-                            cop.c3 = se.resolve_color(it2->second);
-                            resolved_local = true;
-                        }
                     }
                 }
                 if (!resolved_local) {
@@ -199,14 +183,9 @@ std::shared_ptr<CompiledDrawBatch> DrawBatchCompiler::compile(
         std::string text = op.str;
         if (!op.str_var.empty()) {
             if (local_vars) {
-                auto it = local_vars->find(op.str_var);
-                if (it != local_vars->end() && !it->second.empty()) {
-                    text = it->second;
-                } else if (op.str_var.rfind("--", 0) == 0) {
-                    auto it2 = local_vars->find(op.str_var.substr(2));
-                    if (it2 != local_vars->end() && !it2->second.empty()) {
-                        text = it2->second;
-                    }
+                const std::string* val = lookup_local_var(*local_vars, op.str_var);
+                if (val && !val->empty()) {
+                    text = *val;
                 }
             }
             if (text.empty()) {

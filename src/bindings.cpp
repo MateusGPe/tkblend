@@ -12,6 +12,7 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/string_view.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/tuple.h>
@@ -63,7 +64,7 @@ void bind_color(nb::module_& m) {
         .def_rw("g", &Color::g)
         .def_rw("b", &Color::b)
         .def_rw("a", &Color::a)
-        .def_static("from_hex", &Color::from_hex, nb::arg("hex"))
+        .def_static("from_hex", [](std::string_view hex) { return Color::from_hex(hex); }, nb::arg("hex"))
         .def_static("from_u32", &Color::from_u32, nb::arg("argb"))
         .def("to_u32", &Color::to_u32)
         .def("lighten", &Color::lighten, nb::arg("factor"))
@@ -481,9 +482,18 @@ static void surface_buffer_dealloc(PyObject* self) {
     Py_TYPE(self)->tp_free(self);
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
+
 static PyTypeObject SurfaceBufferType = {
     PyVarObject_HEAD_INIT(NULL, 0)
 };
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 static void init_surface_buffer_type() {
     static std::once_flag flag;
