@@ -195,6 +195,7 @@ class BaseControl(tk.Frame):
 
         # Event bindings
         self.bind("<Destroy>", self._on_tk_destroy, add="+")
+        self.bind("<Configure>", self._on_tk_configure, add="+")
 
     def _default_inner_bg(self, pal: Palette) -> str:
         """Subclasses can override to define their default semantic theme inner color."""
@@ -495,8 +496,17 @@ class BaseControl(tk.Frame):
         """Hook called on mouse button release."""
         pass
 
+    def _on_tk_configure(self, event: tk.Event) -> None:
+        if event.widget == self:
+            w = int(event.width)
+            h = int(event.height)
+            if w > 0 and h > 0 and (w != getattr(self, "_last_conf_w", None) or h != getattr(self, "_last_conf_h", None)):
+                self._last_conf_w = w
+                self._last_conf_h = h
+                self.on_resize(w, h)
+
     def _on_controller_resize(self, width: int, height: int) -> None:
-        self.on_resize(width, height)
+        pass
 
     def on_resize(self, width: int, height: int) -> None:
         """Hook called on widget geometry resize."""

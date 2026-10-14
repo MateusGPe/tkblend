@@ -519,27 +519,10 @@ void NativeWidgetController::HandleTkEvent(ClientData clientData, XEvent* eventP
 void NativeWidgetController::IdleRedraw(ClientData clientData) {
     auto* self = static_cast<NativeWidgetController*>(clientData);
     if (self) {
-        int pw = -1, ph = -1;
-        bool do_resize = false;
         {
             std::lock_guard<std::recursive_mutex> lock(self->mutex_);
             self->idle_scheduled_ = false;
-            if (self->has_pending_resize_) {
-                pw = self->pending_resize_w_;
-                ph = self->pending_resize_h_;
-                self->has_pending_resize_ = false;
-                do_resize = true;
-            }
-        }
-        if (do_resize) {
-            nb::gil_scoped_acquire gil;
-            if (self->on_resize_.is_valid() && !self->on_resize_.is_none()) {
-                try {
-                    self->on_resize_(pw, ph);
-                } catch (const nb::python_error&) {
-                    PyErr_Print();
-                } catch (...) {}
-            }
+            self->has_pending_resize_ = false;
         }
         self->paint_and_blit();
     }
