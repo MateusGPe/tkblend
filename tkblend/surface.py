@@ -18,6 +18,8 @@ from tkblend._tkblend import (  # type: ignore
     StyleEngine,
     SurfaceRegistry,
     DrawBatch,
+    CompiledDrawBatch,
+    FastRegisterBank,
     TextMetrics,
     EasingType,
     ease,
@@ -138,13 +140,14 @@ class Surface:
         width: Union[int, _NativeSurface, SurfaceHandle],
         height: Optional[int] = None,
         borrowed: bool = False,
+        thread_count: int = 0,
     ):
         self._borrowed = borrowed
         if isinstance(width, (_NativeSurface, SurfaceHandle)):
             self._surface = width
         else:
             h = int(height) if height is not None else 1
-            self._surface = _NativeSurface(max(1, int(width)), max(1, h))
+            self._surface = _NativeSurface(max(1, int(width)), max(1, h), int(thread_count))
 
     def __enter__(self) -> Surface:
         return self
@@ -865,6 +868,14 @@ class Surface:
         """Execute a recorded DrawBatch display list with zero GIL overhead and dynamic variable resolution."""
         vars_dict = {str(k): str(v) for k, v in (local_vars or {}).items()}
         self._surface.execute_batch(batch, vars_dict, int(pseudo_state), str(class_name))
+
+    def execute_compiled(
+        self,
+        compiled: CompiledDrawBatch,
+        registers: FastRegisterBank,
+    ) -> None:
+        """Execute a compiled bytecode batch with zero allocations and O(1) register evaluation."""
+        self._surface.execute_compiled(compiled, registers)
 
     def flush(self) -> None:
         """Synchronize and flush all queued Blend2D rendering operations."""

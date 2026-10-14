@@ -336,7 +336,7 @@ if(APPLE)
     set_source_files_properties(src/blit/blit_macos.mm src/font/font_resolver_macos.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
 elseif(WIN32)
     list(APPEND PLATFORM_SOURCES src/blit/blit_win32.cpp src/font/font_resolver_win32.cpp)
-    list(APPEND PLATFORM_LIBS gdi32 user32 dwrite)
+    list(APPEND PLATFORM_LIBS gdi32 user32 dwrite winmm)
 else()
     find_package(X11 REQUIRED)
     list(APPEND PLATFORM_SOURCES src/blit/blit_x11.cpp src/font/font_resolver_linux.cpp)
@@ -387,6 +387,7 @@ set(TKBLEND_SOURCES
     src/shadow_engine.cpp
     src/emoji_engine.cpp
     src/draw_batch.cpp
+    src/compiled_draw_batch.cpp
     src/draw_engine.cpp
     src/style_engine.cpp
     src/surface.cpp
@@ -500,7 +501,7 @@ else()
         target_compile_options(_tkblend PRIVATE -O1 -g -fexceptions -fsanitize=address,undefined -fno-omit-frame-pointer -Wall -Wextra -Wno-unused-parameter)
         target_link_options(_tkblend PRIVATE -fsanitize=address,undefined)
     else()
-        target_compile_options(_tkblend PRIVATE -O3 -fexceptions -Wall -Wextra -Wno-unused-parameter)
+        target_compile_options(_tkblend PRIVATE -O3 -fno-math-errno -fexceptions -Wall -Wextra -Wno-unused-parameter)
     endif()
 endif()
 

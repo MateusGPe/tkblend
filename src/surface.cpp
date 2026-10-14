@@ -132,10 +132,9 @@ void Surface::init_context() {
     ctx_.end();
     image_.create(width_, height_, BL_FORMAT_PRGB32);
     if (thread_count_ > 0) {
-        BLContextCreateInfo cci;
-        blContextCreateInfoInit(&cci);
-        cci.threadCount = static_cast<uint32_t>(thread_count_);
-        ctx_.begin(image_, &cci);
+        BLContextCreateInfo cci{};
+        cci.thread_count = static_cast<uint32_t>(thread_count_);
+        ctx_.begin(image_, cci);
     } else {
         ctx_.begin(image_);
     }

@@ -2,6 +2,7 @@
 
 #include "color.hpp"
 #include "gradient.hpp"
+#include <memory>
 #include <vector>
 #include <string>
 #include <cstddef>

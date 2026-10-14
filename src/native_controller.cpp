@@ -8,6 +8,14 @@
 
 namespace tkblend {
 
+namespace {
+static std::vector<NativeWidgetController*> s_active_animators;
+static Tcl_TimerToken s_global_anim_timer = nullptr;
+static std::mutex s_anim_mutex;
+
+static void GlobalAnimTimerCallback(ClientData clientData);
+} // namespace
+
 NativeWidgetController::NativeWidgetController()
     : internal_surface_(std::make_unique<Surface>(1, 1)) {}
 
@@ -89,11 +97,20 @@ void NativeWidgetController::detach() {
         }
     }
 
+    {
+        std::lock_guard<std::mutex> alock(s_anim_mutex);
+        s_active_animators.erase(
+            std::remove(s_active_animators.begin(), s_active_animators.end(), this),
+            s_active_animators.end()
+        );
+    }
+
     tkwin_ = nullptr;
     interp_ = nullptr;
     widget_path_.clear();
     bound_surface_id_ = 0;
     external_surface_ = nullptr;
+    invalidate_cached_batch();
 }
 
 void NativeWidgetController::on_window_destroyed() {
@@ -101,6 +118,13 @@ void NativeWidgetController::on_window_destroyed() {
     if (idle_scheduled_ && interp_) {
         Tcl_CancelIdleCall(IdleRedraw, this);
         idle_scheduled_ = false;
+    }
+    {
+        std::lock_guard<std::mutex> alock(s_anim_mutex);
+        s_active_animators.erase(
+            std::remove(s_active_animators.begin(), s_active_animators.end(), this),
+            s_active_animators.end()
+        );
     }
     if (anim_timer_ && interp_) {
         Tcl_DeleteTimerHandler(anim_timer_);
@@ -117,6 +141,7 @@ void NativeWidgetController::on_window_destroyed() {
     widget_path_.clear();
     bound_surface_id_ = 0;
     external_surface_ = nullptr;
+    invalidate_cached_batch();
 }
 
 void NativeWidgetController::set_geometry_request(int req_w, int req_h) {
@@ -353,24 +378,65 @@ void NativeWidgetController::set_focus_t(float val) {
     request_redraw();
 }
 
+namespace {
+static void GlobalAnimTimerCallback(ClientData clientData) {
+    (void)clientData;
+    std::vector<NativeWidgetController*> to_tick;
+    {
+        std::lock_guard<std::mutex> lock(s_anim_mutex);
+        s_global_anim_timer = nullptr;
+        to_tick = s_active_animators;
+    }
+
+    std::vector<NativeWidgetController*> still_active;
+    still_active.reserve(to_tick.size());
+
+    for (auto* ctrl : to_tick) {
+        if (ctrl && ctrl->tick_animation_step()) {
+            still_active.push_back(ctrl);
+        }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(s_anim_mutex);
+        s_active_animators = std::move(still_active);
+        if (!s_active_animators.empty() && !s_global_anim_timer) {
+            s_global_anim_timer = Tcl_CreateTimerHandler(16, GlobalAnimTimerCallback, nullptr);
+        }
+    }
+}
+} // namespace
+
 void NativeWidgetController::schedule_anim_step() {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
-    if (!animated_ || anim_timer_ != nullptr || !interp_) return;
-    anim_timer_ = Tcl_CreateTimerHandler(16, AnimTimerCallback, this);
+    if (!animated_ || !interp_) return;
+
+    std::lock_guard<std::mutex> alock(s_anim_mutex);
+    if (std::find(s_active_animators.begin(), s_active_animators.end(), this) == s_active_animators.end()) {
+        s_active_animators.push_back(this);
+    }
+    if (!s_global_anim_timer) {
+        s_global_anim_timer = Tcl_CreateTimerHandler(16, GlobalAnimTimerCallback, nullptr);
+    }
 }
 
 void NativeWidgetController::AnimTimerCallback(ClientData clientData) {
     auto* ctrl = reinterpret_cast<NativeWidgetController*>(clientData);
     if (ctrl) {
-        ctrl->on_anim_tick();
+        ctrl->tick_animation_step();
     }
 }
 
 void NativeWidgetController::on_anim_tick() {
+    tick_animation_step();
+}
+
+bool NativeWidgetController::tick_animation_step() {
     bool still_animating = false;
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
-        anim_timer_ = nullptr;
+        if (!tkwin_ || !interp_) return false;
+
         // Hover lerp
         float diff_h = target_hover_ - hover_t_;
         if (std::abs(diff_h) > 0.01f) {
@@ -400,10 +466,7 @@ void NativeWidgetController::on_anim_tick() {
     }
 
     request_redraw();
-
-    if (still_animating) {
-        schedule_anim_step();
-    }
+    return still_animating;
 }
 
 
@@ -789,6 +852,9 @@ void NativeWidgetController::paint_and_blit() {
     std::shared_ptr<DrawBatch> local_batch;
     std::vector<std::string> classes_copy;
 
+    bool fast_compiled_ready = false;
+    std::shared_ptr<CompiledDrawBatch> fast_batch;
+
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         if (tkwin_) {
@@ -802,47 +868,59 @@ void NativeWidgetController::paint_and_blit() {
             }
         }
 
-        local_vars_["--hover-t"] = std::to_string(hover_t_);
-        local_vars_["--press-t"] = std::to_string(press_t_);
-        local_vars_["--focus-t"] = std::to_string(focus_t_);
-        if (win_w > 0 && win_h > 0) {
-            local_vars_["--width"] = std::to_string(win_w);
-            local_vars_["--height"] = std::to_string(win_h);
-            local_vars_["--w"] = std::to_string(win_w);
-            local_vars_["--h"] = std::to_string(win_h);
-            local_vars_["--w_fr"] = std::to_string(win_w + 4);
-            local_vars_["--h_fr"] = std::to_string(win_h + 4);
-            local_vars_["--text-x"] = std::to_string(win_w / 2.0);
-            float press_off = (press_t_ > 0.0f) ? (1.0f * press_t_) : 0.0f;
-            local_vars_["--text-y"] = std::to_string(win_h / 2.0 + 13.0 * 0.35 + press_off);
-        }
-        if (local_vars_.find("--focus-ring-width") == local_vars_.end()) {
-            local_vars_["--focus-ring-width"] = std::to_string(2.0f * focus_t_);
-        }
-        if (local_vars_.find("--thumb-pos") != local_vars_.end() && win_w > 0) {
-            try {
-                double t = std::clamp(std::stod(local_vars_["--thumb-pos"]), 0.0, 1.0);
-                double track_w = std::max(0.0, win_w - 24.0);
-                local_vars_["--active-w"] = std::to_string(track_w * t);
-                local_vars_["--thumb-x"] = std::to_string(12.0 + track_w * t);
-                local_vars_["--thumb-y"] = std::to_string(win_h / 2.0);
-            } catch (...) {}
-        }
-        if (local_vars_.find("--progress") != local_vars_.end() && win_w > 0) {
-            try {
-                double p = std::clamp(std::stod(local_vars_["--progress"]), 0.0, 1.0);
-                local_vars_["--progress-w"] = std::to_string(win_w * p);
-            } catch (...) {}
-        }
-        vars_copy = local_vars_;
-
-        for (size_t i = 0; i < classes_.size(); ++i) {
-            if (i > 0) cls_str += " ";
-            cls_str += classes_[i];
-        }
-        classes_copy = classes_;
         current_state = state_;
         local_batch = draw_batch_;
+
+        if (cached_compiled_batch_ != nullptr &&
+            cached_compiled_w_ == win_w &&
+            cached_compiled_h_ == win_h &&
+            cached_compiled_state_ == current_state &&
+            cached_compiled_cls_ == widget_class_) {
+            fast_compiled_ready = true;
+            fast_batch = cached_compiled_batch_;
+        }
+
+        if (!fast_compiled_ready) {
+            local_vars_["--hover-t"] = std::to_string(hover_t_);
+            local_vars_["--press-t"] = std::to_string(press_t_);
+            local_vars_["--focus-t"] = std::to_string(focus_t_);
+            if (win_w > 0 && win_h > 0) {
+                local_vars_["--width"] = std::to_string(win_w);
+                local_vars_["--height"] = std::to_string(win_h);
+                local_vars_["--w"] = std::to_string(win_w);
+                local_vars_["--h"] = std::to_string(win_h);
+                local_vars_["--w_fr"] = std::to_string(win_w + 4);
+                local_vars_["--h_fr"] = std::to_string(win_h + 4);
+                local_vars_["--text-x"] = std::to_string(win_w / 2.0);
+                float press_off = (press_t_ > 0.0f) ? (1.0f * press_t_) : 0.0f;
+                local_vars_["--text-y"] = std::to_string(win_h / 2.0 + 13.0 * 0.35 + press_off);
+            }
+            if (local_vars_.find("--focus-ring-width") == local_vars_.end()) {
+                local_vars_["--focus-ring-width"] = std::to_string(2.0f * focus_t_);
+            }
+            if (local_vars_.find("--thumb-pos") != local_vars_.end() && win_w > 0) {
+                try {
+                    double t = std::clamp(std::stod(local_vars_["--thumb-pos"]), 0.0, 1.0);
+                    double track_w = std::max(0.0, win_w - 24.0);
+                    local_vars_["--active-w"] = std::to_string(track_w * t);
+                    local_vars_["--thumb-x"] = std::to_string(12.0 + track_w * t);
+                    local_vars_["--thumb-y"] = std::to_string(win_h / 2.0);
+                } catch (...) {}
+            }
+            if (local_vars_.find("--progress") != local_vars_.end() && win_w > 0) {
+                try {
+                    double p = std::clamp(std::stod(local_vars_["--progress"]), 0.0, 1.0);
+                    local_vars_["--progress-w"] = std::to_string(win_w * p);
+                } catch (...) {}
+            }
+            vars_copy = local_vars_;
+
+            for (size_t i = 0; i < classes_.size(); ++i) {
+                if (i > 0) cls_str += " ";
+                cls_str += classes_[i];
+            }
+            classes_copy = classes_;
+        }
     }
 
     if (!surf || surf->width() <= 0 || surf->height() <= 0) {
@@ -850,6 +928,27 @@ void NativeWidgetController::paint_and_blit() {
     }
 
     Color eff_parent_bg = resolve_parent_bg();
+
+    if (fast_compiled_ready && fast_batch) {
+        register_bank_.set_scalar(SLOT_HOVER_T, hover_t_);
+        register_bank_.set_scalar(SLOT_PRESS_T, press_t_);
+        register_bank_.set_scalar(SLOT_FOCUS_T, focus_t_);
+        register_bank_.set_scalar(SLOT_WIDTH, static_cast<float>(win_w));
+        register_bank_.set_scalar(SLOT_HEIGHT, static_cast<float>(win_h));
+        register_bank_.set_scalar(SLOT_W_FR, static_cast<float>(win_w + 4));
+        register_bank_.set_scalar(SLOT_H_FR, static_cast<float>(win_h + 4));
+        register_bank_.set_scalar(SLOT_TEXT_X, static_cast<float>(win_w / 2.0));
+        float press_off = (press_t_ > 0.0f) ? (1.0f * press_t_) : 0.0f;
+        register_bank_.set_scalar(SLOT_TEXT_Y, static_cast<float>(win_h / 2.0 + 13.0 * 0.35 + press_off));
+        register_bank_.set_scalar(SLOT_FOCUS_RING_W, 2.0f * focus_t_);
+        register_bank_.set_color(SLOT_COLOR_PARENT_BG, eff_parent_bg);
+
+        surf->clear(eff_parent_bg);
+        surf->execute_compiled(*fast_batch, register_bank_);
+        blit_active_surface();
+        return;
+    }
+
     vars_copy["--parent-bg"] = eff_parent_bg.to_hex();
 
     DrawBatch dynamically_created_batch;
@@ -877,8 +976,31 @@ void NativeWidgetController::paint_and_blit() {
     }
 
     if (batch_to_run) {
+        auto compiled = batch_to_run->compile();
+        {
+            std::lock_guard<std::recursive_mutex> lock(mutex_);
+            cached_compiled_batch_ = compiled;
+            cached_compiled_w_ = win_w;
+            cached_compiled_h_ = win_h;
+            cached_compiled_state_ = current_state;
+            cached_compiled_cls_ = widget_class_;
+        }
+
+        register_bank_.set_scalar(SLOT_HOVER_T, hover_t_);
+        register_bank_.set_scalar(SLOT_PRESS_T, press_t_);
+        register_bank_.set_scalar(SLOT_FOCUS_T, focus_t_);
+        register_bank_.set_scalar(SLOT_WIDTH, static_cast<float>(win_w));
+        register_bank_.set_scalar(SLOT_HEIGHT, static_cast<float>(win_h));
+        register_bank_.set_scalar(SLOT_W_FR, static_cast<float>(win_w + 4));
+        register_bank_.set_scalar(SLOT_H_FR, static_cast<float>(win_h + 4));
+        register_bank_.set_scalar(SLOT_TEXT_X, static_cast<float>(win_w / 2.0));
+        float press_off = (press_t_ > 0.0f) ? (1.0f * press_t_) : 0.0f;
+        register_bank_.set_scalar(SLOT_TEXT_Y, static_cast<float>(win_h / 2.0 + 13.0 * 0.35 + press_off));
+        register_bank_.set_scalar(SLOT_FOCUS_RING_W, 2.0f * focus_t_);
+        register_bank_.set_color(SLOT_COLOR_PARENT_BG, eff_parent_bg);
+
         surf->clear(eff_parent_bg);
-        surf->execute_batch(*batch_to_run, vars_copy, current_state, cls_str);
+        surf->execute_compiled(*compiled, register_bank_);
     } else {
         nb::gil_scoped_acquire gil;
         if (on_paint_.is_valid() && !on_paint_.is_none()) {
@@ -985,6 +1107,7 @@ void NativeWidgetController::add_class(const std::string& name) {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         if (std::find(classes_.begin(), classes_.end(), name) == classes_.end()) {
             classes_.push_back(name);
+            invalidate_cached_batch();
         }
     }
     request_redraw();
@@ -996,6 +1119,7 @@ void NativeWidgetController::remove_class(const std::string& name) {
         auto it = std::find(classes_.begin(), classes_.end(), name);
         if (it != classes_.end()) {
             classes_.erase(it);
+            invalidate_cached_batch();
         }
     }
     request_redraw();
@@ -1011,6 +1135,7 @@ void NativeWidgetController::toggle_class(const std::string& name) {
         } else {
             classes_.push_back(name);
         }
+        invalidate_cached_batch();
     }
     request_redraw();
 }
@@ -1029,6 +1154,7 @@ void NativeWidgetController::set_classes(const std::vector<std::string>& classes
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         classes_ = classes;
+        invalidate_cached_batch();
     }
     request_redraw();
 }
@@ -1052,6 +1178,7 @@ void NativeWidgetController::set_class_name(const std::string& cls) {
         while (ss >> token) {
             classes_.push_back(token);
         }
+        invalidate_cached_batch();
     }
     request_redraw();
 }
@@ -1060,6 +1187,7 @@ void NativeWidgetController::set_var(const std::string& key, const std::string& 
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         local_vars_[key] = val;
+        invalidate_cached_batch();
     }
     request_redraw();
 }
@@ -1075,6 +1203,7 @@ void NativeWidgetController::remove_var(const std::string& key) {
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         local_vars_.erase(key);
+        invalidate_cached_batch();
     }
     request_redraw();
 }
@@ -1083,6 +1212,7 @@ void NativeWidgetController::clear_vars() {
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         local_vars_.clear();
+        invalidate_cached_batch();
     }
     request_redraw();
 }
@@ -1096,6 +1226,7 @@ void NativeWidgetController::bind_batch(const DrawBatch& batch) {
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         draw_batch_ = std::make_shared<DrawBatch>(batch);
+        invalidate_cached_batch();
     }
     request_redraw();
 }
@@ -1104,6 +1235,7 @@ void NativeWidgetController::clear_batch() {
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         draw_batch_ = nullptr;
+        invalidate_cached_batch();
     }
     request_redraw();
 }
@@ -1121,6 +1253,7 @@ void NativeWidgetController::set_widget_class(const std::string& wc) {
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         widget_class_ = wc;
+        invalidate_cached_batch();
     }
     request_redraw();
 }

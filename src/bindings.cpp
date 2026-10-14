@@ -3,6 +3,12 @@
 #include "draw_engine.hpp"
 #include "surface_registry.hpp"
 #include "native_controller.hpp"
+#include "compiled_draw_batch.hpp"
+
+#if defined(_WIN32)
+#include <windows.h>
+#include <timeapi.h>
+#endif
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
@@ -275,7 +281,21 @@ void bind_draw_batch(nb::module_& m) {
         .def("clip_rounded_rect", &DrawBatch::clip_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"))
         .def("reset_clip", &DrawBatch::reset_clip)
         .def("reset", &DrawBatch::reset)
+        .def("compile", &DrawBatch::compile)
         .def("__len__", &DrawBatch::size);
+
+    nb::class_<FastRegisterBank>(m, "FastRegisterBank")
+        .def(nb::init<>())
+        .def("set_scalar", &FastRegisterBank::set_scalar, nb::arg("slot"), nb::arg("val"))
+        .def("get_scalar", &FastRegisterBank::get_scalar, nb::arg("slot"))
+        .def("set_color", &FastRegisterBank::set_color, nb::arg("slot"), nb::arg("c"))
+        .def("get_color", &FastRegisterBank::get_color, nb::arg("slot"));
+
+    nb::class_<CompiledDrawBatch, std::shared_ptr<CompiledDrawBatch>>(m, "CompiledDrawBatch")
+        .def(nb::init<>())
+        .def("__len__", &CompiledDrawBatch::size)
+        .def("size", &CompiledDrawBatch::size)
+        .def("rebake_theme_constants", &CompiledDrawBatch::rebake_theme_constants);
 }
 
 void bind_gradient(nb::module_& m) {
@@ -484,7 +504,7 @@ static void init_surface_buffer_type() {
 void bind_surface(nb::module_& m) {
     init_surface_buffer_type();
     nb::class_<Surface>(m, "Surface")
-        .def(nb::init<int, int>(), nb::arg("width"), nb::arg("height"))
+        .def(nb::init<int, int, int>(), nb::arg("width"), nb::arg("height"), nb::arg("thread_count") = 0)
         .def("close", &Surface::close)
         .def_prop_ro("is_closed", &Surface::is_closed)
         .def_prop_ro("width", &Surface::width)
@@ -866,6 +886,9 @@ void bind_surface(nb::module_& m) {
              nb::arg("local_vars") = std::unordered_map<std::string, std::string>{},
              nb::arg("pseudo_state") = 0,
              nb::arg("class_name") = "",
+             nb::call_guard<nb::gil_scoped_release>())
+        .def("execute_compiled", &Surface::execute_compiled,
+             nb::arg("compiled"), nb::arg("registers"),
              nb::call_guard<nb::gil_scoped_release>())
 
         // Tkinter Blit & Buffer
@@ -1369,6 +1392,12 @@ void bind_draw_engine(nb::module_& m) {
 } // namespace tkblend
 
 NB_MODULE(_tkblend, m) {
+#if defined(_WIN32)
+    timeBeginPeriod(1);
+    Py_AtExit([]() {
+        timeEndPeriod(1);
+    });
+#endif
     nb::set_leak_warnings(true);
     m.doc() = "High-performance Blend2D vector engine and Tkinter photo blitter";
 

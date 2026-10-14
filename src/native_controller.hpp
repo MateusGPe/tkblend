@@ -156,6 +156,8 @@ public:
     void clear_batch();
     bool has_batch() const;
 
+    bool tick_animation_step();
+
 private:
     static void HandleTkEvent(ClientData clientData, XEvent* eventPtr);
     static void IdleRedraw(ClientData clientData);
