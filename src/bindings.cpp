@@ -16,6 +16,7 @@
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/tuple.h>
 #include <nanobind/stl/optional.h>
+#include <nanobind/stl/shared_ptr.h>
 
 #include <sstream>
 #include <optional>
@@ -291,7 +292,7 @@ void bind_draw_batch(nb::module_& m) {
         .def("set_color", &FastRegisterBank::set_color, nb::arg("slot"), nb::arg("c"))
         .def("get_color", &FastRegisterBank::get_color, nb::arg("slot"));
 
-    nb::class_<CompiledDrawBatch, std::shared_ptr<CompiledDrawBatch>>(m, "CompiledDrawBatch")
+    nb::class_<CompiledDrawBatch>(m, "CompiledDrawBatch")
         .def(nb::init<>())
         .def("__len__", &CompiledDrawBatch::size)
         .def("size", &CompiledDrawBatch::size)
@@ -1306,6 +1307,7 @@ void bind_native_controller(nb::module_& m) {
         .def_prop_ro("height", &NativeWidgetController::height)
         .def("request_redraw", &NativeWidgetController::request_redraw)
         .def("paint_and_blit", &NativeWidgetController::paint_and_blit)
+        .def("invalidate_cached_batch", &NativeWidgetController::invalidate_cached_batch)
         .def_prop_ro("surface", &NativeWidgetController::surface, nb::rv_policy::reference)
         .def_prop_ro("has_bound_surface", &NativeWidgetController::has_bound_surface)
         .def_prop_ro("bound_surface_id", &NativeWidgetController::bound_surface_id)

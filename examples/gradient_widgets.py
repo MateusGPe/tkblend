@@ -453,6 +453,16 @@ class GradientCard(BaseControl):
 
     def on_resize(self, width: int, height: int) -> None:
         self._update_geometry(width, height)
+        if self._content is not None:
+            usable_w = max(100, width - int(2 * (self.SHADOW_PAD_X + self.CONTENT_PAD_X) + 16))
+            for child in self._content.winfo_children():
+                if isinstance(child, tk.Label):
+                    try:
+                        cur_wrap = int(child.cget("wraplength"))
+                        if cur_wrap > 0:
+                            child.configure(wraplength=usable_w)
+                    except Exception:
+                        pass
 
     def paint_and_blit(self) -> None:
         w = self.winfo_width()
@@ -740,6 +750,7 @@ class GradientProgressBar(BaseControl):
         self.request_redraw()
 
     def on_resize(self, width: int, height: int) -> None:
+        self._logical_w = width
         w = max(10, width)
         h = max(6, height)
         self.set_var("--w_pb", str(w))
@@ -798,9 +809,12 @@ class GradientSlider(BaseControl):
         self._rebuild_batch()
         self._sync_thumb_pos()
 
-    def _sync_thumb_pos(self) -> None:
+    def _sync_thumb_pos(self, current_w: Optional[float] = None) -> None:
         pad = 16.0
-        w = max(pad * 2.0 + 1.0, float(self.winfo_width()) if self.winfo_width() > 1 else float(self._logical_w))
+        if current_w is not None and current_w > 1:
+            w = max(pad * 2.0 + 1.0, float(current_w))
+        else:
+            w = max(pad * 2.0 + 1.0, float(self.winfo_width()) if self.winfo_width() > 1 else float(self._logical_w))
         usable = max(1.0, w - 2.0 * pad)
         span = max(1e-6, abs(self._to - self._from))
         t = max(0.0, min(1.0, (self._value - self._from) / span))
@@ -875,7 +889,8 @@ class GradientSlider(BaseControl):
         self.request_redraw()
 
     def on_resize(self, width: int, height: int) -> None:
-        self._sync_thumb_pos()
+        self._logical_w = width
+        self._sync_thumb_pos(width)
 
     def paint_and_blit(self) -> None:
         self._sync_thumb_pos()

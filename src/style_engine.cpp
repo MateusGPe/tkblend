@@ -138,12 +138,14 @@ void StyleEngine::register_theme(const std::string& theme_name, const std::strin
     theme_stylesheets_[theme_name] = css_text;
     parse_and_apply_css(css_text, theme_name);
     resolve_cache_.clear();
+    ++revision_;
 }
 
 void StyleEngine::set_theme(const std::string& theme_name) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     current_theme_ = theme_name;
     resolve_cache_.clear();
+    ++revision_;
 }
 
 std::string StyleEngine::get_theme() const {
@@ -164,6 +166,7 @@ void StyleEngine::load_stylesheet(const std::string& css_text) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     parse_and_apply_css(css_text, "");
     resolve_cache_.clear();
+    ++revision_;
 }
 
 void StyleEngine::set_variable(const std::string& key, const std::string& value, const std::string& theme_name) {
@@ -172,6 +175,7 @@ void StyleEngine::set_variable(const std::string& key, const std::string& value,
     std::string eff_theme = theme_name.empty() ? current_theme_ : theme_name;
     theme_variables_[eff_theme][id] = value;
     resolve_cache_.clear();
+    ++revision_;
 }
 
 std::string StyleEngine::get_variable(const std::string& key, const std::string& theme_name) const {

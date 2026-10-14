@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include <cstddef>
 
 namespace tkblend {
@@ -100,7 +101,9 @@ public:
     void reset();
     size_t size() const { return ops.size(); }
 
-    std::shared_ptr<class CompiledDrawBatch> compile() const;
+    std::shared_ptr<class CompiledDrawBatch> compile(
+        const std::unordered_map<std::string, std::string>* local_vars = nullptr
+    ) const;
 };
 
 } // namespace tkblend

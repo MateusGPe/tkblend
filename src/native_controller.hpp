@@ -158,6 +158,9 @@ public:
 
     bool tick_animation_step();
 
+    // Compiled bytecode rendering cache invalidation
+    void invalidate_cached_batch();
+
 private:
     static void HandleTkEvent(ClientData clientData, XEvent* eventPtr);
     static void IdleRedraw(ClientData clientData);
@@ -211,15 +214,10 @@ private:
     std::unordered_map<std::string, std::string> local_vars_;
     std::shared_ptr<DrawBatch> draw_batch_{nullptr};
     int active_thumb_{0};
-
-    // Compiled bytecode rendering cache
-    void invalidate_cached_batch() {
-        cached_compiled_batch_.reset();
-        cached_compiled_state_ = 0xFFFF;
-        cached_compiled_w_ = -1;
-        cached_compiled_h_ = -1;
-        cached_compiled_cls_.clear();
-    }
+    int req_w_{0};
+    int req_h_{0};
+    int last_resize_w_{-1};
+    int last_resize_h_{-1};
 
     FastRegisterBank register_bank_;
     std::shared_ptr<CompiledDrawBatch> cached_compiled_batch_{nullptr};
@@ -227,6 +225,8 @@ private:
     int cached_compiled_w_{-1};
     int cached_compiled_h_{-1};
     std::string cached_compiled_cls_{""};
+    std::string cached_compiled_theme_{""};
+    uint64_t cached_compiled_revision_{0};
 };
 
 } // namespace tkblend

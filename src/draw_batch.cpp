@@ -143,8 +143,10 @@ void DrawBatch::clip_rounded_rect(double x, double y, double w, double h, double
 void DrawBatch::reset_clip() { DrawOp op; op.type = DrawOpType::ResetClip; ops.push_back(std::move(op)); }
 void DrawBatch::reset() { ops.clear(); }
 
-std::shared_ptr<CompiledDrawBatch> DrawBatch::compile() const {
-    auto res = DrawBatchCompiler::compile(*this);
+std::shared_ptr<CompiledDrawBatch> DrawBatch::compile(
+    const std::unordered_map<std::string, std::string>* local_vars
+) const {
+    auto res = DrawBatchCompiler::compile(*this, local_vars);
     res->source_batch = std::make_shared<DrawBatch>(*this);
     return res;
 }

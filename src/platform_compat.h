@@ -10,9 +10,13 @@
 #define USE_TTK_STUBS 1
 #endif
 
+#if !defined(_WIN32) && !defined(__APPLE__)
+#include <X11/Xlib.h>
+#endif
 #include <tcl.h>
 #include <tk.h>
 #include <limits.h>
+#include <cstddef>
 
 #if defined(_WIN32)
   #ifndef WIN32_LEAN_AND_MEAN
@@ -216,6 +220,107 @@ static inline int TkBlend_InitStubs(Tcl_Interp *interp) {
 
     return TCL_OK;
 }
+
+/* Cross-version Tk requested dimension queries (compatible with Tk 8.6 and Tk 9.0/9.1+) */
+struct Tk8_FakeWinLayout {
+    Display *display;
+    char *dummy1;
+    int screenNum;
+    Visual *visual;
+    int depth;
+    Window window;
+    char *dummy2;
+    char *dummy3;
+    Tk_Window parentPtr;
+    char *dummy4;
+    char *dummy5;
+    char *pathName;
+    Tk_Uid nameUid;
+    Tk_Uid classUid;
+    XWindowChanges changes;
+    unsigned int dummy6;
+    XSetWindowAttributes atts;
+    unsigned long dummy7;
+    unsigned int flags;
+    char *dummy8;
+    XIC dummy9;
+    void **dummy10;
+    int dummy11;
+    int dummy12;
+    char *dummy13;
+    char *dummy14;
+    void *dummy15;
+    int reqWidth, reqHeight;
+};
+
+struct Tk9_FakeWinLayout {
+    Display *display;
+    char *dummy1;
+    int screenNum;
+    Visual *visual;
+    int depth;
+    Window window;
+    char *dummy2;
+    char *dummy3;
+    Tk_Window parentPtr;
+    char *dummy4;
+    char *dummy5;
+    char *pathName;
+    Tk_Uid nameUid;
+    Tk_Uid classUid;
+    XWindowChanges changes;
+    unsigned int dummy6;
+    XSetWindowAttributes atts;
+    unsigned long dummy7;
+    unsigned int flags;
+    char *dummy8;
+    XIC dummy9;
+    void **dummy10;
+    ptrdiff_t dummy11;
+    ptrdiff_t dummy12;
+    char *dummy13;
+    char *dummy14;
+    void *dummy15;
+    int reqWidth, reqHeight;
+};
+
+#if defined(TK_MAJOR_VERSION) && (TK_MAJOR_VERSION < 9)
+static_assert(offsetof(Tk8_FakeWinLayout, reqWidth) == offsetof(Tk_FakeWin, reqWidth),
+              "Tk8_FakeWinLayout::reqWidth offset mismatch with Tk_FakeWin");
+static_assert(offsetof(Tk8_FakeWinLayout, reqHeight) == offsetof(Tk_FakeWin, reqHeight),
+              "Tk8_FakeWinLayout::reqHeight offset mismatch with Tk_FakeWin");
+#elif defined(TK_MAJOR_VERSION) && (TK_MAJOR_VERSION >= 9)
+static_assert(offsetof(Tk9_FakeWinLayout, reqWidth) == offsetof(Tk_FakeWin, reqWidth),
+              "Tk9_FakeWinLayout::reqWidth offset mismatch with Tk_FakeWin");
+static_assert(offsetof(Tk9_FakeWinLayout, reqHeight) == offsetof(Tk_FakeWin, reqHeight),
+              "Tk9_FakeWinLayout::reqHeight offset mismatch with Tk_FakeWin");
+#endif
+
+static inline bool TkBlend_IsTk9() {
+    if (tkStubsPtr && tkStubsPtr->magic == TKBLEND_TCL_STUB_MAGIC_90) return true;
+    if (tclStubsPtr && tclStubsPtr->magic == TKBLEND_TCL_STUB_MAGIC_90) return true;
+#if defined(TK_MAJOR_VERSION) && (TK_MAJOR_VERSION >= 9)
+    if (!tkStubsPtr && !tclStubsPtr) return true;
+#endif
+    return false;
+}
+
+static inline int TkBlend_ReqWidth(Tk_Window tkwin) {
+    if (!tkwin) return 0;
+    if (TkBlend_IsTk9()) {
+        return reinterpret_cast<const Tk9_FakeWinLayout*>(tkwin)->reqWidth;
+    }
+    return reinterpret_cast<const Tk8_FakeWinLayout*>(tkwin)->reqWidth;
+}
+
+static inline int TkBlend_ReqHeight(Tk_Window tkwin) {
+    if (!tkwin) return 0;
+    if (TkBlend_IsTk9()) {
+        return reinterpret_cast<const Tk9_FakeWinLayout*>(tkwin)->reqHeight;
+    }
+    return reinterpret_cast<const Tk8_FakeWinLayout*>(tkwin)->reqHeight;
+}
+
 
 #if __has_include(<tk-private/generic/ttk/ttkTheme.h>)
   #include <tk-private/generic/ttk/ttkTheme.h>

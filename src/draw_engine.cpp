@@ -23,6 +23,24 @@ static inline double resolve_token(
     return StyleEngine::instance().resolve_scalar(token, fallback);
 }
 
+static inline std::string resolve_token_str(
+    const std::string& token,
+    const std::unordered_map<std::string, std::string>& vars,
+    const std::string& fallback = ""
+) {
+    auto it = vars.find(token);
+    if (it != vars.end() && !it->second.empty()) {
+        return it->second;
+    }
+    if (token.rfind("--", 0) == 0) {
+        auto it2 = vars.find(token.substr(2));
+        if (it2 != vars.end() && !it2->second.empty()) {
+            return it2->second;
+        }
+    }
+    return StyleEngine::instance().resolve_string(token, fallback);
+}
+
 static std::string to_lower_trim(const std::string& str) {
     auto start = str.find_first_not_of(" \t\n\r");
     if (start == std::string::npos) return "";
@@ -317,8 +335,9 @@ DrawBatch DrawEngine::create_control_batch(
             fallback_bg, fallback_border, fallback_shadow
         );
 
+        std::string btn_text = resolve_token_str("--text", vars, "");
         b.draw_text_var(
-            "", bx + bw / 2.0, by + bh / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
+            btn_text, bx + bw / 2.0, by + bh / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
             fg_var, "--text", "--font-size",
             fallback_fg,
             1 /* center */, 500
@@ -374,8 +393,9 @@ DrawBatch DrawEngine::create_control_batch(
             );
         }
 
+        std::string sw_text = resolve_token_str("--text", vars, "");
         b.draw_text_var(
-            "", track_x + track_w + 10.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
+            sw_text, track_x + track_w + 10.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
             "--fg", "--text", "--font-size",
             Color(230, 224, 233), 0 /* left */
         );
@@ -407,8 +427,9 @@ DrawBatch DrawEngine::create_control_batch(
             );
         }
 
+        std::string cb_text = resolve_token_str("--text", vars, "");
         b.draw_text_var(
-            "", box_x + box_size + 8.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
+            cb_text, box_x + box_size + 8.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
             "--fg", "--text", "--font-size",
             Color(230, 224, 233), 0 /* left */
         );
@@ -434,8 +455,9 @@ DrawBatch DrawEngine::create_control_batch(
             b.stroke_circle_var(cx, cy, cr + 2.5, "--focus-ring-color", 2.0, "", "--focus-ring-width", Color(208, 188, 255));
         }
 
+        std::string radio_text = resolve_token_str("--text", vars, "");
         b.draw_text_var(
-            "", cx + cr + 8.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
+            radio_text, cx + cr + 8.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
             "--fg", "--text", "--font-size",
             Color(230, 224, 233), 0 /* left */
         );
@@ -502,8 +524,9 @@ DrawBatch DrawEngine::create_control_batch(
     if (key_cls == "badge") {
         double rx = std::min(w, h) / 2.0;
         b.fill_rounded_rect_var(0.0, 0.0, w, h, rx, rx, "--badge-bg", "--rx", "--ry", Color(74, 68, 88));
+        std::string badge_text = resolve_token_str("--text", vars, "");
         b.draw_text_var(
-            "", w / 2.0, h / 2.0 + 11.0 * 0.35, 11.0f, "sans-serif",
+            badge_text, w / 2.0, h / 2.0 + 11.0 * 0.35, 11.0f, "sans-serif",
             "--badge-fg", "--text", "--font-size",
             Color(230, 224, 233), 1 /* center */, 600
         );
@@ -778,7 +801,8 @@ DrawBatch DrawEngine::create_control_batch(
         // Value text
         double txt_x = bx + 12.0;
         double txt_y = by + bh / 2.0 + 13.0 * 0.35;
-        b.draw_text_var("", txt_x, txt_y, 13.0f, "sans-serif", "--fg", "--text", "", Color(230, 224, 233), 0 /* left */, 500);
+        std::string combo_text = resolve_token_str("--text", vars, "");
+        b.draw_text_var(combo_text, txt_x, txt_y, 13.0f, "sans-serif", "--fg", "--text", "", Color(230, 224, 233), 0 /* left */, 500);
 
         // Chevron arrow indicator at right
         double arr_cx = bx + bw - 14.0;
@@ -852,8 +876,9 @@ DrawBatch DrawEngine::create_control_batch(
     }
 
     if (key_cls == "label") {
+        std::string lbl_text = resolve_token_str("--text", vars, "");
         b.draw_text_var(
-            "", 2.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
+            lbl_text, 2.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
             "--fg", "--text", "--font-size",
             Color(230, 224, 233), 0 /* left */, 400
         );

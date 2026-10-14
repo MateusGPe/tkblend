@@ -57,7 +57,10 @@ static std::optional<ColorSlot> match_color_slot(const std::string& raw_var) {
 
 } // anonymous namespace
 
-std::shared_ptr<CompiledDrawBatch> DrawBatchCompiler::compile(const DrawBatch& batch) {
+std::shared_ptr<CompiledDrawBatch> DrawBatchCompiler::compile(
+    const DrawBatch& batch,
+    const std::unordered_map<std::string, std::string>* local_vars
+) {
     auto res = std::make_shared<CompiledDrawBatch>();
     res->ops.reserve(batch.ops.size());
 
@@ -81,7 +84,29 @@ std::shared_ptr<CompiledDrawBatch> DrawBatchCompiler::compile(const DrawBatch& b
                     cop.reg_mask |= static_cast<uint16_t>(1 << i);
                     cop.reg_slot[i] = static_cast<uint8_t>(*slot);
                 } else {
-                    cop.d[i] = se.resolve_scalar(op.d_vars[i], op.d[i]);
+                    bool resolved_local = false;
+                    if (local_vars) {
+                        auto it = local_vars->find(op.d_vars[i]);
+                        if (it != local_vars->end() && !it->second.empty()) {
+                            try {
+                                size_t idx = 0;
+                                cop.d[i] = std::stod(it->second, &idx);
+                                resolved_local = true;
+                            } catch (...) {}
+                        } else if (op.d_vars[i].rfind("--", 0) == 0) {
+                            auto it2 = local_vars->find(op.d_vars[i].substr(2));
+                            if (it2 != local_vars->end() && !it2->second.empty()) {
+                                try {
+                                    size_t idx = 0;
+                                    cop.d[i] = std::stod(it2->second, &idx);
+                                    resolved_local = true;
+                                } catch (...) {}
+                            }
+                        }
+                    }
+                    if (!resolved_local) {
+                        cop.d[i] = se.resolve_scalar(op.d_vars[i], op.d[i]);
+                    }
                 }
             }
         }
@@ -94,7 +119,23 @@ std::shared_ptr<CompiledDrawBatch> DrawBatchCompiler::compile(const DrawBatch& b
                 cop.reg_mask |= static_cast<uint16_t>(1 << 12);
                 cop.reg_color_slot[0] = static_cast<uint8_t>(*slot);
             } else {
-                cop.c1 = se.resolve_color_var(op.c1_var, op.c1);
+                bool resolved_local = false;
+                if (local_vars) {
+                    auto it = local_vars->find(op.c1_var);
+                    if (it != local_vars->end() && !it->second.empty()) {
+                        cop.c1 = se.resolve_color(it->second);
+                        resolved_local = true;
+                    } else if (op.c1_var.rfind("--", 0) == 0) {
+                        auto it2 = local_vars->find(op.c1_var.substr(2));
+                        if (it2 != local_vars->end() && !it2->second.empty()) {
+                            cop.c1 = se.resolve_color(it2->second);
+                            resolved_local = true;
+                        }
+                    }
+                }
+                if (!resolved_local) {
+                    cop.c1 = se.resolve_color_var(op.c1_var, op.c1);
+                }
             }
         }
 
@@ -106,7 +147,23 @@ std::shared_ptr<CompiledDrawBatch> DrawBatchCompiler::compile(const DrawBatch& b
                 cop.reg_mask |= static_cast<uint16_t>(1 << 13);
                 cop.reg_color_slot[1] = static_cast<uint8_t>(*slot);
             } else {
-                cop.c2 = se.resolve_color_var(op.c2_var, op.c2);
+                bool resolved_local = false;
+                if (local_vars) {
+                    auto it = local_vars->find(op.c2_var);
+                    if (it != local_vars->end() && !it->second.empty()) {
+                        cop.c2 = se.resolve_color(it->second);
+                        resolved_local = true;
+                    } else if (op.c2_var.rfind("--", 0) == 0) {
+                        auto it2 = local_vars->find(op.c2_var.substr(2));
+                        if (it2 != local_vars->end() && !it2->second.empty()) {
+                            cop.c2 = se.resolve_color(it2->second);
+                            resolved_local = true;
+                        }
+                    }
+                }
+                if (!resolved_local) {
+                    cop.c2 = se.resolve_color_var(op.c2_var, op.c2);
+                }
             }
         }
 
@@ -118,14 +175,43 @@ std::shared_ptr<CompiledDrawBatch> DrawBatchCompiler::compile(const DrawBatch& b
                 cop.reg_mask |= static_cast<uint16_t>(1 << 14);
                 cop.reg_color_slot[2] = static_cast<uint8_t>(*slot);
             } else {
-                cop.c3 = se.resolve_color_var(op.c3_var, op.c3);
+                bool resolved_local = false;
+                if (local_vars) {
+                    auto it = local_vars->find(op.c3_var);
+                    if (it != local_vars->end() && !it->second.empty()) {
+                        cop.c3 = se.resolve_color(it->second);
+                        resolved_local = true;
+                    } else if (op.c3_var.rfind("--", 0) == 0) {
+                        auto it2 = local_vars->find(op.c3_var.substr(2));
+                        if (it2 != local_vars->end() && !it2->second.empty()) {
+                            cop.c3 = se.resolve_color(it2->second);
+                            resolved_local = true;
+                        }
+                    }
+                }
+                if (!resolved_local) {
+                    cop.c3 = se.resolve_color_var(op.c3_var, op.c3);
+                }
             }
         }
 
         // Resolve String
         std::string text = op.str;
         if (!op.str_var.empty()) {
-            text = se.resolve_string(op.str_var, op.str);
+            if (local_vars) {
+                auto it = local_vars->find(op.str_var);
+                if (it != local_vars->end() && !it->second.empty()) {
+                    text = it->second;
+                } else if (op.str_var.rfind("--", 0) == 0) {
+                    auto it2 = local_vars->find(op.str_var.substr(2));
+                    if (it2 != local_vars->end() && !it2->second.empty()) {
+                        text = it2->second;
+                    }
+                }
+            }
+            if (text.empty()) {
+                text = se.resolve_string(op.str_var, op.str);
+            }
         }
         if (!text.empty()) {
             cop.str_index = static_cast<uint32_t>(res->string_table.size());

@@ -108,6 +108,11 @@ public:
     uint32_t intern_token(const std::string& token);
     void clear_cache();
 
+    uint64_t revision() const {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        return revision_;
+    }
+
 private:
     StyleEngine();
     ~StyleEngine() = default;
@@ -117,6 +122,7 @@ private:
 
     mutable std::recursive_mutex mutex_;
     std::string current_theme_{"dark"};
+    uint64_t revision_{0};
 
     // Interned token mapping
     std::unordered_map<std::string, uint32_t> token_to_id_;

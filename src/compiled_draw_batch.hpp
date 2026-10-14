@@ -5,6 +5,7 @@
 #include "draw_batch.hpp"
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include <cstdint>
 #include <memory>
 
@@ -104,7 +105,10 @@ public:
 
 class DrawBatchCompiler {
 public:
-    static std::shared_ptr<CompiledDrawBatch> compile(const DrawBatch& batch);
+    static std::shared_ptr<CompiledDrawBatch> compile(
+        const DrawBatch& batch,
+        const std::unordered_map<std::string, std::string>* local_vars = nullptr
+    );
 };
 
 } // namespace tkblend

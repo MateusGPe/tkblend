@@ -144,7 +144,21 @@ void NativeWidgetController::on_window_destroyed() {
     invalidate_cached_batch();
 }
 
+void NativeWidgetController::invalidate_cached_batch() {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    cached_compiled_batch_.reset();
+    cached_compiled_state_ = 0xFFFF;
+    cached_compiled_w_ = -1;
+    cached_compiled_h_ = -1;
+    cached_compiled_cls_.clear();
+    cached_compiled_theme_.clear();
+    cached_compiled_revision_ = 0;
+}
+
 void NativeWidgetController::set_geometry_request(int req_w, int req_h) {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    req_w_ = req_w;
+    req_h_ = req_h;
     if (tkwin_) {
         Tk_GeometryRequest(tkwin_, std::max(1, req_w), std::max(1, req_h));
     }
@@ -155,8 +169,12 @@ int NativeWidgetController::width() const {
     if (tkwin_) {
         int w = Tk_Width(tkwin_);
         if (w > 1) return w;
-        int req_w = Tk_ReqWidth(tkwin_);
+    }
+    if (req_w_ > 0) return req_w_;
+    if (tkwin_) {
+        int req_w = TkBlend_ReqWidth(tkwin_);
         if (req_w > 1) return req_w;
+        int w = Tk_Width(tkwin_);
         if (w > 0) return w;
     }
     return internal_surface_->width();
@@ -167,8 +185,12 @@ int NativeWidgetController::height() const {
     if (tkwin_) {
         int h = Tk_Height(tkwin_);
         if (h > 1) return h;
-        int req_h = Tk_ReqHeight(tkwin_);
+    }
+    if (req_h_ > 0) return req_h_;
+    if (tkwin_) {
+        int req_h = TkBlend_ReqHeight(tkwin_);
         if (req_h > 1) return req_h;
+        int h = Tk_Height(tkwin_);
         if (h > 0) return h;
     }
     return internal_surface_->height();
@@ -316,6 +338,7 @@ void NativeWidgetController::set_parent_bg(const Color& c) {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         parent_bg_ = c;
         has_explicit_parent_bg_ = (c.a > 0 || c.r > 0 || c.g > 0 || c.b > 0);
+        invalidate_cached_batch();
     }
     request_redraw();
 }
@@ -325,6 +348,7 @@ void NativeWidgetController::clear_parent_bg() {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         parent_bg_ = Color{0, 0, 0, 0};
         has_explicit_parent_bg_ = false;
+        invalidate_cached_batch();
     }
     request_redraw();
 }
@@ -535,11 +559,25 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
         case ConfigureNotify: {
             int new_w = eventPtr->xconfigure.width;
             int new_h = eventPtr->xconfigure.height;
+            bool size_changed = false;
             {
                 std::lock_guard<std::recursive_mutex> lock(mutex_);
                 if (new_w > 0 && new_h > 0 &&
                     (internal_surface_->width() != new_w || internal_surface_->height() != new_h)) {
                     internal_surface_->resize(new_w, new_h);
+                }
+                if (new_w > 0 && new_h > 0 && (last_resize_w_ != new_w || last_resize_h_ != new_h)) {
+                    last_resize_w_ = new_w;
+                    last_resize_h_ = new_h;
+                    size_changed = true;
+                }
+            }
+            if (size_changed) {
+                nb::gil_scoped_acquire gil;
+                if (on_resize_.is_valid() && !on_resize_.is_none()) {
+                    try {
+                        on_resize_(new_w, new_h);
+                    } catch (...) {}
                 }
             }
             request_redraw();
@@ -855,6 +893,14 @@ void NativeWidgetController::paint_and_blit() {
     bool fast_compiled_ready = false;
     std::shared_ptr<CompiledDrawBatch> fast_batch;
 
+    std::string cur_theme = StyleEngine::instance().get_theme();
+    uint64_t cur_rev = StyleEngine::instance().revision();
+
+    float thumb_x_val = 0.0f;
+    float thumb_y_val = 0.0f;
+    float active_w_val = 0.0f;
+    float progress_w_val = 0.0f;
+
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         if (tkwin_) {
@@ -872,6 +918,8 @@ void NativeWidgetController::paint_and_blit() {
         local_batch = draw_batch_;
 
         if (cached_compiled_batch_ != nullptr &&
+            cached_compiled_theme_ == cur_theme &&
+            cached_compiled_revision_ == cur_rev &&
             cached_compiled_w_ == win_w &&
             cached_compiled_h_ == win_h &&
             cached_compiled_state_ == current_state &&
@@ -921,6 +969,32 @@ void NativeWidgetController::paint_and_blit() {
             }
             classes_copy = classes_;
         }
+
+        thumb_y_val = (win_h > 0) ? static_cast<float>(win_h / 2.0) : 0.0f;
+
+        auto it_tx = local_vars_.find("--thumb-x");
+        if (it_tx == local_vars_.end()) it_tx = local_vars_.find("thumb-x");
+        if (it_tx != local_vars_.end() && !it_tx->second.empty()) {
+            try { thumb_x_val = std::stof(it_tx->second); } catch (...) {}
+        }
+
+        auto it_ty = local_vars_.find("--thumb-y");
+        if (it_ty == local_vars_.end()) it_ty = local_vars_.find("thumb-y");
+        if (it_ty != local_vars_.end() && !it_ty->second.empty()) {
+            try { thumb_y_val = std::stof(it_ty->second); } catch (...) {}
+        }
+
+        auto it_aw = local_vars_.find("--active-w");
+        if (it_aw == local_vars_.end()) it_aw = local_vars_.find("active-w");
+        if (it_aw != local_vars_.end() && !it_aw->second.empty()) {
+            try { active_w_val = std::stof(it_aw->second); } catch (...) {}
+        }
+
+        auto it_pw = local_vars_.find("--progress-w");
+        if (it_pw == local_vars_.end()) it_pw = local_vars_.find("progress-w");
+        if (it_pw != local_vars_.end() && !it_pw->second.empty()) {
+            try { progress_w_val = std::stof(it_pw->second); } catch (...) {}
+        }
     }
 
     if (!surf || surf->width() <= 0 || surf->height() <= 0) {
@@ -941,6 +1015,10 @@ void NativeWidgetController::paint_and_blit() {
         float press_off = (press_t_ > 0.0f) ? (1.0f * press_t_) : 0.0f;
         register_bank_.set_scalar(SLOT_TEXT_Y, static_cast<float>(win_h / 2.0 + 13.0 * 0.35 + press_off));
         register_bank_.set_scalar(SLOT_FOCUS_RING_W, 2.0f * focus_t_);
+        register_bank_.set_scalar(SLOT_THUMB_X, thumb_x_val);
+        register_bank_.set_scalar(SLOT_THUMB_Y, thumb_y_val);
+        register_bank_.set_scalar(SLOT_ACTIVE_W, active_w_val);
+        register_bank_.set_scalar(SLOT_PROGRESS_W, progress_w_val);
         register_bank_.set_color(SLOT_COLOR_PARENT_BG, eff_parent_bg);
 
         surf->clear(eff_parent_bg);
@@ -976,7 +1054,7 @@ void NativeWidgetController::paint_and_blit() {
     }
 
     if (batch_to_run) {
-        auto compiled = batch_to_run->compile();
+        auto compiled = batch_to_run->compile(&vars_copy);
         {
             std::lock_guard<std::recursive_mutex> lock(mutex_);
             cached_compiled_batch_ = compiled;
@@ -984,6 +1062,8 @@ void NativeWidgetController::paint_and_blit() {
             cached_compiled_h_ = win_h;
             cached_compiled_state_ = current_state;
             cached_compiled_cls_ = widget_class_;
+            cached_compiled_theme_ = cur_theme;
+            cached_compiled_revision_ = cur_rev;
         }
 
         register_bank_.set_scalar(SLOT_HOVER_T, hover_t_);
@@ -997,6 +1077,10 @@ void NativeWidgetController::paint_and_blit() {
         float press_off = (press_t_ > 0.0f) ? (1.0f * press_t_) : 0.0f;
         register_bank_.set_scalar(SLOT_TEXT_Y, static_cast<float>(win_h / 2.0 + 13.0 * 0.35 + press_off));
         register_bank_.set_scalar(SLOT_FOCUS_RING_W, 2.0f * focus_t_);
+        register_bank_.set_scalar(SLOT_THUMB_X, thumb_x_val);
+        register_bank_.set_scalar(SLOT_THUMB_Y, thumb_y_val);
+        register_bank_.set_scalar(SLOT_ACTIVE_W, active_w_val);
+        register_bank_.set_scalar(SLOT_PROGRESS_W, progress_w_val);
         register_bank_.set_color(SLOT_COLOR_PARENT_BG, eff_parent_bg);
 
         surf->clear(eff_parent_bg);

@@ -524,6 +524,9 @@ class BaseControl(tk.Frame):
         else:
             self._resolved_inner_bg = resolve_color_failsafe(self._explicit_inner_bg, palette=pal)
 
+        if hasattr(self, "_controller") and hasattr(self._controller, "invalidate_cached_batch"):
+            self._controller.invalidate_cached_batch()
+
         self.on_theme_update(pal)
         self.request_redraw()
 
