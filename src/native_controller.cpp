@@ -76,6 +76,9 @@ bool NativeWidgetController::attach(uintptr_t interp_addr, const std::string& wi
 
 void NativeWidgetController::detach() {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
+    has_pending_resize_ = false;
+    pending_resize_w_ = -1;
+    pending_resize_h_ = -1;
     if (idle_scheduled_ && interp_) {
         Tcl_CancelIdleCall(IdleRedraw, this);
         idle_scheduled_ = false;
@@ -115,6 +118,9 @@ void NativeWidgetController::detach() {
 
 void NativeWidgetController::on_window_destroyed() {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
+    has_pending_resize_ = false;
+    pending_resize_w_ = -1;
+    pending_resize_h_ = -1;
     if (idle_scheduled_ && interp_) {
         Tcl_CancelIdleCall(IdleRedraw, this);
         idle_scheduled_ = false;
@@ -513,9 +519,27 @@ void NativeWidgetController::HandleTkEvent(ClientData clientData, XEvent* eventP
 void NativeWidgetController::IdleRedraw(ClientData clientData) {
     auto* self = static_cast<NativeWidgetController*>(clientData);
     if (self) {
+        int pw = -1, ph = -1;
+        bool do_resize = false;
         {
             std::lock_guard<std::recursive_mutex> lock(self->mutex_);
             self->idle_scheduled_ = false;
+            if (self->has_pending_resize_) {
+                pw = self->pending_resize_w_;
+                ph = self->pending_resize_h_;
+                self->has_pending_resize_ = false;
+                do_resize = true;
+            }
+        }
+        if (do_resize) {
+            nb::gil_scoped_acquire gil;
+            if (self->on_resize_.is_valid() && !self->on_resize_.is_none()) {
+                try {
+                    self->on_resize_(pw, ph);
+                } catch (const nb::python_error&) {
+                    PyErr_Print();
+                } catch (...) {}
+            }
         }
         self->paint_and_blit();
     }
@@ -559,7 +583,6 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
         case ConfigureNotify: {
             int new_w = eventPtr->xconfigure.width;
             int new_h = eventPtr->xconfigure.height;
-            bool size_changed = false;
             {
                 std::lock_guard<std::recursive_mutex> lock(mutex_);
                 if (new_w > 0 && new_h > 0 &&
@@ -569,15 +592,9 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                 if (new_w > 0 && new_h > 0 && (last_resize_w_ != new_w || last_resize_h_ != new_h)) {
                     last_resize_w_ = new_w;
                     last_resize_h_ = new_h;
-                    size_changed = true;
-                }
-            }
-            if (size_changed) {
-                nb::gil_scoped_acquire gil;
-                if (on_resize_.is_valid() && !on_resize_.is_none()) {
-                    try {
-                        on_resize_(new_w, new_h);
-                    } catch (...) {}
+                    pending_resize_w_ = new_w;
+                    pending_resize_h_ = new_h;
+                    has_pending_resize_ = true;
                 }
             }
             request_redraw();
@@ -1214,6 +1231,9 @@ void NativeWidgetController::set_on_resize(nb::object callback) {
 
 void NativeWidgetController::clear_on_resize() {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
+    has_pending_resize_ = false;
+    pending_resize_w_ = -1;
+    pending_resize_h_ = -1;
     if (on_resize_.is_valid()) {
         nb::gil_scoped_acquire gil;
         on_resize_.reset();

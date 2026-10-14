@@ -252,6 +252,9 @@ private:
     int req_h_{0};
     int last_resize_w_{-1};
     int last_resize_h_{-1};
+    int pending_resize_w_{-1};
+    int pending_resize_h_{-1};
+    bool has_pending_resize_{false};
 
     FastRegisterBank register_bank_;
     std::shared_ptr<CompiledDrawBatch> cached_compiled_batch_{nullptr};

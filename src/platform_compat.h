@@ -243,7 +243,9 @@ struct Tk8_FakeWinLayout {
     unsigned long dummy7;
     unsigned int flags;
     char *dummy8;
+#ifdef TK_USE_INPUT_METHODS
     XIC dummy9;
+#endif
     void **dummy10;
     int dummy11;
     int dummy12;
@@ -274,7 +276,9 @@ struct Tk9_FakeWinLayout {
     unsigned long dummy7;
     unsigned int flags;
     char *dummy8;
+#ifdef TK_USE_INPUT_METHODS
     XIC dummy9;
+#endif
     void **dummy10;
     ptrdiff_t dummy11;
     ptrdiff_t dummy12;
