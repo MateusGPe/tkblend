@@ -146,7 +146,14 @@ bool NativeBlit(
     BITMAPINFO bmi;
     std::memset(&bmi, 0, sizeof(BITMAPINFO));
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = width;
+    // In GDI DIBs, each scanline pitch is derived from biWidth: ((biWidth * 32 + 31) / 32) * 4 = biWidth * 4 bytes.
+    // Blend2D allocates buffers with SIMD-aligned stride (e.g. 16, 32, or 64 bytes).
+    // Setting biWidth to stride / 4 ensures GDI advances rows matching Blend2D's actual memory pitch,
+    // while clip.req_w dictates the actual drawn region.
+    LONG stride_pixels = (stride > 0 && (stride % 4 == 0))
+        ? static_cast<LONG>(stride / 4)
+        : static_cast<LONG>(width);
+    bmi.bmiHeader.biWidth = stride_pixels;
     bmi.bmiHeader.biHeight = -height; // Top-down DIB layout
     bmi.bmiHeader.biPlanes = 1;
     bmi.bmiHeader.biBitCount = 32;

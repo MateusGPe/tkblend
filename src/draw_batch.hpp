@@ -98,6 +98,8 @@ public:
     void reset_clip();
     void reset();
     size_t size() const { return ops.size(); }
+
+    std::shared_ptr<class CompiledDrawBatch> compile() const;
 };
 
 } // namespace tkblend

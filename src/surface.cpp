@@ -1,5 +1,6 @@
 #include "surface.hpp"
 #include "style_engine.hpp"
+#include "compiled_draw_batch.hpp"
 #include <algorithm>
 #include <cmath>
 #include <sstream>
@@ -99,8 +100,8 @@ Gradient map_bbox_gradient(const Gradient& g, double x, double y, double w, doub
 
 } // anonymous namespace
 
-Surface::Surface(int width, int height)
-    : width_(std::max(1, width)), height_(std::max(1, height)) {
+Surface::Surface(int width, int height, int thread_count)
+    : width_(std::max(1, width)), height_(std::max(1, height)), thread_count_(thread_count) {
     init_context();
 }
 
@@ -130,7 +131,14 @@ void Surface::init_context() {
     }
     ctx_.end();
     image_.create(width_, height_, BL_FORMAT_PRGB32);
-    ctx_.begin(image_);
+    if (thread_count_ > 0) {
+        BLContextCreateInfo cci;
+        blContextCreateInfoInit(&cci);
+        cci.threadCount = static_cast<uint32_t>(thread_count_);
+        ctx_.begin(image_, &cci);
+    } else {
+        ctx_.begin(image_);
+    }
     ctx_.set_comp_op(BL_COMP_OP_SRC_OVER);
     ctx_.clear_all();
 }
@@ -1595,6 +1603,220 @@ void Surface::execute_batch(
     }
 }
 
+static inline double eval_compiled_scalar(const CompiledOp& op, int idx, const FastRegisterBank& rb) noexcept {
+    return (op.reg_mask & (1 << idx)) ? rb.scalars[op.reg_slot[idx]] : op.d[idx];
+}
+
+static inline Color eval_compiled_color(const CompiledOp& op, int color_idx, const FastRegisterBank& rb) noexcept {
+    int mask_bit = 12 + color_idx;
+    if (op.reg_mask & (1 << mask_bit)) {
+        return rb.colors[op.reg_color_slot[color_idx]];
+    }
+    return (color_idx == 0) ? op.c1 : ((color_idx == 1) ? op.c2 : op.c3);
+}
+
+void Surface::execute_compiled(
+    const CompiledDrawBatch& compiled,
+    const FastRegisterBank& registers
+) {
+    for (const auto& op : compiled.ops) {
+        Color c1 = eval_compiled_color(op, 0, registers);
+        switch (op.type) {
+            case DrawOpType::Clear:
+                clear(c1);
+                break;
+            case DrawOpType::FillRect: {
+                double x = eval_compiled_scalar(op, 0, registers);
+                double y = eval_compiled_scalar(op, 1, registers);
+                double w = eval_compiled_scalar(op, 2, registers);
+                double h = eval_compiled_scalar(op, 3, registers);
+                fill_rect(x, y, w, h, c1);
+                break;
+            }
+            case DrawOpType::FillRectGradient: {
+                double x = eval_compiled_scalar(op, 0, registers);
+                double y = eval_compiled_scalar(op, 1, registers);
+                double w = eval_compiled_scalar(op, 2, registers);
+                double h = eval_compiled_scalar(op, 3, registers);
+                fill_rect_gradient(x, y, w, h, op.bbox_relative
+                    ? map_bbox_gradient(op.grad, x, y, w, h, std::min(w, h))
+                    : op.grad);
+                break;
+            }
+            case DrawOpType::StrokeRect: {
+                double x = eval_compiled_scalar(op, 0, registers);
+                double y = eval_compiled_scalar(op, 1, registers);
+                double w = eval_compiled_scalar(op, 2, registers);
+                double h = eval_compiled_scalar(op, 3, registers);
+                double sw = eval_compiled_scalar(op, 4, registers);
+                stroke_rect(x, y, w, h, c1, sw);
+                break;
+            }
+            case DrawOpType::FillRoundedRect: {
+                double x = eval_compiled_scalar(op, 0, registers);
+                double y = eval_compiled_scalar(op, 1, registers);
+                double w = eval_compiled_scalar(op, 2, registers);
+                double h = eval_compiled_scalar(op, 3, registers);
+                double rx = eval_compiled_scalar(op, 4, registers);
+                double ry = eval_compiled_scalar(op, 5, registers);
+                fill_rounded_rect(x, y, w, h, rx, ry, c1);
+                break;
+            }
+            case DrawOpType::FillRoundedRectGradient: {
+                double x = eval_compiled_scalar(op, 0, registers);
+                double y = eval_compiled_scalar(op, 1, registers);
+                double w = eval_compiled_scalar(op, 2, registers);
+                double h = eval_compiled_scalar(op, 3, registers);
+                double rx = eval_compiled_scalar(op, 4, registers);
+                double ry = eval_compiled_scalar(op, 5, registers);
+                fill_rounded_rect_gradient(x, y, w, h, rx, ry, op.bbox_relative
+                    ? map_bbox_gradient(op.grad, x, y, w, h, std::min(w, h))
+                    : op.grad);
+                break;
+            }
+            case DrawOpType::StrokeRoundedRect: {
+                double x = eval_compiled_scalar(op, 0, registers);
+                double y = eval_compiled_scalar(op, 1, registers);
+                double w = eval_compiled_scalar(op, 2, registers);
+                double h = eval_compiled_scalar(op, 3, registers);
+                double rx = eval_compiled_scalar(op, 4, registers);
+                double ry = eval_compiled_scalar(op, 5, registers);
+                double sw = eval_compiled_scalar(op, 6, registers);
+                stroke_rounded_rect(x, y, w, h, rx, ry, c1, sw);
+                break;
+            }
+            case DrawOpType::FillCircle: {
+                double cx = eval_compiled_scalar(op, 0, registers);
+                double cy = eval_compiled_scalar(op, 1, registers);
+                double r = eval_compiled_scalar(op, 2, registers);
+                fill_circle(cx, cy, r, c1);
+                break;
+            }
+            case DrawOpType::FillCircleGradient: {
+                double cx = eval_compiled_scalar(op, 0, registers);
+                double cy = eval_compiled_scalar(op, 1, registers);
+                double r = eval_compiled_scalar(op, 2, registers);
+                fill_circle_gradient(cx, cy, r, op.bbox_relative
+                    ? map_bbox_gradient(op.grad, cx - r, cy - r, 2.0 * r, 2.0 * r, r)
+                    : op.grad);
+                break;
+            }
+            case DrawOpType::StrokeCircle: {
+                double cx = eval_compiled_scalar(op, 0, registers);
+                double cy = eval_compiled_scalar(op, 1, registers);
+                double r = eval_compiled_scalar(op, 2, registers);
+                double sw = eval_compiled_scalar(op, 3, registers);
+                stroke_circle(cx, cy, r, c1, sw);
+                break;
+            }
+            case DrawOpType::StrokeArc: {
+                double cx = eval_compiled_scalar(op, 0, registers);
+                double cy = eval_compiled_scalar(op, 1, registers);
+                double r = eval_compiled_scalar(op, 2, registers);
+                double sa = eval_compiled_scalar(op, 3, registers);
+                double swp = eval_compiled_scalar(op, 4, registers);
+                double sw = eval_compiled_scalar(op, 5, registers);
+                stroke_arc(cx, cy, r, sa, swp, c1, sw);
+                break;
+            }
+            case DrawOpType::DrawLine: {
+                double x1 = eval_compiled_scalar(op, 0, registers);
+                double y1 = eval_compiled_scalar(op, 1, registers);
+                double x2 = eval_compiled_scalar(op, 2, registers);
+                double y2 = eval_compiled_scalar(op, 3, registers);
+                double sw = eval_compiled_scalar(op, 4, registers);
+                draw_line(x1, y1, x2, y2, c1, sw);
+                break;
+            }
+            case DrawOpType::DrawText: {
+                const std::string& str = compiled.get_string(op.str_index);
+                double x = eval_compiled_scalar(op, 0, registers);
+                double y = eval_compiled_scalar(op, 1, registers);
+                float font_size = static_cast<float>(eval_compiled_scalar(op, 2, registers));
+                draw_text(str, x, y, font_size, "default", c1, op.i1, op.i2, op.i3 != 0);
+                break;
+            }
+            case DrawOpType::DrawShadowRoundedRect: {
+                double x = eval_compiled_scalar(op, 0, registers);
+                double y = eval_compiled_scalar(op, 1, registers);
+                double w = eval_compiled_scalar(op, 2, registers);
+                double h = eval_compiled_scalar(op, 3, registers);
+                double rx = eval_compiled_scalar(op, 4, registers);
+                double ry = eval_compiled_scalar(op, 5, registers);
+                double blur = eval_compiled_scalar(op, 6, registers);
+                double spread = eval_compiled_scalar(op, 7, registers);
+                double ox = eval_compiled_scalar(op, 8, registers);
+                double oy = eval_compiled_scalar(op, 9, registers);
+                draw_shadow_rounded_rect(x, y, w, h, rx, ry, blur, spread, ox, oy, c1);
+                break;
+            }
+            case DrawOpType::DrawCard: {
+                Color c2 = eval_compiled_color(op, 1, registers);
+                Color c3 = eval_compiled_color(op, 2, registers);
+                double x = eval_compiled_scalar(op, 0, registers);
+                double y = eval_compiled_scalar(op, 1, registers);
+                double w = eval_compiled_scalar(op, 2, registers);
+                double h = eval_compiled_scalar(op, 3, registers);
+                double rx = eval_compiled_scalar(op, 4, registers);
+                double ry = eval_compiled_scalar(op, 5, registers);
+                double bw = eval_compiled_scalar(op, 6, registers);
+                double blur = eval_compiled_scalar(op, 7, registers);
+                double spread = eval_compiled_scalar(op, 8, registers);
+                double ox = eval_compiled_scalar(op, 9, registers);
+                double oy = eval_compiled_scalar(op, 10, registers);
+                draw_card(x, y, w, h, rx, ry, c1, c2, bw, blur, spread, ox, oy, c3);
+                break;
+            }
+            case DrawOpType::Save:
+                save();
+                break;
+            case DrawOpType::Restore:
+                restore();
+                break;
+            case DrawOpType::Translate: {
+                double tx = eval_compiled_scalar(op, 0, registers);
+                double ty = eval_compiled_scalar(op, 1, registers);
+                translate(tx, ty);
+                break;
+            }
+            case DrawOpType::Scale: {
+                double sx = eval_compiled_scalar(op, 0, registers);
+                double sy = eval_compiled_scalar(op, 1, registers);
+                scale(sx, sy);
+                break;
+            }
+            case DrawOpType::Rotate: {
+                double rad = eval_compiled_scalar(op, 0, registers);
+                rotate(rad);
+                break;
+            }
+            case DrawOpType::ClipRect: {
+                double x = eval_compiled_scalar(op, 0, registers);
+                double y = eval_compiled_scalar(op, 1, registers);
+                double w = eval_compiled_scalar(op, 2, registers);
+                double h = eval_compiled_scalar(op, 3, registers);
+                clip_rect(x, y, w, h);
+                break;
+            }
+            case DrawOpType::ClipRoundedRect: {
+                double x = eval_compiled_scalar(op, 0, registers);
+                double y = eval_compiled_scalar(op, 1, registers);
+                double w = eval_compiled_scalar(op, 2, registers);
+                double h = eval_compiled_scalar(op, 3, registers);
+                double rx = eval_compiled_scalar(op, 4, registers);
+                double ry = eval_compiled_scalar(op, 5, registers);
+                clip_rounded_rect(x, y, w, h, rx, ry);
+                break;
+            }
+            case DrawOpType::ResetClip:
+                reset_clip();
+                break;
+            default:
+                break;
+        }
+    }
+}
+
 void Surface::flush() {
     std::lock_guard<std::mutex> lock(mutex_);
     ctx_.flush(BL_CONTEXT_FLUSH_SYNC);
@@ -1617,8 +1839,12 @@ void Surface::blit_to_photo(
         throw std::invalid_argument("Invalid Tcl_Interp address");
     }
 
-    if (TkBlend_InitStubs(interp) != TCL_OK) {
-        throw std::runtime_error("Failed to initialize Tcl/Tk stubs in blit_to_photo");
+    static bool s_stubs_initialized = false;
+    if (!s_stubs_initialized) {
+        if (TkBlend_InitStubs(interp) != TCL_OK) {
+            throw std::runtime_error("Failed to initialize Tcl/Tk stubs in blit_to_photo");
+        }
+        s_stubs_initialized = true;
     }
 
     Tk_PhotoHandle photoHandle = Tk_FindPhoto(interp, photo_name.c_str());

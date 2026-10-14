@@ -1,4 +1,5 @@
 #include "draw_batch.hpp"
+#include "compiled_draw_batch.hpp"
 #include <utility>
 
 namespace tkblend {
@@ -141,5 +142,11 @@ void DrawBatch::clip_rect(double x, double y, double w, double h) { DrawOp op; o
 void DrawBatch::clip_rounded_rect(double x, double y, double w, double h, double rx, double ry) { DrawOp op; op.type = DrawOpType::ClipRoundedRect; op.d[0]=x; op.d[1]=y; op.d[2]=w; op.d[3]=h; op.d[4]=rx; op.d[5]=ry; ops.push_back(std::move(op)); }
 void DrawBatch::reset_clip() { DrawOp op; op.type = DrawOpType::ResetClip; ops.push_back(std::move(op)); }
 void DrawBatch::reset() { ops.clear(); }
+
+std::shared_ptr<CompiledDrawBatch> DrawBatch::compile() const {
+    auto res = DrawBatchCompiler::compile(*this);
+    res->source_batch = std::make_shared<DrawBatch>(*this);
+    return res;
+}
 
 } // namespace tkblend

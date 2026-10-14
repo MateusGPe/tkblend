@@ -40,10 +40,13 @@ struct TextLayoutOptions {
     int max_lines = 0;
 };
 
+class CompiledDrawBatch;
+struct FastRegisterBank;
+
 // Main Vector Drawing Surface
 class Surface {
 public:
-    Surface(int width, int height);
+    Surface(int width, int height, int thread_count = 0);
     ~Surface();
 
     // Lifecycle & buffer sizing
@@ -391,6 +394,11 @@ public:
         const std::string& class_name = ""
     );
 
+    void execute_compiled(
+        const CompiledDrawBatch& compiled,
+        const FastRegisterBank& registers
+    );
+
     // Tcl/Tk Blitting Bridge
     void blit_to_photo(
         uintptr_t interp_addr,
@@ -423,6 +431,7 @@ private:
 
     std::atomic<int> width_{1};
     std::atomic<int> height_{1};
+    int thread_count_{0};
     BLImage image_;
     BLContext ctx_;
     mutable std::mutex mutex_;

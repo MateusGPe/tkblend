@@ -43,6 +43,11 @@
 # set(TK_STUB_LIBRARY "C:/Users/username/AppData/Local/Apps/Tcl86/lib/tkstub86.lib" CACHE FILEPATH "Tk stub library" FORCE)
 # set(TCL_STUB_LIBRARY "C:/Users/username/AppData/Local/Apps/Tcl86/lib/tclstub86.lib" CACHE FILEPATH "Tcl stub library" FORCE)
 
+# Pure Stubs Mode (USE_TCL_STUBS, USE_TK_STUBS, and TKBLEND_PURE_STUBS):
+# When ON (default), builds using pure stubs (portable wheels; only stub libraries required).
+# When OFF, direct-link import libraries (tk86t.lib/tcl86t.lib) are also linked.
+# set(TKBLEND_PURE_STUBS ON CACHE BOOL "Build using pure Tcl/Tk stubs" FORCE)
+
 # ------------------------------------------------------------------------------
 # 3. Build Type and Optimization
 # ------------------------------------------------------------------------------

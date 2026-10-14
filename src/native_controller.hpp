@@ -6,6 +6,7 @@
 #include "blit/blit_backend.h"
 #include "color.hpp"
 #include "draw_batch.hpp"
+#include "compiled_draw_batch.hpp"
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
@@ -208,6 +209,22 @@ private:
     std::unordered_map<std::string, std::string> local_vars_;
     std::shared_ptr<DrawBatch> draw_batch_{nullptr};
     int active_thumb_{0};
+
+    // Compiled bytecode rendering cache
+    void invalidate_cached_batch() {
+        cached_compiled_batch_.reset();
+        cached_compiled_state_ = 0xFFFF;
+        cached_compiled_w_ = -1;
+        cached_compiled_h_ = -1;
+        cached_compiled_cls_.clear();
+    }
+
+    FastRegisterBank register_bank_;
+    std::shared_ptr<CompiledDrawBatch> cached_compiled_batch_{nullptr};
+    uint16_t cached_compiled_state_{0xFFFF};
+    int cached_compiled_w_{-1};
+    int cached_compiled_h_{-1};
+    std::string cached_compiled_cls_{""};
 };
 
 } // namespace tkblend
