@@ -1,15 +1,12 @@
 from __future__ import annotations
 
+import time
 import tkinter as tk
 from typing import Optional, Callable, Sequence, Any
-from tkblend.widgets.base import BaseControl
+
+from tkblend.surface import ColorLike
 from tkblend.theme import Palette, to_tk_hex, get_theme
-
-
-import time
 from tkblend.widgets.base import BaseControl, ScalingTracker
-
-
 from tkblend.widgets.scrollable_frame import VectorScrollbar
 
 

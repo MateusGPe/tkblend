@@ -698,5 +698,138 @@ def test_combobox_popup_scrolling_long_list(root):
     root.update()
 
 
+def test_scrollbar_math_utilities():
+    from tkblend.widgets.utils import (
+        compute_scrollbar_geometry,
+        compute_scroll_drag_delta,
+        compute_scroll_jump,
+    )
+
+    # 1. Content fits within viewport -> scrollbar not needed
+    is_needed, thumb_offset, thumb_len, track_len, max_scroll = compute_scrollbar_geometry(
+        viewport_len=200, content_len=150, scroll_pos=0
+    )
+    assert not is_needed
+    assert thumb_offset == 0.0
+
+    # 2. Content exceeds viewport -> scrollbar needed
+    is_needed, thumb_offset, thumb_len, track_len, max_scroll = compute_scrollbar_geometry(
+        viewport_len=100, content_len=400, scroll_pos=150, track_pad=8.0, min_thumb_len=20.0
+    )
+    assert is_needed
+    assert track_len == 92.0
+    # thumb_len = max(20.0, 100 * (100 / 400)) = 25.0
+    assert thumb_len == 25.0
+    # max_scroll = 400 - 100 = 300.0
+    assert max_scroll == 300.0
+    # progress = 150 / 300 = 0.5
+    # thumb_offset = 0.5 * (92.0 - 25.0) = 33.5
+    assert abs(thumb_offset - 33.5) < 1e-4
+
+    # 3. Minimum thumb clamping for very long content
+    is_needed, _, thumb_len, _, _ = compute_scrollbar_geometry(
+        viewport_len=100, content_len=10000, scroll_pos=0, min_thumb_len=24.0
+    )
+    assert is_needed
+    assert thumb_len == 24.0
+
+    # 4. Drag delta conversion
+    scroll_delta = compute_scroll_drag_delta(
+        drag_delta_px=10.0, max_scroll=300.0, track_len=92.0, thumb_len=25.0
+    )
+    # available_track = 92.0 - 25.0 = 67.0
+    # scroll_delta = 10.0 * (300.0 / 67.0)
+    expected_delta = 10.0 * (300.0 / 67.0)
+    assert abs(scroll_delta - expected_delta) < 1e-4
+
+    # 5. Track jump calculation
+    target = compute_scroll_jump(click_offset_in_track=46.0, track_len=92.0, max_scroll=300.0)
+    # click_ratio = 46.0 / 92.0 = 0.5 -> 150.0
+    assert abs(target - 150.0) < 1e-4
 
 
+def test_table_scrollbar_idle_and_active_colors(root):
+    from tkblend.widgets.table import _TableCellDropdownPopup, DropdownPopup
+
+    # Verify backwards compatibility alias
+    assert _TableCellDropdownPopup is DropdownPopup
+
+    set_theme("dark")
+    tbl = Table(
+        root,
+        columns=["A", "B"],
+        data=[[f"Row {i}", i] for i in range(50)],
+        width=200,
+        height=150,
+    )
+    tbl.pack()
+    root.update_idletasks()
+
+    w, h = tbl._get_size()
+    v_needed, vx, vy, vw, vh, _ = tbl._get_vbar_bounds(w, h)
+    assert v_needed is True
+    assert vw == tbl._scrollbar_w
+
+    # Idle state
+    assert not tbl._vbar_hovered
+    assert not tbl._vbar_dragging
+
+    # Hover state triggers redraw and updates state
+    tbl._vbar_hovered = True
+    tbl.request_redraw()
+    root.update_idletasks()
+    assert tbl._vbar_hovered is True
+
+
+def test_table_light_theme_and_color_overrides(root):
+    # Test light theme tokens
+    tb.set_theme("light")
+    pal = tb.get_theme()
+    assert pal.table_header_bg == "#f8fafc"
+    assert pal.table_header_fg == "#475569"
+    assert pal.table_zebra_bg == "#f8fafc"
+    assert pal.table_hover_bg == "#f1f5f9"
+    assert pal.table_selected_bg == "#e0e7ff"
+    assert pal.table_selected_fg == "#3730a3"
+    assert pal.table_border == "#e2e8f0"
+    assert pal.table_scrollbar_thumb == "#cbd5e1"
+    assert pal.table_scrollbar_thumb_hover == "#94a3b8"
+
+    # Test Table widget instantiation with light theme
+    tbl = Table(
+        root,
+        columns=["Col 1", "Col 2"],
+        data=[["Val 1", "Val 2"], ["Val 3", "Val 4"]],
+        header_bg="#f0fdf4",
+        header_fg="#166534",
+        selected_bg="#dcfce7",
+        selected_fg="#14532d",
+    )
+    tbl.pack()
+    root.update_idletasks()
+
+    assert tbl.header_bg == "#f0fdf4"
+    assert tbl.header_fg == "#166534"
+    assert tbl.selected_bg == "#dcfce7"
+    assert tbl.selected_fg == "#14532d"
+
+    # Test property setters
+    tbl.header_bg = "#fef2f2"
+    assert tbl.header_bg == "#fef2f2"
+
+    tbl.zebra_bg = "#fff1f2"
+    assert tbl.zebra_bg == "#fff1f2"
+
+    tbl.hover_bg = "#ffe4e6"
+    assert tbl.hover_bg == "#ffe4e6"
+
+    tbl.border_color = "#fecdd3"
+    assert tbl.border_color == "#fecdd3"
+
+    tbl.table_bg = "#ffffff"
+    assert tbl.table_bg == "#ffffff"
+
+    tbl.table_fg = "#000000"
+    assert tbl.table_fg == "#000000"
+
+    root.update_idletasks()

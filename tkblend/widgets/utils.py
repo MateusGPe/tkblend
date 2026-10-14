@@ -224,3 +224,57 @@ def unbind_variable_trace(
             var.trace_vdelete("w", trace_id)
         except Exception:
             pass
+
+
+def compute_scrollbar_geometry(
+    viewport_len: float,
+    content_len: float,
+    scroll_pos: float,
+    track_pad: float = 8.0,
+    min_thumb_len: float = 24.0,
+    min_track_len: float = 10.0,
+) -> tuple[bool, float, float, float, float]:
+    """
+    Pure mathematical helper for virtual/vector scrollbar layout.
+
+    Calculates whether a scrollbar is required, the thumb position offset,
+    the thumb size clamped to min_thumb_len, the track length, and the max scroll range.
+
+    Returns:
+        (is_needed, thumb_offset, thumb_len, track_len, max_scroll)
+    """
+    if viewport_len <= 0 or content_len <= viewport_len:
+        return False, 0.0, 0.0, 0.0, 0.0
+
+    track_len = max(min_track_len, float(viewport_len - track_pad))
+    thumb_len = max(min_thumb_len, float(viewport_len * (viewport_len / content_len)))
+    max_scroll = max(1.0, float(content_len - viewport_len))
+    progress = max(0.0, min(1.0, scroll_pos / max_scroll))
+    thumb_offset = progress * (track_len - thumb_len)
+    return True, thumb_offset, thumb_len, track_len, max_scroll
+
+
+def compute_scroll_drag_delta(
+    drag_delta_px: float,
+    max_scroll: float,
+    track_len: float,
+    thumb_len: float,
+) -> float:
+    """
+    Convert a mouse drag pixel delta on a scrollbar track into a content scroll delta.
+    """
+    available_track = max(1.0, track_len - thumb_len)
+    return drag_delta_px * (max_scroll / available_track)
+
+
+def compute_scroll_jump(
+    click_offset_in_track: float,
+    track_len: float,
+    max_scroll: float,
+) -> float:
+    """
+    Calculate target content scroll position from a direct jump click on the track.
+    """
+    click_ratio = max(0.0, min(1.0, click_offset_in_track / max(1.0, track_len)))
+    return click_ratio * max_scroll
+

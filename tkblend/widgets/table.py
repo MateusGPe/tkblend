@@ -3,40 +3,19 @@ from __future__ import annotations
 import sys
 import tkinter as tk
 from typing import Optional, Callable, Sequence, List, Any, Dict, Tuple, Union, Set
-from tkblend.widgets.base import BaseControl
-from tkblend.theme import Palette, to_tk_hex, get_theme
+
 from tkblend.surface import Surface
-
-
+from tkblend.theme import Palette, to_tk_hex, get_theme
+from tkblend.widgets.base import BaseControl
 from tkblend.widgets.combobox import DropdownPopup
+from tkblend.widgets.utils import (
+    compute_scrollbar_geometry,
+    compute_scroll_drag_delta,
+    compute_scroll_jump,
+)
 
-
-class _TableCellDropdownPopup(DropdownPopup):
-    """Floating Material Design 3 vector styled dropdown list for Table cell editing."""
-
-    def __init__(
-        self,
-        table: Table,
-        cell_x: int,
-        cell_y: int,
-        cell_w: int,
-        cell_h: int,
-        values: Sequence[str],
-        current_value: str,
-        on_select: Callable[[str], None],
-        on_dismiss: Optional[Callable[[], None]] = None,
-        max_visible_items: int = 8,
-    ):
-        super().__init__(
-            master=table,
-            values=values,
-            current_value=current_value,
-            on_select=on_select,
-            on_dismiss=on_dismiss,
-            target_bounds=(cell_x, cell_y, cell_w, cell_h),
-            max_visible_items=max_visible_items,
-            min_width=max(cell_w, 100),
-        )
+# Backwards-compatibility alias for external consumers
+_TableCellDropdownPopup = DropdownPopup
 
 
 class Table(BaseControl):
@@ -75,6 +54,15 @@ class Table(BaseControl):
         on_cell_edit: Optional[Callable[[int, int, Any, Any], Optional[bool]]] = None,
         sort_column: Optional[int] = None,
         sort_ascending: bool = True,
+        table_bg: Optional[str] = None,
+        table_fg: Optional[str] = None,
+        header_bg: Optional[str] = None,
+        header_fg: Optional[str] = None,
+        zebra_bg: Optional[str] = None,
+        hover_bg: Optional[str] = None,
+        selected_bg: Optional[str] = None,
+        selected_fg: Optional[str] = None,
+        border_color: Optional[str] = None,
         **kwargs,
     ):
         self._columns: List[str] = list(columns) if columns else ["Column 1", "Column 2", "Column 3"]
@@ -90,6 +78,17 @@ class Table(BaseControl):
         self._corner_radius: float = float(corner_radius)
         self._zebra_striping: bool = bool(zebra_striping)
         self._multi_select: bool = bool(multi_select)
+
+        # Explicit per-table color overrides
+        self._table_bg = table_bg
+        self._table_fg = table_fg
+        self._header_bg = header_bg
+        self._header_fg = header_fg
+        self._zebra_bg = zebra_bg
+        self._hover_bg = hover_bg
+        self._selected_bg = selected_bg
+        self._selected_fg = selected_fg
+        self._border_color = border_color
 
         # In-place cell editing configuration and state
         self._editable_columns: Optional[List[Union[int, str]]] = (
@@ -244,15 +243,17 @@ class Table(BaseControl):
         # Check preliminary h_needed to adjust viewport_h
         h_needed = total_content_w > (w - 4)
         viewport_h = h - self._header_h - (self._scrollbar_w + 6 if h_needed else 2)
-        v_needed = total_content_h > viewport_h
-        if not v_needed or viewport_h <= 0 or total_content_h <= 0:
+        v_needed, thumb_offset, thumb_h, track_h, _ = compute_scrollbar_geometry(
+            viewport_len=viewport_h,
+            content_len=total_content_h,
+            scroll_pos=self._scroll_y,
+            track_pad=8.0,
+            min_thumb_len=24.0,
+        )
+        if not v_needed:
             return False, 0.0, 0.0, 0.0, 0.0, 0.0
 
-        track_h = max(10.0, float(viewport_h - 8))
-        thumb_h = max(24.0, float(viewport_h * (viewport_h / total_content_h)))
-        max_scroll = max(1.0, float(total_content_h - viewport_h))
-        progress = max(0.0, min(1.0, self._scroll_y / max_scroll))
-        thumb_y = self._header_h + 4.0 + progress * (track_h - thumb_h)
+        thumb_y = self._header_h + 4.0 + thumb_offset
         thumb_x = w - self._scrollbar_w - 4.0
         return True, thumb_x, thumb_y, float(self._scrollbar_w), thumb_h, track_h
 
@@ -264,15 +265,17 @@ class Table(BaseControl):
         v_needed = total_content_h > prelim_viewport_h
 
         viewport_w = w - (self._scrollbar_w + 6 if v_needed else 4)
-        h_needed = total_content_w > viewport_w
-        if not h_needed or viewport_w <= 0 or total_content_w <= 0:
+        h_needed, thumb_offset, thumb_w, track_w, _ = compute_scrollbar_geometry(
+            viewport_len=viewport_w,
+            content_len=total_content_w,
+            scroll_pos=self._scroll_x,
+            track_pad=8.0,
+            min_thumb_len=24.0,
+        )
+        if not h_needed:
             return False, 0.0, 0.0, 0.0, 0.0, 0.0
 
-        track_w = max(10.0, float(viewport_w - 8))
-        thumb_w = max(24.0, float(viewport_w * (viewport_w / total_content_w)))
-        max_scroll = max(1.0, float(total_content_w - viewport_w))
-        progress = max(0.0, min(1.0, self._scroll_x / max_scroll))
-        thumb_x = 4.0 + progress * (track_w - thumb_w)
+        thumb_x = 4.0 + thumb_offset
         thumb_y = h - self._scrollbar_w - 4.0
         return True, thumb_x, thumb_y, thumb_w, float(self._scrollbar_w), track_w
 
@@ -353,8 +356,8 @@ class Table(BaseControl):
                 self._vbar_drag_start_scroll = self._scroll_y
             else:
                 # Jump click on track
-                click_ratio = max(0.0, min(1.0, (event.y - self._header_h - 4) / max(1.0, track_h)))
-                self._scroll_y = max(0.0, min(max_scroll, click_ratio * max_scroll))
+                jump_target = compute_scroll_jump(event.y - self._header_h - 4, track_h, max_scroll)
+                self._scroll_y = max(0.0, min(max_scroll, jump_target))
                 self.request_redraw()
             return
 
@@ -371,8 +374,8 @@ class Table(BaseControl):
                 self._hbar_drag_start_scroll = self._scroll_x
             else:
                 # Jump click on track
-                click_ratio = max(0.0, min(1.0, (event.x - 4) / max(1.0, track_w)))
-                self._scroll_x = max(0.0, min(max_scroll, click_ratio * max_scroll))
+                jump_target = compute_scroll_jump(event.x - 4, track_w, max_scroll)
+                self._scroll_x = max(0.0, min(max_scroll, jump_target))
                 self.request_redraw()
             return
 
@@ -439,10 +442,9 @@ class Table(BaseControl):
             total_content_h = len(self._data) * self._row_h
             viewport_h = h - self._header_h - (self._scrollbar_w + 6 if h_needed else 2)
             max_scroll = max(1.0, float(total_content_h - viewport_h))
-            available_track = max(1.0, track_h - vh)
 
             delta_y = event.y - self._vbar_drag_y
-            scroll_delta = delta_y * (max_scroll / available_track)
+            scroll_delta = compute_scroll_drag_delta(delta_y, max_scroll, track_h, vh)
             self._scroll_y = max(0.0, min(max_scroll, self._vbar_drag_start_scroll + scroll_delta))
             self.request_redraw()
             return
@@ -454,10 +456,9 @@ class Table(BaseControl):
             total_content_w = sum(self._col_widths) if self._col_widths else w
             viewport_w = w - (self._scrollbar_w + 6 if v_needed else 4)
             max_scroll = max(1.0, float(total_content_w - viewport_w))
-            available_track = max(1.0, track_w - hw)
 
             delta_x = event.x - self._hbar_drag_x
-            scroll_delta = delta_x * (max_scroll / available_track)
+            scroll_delta = compute_scroll_drag_delta(delta_x, max_scroll, track_w, hw)
             self._scroll_x = max(0.0, min(max_scroll, self._hbar_drag_start_scroll + scroll_delta))
             self.request_redraw()
             return
@@ -737,24 +738,7 @@ class Table(BaseControl):
 
         # 1. Custom callable factory
         if callable(cfg):
-            custom_widget = cfg(
-                self,
-                row_idx,
-                col_idx,
-                current_val,
-                lambda v=None: self._commit_cell_edit(v),
-                self._cancel_cell_edit,
-            )
-            if custom_widget:
-                custom_widget.place(x=place_x, y=place_y, width=place_w, height=place_h)
-                self._active_editor = custom_widget
-                self._active_editor_widget = custom_widget
-                try:
-                    custom_widget.focus_set()
-                except Exception:
-                    pass
-                return True
-            return False
+            return self._create_custom_editor(row_idx, col_idx, current_val, cfg, bounds)
 
         # 2. Combobox editor
         is_combobox = False
@@ -774,43 +758,101 @@ class Table(BaseControl):
                         cb_values.append(val_str)
 
         if is_combobox:
-            editor_frame = tk.Frame(self, bg=primary_hex, padx=1, pady=1)
-            container = tk.Frame(editor_frame, bg=bg_hex)
-            container.pack(fill="both", expand=True)
-
-            lbl_text = tk.Label(
-                container,
-                text=str(current_val),
-                bg=bg_hex,
-                fg=fg_hex,
-                font=("sans-serif", 10),
-                anchor="w",
-                padx=6,
+            return self._create_combobox_editor(
+                row_idx, col_idx, current_val, cb_values, bounds, bg_hex, fg_hex, primary_hex
             )
-            lbl_text.pack(side="left", fill="both", expand=True)
-            lbl_arrow = tk.Label(container, text="▼", bg=bg_hex, fg=primary_hex, font=("sans-serif", 8), padx=6)
-            lbl_arrow.pack(side="right")
-
-            editor_frame.place(x=place_x, y=place_y, width=place_w, height=place_h)
-            self._active_editor = editor_frame
-            self._active_editor_widget = None
-
-            self.update_idletasks()
-
-            _TableCellDropdownPopup(
-                table=self,
-                cell_x=place_x,
-                cell_y=place_y,
-                cell_w=place_w,
-                cell_h=place_h,
-                values=cb_values,
-                current_value=str(current_val),
-                on_select=lambda v: self._commit_cell_edit(v),
-                on_dismiss=lambda: self._cancel_cell_edit(),
-            )
-            return True
 
         # 3. Default Entry editor
+        return self._create_entry_editor(
+            row_idx, col_idx, current_val, bounds, bg_hex, fg_hex, primary_hex
+        )
+
+    def _create_custom_editor(
+        self,
+        row_idx: int,
+        col_idx: int,
+        current_val: Any,
+        cfg: Callable,
+        bounds: Tuple[int, int, int, int],
+    ) -> bool:
+        place_x, place_y, place_w, place_h = bounds
+        custom_widget = cfg(
+            self,
+            row_idx,
+            col_idx,
+            current_val,
+            lambda v=None: self._commit_cell_edit(v),
+            self._cancel_cell_edit,
+        )
+        if custom_widget:
+            custom_widget.place(x=place_x, y=place_y, width=place_w, height=place_h)
+            self._active_editor = custom_widget
+            self._active_editor_widget = custom_widget
+            try:
+                custom_widget.focus_set()
+            except Exception:
+                pass
+            return True
+        return False
+
+    def _create_combobox_editor(
+        self,
+        row_idx: int,
+        col_idx: int,
+        current_val: Any,
+        cb_values: List[str],
+        bounds: Tuple[int, int, int, int],
+        bg_hex: str,
+        fg_hex: str,
+        primary_hex: str,
+    ) -> bool:
+        place_x, place_y, place_w, place_h = bounds
+        editor_frame = tk.Frame(self, bg=primary_hex, padx=1, pady=1)
+        container = tk.Frame(editor_frame, bg=bg_hex)
+        container.pack(fill="both", expand=True)
+
+        lbl_text = tk.Label(
+            container,
+            text=str(current_val),
+            bg=bg_hex,
+            fg=fg_hex,
+            font=("sans-serif", 10),
+            anchor="w",
+            padx=6,
+        )
+        lbl_text.pack(side="left", fill="both", expand=True)
+        lbl_arrow = tk.Label(container, text="▼", bg=bg_hex, fg=primary_hex, font=("sans-serif", 8), padx=6)
+        lbl_arrow.pack(side="right")
+
+        editor_frame.place(x=place_x, y=place_y, width=place_w, height=place_h)
+        self._active_editor = editor_frame
+        self._active_editor_widget = None
+
+        self.update_idletasks()
+
+        DropdownPopup(
+            master=self,
+            values=cb_values,
+            current_value=str(current_val),
+            on_select=lambda v: self._commit_cell_edit(v),
+            on_dismiss=lambda: self._cancel_cell_edit(),
+            target_bounds=(place_x, place_y, place_w, place_h),
+            max_visible_items=8,
+            min_width=max(place_w, 100),
+        )
+        return True
+
+    def _create_entry_editor(
+        self,
+        row_idx: int,
+        col_idx: int,
+        current_val: Any,
+        bounds: Tuple[int, int, int, int],
+        bg_hex: str,
+        fg_hex: str,
+        primary_hex: str,
+    ) -> bool:
+        place_x, place_y, place_w, place_h = bounds
         editor_frame = tk.Frame(self, bg=primary_hex, padx=1, pady=1)
         entry = tk.Entry(
             editor_frame,
@@ -1003,12 +1045,20 @@ class Table(BaseControl):
             return
 
         pal = self._palette
-        card_bg = getattr(pal, "card_bg", "#25232a")
-        card_border = getattr(pal, "card_border", "#49454f")
-        fg = getattr(pal, "fg", "#e6e0e9")
-        primary = getattr(pal, "primary", "#8b5cf6")
-        surface_col = getattr(pal, "surface", "#2f2d38")
-        hover_col = getattr(pal, "card_hover", "#383542")
+        is_dark = pal.dark_mode
+
+        card_bg = self._table_bg or getattr(pal, "table_bg", getattr(pal, "card_bg", "#25232a" if is_dark else "#ffffff"))
+        card_border = self._border_color or getattr(pal, "table_border", getattr(pal, "card_border", "#49454f" if is_dark else "#e2e8f0"))
+        fg = self._table_fg or getattr(pal, "table_fg", getattr(pal, "fg", "#e6e0e9" if is_dark else "#0f172a"))
+        header_bg = self._header_bg or getattr(pal, "table_header_bg", getattr(pal, "card_bg", card_bg))
+        header_fg = self._header_fg or getattr(pal, "table_header_fg", getattr(pal, "text_muted", fg))
+        surface_col = self._zebra_bg or getattr(pal, "table_zebra_bg", getattr(pal, "surface", "#2f2d38" if is_dark else "#f8fafc"))
+        hover_col = self._hover_bg or getattr(pal, "table_hover_bg", getattr(pal, "card_hover", "#383542" if is_dark else "#f1f5f9"))
+        selected_bg = self._selected_bg or getattr(pal, "table_selected_bg", getattr(pal, "primary", "#8b5cf6" if is_dark else "#e0e7ff"))
+        selected_fg = self._selected_fg or getattr(pal, "table_selected_fg", "#ffffff" if is_dark else "#3730a3")
+
+        idle_bar_color = getattr(pal, "table_scrollbar_thumb", getattr(pal, "thumb_bg", card_border))
+        hover_bar_color = getattr(pal, "table_scrollbar_thumb_hover", getattr(pal, "primary", "#8b5cf6" if is_dark else "#94a3b8"))
 
         total_content_h = len(self._data) * self._row_h
         base_available_w = w - 4
@@ -1051,7 +1101,7 @@ class Table(BaseControl):
         surf.clip_rounded_rect(0, 0, w, h, self._corner_radius, self._corner_radius)
 
         # 3. Draw Header Background & Separators
-        surf.fill_rect(0, 0, w, self._header_h, card_bg)
+        surf.fill_rect(0, 0, w, self._header_h, header_bg)
         surf.draw_line(0, self._header_h, w, self._header_h, card_border, 1.0)
 
         # Header Columns (clipped to available_w so they do not bleed into vertical scrollbar track)
@@ -1082,7 +1132,7 @@ class Table(BaseControl):
                 curr_x + 10,
                 ty,
                 font_size=11.0,
-                color=fg,
+                color=header_fg,
                 weight=600,
             )
             surf.restore()
@@ -1108,8 +1158,8 @@ class Table(BaseControl):
 
             # Row fill color
             if is_selected:
-                row_fill = primary
-                text_col = "#ffffff"
+                row_fill = selected_bg
+                text_col = selected_fg
             elif is_hovered:
                 row_fill = hover_col
                 text_col = fg
@@ -1161,13 +1211,13 @@ class Table(BaseControl):
         if v_needed:
             has_vbar, vx, vy, vw, vh, _ = self._get_vbar_bounds(w, h)
             if has_vbar:
-                bar_color = primary if (self._vbar_hovered or self._vbar_dragging) else primary
+                bar_color = hover_bar_color if (self._vbar_hovered or self._vbar_dragging) else idle_bar_color
                 surf.fill_rounded_rect(vx, vy, vw, vh, vw / 2.0, vw / 2.0, bar_color)
 
         if h_needed:
             has_hbar, hx, hy, hw, hh, _ = self._get_hbar_bounds(w, h)
             if has_hbar:
-                bar_color = primary if (self._hbar_hovered or self._hbar_dragging) else primary
+                bar_color = hover_bar_color if (self._hbar_hovered or self._hbar_dragging) else idle_bar_color
                 surf.fill_rounded_rect(hx, hy, hw, hh, hh / 2.0, hh / 2.0, bar_color)
 
         surf.restore()  # End card clip
@@ -1336,3 +1386,95 @@ class Table(BaseControl):
         if self._active_editor:
             self._commit_cell_edit()
         self.request_redraw()
+
+    # Color override properties
+    @property
+    def table_bg(self) -> Optional[str]:
+        return self._table_bg
+
+    @table_bg.setter
+    def table_bg(self, val: Optional[str]) -> None:
+        if self._table_bg != val:
+            self._table_bg = val
+            self.request_redraw()
+
+    @property
+    def table_fg(self) -> Optional[str]:
+        return self._table_fg
+
+    @table_fg.setter
+    def table_fg(self, val: Optional[str]) -> None:
+        if self._table_fg != val:
+            self._table_fg = val
+            self.request_redraw()
+
+    @property
+    def header_bg(self) -> Optional[str]:
+        return self._header_bg
+
+    @header_bg.setter
+    def header_bg(self, val: Optional[str]) -> None:
+        if self._header_bg != val:
+            self._header_bg = val
+            self.request_redraw()
+
+    @property
+    def header_fg(self) -> Optional[str]:
+        return self._header_fg
+
+    @header_fg.setter
+    def header_fg(self, val: Optional[str]) -> None:
+        if self._header_fg != val:
+            self._header_fg = val
+            self.request_redraw()
+
+    @property
+    def zebra_bg(self) -> Optional[str]:
+        return self._zebra_bg
+
+    @zebra_bg.setter
+    def zebra_bg(self, val: Optional[str]) -> None:
+        if self._zebra_bg != val:
+            self._zebra_bg = val
+            self.request_redraw()
+
+    @property
+    def hover_bg(self) -> Optional[str]:
+        return self._hover_bg
+
+    @hover_bg.setter
+    def hover_bg(self, val: Optional[str]) -> None:
+        if self._hover_bg != val:
+            self._hover_bg = val
+            self.request_redraw()
+
+    @property
+    def selected_bg(self) -> Optional[str]:
+        return self._selected_bg
+
+    @selected_bg.setter
+    def selected_bg(self, val: Optional[str]) -> None:
+        if self._selected_bg != val:
+            self._selected_bg = val
+            self.request_redraw()
+
+    @property
+    def selected_fg(self) -> Optional[str]:
+        return self._selected_fg
+
+    @selected_fg.setter
+    def selected_fg(self, val: Optional[str]) -> None:
+        if self._selected_fg != val:
+            self._selected_fg = val
+            self.request_redraw()
+
+    @property
+    def border_color(self) -> Optional[str]:
+        return self._border_color
+
+    @border_color.setter
+    def border_color(self, val: Optional[str]) -> None:
+        if self._border_color != val:
+            self._border_color = val
+            self.request_redraw()
+

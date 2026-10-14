@@ -57,6 +57,20 @@
   --badge-fg: #0f172a;
   --focus-ring-color: #6366f1;
   --focus-ring-width: 2px;
+  --card-hover: #f1f5f9;
+
+  /* Table Component Tokens */
+  --table-bg: #ffffff;
+  --table-fg: #0f172a;
+  --table-header-bg: #f8fafc;
+  --table-header-fg: #475569;
+  --table-zebra-bg: #f8fafc;
+  --table-hover-bg: #f1f5f9;
+  --table-selected-bg: #e0e7ff;
+  --table-selected-fg: #3730a3;
+  --table-border: #e2e8f0;
+  --table-scrollbar-thumb: #cbd5e1;
+  --table-scrollbar-thumb-hover: #94a3b8;
 }
 
 button {
