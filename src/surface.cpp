@@ -1820,6 +1820,18 @@ void Surface::flush() {
     ctx_.flush(BL_CONTEXT_FLUSH_SYNC);
 }
 
+void Surface::with_pixels(const std::function<void(uint8_t*, size_t, int, int)>& fn) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (is_closed_) return;
+    ctx_.flush(BL_CONTEXT_FLUSH_SYNC);
+    BLImageData imgData;
+    image_.get_data(&imgData);
+    fn(static_cast<uint8_t*>(imgData.pixel_data),
+       static_cast<size_t>(imgData.stride),
+       static_cast<int>(imgData.size.w),
+       static_cast<int>(imgData.size.h));
+}
+
 void Surface::blit_to_photo(
     uintptr_t interp_addr,
     const std::string& photo_name,
@@ -1837,12 +1849,16 @@ void Surface::blit_to_photo(
         throw std::invalid_argument("Invalid Tcl_Interp address");
     }
 
+    static std::mutex s_stubs_mutex;
     static bool s_stubs_initialized = false;
-    if (!s_stubs_initialized) {
-        if (TkBlend_InitStubs(interp) != TCL_OK) {
-            throw std::runtime_error("Failed to initialize Tcl/Tk stubs in blit_to_photo");
+    {
+        std::lock_guard<std::mutex> stubs_lock(s_stubs_mutex);
+        if (!s_stubs_initialized) {
+            if (TkBlend_InitStubs(interp) != TCL_OK) {
+                throw std::runtime_error("Failed to initialize Tcl/Tk stubs in blit_to_photo");
+            }
+            s_stubs_initialized = true;
         }
-        s_stubs_initialized = true;
     }
 
     Tk_PhotoHandle photoHandle = Tk_FindPhoto(interp, photo_name.c_str());

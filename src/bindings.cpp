@@ -432,6 +432,9 @@ struct SurfaceBufferObject {
     PyObject_HEAD
     Surface* surface;
     PyObject* surface_py;
+    // Keeps the Surface alive for as long as the view exists (registry-owned
+    // surfaces may otherwise be unregistered and freed). Null for plain Surfaces.
+    std::shared_ptr<Surface>* owner;
     uint8_t* data;
     size_t size;
     Py_ssize_t shape[1];
@@ -471,6 +474,10 @@ static int surface_buffer_clear(PyObject* self) {
     if (obj->surface) {
         obj->surface->release_buffer_view();
         obj->surface = nullptr;
+    }
+    if (obj->owner) {
+        delete obj->owner;
+        obj->owner = nullptr;
     }
     Py_CLEAR(obj->surface_py);
     return 0;
@@ -917,15 +924,17 @@ void bind_surface(nb::module_& m) {
                 throw std::runtime_error("Cannot get buffer from a closed Surface");
             }
             init_surface_buffer_type();
+            auto info = s.acquire_buffer_view();
             auto* obj = PyObject_GC_New(SurfaceBufferObject, &SurfaceBufferType);
             if (!obj) {
+                s.release_buffer_view();
                 throw std::runtime_error("Failed to allocate SurfaceBufferObject");
             }
             obj->surface = &s;
+            obj->owner = nullptr;
             obj->surface_py = self.ptr();
             Py_INCREF(self.ptr());
 
-            auto info = s.acquire_buffer_view();
             obj->data = info.data;
             obj->size = info.size;
             obj->shape[0] = static_cast<Py_ssize_t>(info.size);
@@ -1202,17 +1211,20 @@ void bind_surface_handle(nb::module_& m) {
             if (h.is_closed()) {
                 throw std::runtime_error("Cannot get buffer from a closed SurfaceHandle");
             }
-            Surface& s = h.surface();
+            std::shared_ptr<Surface> pinned = h.pin();
+            Surface& s = *pinned;
             init_surface_buffer_type();
+            auto info = s.acquire_buffer_view();
             auto* obj = PyObject_GC_New(SurfaceBufferObject, &SurfaceBufferType);
             if (!obj) {
+                s.release_buffer_view();
                 throw std::runtime_error("Failed to allocate SurfaceBufferObject");
             }
             obj->surface = &s;
+            obj->owner = new std::shared_ptr<Surface>(pinned);
             obj->surface_py = self.ptr();
             Py_INCREF(self.ptr());
 
-            auto info = h.acquire_buffer_view();
             obj->data = info.data;
             obj->size = info.size;
             obj->shape[0] = static_cast<Py_ssize_t>(info.size);

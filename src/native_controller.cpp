@@ -259,15 +259,16 @@ void NativeWidgetController::blit_surface(Surface& surf) {
     int win_h = Tk_Height(tkwin_);
     if (win_w <= 0 || win_h <= 0) return;
 
-    surf.flush();
     Ttk_Box box{0, 0, win_w, win_h};
-    uint8_t* pixels = surf.data_ptr();
-    size_t stride = surf.stride();
-    NativeBlit(tkwin_, drawable, box, pixels, stride, surf.width(), surf.height());
+    Tk_Window tkwin = tkwin_;
+    // Pixel buffer stays locked (against resize/close) for the whole blit.
+    surf.with_pixels([&](uint8_t* pixels, size_t stride, int w, int h) {
+        NativeBlit(tkwin, drawable, box, pixels, stride, w, h);
+    });
 }
 
 void NativeWidgetController::blit_handle(SurfaceHandle& handle) {
-    Surface* s = handle.get();
+    std::shared_ptr<Surface> s = handle.get();
     if (s) {
         blit_surface(*s);
     }
@@ -298,10 +299,10 @@ void NativeWidgetController::set_state(uint16_t s) {
         if (animated_) {
             schedule_anim_step();
         }
-        if (on_state_changed_.is_valid()) {
+        {
             nb::gil_scoped_acquire gil;
             // Copy so the callback may safely replace/clear itself while running.
-            nb::object cb = on_state_changed_;
+            nb::object cb = snapshot_callback(on_state_changed_);
             if (cb.is_valid() && !cb.is_none()) {
                 try {
                     cb(s, old_state);
@@ -648,10 +649,7 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                         double track_w = w - 24.0;
                         double pos = (track_w > 0) ? std::clamp((static_cast<double>(eventPtr->xbutton.x) - 12.0) / track_w, 0.0, 1.0) : 0.0;
                         set_var("--thumb-pos", std::to_string(pos));
-                        if (on_change_.is_valid() && !on_change_.is_none()) {
-                            nb::gil_scoped_acquire gil;
-                            try { on_change_(nb::cast(pos)); } catch (...) {}
-                        }
+                        { nb::gil_scoped_acquire gil; nb::object cb = snapshot_callback(on_change_); if (cb.is_valid() && !cb.is_none()) { try { cb(nb::cast(pos)); } catch (...) {} } }
                         request_redraw();
                         break;
                     }
@@ -673,10 +671,7 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                             max_p = std::max(pos, min_p);
                             set_var("--thumb-max-pos", std::to_string(max_p));
                         }
-                        if (on_change_.is_valid() && !on_change_.is_none()) {
-                            nb::gil_scoped_acquire gil;
-                            try { on_change_(nb::make_tuple(min_p, max_p)); } catch (...) {}
-                        }
+                        { nb::gil_scoped_acquire gil; nb::object cb = snapshot_callback(on_change_); if (cb.is_valid() && !cb.is_none()) { try { cb(nb::make_tuple(min_p, max_p)); } catch (...) {} } }
                         request_redraw();
                         break;
                     }
@@ -689,10 +684,7 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                         }
                         int idx = std::clamp(static_cast<int>(eventPtr->xbutton.x * count / (w > 0 ? w : 1)), 0, count - 1);
                         set_var("--selected-index", std::to_string(idx));
-                        if (on_change_.is_valid() && !on_change_.is_none()) {
-                            nb::gil_scoped_acquire gil;
-                            try { on_change_(nb::cast(idx)); } catch (...) {}
-                        }
+                        { nb::gil_scoped_acquire gil; nb::object cb = snapshot_callback(on_change_); if (cb.is_valid() && !cb.is_none()) { try { cb(nb::cast(idx)); } catch (...) {} } }
                         request_redraw();
                         break;
                     }
@@ -716,29 +708,20 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                         double progress = std::clamp((mouse_coord - thumb_len / 2.0) / available_len, 0.0, 1.0);
                         set_var("--thumb-pos", std::to_string(progress));
                         set_var("--thumb-progress", std::to_string(progress));
-                        if (on_change_.is_valid() && !on_change_.is_none()) {
-                            nb::gil_scoped_acquire gil;
-                            try { on_change_(nb::cast(progress)); } catch (...) {}
-                        }
+                        { nb::gil_scoped_acquire gil; nb::object cb = snapshot_callback(on_change_); if (cb.is_valid() && !cb.is_none()) { try { cb(nb::cast(progress)); } catch (...) {} } }
                         request_redraw();
                         break;
                     }
                     case WidgetKind::Switch:
                     case WidgetKind::Checkbox: {
                         set_checked(!is_checked());
-                        if (on_change_.is_valid() && !on_change_.is_none()) {
-                            nb::gil_scoped_acquire gil;
-                            try { on_change_(nb::cast(is_checked())); } catch (...) {}
-                        }
+                        { nb::gil_scoped_acquire gil; nb::object cb = snapshot_callback(on_change_); if (cb.is_valid() && !cb.is_none()) { try { cb(nb::cast(is_checked())); } catch (...) {} } }
                         request_redraw();
                         break;
                     }
                     case WidgetKind::Radio: {
                         set_checked(true);
-                        if (on_change_.is_valid() && !on_change_.is_none()) {
-                            nb::gil_scoped_acquire gil;
-                            try { on_change_(nb::cast(true)); } catch (...) {}
-                        }
+                        { nb::gil_scoped_acquire gil; nb::object cb = snapshot_callback(on_change_); if (cb.is_valid() && !cb.is_none()) { try { cb(nb::cast(true)); } catch (...) {} } }
                         request_redraw();
                         break;
                     }
@@ -757,10 +740,7 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                         double track_w = w - 24.0;
                         double pos = (track_w > 0) ? std::clamp((static_cast<double>(eventPtr->xmotion.x) - 12.0) / track_w, 0.0, 1.0) : 0.0;
                         set_var("--thumb-pos", std::to_string(pos));
-                        if (on_change_.is_valid() && !on_change_.is_none()) {
-                            nb::gil_scoped_acquire gil;
-                            try { on_change_(nb::cast(pos)); } catch (...) {}
-                        }
+                        { nb::gil_scoped_acquire gil; nb::object cb = snapshot_callback(on_change_); if (cb.is_valid() && !cb.is_none()) { try { cb(nb::cast(pos)); } catch (...) {} } }
                         request_redraw();
                         break;
                     }
@@ -780,10 +760,7 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                             max_p = std::max(pos, min_p);
                             set_var("--thumb-max-pos", std::to_string(max_p));
                         }
-                        if (on_change_.is_valid() && !on_change_.is_none()) {
-                            nb::gil_scoped_acquire gil;
-                            try { on_change_(nb::make_tuple(min_p, max_p)); } catch (...) {}
-                        }
+                        { nb::gil_scoped_acquire gil; nb::object cb = snapshot_callback(on_change_); if (cb.is_valid() && !cb.is_none()) { try { cb(nb::make_tuple(min_p, max_p)); } catch (...) {} } }
                         request_redraw();
                         break;
                     }
@@ -807,10 +784,7 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                         double progress = std::clamp((mouse_coord - thumb_len / 2.0) / available_len, 0.0, 1.0);
                         set_var("--thumb-pos", std::to_string(progress));
                         set_var("--thumb-progress", std::to_string(progress));
-                        if (on_change_.is_valid() && !on_change_.is_none()) {
-                            nb::gil_scoped_acquire gil;
-                            try { on_change_(nb::cast(progress)); } catch (...) {}
-                        }
+                        { nb::gil_scoped_acquire gil; nb::object cb = snapshot_callback(on_change_); if (cb.is_valid() && !cb.is_none()) { try { cb(nb::cast(progress)); } catch (...) {} } }
                         request_redraw();
                         break;
                     }
@@ -829,9 +803,9 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                 set_pressed(false);
             }
             const bool fire = !auto_press_ || !primary || was_pressed;
-            if (fire && on_click_.is_valid()) {
+            if (fire) {
                 nb::gil_scoped_acquire gil;
-                nb::object cb = on_click_;
+                nb::object cb = snapshot_callback(on_click_);
                 if (cb.is_valid() && !cb.is_none()) {
                     try {
                         cb(eventPtr->xbutton.x, eventPtr->xbutton.y, button);
@@ -856,29 +830,20 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                 switch (widget_kind_) {
                     case WidgetKind::Button: {
                         set_pressed(true);
-                        if (on_click_.is_valid() && !on_click_.is_none()) {
-                            nb::gil_scoped_acquire gil;
-                            try { on_click_(width() / 2, height() / 2, 1); } catch (...) {}
-                        }
+                        { nb::gil_scoped_acquire gil; nb::object cb = snapshot_callback(on_click_); if (cb.is_valid() && !cb.is_none()) { try { cb(width() / 2, height() / 2, 1); } catch (...) {} } }
                         request_redraw();
                         break;
                     }
                     case WidgetKind::Switch:
                     case WidgetKind::Checkbox: {
                         set_checked(!is_checked());
-                        if (on_change_.is_valid() && !on_change_.is_none()) {
-                            nb::gil_scoped_acquire gil;
-                            try { on_change_(nb::cast(is_checked())); } catch (...) {}
-                        }
+                        { nb::gil_scoped_acquire gil; nb::object cb = snapshot_callback(on_change_); if (cb.is_valid() && !cb.is_none()) { try { cb(nb::cast(is_checked())); } catch (...) {} } }
                         request_redraw();
                         break;
                     }
                     case WidgetKind::Radio: {
                         set_checked(true);
-                        if (on_change_.is_valid() && !on_change_.is_none()) {
-                            nb::gil_scoped_acquire gil;
-                            try { on_change_(nb::cast(true)); } catch (...) {}
-                        }
+                        { nb::gil_scoped_acquire gil; nb::object cb = snapshot_callback(on_change_); if (cb.is_valid() && !cb.is_none()) { try { cb(nb::cast(true)); } catch (...) {} } }
                         request_redraw();
                         break;
                     }
@@ -903,19 +868,20 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
     }
 }
 
-Surface* NativeWidgetController::get_active_surface() {
+std::shared_ptr<Surface> NativeWidgetController::get_active_surface() {
+    // Internal/external surfaces are owned elsewhere: return a non-owning alias.
     if (external_surface_) {
-        return external_surface_;
+        return std::shared_ptr<Surface>(std::shared_ptr<void>(), external_surface_);
     }
     if (bound_surface_id_ != 0) {
-        auto* s = SurfaceRegistry::instance().get_surface(bound_surface_id_);
+        auto s = SurfaceRegistry::instance().get_surface(bound_surface_id_);
         if (s) return s;
     }
-    return internal_surface_.get();
+    return std::shared_ptr<Surface>(std::shared_ptr<void>(), internal_surface_.get());
 }
 
 void NativeWidgetController::paint_and_blit() {
-    Surface* surf = nullptr;
+    std::shared_ptr<Surface> surf;
     int win_w = 0;
     int win_h = 0;
 
@@ -1121,15 +1087,22 @@ void NativeWidgetController::paint_and_blit() {
         surf->clear(eff_parent_bg);
         surf->execute_compiled(*compiled, register_bank_);
     } else {
+        // Lock order is GIL -> mutex_. Copying the callback needs the GIL (refcount).
         nb::gil_scoped_acquire gil;
-        if (on_paint_.is_valid() && !on_paint_.is_none()) {
+        nb::object cb;
+        {
+            std::lock_guard<std::recursive_mutex> lock(mutex_);
+            cb = on_paint_;
+        }
+        if (cb.is_valid() && !cb.is_none()) {
             surf->clear(eff_parent_bg);
             try {
-                on_paint_(nb::cast(surf, nb::rv_policy::reference));
+                cb(nb::cast(surf.get(), nb::rv_policy::reference));
             } catch (const nb::python_error&) {
                 PyErr_Print();
             } catch (...) {}
         }
+        cb.reset();
     }
 
     blit_active_surface();
@@ -1152,74 +1125,107 @@ void NativeWidgetController::blit_active_surface() {
     int win_h = Tk_Height(tkwin_);
     if (win_w <= 0 || win_h <= 0) return;
 
-    Surface* surf = get_active_surface();
+    std::shared_ptr<Surface> surf = get_active_surface();
     if (!surf) return;
 
-    if (bound_surface_id_ == 0 && external_surface_ == nullptr) {
-        if (surf->width() != win_w || surf->height() != win_h) {
-            return;
-        }
-    }
-
-    surf->flush();
+    const bool own_surface = (bound_surface_id_ == 0 && external_surface_ == nullptr);
     Ttk_Box box{0, 0, win_w, win_h};
-    uint8_t* pixels = surf->data_ptr();
-    size_t stride = surf->stride();
-    NativeBlit(tkwin_, drawable, box, pixels, stride, surf->width(), surf->height());
+    Tk_Window tkwin = tkwin_;
+    // Size check, flush and blit all happen under the surface lock so a
+    // concurrent resize()/close() cannot free the pixels mid-blit.
+    surf->with_pixels([&](uint8_t* pixels, size_t stride, int w, int h) {
+        if (own_surface && (w != win_w || h != win_h)) return;
+        NativeBlit(tkwin, drawable, box, pixels, stride, w, h);
+    });
 }
 
+// Lock order: GIL -> mutex_. Python callbacks are swapped out while holding
+// mutex_ but destroyed/invoked only after it is released, so we never wait
+// for the GIL while holding mutex_.
 void NativeWidgetController::set_on_paint(nb::object callback) {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
-    on_paint_ = callback;
+    nb::object old;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        old = std::move(on_paint_);
+        on_paint_ = std::move(callback);
+    }
 }
 
 void NativeWidgetController::clear_on_paint() {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
-    if (on_paint_.is_valid()) {
+    nb::object old;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        old = std::move(on_paint_);
+    }
+    if (old.is_valid()) {
         nb::gil_scoped_acquire gil;
-        on_paint_.reset();
+        old.reset();
     }
 }
 
 void NativeWidgetController::set_on_state_changed(nb::object callback) {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
-    on_state_changed_ = callback;
+    nb::object old;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        old = std::move(on_state_changed_);
+        on_state_changed_ = std::move(callback);
+    }
 }
 
 void NativeWidgetController::clear_on_state_changed() {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
-    if (on_state_changed_.is_valid()) {
+    nb::object old;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        old = std::move(on_state_changed_);
+    }
+    if (old.is_valid()) {
         nb::gil_scoped_acquire gil;
-        on_state_changed_.reset();
+        old.reset();
     }
 }
 
 void NativeWidgetController::set_on_click(nb::object callback) {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
-    on_click_ = callback;
+    nb::object old;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        old = std::move(on_click_);
+        on_click_ = std::move(callback);
+    }
 }
 
 void NativeWidgetController::clear_on_click() {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
-    if (on_click_.is_valid()) {
+    nb::object old;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        old = std::move(on_click_);
+    }
+    if (old.is_valid()) {
         nb::gil_scoped_acquire gil;
-        on_click_.reset();
+        old.reset();
     }
 }
 
 void NativeWidgetController::set_on_resize(nb::object callback) {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
-    on_resize_ = callback;
+    nb::object old;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        old = std::move(on_resize_);
+        on_resize_ = std::move(callback);
+    }
 }
 
 void NativeWidgetController::clear_on_resize() {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
-    has_pending_resize_ = false;
-    pending_resize_w_ = -1;
-    pending_resize_h_ = -1;
-    if (on_resize_.is_valid()) {
+    nb::object old;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        has_pending_resize_ = false;
+        pending_resize_w_ = -1;
+        pending_resize_h_ = -1;
+        old = std::move(on_resize_);
+    }
+    if (old.is_valid()) {
         nb::gil_scoped_acquire gil;
-        on_resize_.reset();
+        old.reset();
     }
 }
 
@@ -1382,13 +1388,23 @@ void NativeWidgetController::set_widget_class(const std::string& wc) {
 }
 
 void NativeWidgetController::set_on_change(nb::object callback) {
-    on_change_ = callback;
+    nb::object old;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        old = std::move(on_change_);
+        on_change_ = std::move(callback);
+    }
 }
 
 void NativeWidgetController::clear_on_change() {
-    if (on_change_.is_valid()) {
+    nb::object old;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        old = std::move(on_change_);
+    }
+    if (old.is_valid()) {
         nb::gil_scoped_acquire gil;
-        on_change_.reset();
+        old.reset();
     }
 }
 

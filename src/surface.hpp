@@ -17,6 +17,7 @@
 #include <mutex>
 #include <atomic>
 #include <optional>
+#include <functional>
 
 namespace tkblend {
 
@@ -408,6 +409,12 @@ public:
     );
 
     void flush();
+
+    // Runs `fn(pixels, stride, width, height)` with the surface mutex held after a
+    // synchronous flush, so the pixel buffer cannot be resized/freed concurrently.
+    // `fn` must not call back into this Surface (mutex_ is non-recursive) nor
+    // acquire the GIL.
+    void with_pixels(const std::function<void(uint8_t*, size_t, int, int)>& fn);
 
     // Raw Pixel buffer access
     struct BufferViewInfo {

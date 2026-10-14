@@ -202,10 +202,18 @@ private:
     void on_tk_event(XEvent* eventPtr);
     void on_window_destroyed();
     void blit_active_surface();
-    Surface* get_active_surface();
+    std::shared_ptr<Surface> get_active_surface();
     void schedule_anim_step();
     void on_anim_tick();
     void modify_state(uint16_t mask, bool on);
+
+    // Copies a Python callback slot under mutex_. The caller MUST hold the GIL
+    // (copying bumps a refcount); lock order is GIL -> mutex_. The returned copy
+    // is invoked with mutex_ released and survives the slot being cleared mid-call.
+    nb::object snapshot_callback(const nb::object& slot) const {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        return slot;
+    }
 
     Tk_Window tkwin_{nullptr};
     Tcl_Interp* interp_{nullptr};

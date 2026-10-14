@@ -20,25 +20,29 @@ public:
         return reg;
     }
 
+    // Lock hierarchy: registry mutex_ is a leaf lock. It is never held while
+    // calling into Surface (which takes its own mutex) or acquiring the GIL.
     uint64_t create_surface(int width, int height) {
         uint64_t id = next_id_.fetch_add(1, std::memory_order_relaxed);
-        auto surf = std::make_unique<Surface>(width, height);
+        auto surf = std::make_shared<Surface>(width, height);
         std::lock_guard<std::mutex> lock(mutex_);
         surfaces_[id] = std::move(surf);
         return id;
     }
 
-    Surface* get_surface(uint64_t id) {
+    // Returns an owning reference so the Surface cannot be freed by a
+    // concurrent destroy_surface() while the caller is still using it.
+    std::shared_ptr<Surface> get_surface(uint64_t id) {
         std::lock_guard<std::mutex> lock(mutex_);
         auto it = surfaces_.find(id);
         if (it != surfaces_.end()) {
-            return it->second.get();
+            return it->second;
         }
         return nullptr;
     }
 
     bool destroy_surface(uint64_t id) {
-        std::unique_ptr<Surface> surf_to_destroy;
+        std::shared_ptr<Surface> surf_to_destroy;
         {
             std::lock_guard<std::mutex> lock(mutex_);
             auto it = surfaces_.find(id);
@@ -60,11 +64,14 @@ public:
     }
 
     void clear_all() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        for (auto& [id, s] : surfaces_) {
+        std::unordered_map<uint64_t, std::shared_ptr<Surface>> doomed;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            doomed.swap(surfaces_);
+        }
+        for (auto& [id, s] : doomed) {
             if (s) s->close();
         }
-        surfaces_.clear();
     }
 
 private:
@@ -73,7 +80,7 @@ private:
 
     std::atomic<uint64_t> next_id_{1};
     mutable std::mutex mutex_;
-    std::unordered_map<uint64_t, std::unique_ptr<Surface>> surfaces_;
+    std::unordered_map<uint64_t, std::shared_ptr<Surface>> surfaces_;
 };
 
 class SurfaceHandle {
@@ -109,33 +116,34 @@ public:
 
     uint64_t surface_id() const { return surface_id_; }
 
-    Surface* get() const {
+    std::shared_ptr<Surface> get() const {
         return SurfaceRegistry::instance().get_surface(surface_id_);
     }
 
-    Surface& surface() const {
-        Surface* s = get();
+    // Pins the Surface for the duration of the caller's full expression.
+    std::shared_ptr<Surface> pin() const {
+        auto s = get();
         if (!s) throw std::runtime_error("SurfaceHandle references a destroyed or invalid Surface (ID=" + std::to_string(surface_id_) + ")");
-        return *s;
+        return s;
     }
 
-    int width() const { return surface().width(); }
-    int height() const { return surface().height(); }
+    int width() const { return pin()->width(); }
+    int height() const { return pin()->height(); }
     bool is_closed() const {
-        Surface* s = get();
+        auto s = get();
         return s ? s->is_closed() : true;
     }
 
     void resize(int width, int height) {
-        surface().resize(width, height);
+        pin()->resize(width, height);
     }
 
     void clear(const Color& color) {
-        surface().clear(color);
+        pin()->clear(color);
     }
 
     void clear_rect(double x, double y, double w, double h) {
-        surface().clear_rect(x, y, w, h);
+        pin()->clear_rect(x, y, w, h);
     }
 
     void render_box(
@@ -144,7 +152,7 @@ public:
         const std::string& text = "",
         int text_align = 1
     ) {
-        surface().render_box(x, y, w, h, style, text, text_align);
+        pin()->render_box(x, y, w, h, style, text, text_align);
     }
 
     void render_styled_box(
@@ -165,7 +173,7 @@ public:
         float font_size = 0.0f,
         int font_weight = 0
     ) {
-        surface().render_styled_box(
+        pin()->render_styled_box(
             element, class_name, state, scale, parent_bg, text, text_align,
             custom_rx, custom_ry, elevation,
             explicit_bg, explicit_fg, explicit_border,
@@ -191,7 +199,7 @@ public:
         float font_size = 0.0f,
         int font_weight = 0
     ) {
-        surface().render_styled_badge(
+        pin()->render_styled_badge(
             element, class_name, state, scale, parent_bg, text, dot, dot_color,
             custom_rx, custom_ry, explicit_bg, explicit_fg, explicit_border,
             font_family, font_size, font_weight
@@ -217,7 +225,7 @@ public:
         float font_size = 0.0f,
         int font_weight = 0
     ) {
-        surface().render_styled_checkbox(
+        pin()->render_styled_checkbox(
             element, class_name, state, scale, parent_bg, text, is_checked, box_size,
             custom_rx, custom_ry, explicit_box_bg, explicit_border, explicit_check_color, explicit_fg,
             font_family, font_size, font_weight
@@ -241,7 +249,7 @@ public:
         float font_size = 0.0f,
         int font_weight = 0
     ) {
-        surface().render_styled_radio(
+        pin()->render_styled_radio(
             element, class_name, state, scale, parent_bg, text, is_selected, circle_size,
             explicit_bg, explicit_border, explicit_dot_color, explicit_fg,
             font_family, font_size, font_weight
@@ -266,7 +274,7 @@ public:
         float font_size = 0.0f,
         int font_weight = 0
     ) {
-        surface().render_styled_switch(
+        pin()->render_styled_switch(
             element, class_name, state, scale, parent_bg, text, progress_t, switch_w, switch_h,
             explicit_track_on, explicit_track_off, explicit_thumb, explicit_fg,
             font_family, font_size, font_weight
@@ -288,7 +296,7 @@ public:
         std::optional<Color> explicit_thumb_color = std::nullopt,
         std::optional<Color> explicit_border_color = std::nullopt
     ) {
-        surface().render_styled_slider(
+        pin()->render_styled_slider(
             element, class_name, state, scale, parent_bg, value_t, track_thickness, thumb_radius, is_dragging,
             explicit_track_bg, explicit_active_bg, explicit_thumb_color, explicit_border_color
         );
@@ -308,7 +316,7 @@ public:
         std::optional<Color> explicit_track_bg = std::nullopt,
         std::optional<Color> explicit_fill_color = std::nullopt
     ) {
-        surface().render_styled_progress(
+        pin()->render_styled_progress(
             element, class_name, state, scale, parent_bg, progress_t, is_indeterminate, phase_offset,
             custom_rx, custom_ry, explicit_track_bg, explicit_fill_color
         );
@@ -323,7 +331,7 @@ public:
         double thickness = 1.0,
         std::optional<Color> explicit_color = std::nullopt
     ) {
-        surface().render_styled_separator(
+        pin()->render_styled_separator(
             element, class_name, scale, parent_bg, orientation, thickness, explicit_color
         );
     }
@@ -334,7 +342,7 @@ public:
         int dst_x = 0,
         int dst_y = 0
     ) {
-        surface().blit_to_photo(interp_addr, photo_name, dst_x, dst_y);
+        pin()->blit_to_photo(interp_addr, photo_name, dst_x, dst_y);
     }
 
     void close() {
@@ -345,71 +353,71 @@ public:
     }
 
     // Forwarding Drawing Primitives
-    void save() { surface().save(); }
-    void restore() { surface().restore(); }
-    void reset_transform() { surface().reset_transform(); }
-    void translate(double tx, double ty) { surface().translate(tx, ty); }
-    void scale(double sx, double sy) { surface().scale(sx, sy); }
-    void rotate(double angle_rad) { surface().rotate(angle_rad); }
-    void clip_rect(double x, double y, double w, double h) { surface().clip_rect(x, y, w, h); }
+    void save() { pin()->save(); }
+    void restore() { pin()->restore(); }
+    void reset_transform() { pin()->reset_transform(); }
+    void translate(double tx, double ty) { pin()->translate(tx, ty); }
+    void scale(double sx, double sy) { pin()->scale(sx, sy); }
+    void rotate(double angle_rad) { pin()->rotate(angle_rad); }
+    void clip_rect(double x, double y, double w, double h) { pin()->clip_rect(x, y, w, h); }
     void clip_rounded_rect(double x, double y, double w, double h, double rx, double ry) {
-        surface().clip_rounded_rect(x, y, w, h, rx, ry);
+        pin()->clip_rounded_rect(x, y, w, h, rx, ry);
     }
-    void reset_clip() { surface().reset_clip(); }
-    void set_comp_op(int comp_op) { surface().set_comp_op(comp_op); }
-    void set_global_alpha(double alpha) { surface().set_global_alpha(alpha); }
+    void reset_clip() { pin()->reset_clip(); }
+    void set_comp_op(int comp_op) { pin()->set_comp_op(comp_op); }
+    void set_global_alpha(double alpha) { pin()->set_global_alpha(alpha); }
 
     void fill_rect(double x, double y, double w, double h, const Color& color) {
-        surface().fill_rect(x, y, w, h, color);
+        pin()->fill_rect(x, y, w, h, color);
     }
     void fill_rect_gradient(double x, double y, double w, double h, const Gradient& gradient) {
-        surface().fill_rect_gradient(x, y, w, h, gradient);
+        pin()->fill_rect_gradient(x, y, w, h, gradient);
     }
     void stroke_rect(double x, double y, double w, double h, const Color& color, double stroke_width = 1.0) {
-        surface().stroke_rect(x, y, w, h, color, stroke_width);
+        pin()->stroke_rect(x, y, w, h, color, stroke_width);
     }
 
     void fill_rounded_rect(double x, double y, double w, double h, double rx, double ry, const Color& color) {
-        surface().fill_rounded_rect(x, y, w, h, rx, ry, color);
+        pin()->fill_rounded_rect(x, y, w, h, rx, ry, color);
     }
     void fill_rounded_rect_gradient(double x, double y, double w, double h, double rx, double ry, const Gradient& gradient) {
-        surface().fill_rounded_rect_gradient(x, y, w, h, rx, ry, gradient);
+        pin()->fill_rounded_rect_gradient(x, y, w, h, rx, ry, gradient);
     }
     void stroke_rounded_rect(double x, double y, double w, double h, double rx, double ry, const Color& color, double stroke_width = 1.0) {
-        surface().stroke_rounded_rect(x, y, w, h, rx, ry, color, stroke_width);
+        pin()->stroke_rounded_rect(x, y, w, h, rx, ry, color, stroke_width);
     }
 
     void fill_circle(double cx, double cy, double r, const Color& color) {
-        surface().fill_circle(cx, cy, r, color);
+        pin()->fill_circle(cx, cy, r, color);
     }
     void fill_circle_gradient(double cx, double cy, double r, const Gradient& gradient) {
-        surface().fill_circle_gradient(cx, cy, r, gradient);
+        pin()->fill_circle_gradient(cx, cy, r, gradient);
     }
     void stroke_circle(double cx, double cy, double r, const Color& color, double stroke_width = 1.0) {
-        surface().stroke_circle(cx, cy, r, color, stroke_width);
+        pin()->stroke_circle(cx, cy, r, color, stroke_width);
     }
 
     void fill_ellipse(double cx, double cy, double rx, double ry, const Color& color) {
-        surface().fill_ellipse(cx, cy, rx, ry, color);
+        pin()->fill_ellipse(cx, cy, rx, ry, color);
     }
     void stroke_ellipse(double cx, double cy, double rx, double ry, const Color& color, double stroke_width = 1.0) {
-        surface().stroke_ellipse(cx, cy, rx, ry, color, stroke_width);
+        pin()->stroke_ellipse(cx, cy, rx, ry, color, stroke_width);
     }
 
     void draw_line(double x1, double y1, double x2, double y2, const Color& color, double stroke_width = 1.0) {
-        surface().draw_line(x1, y1, x2, y2, color, stroke_width);
+        pin()->draw_line(x1, y1, x2, y2, color, stroke_width);
     }
     void fill_path(const Path& path, const Color& color) {
-        surface().fill_path(path, color);
+        pin()->fill_path(path, color);
     }
     void fill_path_gradient(const Path& path, const Gradient& gradient) {
-        surface().fill_path_gradient(path, gradient);
+        pin()->fill_path_gradient(path, gradient);
     }
     void stroke_path(const Path& path, const Color& color, double stroke_width = 1.0) {
-        surface().stroke_path(path, color, stroke_width);
+        pin()->stroke_path(path, color, stroke_width);
     }
     void stroke_arc(double cx, double cy, double r, double start_angle, double sweep_angle, const Color& color, double stroke_width = 1.0) {
-        surface().stroke_arc(cx, cy, r, start_angle, sweep_angle, color, stroke_width);
+        pin()->stroke_arc(cx, cy, r, start_angle, sweep_angle, color, stroke_width);
     }
 
     TextMetrics measure_text(
@@ -419,7 +427,7 @@ public:
         int weight = 400,
         bool italic = false
     ) {
-        return surface().measure_text(text, font_size, font_family, weight, italic);
+        return pin()->measure_text(text, font_size, font_family, weight, italic);
     }
 
     std::vector<std::string> break_lines(
@@ -432,7 +440,7 @@ public:
         bool truncate_ellipsis = false,
         int max_lines = 0
     ) {
-        return surface().break_lines(text, max_width, font_size, font_family, weight, italic, truncate_ellipsis, max_lines);
+        return pin()->break_lines(text, max_width, font_size, font_family, weight, italic, truncate_ellipsis, max_lines);
     }
 
     void draw_text(
@@ -445,7 +453,7 @@ public:
         int weight = 400,
         bool italic = false
     ) {
-        surface().draw_text(text, x, y, font_size, font_family, color, align, weight, italic);
+        pin()->draw_text(text, x, y, font_size, font_family, color, align, weight, italic);
     }
 
     void draw_text_wrapped(
@@ -462,7 +470,7 @@ public:
         bool truncate_ellipsis = false,
         int max_lines = 0
     ) {
-        surface().draw_text_wrapped(text, x, y, max_width, font_size, font_family, color, align, weight, italic, line_height_factor, truncate_ellipsis, max_lines);
+        pin()->draw_text_wrapped(text, x, y, max_width, font_size, font_family, color, align, weight, italic, line_height_factor, truncate_ellipsis, max_lines);
     }
 
     void draw_shadow_rounded_rect(
@@ -472,7 +480,7 @@ public:
         double offset_x, double offset_y,
         const Color& shadow_color
     ) {
-        surface().draw_shadow_rounded_rect(x, y, w, h, rx, ry, blur_radius, spread, offset_x, offset_y, shadow_color);
+        pin()->draw_shadow_rounded_rect(x, y, w, h, rx, ry, blur_radius, spread, offset_x, offset_y, shadow_color);
     }
 
     void draw_card(
@@ -487,7 +495,7 @@ public:
         double shadow_offset_y,
         const Color& shadow_color
     ) {
-        surface().draw_card(x, y, w, h, rx, ry, bg_color, border_color, border_width,
+        pin()->draw_card(x, y, w, h, rx, ry, bg_color, border_color, border_width,
                             shadow_blur, shadow_spread, shadow_offset_x, shadow_offset_y, shadow_color);
     }
 
@@ -510,7 +518,7 @@ public:
         double focus_ring_width = 0.0,
         bool is_pressed = false
     ) {
-        surface().draw_button(x, y, w, h, rx, ry, bg_color, border_color, border_width,
+        pin()->draw_button(x, y, w, h, rx, ry, bg_color, border_color, border_width,
                               fg_color, text, font_size, font_family, weight, italic,
                               shadow_blur, shadow_offset_y, shadow_color, focus_ring_color,
                               focus_ring_width, is_pressed);
@@ -526,7 +534,7 @@ public:
         const Color& focus_ring_color = Color(0, 0, 0, 0),
         double focus_ring_width = 0.0
     ) {
-        surface().draw_switch(x, y, w, h, track_color, thumb_color, thumb_border_color,
+        pin()->draw_switch(x, y, w, h, track_color, thumb_color, thumb_border_color,
                               progress_t, is_hovered, focus_ring_color, focus_ring_width);
     }
 
@@ -544,7 +552,7 @@ public:
         const Color& focus_ring_color = Color(0, 0, 0, 0),
         double focus_ring_width = 0.0
     ) {
-        surface().draw_slider(x, y, w, h, track_bg, active_bg, thumb_color, thumb_border_color,
+        pin()->draw_slider(x, y, w, h, track_bg, active_bg, thumb_color, thumb_border_color,
                               value_t, track_thickness, thumb_radius, is_hovered, is_dragging,
                               focus_ring_color, focus_ring_width);
     }
@@ -558,7 +566,7 @@ public:
         bool is_indeterminate = false,
         double phase_offset = 0.0
     ) {
-        surface().draw_progress_bar(x, y, w, h, rx, ry, track_bg, bar_bg, progress_t,
+        pin()->draw_progress_bar(x, y, w, h, rx, ry, track_bg, bar_bg, progress_t,
                                     is_indeterminate, phase_offset);
     }
 
@@ -574,7 +582,7 @@ public:
         const Color& focus_ring_color = Color(0, 0, 0, 0),
         double focus_ring_width = 0.0
     ) {
-        surface().draw_checkbox(x, y, size, rx, ry, box_bg, border_color, border_width,
+        pin()->draw_checkbox(x, y, size, rx, ry, box_bg, border_color, border_width,
                                 check_color, is_checked, is_hovered, focus_ring_color, focus_ring_width);
     }
 
@@ -584,15 +592,15 @@ public:
         uint16_t pseudo_state = 0,
         const std::string& class_name = ""
     ) {
-        surface().execute_batch(batch, local_vars, pseudo_state, class_name);
+        pin()->execute_batch(batch, local_vars, pseudo_state, class_name);
     }
-    void flush() { surface().flush(); }
+    void flush() { pin()->flush(); }
 
-    Surface::BufferViewInfo acquire_buffer_view() { return surface().acquire_buffer_view(); }
-    void release_buffer_view() { surface().release_buffer_view(); }
-    size_t stride() const { return surface().stride(); }
-    size_t size_in_bytes() const { return surface().size_in_bytes(); }
-    int active_buffers() const { return surface().active_buffers(); }
+    Surface::BufferViewInfo acquire_buffer_view() { return pin()->acquire_buffer_view(); }
+    void release_buffer_view() { pin()->release_buffer_view(); }
+    size_t stride() const { return pin()->stride(); }
+    size_t size_in_bytes() const { return pin()->size_in_bytes(); }
+    int active_buffers() const { return pin()->active_buffers(); }
 
 private:
     uint64_t surface_id_{0};
