@@ -63,6 +63,7 @@ class ShowcaseApp(tk.Tk):
         self._check_gpu = tk.BooleanVar(value=True)
 
         self._build_ui()
+        tb.cascade_bg_to_children(self, get_theme().bg)
 
     def _format_theme_title(self, name: str) -> str:
         return name.replace("_", " ").title()
@@ -218,7 +219,7 @@ class ShowcaseApp(tk.Tk):
         sw_row = tk.Frame(c2_content, bg=pal.card_bg)
         sw_row.pack(fill="x", pady=3)
 
-        self.sw_notif = Switch(sw_row, command=self._on_pref_change, width=44, height=24)
+        self.sw_notif = Switch(sw_row, command=self._on_pref_change, width=48, height=28)
         self.sw_notif.pack(side="left", padx=(0, 10))
         self.sw_notif.is_checked = True
 

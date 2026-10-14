@@ -27,6 +27,7 @@ from tkblend import (
     Tabview,
     Table,
     set_theme,
+    get_theme,
 )
 
 
@@ -201,6 +202,25 @@ def test_segmented_button(root):
     assert clicked[0] == "Week"
 
 
+def test_segmented_button_empty_values(root):
+    set_theme("dark")
+    sb = SegmentedButton(root, values=[], width=200, height=36)
+    sb.pack()
+    root.update_idletasks()
+    assert sb.values == []
+    assert sb.selected_index == -1
+    assert sb.get() == ""
+    assert sb.get_var("--count") == "0"
+    assert sb.get_var("--selected-index") == "-1"
+
+    sb.values = ["Alpha", "Beta"]
+    root.update_idletasks()
+    assert sb.values == ["Alpha", "Beta"]
+    assert sb.get_var("--count") == "2"
+    assert sb.get_var("--seg-0-text") == "Alpha"
+    assert sb.get_var("--seg-1-text") == "Beta"
+
+
 def test_range_slider(root):
     set_theme("dark")
     rs = RangeSlider(root, from_=0.0, to=100.0, values=(20.0, 80.0), width=180, height=32)
@@ -328,6 +348,51 @@ def test_tabview(root):
     assert tv.get() == "Tab 1"
     tv.set("Tab 2")
     assert tv.get() == "Tab 2"
+    # Ensure no phantom default tabs exist in SegmentedButton
+    assert tv._segmented.values == ["Tab 1", "Tab 2"]
+
+
+def test_tabview_inside_card_background_harmony(root):
+    set_theme("dark")
+    pal = get_theme()
+
+    card = Card(root, width=300, height=200)
+    card.pack()
+    card_content = tk.Frame(card, bg=pal.card_bg)
+    card_content.pack(fill="both", expand=True)
+
+    tv = Tabview(card_content, width=280, height=180)
+    tv.pack(fill="both", expand=True)
+
+    # Verify Tabview detected Card container and set inner_bg to pal.card_bg
+    assert tv.inner_bg.lower() == pal.card_bg.lower()
+    assert tv.bg_color.lower() == pal.card_bg.lower()
+    assert tv.get_var("--bg").lower() == pal.card_bg.lower()
+
+    tab_engine = tv.add("Engine")
+    tab_surface = tv.add("Surface")
+    tab_theme = tv.add("Theme")
+
+    lbl1 = tk.Label(tab_theme, text="Dynamic Palette Cascade", fg=pal.fg, bg=pal.card_bg)
+    lbl1.pack()
+
+    root.update_idletasks()
+
+    # Verify tab frames match card_bg
+    assert tb.to_tk_hex(tab_theme.cget("background")).lower() == pal.card_bg.lower()
+    assert tb.to_tk_hex(lbl1.cget("background")).lower() == pal.card_bg.lower()
+    assert tv._segmented.values == ["Engine", "Surface", "Theme"]
+
+    # Test dynamic theme change
+    set_theme("light")
+    pal_light = get_theme()
+    card.on_theme_update(pal_light)
+    root.update_idletasks()
+
+    assert tv.inner_bg.lower() == pal_light.card_bg.lower()
+    assert tv.get_var("--bg").lower() == pal_light.card_bg.lower()
+    assert tb.to_tk_hex(tab_theme.cget("background")).lower() == pal_light.card_bg.lower()
+    set_theme("dark")
 
 
 def test_table(root):

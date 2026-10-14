@@ -356,10 +356,27 @@ DrawBatch DrawEngine::create_control_batch(
     }
 
     if (key_cls == "switch") {
+        std::string sw_text = resolve_token_str("--text", vars, "");
+        double focus_pad = 3.5;
         double track_w = 40.0;
         double track_h = 22.0;
+
+        if (w > 0.0 && w < track_w + 2.0 * focus_pad) {
+            track_w = std::max(12.0, w - 2.0 * focus_pad);
+        }
+        if (h > 0.0 && h < track_h + 2.0 * focus_pad) {
+            track_h = std::max(8.0, h - 2.0 * focus_pad);
+        }
+
         double track_x = 4.0;
-        double track_y = (h > track_h) ? (h - track_h) / 2.0 : 0.0;
+        if (sw_text.empty() && w > track_w) {
+            track_x = (w - track_w) / 2.0;
+        }
+        track_x = std::max(focus_pad, track_x);
+
+        double track_y = (h > track_h) ? (h - track_h) / 2.0 : focus_pad;
+        track_y = std::max(focus_pad, track_y);
+
         double r = track_h / 2.0;
         bool is_checked = (state & ControllerPseudoState::StateChecked) != 0;
         std::string track_bg = is_checked ? "--active-bg" : "--track-bg";
@@ -367,9 +384,10 @@ DrawBatch DrawEngine::create_control_batch(
 
         b.fill_rounded_rect_var(track_x, track_y, track_w, track_h, r, r, track_bg, "", "", track_col);
 
-        double thumb_r = 7.0;
+        double thumb_r = std::max(2.0, r - 4.0);
         double thumb_cy = track_y + track_h / 2.0;
-        double thumb_cx = is_checked ? (track_x + track_w - 11.0) : (track_x + 11.0);
+        double thumb_margin = thumb_r + 4.0;
+        double thumb_cx = is_checked ? (track_x + track_w - thumb_margin) : (track_x + thumb_margin);
 
         // Thumb drop shadow
         b.draw_shadow_rounded_rect_var(
@@ -393,19 +411,35 @@ DrawBatch DrawEngine::create_control_batch(
             );
         }
 
-        std::string sw_text = resolve_token_str("--text", vars, "");
-        b.draw_text_var(
-            sw_text, track_x + track_w + 10.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
-            "--fg", "--text", "--font-size",
-            Color(230, 224, 233), 0 /* left */
-        );
+        if (!sw_text.empty()) {
+            b.draw_text_var(
+                sw_text, track_x + track_w + 10.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
+                "--fg", "--text", "--font-size",
+                Color(230, 224, 233), 0 /* left */
+            );
+        }
         return b;
     }
 
     if (key_cls == "checkbox") {
+        std::string cb_text = resolve_token_str("--text", vars, "");
+        double focus_pad = 3.5;
         double box_size = 18.0;
+        if (w > 0.0 && w < box_size + 2.0 * focus_pad) {
+            box_size = std::max(8.0, w - 2.0 * focus_pad);
+        }
+        if (h > 0.0 && h < box_size + 2.0 * focus_pad) {
+            box_size = std::max(8.0, std::min(box_size, h - 2.0 * focus_pad));
+        }
+
         double box_x = 4.0;
-        double box_y = (h > box_size) ? (h - box_size) / 2.0 : 0.0;
+        if (cb_text.empty() && w > box_size) {
+            box_x = (w - box_size) / 2.0;
+        }
+        box_x = std::max(focus_pad, box_x);
+
+        double box_y = (h > box_size) ? (h - box_size) / 2.0 : focus_pad;
+        box_y = std::max(focus_pad, box_y);
         bool is_checked = (state & ControllerPseudoState::StateChecked) != 0;
 
         if (!is_checked) {
@@ -427,18 +461,32 @@ DrawBatch DrawEngine::create_control_batch(
             );
         }
 
-        std::string cb_text = resolve_token_str("--text", vars, "");
-        b.draw_text_var(
-            cb_text, box_x + box_size + 8.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
-            "--fg", "--text", "--font-size",
-            Color(230, 224, 233), 0 /* left */
-        );
+        if (!cb_text.empty()) {
+            b.draw_text_var(
+                cb_text, box_x + box_size + 8.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
+                "--fg", "--text", "--font-size",
+                Color(230, 224, 233), 0 /* left */
+            );
+        }
         return b;
     }
 
     if (key_cls == "radio") {
+        std::string radio_text = resolve_token_str("--text", vars, "");
+        double focus_pad = 3.5;
         double cr = 8.0;
+        if (w > 0.0 && w < 2.0 * (cr + focus_pad)) {
+            cr = std::max(4.0, (w - 2.0 * focus_pad) / 2.0);
+        }
+        if (h > 0.0 && h < 2.0 * (cr + focus_pad)) {
+            cr = std::max(4.0, std::min(cr, (h - 2.0 * focus_pad) / 2.0));
+        }
+
         double cx = cr + 4.0;
+        if (radio_text.empty() && w > 2.0 * cr) {
+            cx = w / 2.0;
+        }
+        cx = std::max(cr + focus_pad, cx);
         double cy = h / 2.0;
         bool is_checked = (state & ControllerPseudoState::StateChecked) != 0;
 
@@ -455,12 +503,13 @@ DrawBatch DrawEngine::create_control_batch(
             b.stroke_circle_var(cx, cy, cr + 2.5, "--focus-ring-color", 2.0, "", "--focus-ring-width", Color(208, 188, 255));
         }
 
-        std::string radio_text = resolve_token_str("--text", vars, "");
-        b.draw_text_var(
-            radio_text, cx + cr + 8.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
-            "--fg", "--text", "--font-size",
-            Color(230, 224, 233), 0 /* left */
-        );
+        if (!radio_text.empty()) {
+            b.draw_text_var(
+                radio_text, cx + cr + 8.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
+                "--fg", "--text", "--font-size",
+                Color(230, 224, 233), 0 /* left */
+            );
+        }
         return b;
     }
 
@@ -1056,19 +1105,19 @@ void DrawEngine::init_default_batches() {
         // Unchecked
         DrawBatch b_normal;
         b_normal.clear_var("--parent-bg");
-        b_normal.fill_rounded_rect_var(4.0, 2.0, 40.0, 22.0, 11.0, 11.0, "--track-bg", "", "", Color(54, 52, 59));
-        b_normal.fill_circle_var(15.0, 13.0, 7.0, "--thumb-bg", "", Color(208, 188, 255));
+        b_normal.fill_rounded_rect_var(4.0, 3.0, 40.0, 22.0, 11.0, 11.0, "--track-bg", "", "", Color(54, 52, 59));
+        b_normal.fill_circle_var(15.0, 14.0, 7.0, "--thumb-bg", "", Color(208, 188, 255));
         b_normal.draw_text_var("", 54.0, 17.0, 13.0f, "sans-serif", "--fg", "--text", "--font-size", Color(230, 224, 233), 0 /* left */);
-        b_normal.stroke_rounded_rect_var(2.5, 0.5, 43.0, 25.0, 12.5, 12.5, "--focus-ring-color", 2.0, "", "", "--focus-ring-width", Color(0, 0, 0, 0));
+        b_normal.stroke_rounded_rect_var(2.5, 1.5, 43.0, 25.0, 12.5, 12.5, "--focus-ring-color", 2.0, "", "", "--focus-ring-width", Color(0, 0, 0, 0));
         register_batch("switch", 0, b_normal);
 
         // Checked
         DrawBatch b_checked;
         b_checked.clear_var("--parent-bg");
-        b_checked.fill_rounded_rect_var(4.0, 2.0, 40.0, 22.0, 11.0, 11.0, "--active-bg", "", "", Color(208, 188, 255));
-        b_checked.fill_circle_var(33.0, 13.0, 7.0, "--thumb-active-bg", "", Color(56, 30, 114));
+        b_checked.fill_rounded_rect_var(4.0, 3.0, 40.0, 22.0, 11.0, 11.0, "--active-bg", "", "", Color(208, 188, 255));
+        b_checked.fill_circle_var(33.0, 14.0, 7.0, "--thumb-active-bg", "", Color(56, 30, 114));
         b_checked.draw_text_var("", 54.0, 17.0, 13.0f, "sans-serif", "--fg", "--text", "--font-size", Color(230, 224, 233), 0 /* left */);
-        b_checked.stroke_rounded_rect_var(2.5, 0.5, 43.0, 25.0, 12.5, 12.5, "--focus-ring-color", 2.0, "", "", "--focus-ring-width", Color(0, 0, 0, 0));
+        b_checked.stroke_rounded_rect_var(2.5, 1.5, 43.0, 25.0, 12.5, 12.5, "--focus-ring-color", 2.0, "", "", "--focus-ring-width", Color(0, 0, 0, 0));
         register_batch("switch", ControllerPseudoState::StateChecked, b_checked);
     }
 

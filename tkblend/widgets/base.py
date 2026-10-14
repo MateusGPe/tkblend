@@ -111,6 +111,7 @@ class BaseControl(tk.Frame):
     ):
         self._logical_w = int(width)
         self._logical_h = int(height)
+        self._master_ref = master
         self._widget_class = str(widget_class or getattr(self, "WIDGET_CLASS", ""))
         self._command = command
         self._explicit_outer_bg = outer_bg if outer_bg is not None else parent_bg

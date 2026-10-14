@@ -24,10 +24,10 @@ class SegmentedButton(BaseControl):
         height: int = 40,
         **kwargs,
     ):
-        self._values = list(values) if values else ["Option 1", "Option 2"]
+        self._values = list(values) if values is not None else ["Option 1", "Option 2"]
         self._variable = variable
         self._command = command
-        self._selected_index = max(0, min(len(self._values) - 1, int(selected_index)))
+        self._selected_index = max(0, min(len(self._values) - 1, int(selected_index))) if self._values else -1
 
         super().__init__(
             master=master,
@@ -53,7 +53,7 @@ class SegmentedButton(BaseControl):
 
     def _update_vars(self) -> None:
         self.set_var("--count", str(len(self._values)))
-        self.set_var("--selected-index", str(self._selected_index))
+        self.set_var("--selected-index", str(self._selected_index if self._values else -1))
         for i, val in enumerate(self._values):
             self.set_var(f"--seg-{i}-text", str(val))
 
@@ -63,8 +63,11 @@ class SegmentedButton(BaseControl):
 
     @values.setter
     def values(self, vals: Sequence[str]) -> None:
-        self._values = list(vals) if vals else ["Option 1"]
-        self._selected_index = min(self._selected_index, len(self._values) - 1)
+        self._values = list(vals) if vals is not None else []
+        if self._values:
+            self._selected_index = max(0, min(self._selected_index, len(self._values) - 1))
+        else:
+            self._selected_index = -1
         self._update_vars()
         self.request_redraw()
 

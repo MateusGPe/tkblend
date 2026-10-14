@@ -17,10 +17,15 @@ class Switch(BaseControl):
         command: Optional[Callable[..., Any]] = None,
         variable: Optional[tk.Variable] = None,
         is_checked: bool = False,
-        width: int = 120,
-        height: int = 30,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
         **kwargs,
     ):
+        if width is None:
+            width = 120 if text else 48
+        if height is None:
+            height = 30 if text else 28
+
         self._variable = variable
         super().__init__(
             master=master,
