@@ -1396,7 +1396,10 @@ void bind_draw_engine(nb::module_& m) {
         })
         .def_static("reset_defaults", []() {
             DrawEngine::instance().reset_defaults();
-        });
+        })
+        .def_static("create_control_batch", [](const std::string& widget_class, uint16_t state, double w, double h, const std::unordered_map<std::string, std::string>& vars) {
+            return DrawEngine::instance().create_control_batch(widget_class, state, w, h, vars);
+        }, nb::arg("widget_class"), nb::arg("state") = 0, nb::arg("w") = 100.0, nb::arg("h") = 30.0, nb::arg("vars") = std::unordered_map<std::string, std::string>());
 }
 
 } // anonymous namespace

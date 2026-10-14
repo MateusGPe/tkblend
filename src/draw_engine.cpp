@@ -159,6 +159,7 @@ DrawBatch DrawEngine::create_control_batch(
         double by = pad_top;
         double bw = std::max(4.0, w - 2.0 * pad_x);
         double bh = std::max(4.0, h - pad_top - pad_bottom);
+        double press_disp_y = resolve_token("--btn-press-displacement-y", vars, 1.0);
 
         std::string variant = "";
         auto it_v = vars.find("--variant");
@@ -173,7 +174,7 @@ DrawBatch DrawEngine::create_control_batch(
         std::string fg_var = "--btn-fg";
         std::string border_var = "--btn-border";
         std::string shadow_var = "--btn-shadow";
-        double border_w = 0.0;
+        double border_w = resolve_token("--btn-border-width", vars, 0.0);
         double shadow_blur = resolve_token("--btn-shadow-blur", vars, 2.0);
         double shadow_off_y = resolve_token("--btn-shadow-y", vars, 0.8);
         Color fallback_bg(37, 35, 42);
@@ -202,7 +203,7 @@ DrawBatch DrawEngine::create_control_batch(
                 bg_var = "--primary-active";
                 shadow_blur = 1.0;
                 shadow_off_y = 0.4;
-                by += 1.0;
+                by += press_disp_y;
             } else if ((state & ControllerPseudoState::StateHover) != 0) {
                 bg_var = "--primary-hover";
                 shadow_blur = 3.2;
@@ -228,7 +229,7 @@ DrawBatch DrawEngine::create_control_batch(
                 bg_var = "--secondary-active";
                 shadow_blur = 0.8;
                 shadow_off_y = 0.3;
-                by += 1.0;
+                by += press_disp_y;
             } else if ((state & ControllerPseudoState::StateHover) != 0) {
                 bg_var = "--secondary-hover";
                 shadow_blur = 2.6;
@@ -251,7 +252,7 @@ DrawBatch DrawEngine::create_control_batch(
                 border_var = "--btn-border";
             } else if ((state & ControllerPseudoState::StateActive) != 0) {
                 bg_var = "--btn-active-bg";
-                by += 1.0;
+                by += press_disp_y;
             } else if ((state & ControllerPseudoState::StateHover) != 0) {
                 bg_var = "--btn-hover-bg";
                 shadow_blur = 1.5;
@@ -274,7 +275,7 @@ DrawBatch DrawEngine::create_control_batch(
                 fg_var = "--btn-disabled-fg";
             } else if ((state & ControllerPseudoState::StateActive) != 0) {
                 bg_var = "--btn-active-bg";
-                by += 1.0;
+                by += press_disp_y;
             } else if ((state & ControllerPseudoState::StateHover) != 0) {
                 bg_var = "--btn-hover-bg";
             }
@@ -296,7 +297,7 @@ DrawBatch DrawEngine::create_control_batch(
                 shadow_blur = 0.0;
                 shadow_off_y = 0.0;
             } else if ((state & ControllerPseudoState::StateActive) != 0) {
-                by += 1.0;
+                by += press_disp_y;
                 shadow_blur = 1.0;
                 shadow_off_y = 0.4;
             } else if ((state & ControllerPseudoState::StateHover) != 0) {
@@ -316,7 +317,7 @@ DrawBatch DrawEngine::create_control_batch(
                 fg_var = "--btn-active-fg";
                 shadow_blur = 1.0;
                 shadow_off_y = 0.4;
-                by += 1.0;
+                by += press_disp_y;
             } else if ((state & ControllerPseudoState::StateHover) != 0) {
                 bg_var = "--btn-hover-bg";
                 fg_var = "--btn-hover-fg";
@@ -336,18 +337,25 @@ DrawBatch DrawEngine::create_control_batch(
         );
 
         std::string btn_text = resolve_token_str("--text", vars, "");
+        float font_size = static_cast<float>(resolve_token("--btn-font-size", vars, 13.0));
+        std::string font_family = resolve_token_str("--btn-font-family", vars, "sans-serif");
+        int font_weight = static_cast<int>(resolve_token("--btn-font-weight", vars, 500.0));
+        double baseline_offset = resolve_token("--text-baseline-offset", vars, 0.35);
+
         b.draw_text_var(
-            btn_text, bx + bw / 2.0, by + bh / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
+            btn_text, bx + bw / 2.0, by + bh / 2.0 + font_size * baseline_offset, font_size, font_family,
             fg_var, "--text", "--font-size",
             fallback_fg,
-            1 /* center */, 500
+            1 /* center */, font_weight
         );
 
         if ((state & ControllerPseudoState::StateFocused) != 0) {
+            double focus_ring_w = resolve_token("--focus-ring-width", vars, 2.0);
+            double focus_ring_pad = resolve_token("--focus-ring-pad", vars, 1.5);
             b.stroke_rounded_rect_var(
-                bx - 1.5, by - 1.5, bw + 3.0, bh + 3.0,
-                btn_radius + 1.5, btn_radius + 1.5,
-                "--focus-ring-color", 2.0,
+                bx - focus_ring_pad, by - focus_ring_pad, bw + 2.0 * focus_ring_pad, bh + 2.0 * focus_ring_pad,
+                btn_radius + focus_ring_pad, btn_radius + focus_ring_pad,
+                "--focus-ring-color", focus_ring_w,
                 "--rx", "--ry", "--focus-ring-width",
                 Color(208, 188, 255)
             );
@@ -357,9 +365,9 @@ DrawBatch DrawEngine::create_control_batch(
 
     if (key_cls == "switch") {
         std::string sw_text = resolve_token_str("--text", vars, "");
-        double focus_pad = 3.5;
-        double track_w = 40.0;
-        double track_h = 22.0;
+        double focus_pad = resolve_token("--switch-focus-pad", vars, 3.5);
+        double track_w = resolve_token("--switch-track-w", vars, 40.0);
+        double track_h = resolve_token("--switch-track-h", vars, 22.0);
 
         if (w > 0.0 && w < track_w + 2.0 * focus_pad) {
             track_w = std::max(12.0, w - 2.0 * focus_pad);
@@ -368,7 +376,7 @@ DrawBatch DrawEngine::create_control_batch(
             track_h = std::max(8.0, h - 2.0 * focus_pad);
         }
 
-        double track_x = 4.0;
+        double track_x = resolve_token("--switch-pad-x", vars, 4.0);
         if (sw_text.empty() && w > track_w) {
             track_x = (w - track_w) / 2.0;
         }
@@ -384,16 +392,20 @@ DrawBatch DrawEngine::create_control_batch(
 
         b.fill_rounded_rect_var(track_x, track_y, track_w, track_h, r, r, track_bg, "", "", track_col);
 
-        double thumb_r = std::max(2.0, r - 4.0);
+        double thumb_inset = resolve_token("--switch-thumb-inset", vars, 4.0);
+        double thumb_r = std::max(2.0, r - thumb_inset);
         double thumb_cy = track_y + track_h / 2.0;
-        double thumb_margin = thumb_r + 4.0;
+        double thumb_margin = thumb_r + thumb_inset;
         double thumb_cx = is_checked ? (track_x + track_w - thumb_margin) : (track_x + thumb_margin);
+
+        double thumb_shadow_blur = resolve_token("--switch-thumb-shadow-blur", vars, 2.0);
+        double thumb_shadow_y = resolve_token("--switch-thumb-shadow-y", vars, 1.0);
 
         // Thumb drop shadow
         b.draw_shadow_rounded_rect_var(
             thumb_cx - thumb_r, thumb_cy - thumb_r + 0.5,
             thumb_r * 2.0, thumb_r * 2.0, thumb_r, thumb_r,
-            2.0, 0.0, 0.0, 1.0,
+            thumb_shadow_blur, 0.0, 0.0, thumb_shadow_y,
             "--btn-shadow", "", "", "",
             Color(0, 0, 0, 50)
         );
@@ -403,17 +415,25 @@ DrawBatch DrawEngine::create_control_batch(
         b.fill_circle_var(thumb_cx, thumb_cy, thumb_r, thumb_var, "", thumb_col);
 
         if ((state & ControllerPseudoState::StateFocused) != 0) {
+            double focus_ring_w = resolve_token("--focus-ring-width", vars, 2.0);
+            double focus_ring_pad = resolve_token("--focus-ring-pad", vars, 1.5);
             b.stroke_rounded_rect_var(
-                track_x - 1.5, track_y - 1.5, track_w + 3.0, track_h + 3.0,
-                r + 1.5, r + 1.5,
-                "--focus-ring-color", 2.0, "", "", "--focus-ring-width",
+                track_x - focus_ring_pad, track_y - focus_ring_pad,
+                track_w + 2.0 * focus_ring_pad, track_h + 2.0 * focus_ring_pad,
+                r + focus_ring_pad, r + focus_ring_pad,
+                "--focus-ring-color", focus_ring_w, "", "", "--focus-ring-width",
                 Color(208, 188, 255)
             );
         }
 
         if (!sw_text.empty()) {
+            double text_spacing = resolve_token("--switch-text-spacing", vars, 10.0);
+            float font_size = static_cast<float>(resolve_token("--switch-font-size", vars, 13.0));
+            std::string font_family = resolve_token_str("--switch-font-family", vars, "sans-serif");
+            double baseline_offset = resolve_token("--text-baseline-offset", vars, 0.35);
             b.draw_text_var(
-                sw_text, track_x + track_w + 10.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
+                sw_text, track_x + track_w + text_spacing, h / 2.0 + font_size * baseline_offset,
+                font_size, font_family,
                 "--fg", "--text", "--font-size",
                 Color(230, 224, 233), 0 /* left */
             );
@@ -423,8 +443,8 @@ DrawBatch DrawEngine::create_control_batch(
 
     if (key_cls == "checkbox") {
         std::string cb_text = resolve_token_str("--text", vars, "");
-        double focus_pad = 3.5;
-        double box_size = 18.0;
+        double focus_pad = resolve_token("--checkbox-focus-pad", vars, 3.5);
+        double box_size = resolve_token("--checkbox-size", vars, 18.0);
         if (w > 0.0 && w < box_size + 2.0 * focus_pad) {
             box_size = std::max(8.0, w - 2.0 * focus_pad);
         }
@@ -432,7 +452,7 @@ DrawBatch DrawEngine::create_control_batch(
             box_size = std::max(8.0, std::min(box_size, h - 2.0 * focus_pad));
         }
 
-        double box_x = 4.0;
+        double box_x = resolve_token("--checkbox-pad-x", vars, 4.0);
         if (cb_text.empty() && w > box_size) {
             box_x = (w - box_size) / 2.0;
         }
@@ -442,28 +462,40 @@ DrawBatch DrawEngine::create_control_batch(
         box_y = std::max(focus_pad, box_y);
         bool is_checked = (state & ControllerPseudoState::StateChecked) != 0;
 
+        double box_radius = resolve_token("--checkbox-radius", vars, 4.0);
+        double box_border_w = resolve_token("--checkbox-border-w", vars, 1.5);
+        double stroke_w = resolve_token("--checkbox-stroke-w", vars, 2.0);
+
         if (!is_checked) {
-            b.fill_rounded_rect_var(box_x, box_y, box_size, box_size, 4.0, 4.0, "--box-bg", "", "", Color(37, 35, 42));
-            b.stroke_rounded_rect_var(box_x, box_y, box_size, box_size, 4.0, 4.0, "--box-border", 1.5, "", "", "--border-w", Color(73, 69, 79));
+            b.fill_rounded_rect_var(box_x, box_y, box_size, box_size, box_radius, box_radius, "--box-bg", "", "", Color(37, 35, 42));
+            b.stroke_rounded_rect_var(box_x, box_y, box_size, box_size, box_radius, box_radius, "--box-border", box_border_w, "", "", "--border-w", Color(73, 69, 79));
         } else {
-            b.fill_rounded_rect_var(box_x, box_y, box_size, box_size, 4.0, 4.0, "--active-bg", "", "", Color(208, 188, 255));
-            b.stroke_rounded_rect_var(box_x, box_y, box_size, box_size, 4.0, 4.0, "--active-bg", 1.5, "", "", "--border-w", Color(208, 188, 255));
-            b.draw_line_var(box_x + 4.0, box_y + 9.0, box_x + 8.0, box_y + 13.0, "--check-color", 2.0, "", Color(56, 30, 114));
-            b.draw_line_var(box_x + 8.0, box_y + 13.0, box_x + 14.0, box_y + 5.0, "--check-color", 2.0, "", Color(56, 30, 114));
+            b.fill_rounded_rect_var(box_x, box_y, box_size, box_size, box_radius, box_radius, "--active-bg", "", "", Color(208, 188, 255));
+            b.stroke_rounded_rect_var(box_x, box_y, box_size, box_size, box_radius, box_radius, "--active-bg", box_border_w, "", "", "--border-w", Color(208, 188, 255));
+            b.draw_line_var(box_x + 4.0, box_y + 9.0, box_x + 8.0, box_y + 13.0, "--check-color", stroke_w, "", Color(56, 30, 114));
+            b.draw_line_var(box_x + 8.0, box_y + 13.0, box_x + 14.0, box_y + 5.0, "--check-color", stroke_w, "", Color(56, 30, 114));
         }
 
         if ((state & ControllerPseudoState::StateFocused) != 0) {
+            double focus_ring_w = resolve_token("--focus-ring-width", vars, 2.0);
+            double focus_ring_pad = resolve_token("--focus-ring-pad", vars, 1.5);
             b.stroke_rounded_rect_var(
-                box_x - 1.5, box_y - 1.5, box_size + 3.0, box_size + 3.0,
-                5.5, 5.5,
-                "--focus-ring-color", 2.0, "", "", "--focus-ring-width",
+                box_x - focus_ring_pad, box_y - focus_ring_pad,
+                box_size + 2.0 * focus_ring_pad, box_size + 2.0 * focus_ring_pad,
+                box_radius + focus_ring_pad, box_radius + focus_ring_pad,
+                "--focus-ring-color", focus_ring_w, "", "", "--focus-ring-width",
                 Color(208, 188, 255)
             );
         }
 
         if (!cb_text.empty()) {
+            double text_spacing = resolve_token("--checkbox-text-spacing", vars, 8.0);
+            float font_size = static_cast<float>(resolve_token("--checkbox-font-size", vars, 13.0));
+            std::string font_family = resolve_token_str("--checkbox-font-family", vars, "sans-serif");
+            double baseline_offset = resolve_token("--text-baseline-offset", vars, 0.35);
             b.draw_text_var(
-                cb_text, box_x + box_size + 8.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
+                cb_text, box_x + box_size + text_spacing, h / 2.0 + font_size * baseline_offset,
+                font_size, font_family,
                 "--fg", "--text", "--font-size",
                 Color(230, 224, 233), 0 /* left */
             );
@@ -473,8 +505,8 @@ DrawBatch DrawEngine::create_control_batch(
 
     if (key_cls == "radio") {
         std::string radio_text = resolve_token_str("--text", vars, "");
-        double focus_pad = 3.5;
-        double cr = 8.0;
+        double focus_pad = resolve_token("--radio-focus-pad", vars, 3.5);
+        double cr = resolve_token("--radio-radius", vars, 8.0);
         if (w > 0.0 && w < 2.0 * (cr + focus_pad)) {
             cr = std::max(4.0, (w - 2.0 * focus_pad) / 2.0);
         }
@@ -482,7 +514,8 @@ DrawBatch DrawEngine::create_control_batch(
             cr = std::max(4.0, std::min(cr, (h - 2.0 * focus_pad) / 2.0));
         }
 
-        double cx = cr + 4.0;
+        double pad_x = resolve_token("--radio-pad-x", vars, 4.0);
+        double cx = cr + pad_x;
         if (radio_text.empty() && w > 2.0 * cr) {
             cx = w / 2.0;
         }
@@ -490,22 +523,32 @@ DrawBatch DrawEngine::create_control_batch(
         double cy = h / 2.0;
         bool is_checked = (state & ControllerPseudoState::StateChecked) != 0;
 
+        double border_w = resolve_token("--radio-border-w", vars, 1.5);
+        double dot_r = resolve_token("--radio-dot-r", vars, 4.0);
+
         if (!is_checked) {
             b.fill_circle_var(cx, cy, cr, "--radio-bg", "", Color(37, 35, 42));
-            b.stroke_circle_var(cx, cy, cr, "--radio-border", 1.5, "", "", Color(73, 69, 79));
+            b.stroke_circle_var(cx, cy, cr, "--radio-border", border_w, "", "", Color(73, 69, 79));
         } else {
             b.fill_circle_var(cx, cy, cr, "--radio-bg", "", Color(37, 35, 42));
-            b.stroke_circle_var(cx, cy, cr, "--active-bg", 1.5, "", "", Color(208, 188, 255));
-            b.fill_circle_var(cx, cy, 4.0, "--dot-color", "", Color(208, 188, 255));
+            b.stroke_circle_var(cx, cy, cr, "--active-bg", border_w, "", "", Color(208, 188, 255));
+            b.fill_circle_var(cx, cy, dot_r, "--dot-color", "", Color(208, 188, 255));
         }
 
         if ((state & ControllerPseudoState::StateFocused) != 0) {
-            b.stroke_circle_var(cx, cy, cr + 2.5, "--focus-ring-color", 2.0, "", "--focus-ring-width", Color(208, 188, 255));
+            double focus_ring_w = resolve_token("--focus-ring-width", vars, 2.0);
+            double focus_ring_pad = resolve_token("--focus-ring-pad", vars, 2.5);
+            b.stroke_circle_var(cx, cy, cr + focus_ring_pad, "--focus-ring-color", focus_ring_w, "", "--focus-ring-width", Color(208, 188, 255));
         }
 
         if (!radio_text.empty()) {
+            double text_spacing = resolve_token("--radio-text-spacing", vars, 8.0);
+            float font_size = static_cast<float>(resolve_token("--radio-font-size", vars, 13.0));
+            std::string font_family = resolve_token_str("--radio-font-family", vars, "sans-serif");
+            double baseline_offset = resolve_token("--text-baseline-offset", vars, 0.35);
             b.draw_text_var(
-                radio_text, cx + cr + 8.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
+                radio_text, cx + cr + text_spacing, h / 2.0 + font_size * baseline_offset,
+                font_size, font_family,
                 "--fg", "--text", "--font-size",
                 Color(230, 224, 233), 0 /* left */
             );
@@ -514,9 +557,10 @@ DrawBatch DrawEngine::create_control_batch(
     }
 
     if (key_cls == "slider") {
-        double pad = 12.0;
+        double pad = resolve_token("--slider-pad-x", vars, 12.0);
         double track_w = std::max(10.0, w - pad * 2.0);
-        double track_h = 4.0;
+        double track_h = resolve_token("--slider-track-h", vars, 4.0);
+        double track_radius = resolve_token("--slider-track-radius", vars, 2.0);
         double track_y = (h > track_h) ? (h - track_h) / 2.0 : 0.0;
         double thumb_pos = 0.0;
         auto it = vars.find("--thumb-pos");
@@ -524,37 +568,43 @@ DrawBatch DrawEngine::create_control_batch(
             try { thumb_pos = std::clamp(std::stod(it->second), 0.0, 1.0); } catch (...) {}
         }
 
-        b.fill_rounded_rect_var(pad, track_y, track_w, track_h, 2.0, 2.0, "--track-bg", "", "", Color(54, 52, 59));
+        b.fill_rounded_rect_var(pad, track_y, track_w, track_h, track_radius, track_radius, "--track-bg", "", "", Color(54, 52, 59));
 
         double active_w = track_w * thumb_pos;
         if (active_w > 0.0) {
-            b.fill_rounded_rect_var(pad, track_y, active_w, track_h, 2.0, 2.0, "--active-track-bg", "", "", Color(208, 188, 255));
+            b.fill_rounded_rect_var(pad, track_y, active_w, track_h, track_radius, track_radius, "--active-track-bg", "", "", Color(208, 188, 255));
         }
 
         double thumb_cx = pad + active_w;
         double thumb_cy = h / 2.0;
-        double thumb_r = 7.0;
+        double thumb_r = resolve_token("--slider-thumb-r", vars, 7.0);
+        double thumb_border_w = resolve_token("--slider-thumb-border-w", vars, 1.5);
+        double thumb_shadow_blur = resolve_token("--slider-thumb-shadow-blur", vars, 2.0);
+        double thumb_shadow_y = resolve_token("--slider-thumb-shadow-y", vars, 1.0);
 
         // Thumb drop shadow
         b.draw_shadow_rounded_rect_var(
             thumb_cx - thumb_r, thumb_cy - thumb_r + 0.5,
             thumb_r * 2.0, thumb_r * 2.0, thumb_r, thumb_r,
-            2.0, 0.0, 0.0, 1.0,
+            thumb_shadow_blur, 0.0, 0.0, thumb_shadow_y,
             "--btn-shadow", "", "", "",
             Color(0, 0, 0, 50)
         );
 
         b.fill_circle_var(thumb_cx, thumb_cy, thumb_r, "--thumb-bg", "--thumb-r", Color(208, 188, 255));
-        b.stroke_circle_var(thumb_cx, thumb_cy, thumb_r, "--thumb-border", 1.5, "--thumb-r", "", Color(255, 255, 255));
+        b.stroke_circle_var(thumb_cx, thumb_cy, thumb_r, "--thumb-border", thumb_border_w, "--thumb-r", "", Color(255, 255, 255));
 
         if ((state & ControllerPseudoState::StateFocused) != 0) {
-            b.stroke_circle_var(thumb_cx, thumb_cy, thumb_r + 2.5, "--focus-ring-color", 2.0, "", "--focus-ring-width", Color(208, 188, 255));
+            double focus_ring_w = resolve_token("--focus-ring-width", vars, 2.0);
+            double focus_ring_pad = resolve_token("--focus-ring-pad", vars, 2.5);
+            b.stroke_circle_var(thumb_cx, thumb_cy, thumb_r + focus_ring_pad, "--focus-ring-color", focus_ring_w, "", "--focus-ring-width", Color(208, 188, 255));
         }
         return b;
     }
 
     if (key_cls == "progressbar") {
-        double bar_h = std::min(h, 6.0);
+        double bar_h = resolve_token("--progress-h", vars, std::min(h, 6.0));
+        double bar_radius = resolve_token("--progress-radius", vars, 3.0);
         double bar_y = (h > bar_h) ? (h - bar_h) / 2.0 : 0.0;
         double progress = 0.0;
         auto it = vars.find("--progress");
@@ -562,40 +612,48 @@ DrawBatch DrawEngine::create_control_batch(
             try { progress = std::clamp(std::stod(it->second), 0.0, 1.0); } catch (...) {}
         }
 
-        b.fill_rounded_rect_var(0.0, bar_y, w, bar_h, 3.0, 3.0, "--track-bg", "--rx", "--ry", Color(54, 52, 59));
+        b.fill_rounded_rect_var(0.0, bar_y, w, bar_h, bar_radius, bar_radius, "--track-bg", "--rx", "--ry", Color(54, 52, 59));
         double prog_w = w * progress;
         if (prog_w > 0.0) {
-            b.fill_rounded_rect_var(0.0, bar_y, prog_w, bar_h, 3.0, 3.0, "--bar-bg", "--rx", "--ry", Color(208, 188, 255));
+            b.fill_rounded_rect_var(0.0, bar_y, prog_w, bar_h, bar_radius, bar_radius, "--bar-bg", "--rx", "--ry", Color(208, 188, 255));
         }
         return b;
     }
 
     if (key_cls == "badge") {
-        double rx = std::min(w, h) / 2.0;
+        double rx = resolve_token("--badge-radius", vars, std::min(w, h) / 2.0);
         b.fill_rounded_rect_var(0.0, 0.0, w, h, rx, rx, "--badge-bg", "--rx", "--ry", Color(74, 68, 88));
         std::string badge_text = resolve_token_str("--text", vars, "");
+        float font_size = static_cast<float>(resolve_token("--badge-font-size", vars, 11.0));
+        std::string font_family = resolve_token_str("--badge-font-family", vars, "sans-serif");
+        int font_weight = static_cast<int>(resolve_token("--badge-font-weight", vars, 600.0));
+        double baseline_offset = resolve_token("--text-baseline-offset", vars, 0.35);
         b.draw_text_var(
-            badge_text, w / 2.0, h / 2.0 + 11.0 * 0.35, 11.0f, "sans-serif",
+            badge_text, w / 2.0, h / 2.0 + font_size * baseline_offset, font_size, font_family,
             "--badge-fg", "--text", "--font-size",
-            Color(230, 224, 233), 1 /* center */, 600
+            Color(230, 224, 233), 1 /* center */, font_weight
         );
         return b;
     }
 
     if (key_cls == "card") {
-        double pad_x = 10.0;
-        double pad_top = 8.0;
-        double pad_bottom = 12.0;
+        double pad_x = resolve_token("--card-pad-x", vars, 10.0);
+        double pad_top = resolve_token("--card-pad-top", vars, 8.0);
+        double pad_bottom = resolve_token("--card-pad-bottom", vars, 12.0);
         double cx = pad_x;
         double cy = pad_top;
         double cw = std::max(10.0, w - 2.0 * pad_x);
         double ch = std::max(10.0, h - pad_top - pad_bottom);
+        double card_radius = resolve_token("--card-radius", vars, 12.0);
+        double border_w = resolve_token("--card-border-w", vars, 1.0);
+        double shadow_blur = resolve_token("--card-shadow-blur", vars, 8.0);
+        double shadow_y = resolve_token("--card-shadow-y", vars, 3.0);
 
         b.draw_card_var(
             cx, cy, cw, ch,
-            12.0, 12.0,
+            card_radius, card_radius,
             "--card-bg", "--card-border",
-            1.0, 8.0, 0.0, 0.0, 3.0,
+            border_w, shadow_blur, 0.0, 0.0, shadow_y,
             "--card-shadow",
             "--rx", "--ry", "--bw",
             Color(37, 35, 42), Color(73, 69, 79), Color(0, 0, 0, 40)
@@ -604,12 +662,12 @@ DrawBatch DrawEngine::create_control_batch(
     }
 
     if (key_cls == "frame") {
-        double rx = 12.0;
+        double rx = resolve_token("--frame-radius", vars, 12.0);
         auto it_rx = vars.find("--rx");
         if (it_rx != vars.end()) {
             try { rx = std::stod(it_rx->second); } catch (...) {}
         }
-        double bw = 0.0;
+        double bw = resolve_token("--frame-border-w", vars, 0.0);
         auto it_bw = vars.find("--bw");
         if (it_bw != vars.end()) {
             try { bw = std::stod(it_bw->second); } catch (...) {}
@@ -624,7 +682,7 @@ DrawBatch DrawEngine::create_control_batch(
     if (key_cls == "circular_progress" || key_cls == "gauge") {
         double cx = w / 2.0;
         double cy = h / 2.0;
-        double sw = 8.0;
+        double sw = resolve_token("--circular-stroke-w", vars, 8.0);
         auto it_sw = vars.find("--stroke-width");
         if (it_sw != vars.end()) {
             try { sw = std::stod(it_sw->second); } catch (...) {}
@@ -664,15 +722,16 @@ DrawBatch DrawEngine::create_control_batch(
         if (it_sv != vars.end()) show_val = it_sv->second;
         if (show_val != "0" && show_val != "false") {
             float font_sz = static_cast<float>(std::max(10.0, r * 0.42));
+            std::string font_family = resolve_token_str("--circular-font-family", vars, "sans-serif");
             std::string title = "";
             auto it_t = vars.find("--title");
             if (it_t != vars.end()) title = it_t->second;
 
             if (!title.empty()) {
-                b.draw_text_var("", cx, cy - font_sz * 0.1, font_sz, "sans-serif", "--fg", "--text", "", Color(230, 224, 233), 1 /* center */, 700);
-                b.draw_text_var(title, cx, cy + font_sz * 0.55, font_sz * 0.45f, "sans-serif", "--text-muted", "--title", "", Color(161, 161, 170), 1 /* center */, 400);
+                b.draw_text_var("", cx, cy - font_sz * 0.1, font_sz, font_family, "--fg", "--text", "", Color(230, 224, 233), 1 /* center */, 700);
+                b.draw_text_var(title, cx, cy + font_sz * 0.55, font_sz * 0.45f, font_family, "--text-muted", "--title", "", Color(161, 161, 170), 1 /* center */, 400);
             } else {
-                b.draw_text_var("", cx, cy + font_sz * 0.35, font_sz, "sans-serif", "--fg", "--text", "", Color(230, 224, 233), 1 /* center */, 700);
+                b.draw_text_var("", cx, cy + font_sz * 0.35, font_sz, font_family, "--fg", "--text", "", Color(230, 224, 233), 1 /* center */, 700);
             }
         }
         return b;
@@ -690,46 +749,53 @@ DrawBatch DrawEngine::create_control_batch(
             try { selected = std::clamp(std::stoi(it_s->second), 0, count - 1); } catch (...) {}
         }
 
+        double pill_pad = resolve_token("--segmented-pill-padding", vars, 3.0);
+        double border_w = resolve_token("--segmented-border-w", vars, 1.0);
         double rx = h / 2.0;
+
         // Background capsule container
         b.fill_rounded_rect_var(0.0, 0.0, w, h, rx, rx, "--card-bg", "", "", Color(37, 35, 42));
-        b.stroke_rounded_rect_var(0.0, 0.0, w, h, rx, rx, "--card-border", 1.0, "", "", "", Color(73, 69, 79));
+        b.stroke_rounded_rect_var(0.0, 0.0, w, h, rx, rx, "--card-border", border_w, "", "", "", Color(73, 69, 79));
 
         double seg_w = w / static_cast<double>(count);
 
         // Active segment indicator pill
-        double act_x = selected * seg_w + 3.0;
-        double act_w = std::max(10.0, seg_w - 6.0);
-        double act_h = h - 6.0;
+        double act_x = selected * seg_w + pill_pad;
+        double act_w = std::max(10.0, seg_w - 2.0 * pill_pad);
+        double act_h = h - 2.0 * pill_pad;
         double act_rx = act_h / 2.0;
-        b.fill_rounded_rect_var(act_x, 3.0, act_w, act_h, act_rx, act_rx, "--primary", "", "", Color(139, 92, 246));
+        b.fill_rounded_rect_var(act_x, pill_pad, act_w, act_h, act_rx, act_rx, "--primary", "", "", Color(139, 92, 246));
 
         // Dividers between segments (skip borders adjacent to active segment)
         for (int i = 1; i < count; ++i) {
             if (i != selected && i != selected + 1) {
                 double div_x = i * seg_w;
-                b.draw_line_var(div_x, 6.0, div_x, h - 6.0, "--card-border", 1.0, "", Color(73, 69, 79));
+                b.draw_line_var(div_x, 2.0 * pill_pad, div_x, h - 2.0 * pill_pad, "--card-border", border_w, "", Color(73, 69, 79));
             }
         }
 
         // Segment labels
+        float font_size = static_cast<float>(resolve_token("--segmented-font-size", vars, 13.0));
+        std::string font_family = resolve_token_str("--segmented-font-family", vars, "sans-serif");
+        double baseline_offset = resolve_token("--text-baseline-offset", vars, 0.35);
+
         for (int i = 0; i < count; ++i) {
             std::string var_name = "--seg-" + std::to_string(i) + "-text";
             std::string txt = "";
             auto it_txt = vars.find(var_name);
             if (it_txt != vars.end()) txt = it_txt->second;
             double seg_cx = (i + 0.5) * seg_w;
-            double txt_y = h / 2.0 + 13.0 * 0.35;
+            double txt_y = h / 2.0 + font_size * baseline_offset;
             std::string col_var = (i == selected) ? "--primary-fg" : "--fg";
             Color fallback_col = (i == selected) ? Color(255, 255, 255) : Color(230, 224, 233);
-            b.draw_text_var(txt, seg_cx, txt_y, 13.0f, "sans-serif", col_var, var_name, "", fallback_col, 1 /* center */, (i == selected) ? 600 : 500);
+            b.draw_text_var(txt, seg_cx, txt_y, font_size, font_family, col_var, var_name, "", fallback_col, 1 /* center */, (i == selected) ? 600 : 500);
         }
         return b;
     }
 
     if (key_cls == "range_slider") {
-        double pad_x = 14.0;
-        double th = 8.0;
+        double pad_x = resolve_token("--range-slider-pad-x", vars, 14.0);
+        double th = resolve_token("--range-slider-track-h", vars, 8.0);
         double ty = (h - th) / 2.0;
         double track_w = std::max(10.0, w - 2.0 * pad_x);
 
@@ -748,15 +814,18 @@ DrawBatch DrawEngine::create_control_batch(
         double act_w = std::max(4.0, (max_p - min_p) * track_w);
         b.fill_rounded_rect_var(act_x, ty, act_w, th, th / 2.0, th / 2.0, "--primary", "", "", Color(139, 92, 246));
 
+        double thumb_r = resolve_token("--range-slider-thumb-r", vars, 10.0);
+        double thumb_border_w = resolve_token("--range-slider-thumb-border-w", vars, 2.0);
+
         // Left thumb circle
         double t1_cx = pad_x + min_p * track_w;
-        b.fill_circle_var(t1_cx, h / 2.0, 10.0, "--thumb-color", "", Color(139, 92, 246));
-        b.stroke_circle_var(t1_cx, h / 2.0, 10.0, "--thumb-border", 2.0, "", "", Color(255, 255, 255));
+        b.fill_circle_var(t1_cx, h / 2.0, thumb_r, "--thumb-color", "", Color(139, 92, 246));
+        b.stroke_circle_var(t1_cx, h / 2.0, thumb_r, "--thumb-border", thumb_border_w, "", "", Color(255, 255, 255));
 
         // Right thumb circle
         double t2_cx = pad_x + max_p * track_w;
-        b.fill_circle_var(t2_cx, h / 2.0, 10.0, "--thumb-color", "", Color(139, 92, 246));
-        b.stroke_circle_var(t2_cx, h / 2.0, 10.0, "--thumb-border", 2.0, "", "", Color(255, 255, 255));
+        b.fill_circle_var(t2_cx, h / 2.0, thumb_r, "--thumb-color", "", Color(139, 92, 246));
+        b.stroke_circle_var(t2_cx, h / 2.0, thumb_r, "--thumb-border", thumb_border_w, "", "", Color(255, 255, 255));
         return b;
     }
 
@@ -775,7 +844,7 @@ DrawBatch DrawEngine::create_control_batch(
             start = pos + 1;
         }
 
-        double pad = 6.0;
+        double pad = resolve_token("--sparkline-pad", vars, 6.0);
         double pw = std::max(10.0, w - 2.0 * pad);
         double ph = std::max(10.0, h - 2.0 * pad);
 
@@ -787,18 +856,20 @@ DrawBatch DrawEngine::create_control_batch(
             double step_x = pw / static_cast<double>(pts.size() - 1);
             double prev_x = pad;
             double prev_y = pad + ph - ((pts[0] - min_v) / span) * ph;
+            double line_w = resolve_token("--sparkline-line-w", vars, 2.0);
+            double dot_r = resolve_token("--sparkline-dot-r", vars, 4.0);
 
             for (std::size_t i = 1; i < pts.size(); ++i) {
                 double cur_x = pad + i * step_x;
                 double cur_y = pad + ph - ((pts[i] - min_v) / span) * ph;
-                b.draw_line_var(prev_x, prev_y, cur_x, cur_y, "--primary", 2.0, "", Color(139, 92, 246));
+                b.draw_line_var(prev_x, prev_y, cur_x, cur_y, "--primary", line_w, "", Color(139, 92, 246));
                 prev_x = cur_x;
                 prev_y = cur_y;
             }
 
             // Endpoint glowing dot
-            b.fill_circle_var(prev_x, prev_y, 4.0, "--primary", "", Color(139, 92, 246));
-            b.fill_circle_var(prev_x, prev_y, 2.0, "--card-bg", "", Color(37, 35, 42));
+            b.fill_circle_var(prev_x, prev_y, dot_r, "--primary", "", Color(139, 92, 246));
+            b.fill_circle_var(prev_x, prev_y, dot_r / 2.0, "--card-bg", "", Color(37, 35, 42));
         }
         return b;
     }
@@ -848,16 +919,21 @@ DrawBatch DrawEngine::create_control_batch(
         );
 
         // Value text
-        double txt_x = bx + 12.0;
-        double txt_y = by + bh / 2.0 + 13.0 * 0.35;
+        double txt_pad_x = resolve_token("--combobox-text-pad-x", vars, 12.0);
+        double txt_x = bx + txt_pad_x;
+        float font_size = static_cast<float>(resolve_token("--input-font-size", vars, 13.0));
+        std::string font_family = resolve_token_str("--input-font-family", vars, "sans-serif");
+        double baseline_offset = resolve_token("--text-baseline-offset", vars, 0.35);
+        double txt_y = by + bh / 2.0 + font_size * baseline_offset;
         std::string combo_text = resolve_token_str("--text", vars, "");
-        b.draw_text_var(combo_text, txt_x, txt_y, 13.0f, "sans-serif", "--fg", "--text", "", Color(230, 224, 233), 0 /* left */, 500);
+        b.draw_text_var(combo_text, txt_x, txt_y, font_size, font_family, "--fg", "--text", "", Color(230, 224, 233), 0 /* left */, 500);
 
         // Chevron arrow indicator at right
         double arr_cx = bx + bw - 14.0;
         double arr_cy = by + bh / 2.0;
-        b.draw_line(arr_cx - 4.5, arr_cy - 2.5, arr_cx, arr_cy + 2.5, Color(161, 161, 170), 1.6);
-        b.draw_line(arr_cx, arr_cy + 2.5, arr_cx + 4.5, arr_cy - 2.5, Color(161, 161, 170), 1.6);
+        double arrow_sz = resolve_token("--combobox-arrow-size", vars, 4.5);
+        b.draw_line(arr_cx - arrow_sz, arr_cy - arrow_sz * 0.55, arr_cx, arr_cy + arrow_sz * 0.55, Color(161, 161, 170), 1.6);
+        b.draw_line(arr_cx, arr_cy + arrow_sz * 0.55, arr_cx + arrow_sz, arr_cy - arrow_sz * 0.55, Color(161, 161, 170), 1.6);
         return b;
     }
 
@@ -892,44 +968,56 @@ DrawBatch DrawEngine::create_control_batch(
             return b; // Content fits without scrolling
         }
 
+        double sb_pad = resolve_token("--scrollbar-pad", vars, 1.5);
+        double min_sz_token = resolve_token("--scrollbar-thumb-min-size", vars, 28.0);
+
         if (is_horiz) {
-            double min_sz = std::min(w, 28.0);
+            double min_sz = std::min(w, min_sz_token);
             double max_sz = std::max(min_sz, w * 0.30);
             double thumb_w = std::clamp(w * thumb_sz, min_sz, max_sz);
             double available_w = std::max(0.0, w - thumb_w);
             double thumb_x = std::clamp(thumb_pos * available_w, 0.0, available_w);
-            b.fill_rounded_rect_var(thumb_x, 1.5, thumb_w, h - 3.0, (h - 3.0) / 2.0, (h - 3.0) / 2.0, "--thumb-color", "", "", Color(139, 92, 246));
+            b.fill_rounded_rect_var(thumb_x, sb_pad, thumb_w, h - 2.0 * sb_pad, (h - 2.0 * sb_pad) / 2.0, (h - 2.0 * sb_pad) / 2.0, "--thumb-color", "", "", Color(139, 92, 246));
         } else {
-            double min_sz = std::min(h, 28.0);
+            double min_sz = std::min(h, min_sz_token);
             double max_sz = std::max(min_sz, h * 0.30);
             double thumb_h = std::clamp(h * thumb_sz, min_sz, max_sz);
             double available_h = std::max(0.0, h - thumb_h);
             double thumb_y = std::clamp(thumb_pos * available_h, 0.0, available_h);
-            b.fill_rounded_rect_var(1.5, thumb_y, w - 3.0, thumb_h, (w - 3.0) / 2.0, (w - 3.0) / 2.0, "--thumb-color", "", "", Color(139, 92, 246));
+            b.fill_rounded_rect_var(sb_pad, thumb_y, w - 2.0 * sb_pad, thumb_h, (w - 2.0 * sb_pad) / 2.0, (w - 2.0 * sb_pad) / 2.0, "--thumb-color", "", "", Color(139, 92, 246));
         }
         return b;
     }
 
     if (key_cls == "table") {
-        double header_h = 38.0;
+        double header_h = resolve_token("--table-header-h", vars, 38.0);
         auto it_hh = vars.find("--header-height");
         if (it_hh != vars.end()) { try { header_h = std::stod(it_hh->second); } catch (...) {} }
 
+        double table_radius = resolve_token("--table-radius", vars, 8.0);
+        double table_border_w = resolve_token("--table-border-w", vars, 1.0);
+
         // Background
-        b.fill_rounded_rect_var(0.0, 0.0, w, h, 8.0, 8.0, "--card-bg", "", "", Color(37, 35, 42));
-        b.stroke_rounded_rect_var(0.0, 0.0, w, h, 8.0, 8.0, "--card-border", 1.0, "", "", "", Color(73, 69, 79));
+        b.fill_rounded_rect_var(0.0, 0.0, w, h, table_radius, table_radius, "--card-bg", "", "", Color(37, 35, 42));
+        b.stroke_rounded_rect_var(0.0, 0.0, w, h, table_radius, table_radius, "--card-border", table_border_w, "", "", "", Color(73, 69, 79));
 
         // Header bottom divider line
-        b.draw_line_var(0.0, header_h, w, header_h, "--card-border", 1.0, "", Color(73, 69, 79));
+        b.draw_line_var(0.0, header_h, w, header_h, "--card-border", table_border_w, "", Color(73, 69, 79));
         return b;
     }
 
     if (key_cls == "label") {
         std::string lbl_text = resolve_token_str("--text", vars, "");
+        double pad_x = resolve_token("--label-pad-x", vars, 2.0);
+        float font_size = static_cast<float>(resolve_token("--label-font-size", vars, 13.0));
+        std::string font_family = resolve_token_str("--label-font-family", vars, "sans-serif");
+        int font_weight = static_cast<int>(resolve_token("--label-font-weight", vars, 400.0));
+        double baseline_offset = resolve_token("--text-baseline-offset", vars, 0.35);
+
         b.draw_text_var(
-            lbl_text, 2.0, h / 2.0 + 13.0 * 0.35, 13.0f, "sans-serif",
+            lbl_text, pad_x, h / 2.0 + font_size * baseline_offset, font_size, font_family,
             "--fg", "--text", "--font-size",
-            Color(230, 224, 233), 0 /* left */, 400
+            Color(230, 224, 233), 0 /* left */, font_weight
         );
         return b;
     }
@@ -979,10 +1067,15 @@ DrawBatch DrawEngine::create_control_batch(
         );
 
         if (key_cls == "search_entry") {
-            double icon_cx = bx + 14.0;
+            double icon_pad_x = resolve_token("--search-icon-pad-x", vars, 14.0);
+            double icon_cx = bx + icon_pad_x;
             double icon_cy = by + bh / 2.0;
-            b.stroke_circle_var(icon_cx - 2.0, icon_cy - 2.0, 4.5, "--text-muted", 1.5, "", "", Color(160, 160, 175));
-            b.draw_line_var(icon_cx + 1.2, icon_cy + 1.2, icon_cx + 5.5, icon_cy + 5.5, "--text-muted", 1.8, "", Color(160, 160, 175));
+            double icon_sz = resolve_token("--search-icon-size", vars, 4.5);
+            double line_w = resolve_token("--search-icon-line-w", vars, 1.5);
+            double handle_w = resolve_token("--search-icon-handle-w", vars, 1.8);
+
+            b.stroke_circle_var(icon_cx - 2.0, icon_cy - 2.0, icon_sz, "--text-muted", line_w, "", "", Color(160, 160, 175));
+            b.draw_line_var(icon_cx + 1.2, icon_cy + 1.2, icon_cx + 1.2 + icon_sz * 0.95, icon_cy + 1.2 + icon_sz * 0.95, "--text-muted", handle_w, "", Color(160, 160, 175));
         }
         return b;
     }

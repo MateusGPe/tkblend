@@ -59,11 +59,130 @@ inline const char* DEFAULT_DARK_THEME_CSS = R"css(
   --btn-pad-x: 4px;
   --btn-pad-top: 2px;
   --btn-pad-bottom: 6px;
+  --btn-border-width: 0px;
   --btn-shadow: var(--shadow);
   --btn-shadow-blur: 2px;
   --btn-shadow-blur-hover: 2.8px;
   --btn-shadow-y: 0.8px;
   --btn-shadow-y-hover: 1px;
+  --btn-press-displacement-y: 1px;
+  --btn-font-size: 13px;
+  --btn-font-family: sans-serif;
+  --btn-font-weight: 500;
+
+  /* Focus Ring Tokens */
+  --focus-ring-width: 2px;
+  --focus-ring-pad: 1.5px;
+  --focus-ring-color: var(--primary);
+  --text-baseline-offset: 0.35;
+
+  /* Switch Tokens */
+  --switch-track-w: 40px;
+  --switch-track-h: 22px;
+  --switch-pad-x: 4px;
+  --switch-focus-pad: 3.5px;
+  --switch-thumb-inset: 4px;
+  --switch-thumb-shadow-blur: 2px;
+  --switch-thumb-shadow-y: 1px;
+  --switch-text-spacing: 10px;
+  --switch-font-size: 13px;
+  --switch-font-family: sans-serif;
+
+  /* CheckBox Tokens */
+  --checkbox-size: 18px;
+  --checkbox-radius: 4px;
+  --checkbox-border-w: 1.5px;
+  --checkbox-stroke-w: 2.2px;
+  --checkbox-pad-x: 4px;
+  --checkbox-focus-pad: 3.5px;
+  --checkbox-text-spacing: 10px;
+  --checkbox-font-size: 13px;
+  --checkbox-font-family: sans-serif;
+
+  /* Radio Tokens */
+  --radio-size: 16px;
+  --radio-radius: 8px;
+  --radio-dot-r: 4px;
+  --radio-border-w: 1.5px;
+  --radio-pad-x: 4px;
+  --radio-focus-pad: 3.5px;
+  --radio-text-spacing: 8px;
+  --radio-font-size: 13px;
+  --radio-font-family: sans-serif;
+
+  /* Slider Tokens */
+  --slider-pad-x: 12px;
+  --slider-track-h: 4px;
+  --slider-track-radius: 2px;
+  --slider-thumb-r: 7px;
+  --slider-thumb-border-w: 1.5px;
+  --slider-thumb-shadow-blur: 2px;
+  --slider-thumb-shadow-y: 1px;
+
+  /* ProgressBar Tokens */
+  --progress-h: 6px;
+  --progress-radius: 3px;
+
+  /* Badge Tokens */
+  --badge-radius: 10px;
+  --badge-font-size: 11px;
+  --badge-font-family: sans-serif;
+  --badge-font-weight: 600;
+
+  /* Card & Frame Tokens */
+  --card-pad-x: 10px;
+  --card-pad-top: 8px;
+  --card-pad-bottom: 12px;
+  --card-radius: var(--radius-lg);
+  --card-border-w: 1px;
+  --card-shadow-blur: 8px;
+  --card-shadow-y: 3px;
+  --frame-radius: var(--radius-lg);
+  --frame-border-w: 0px;
+
+  /* Circular Progress / Gauge Tokens */
+  --circular-stroke-w: 8px;
+  --circular-font-family: sans-serif;
+
+  /* Segmented Button Tokens */
+  --segmented-pill-padding: 3px;
+  --segmented-border-w: 1px;
+  --segmented-font-size: 13px;
+  --segmented-font-family: sans-serif;
+
+  /* Range Slider Tokens */
+  --range-slider-pad-x: 14px;
+  --range-slider-track-h: 8px;
+  --range-slider-thumb-r: 10px;
+  --range-slider-thumb-border-w: 2px;
+
+  /* Sparkline Tokens */
+  --sparkline-pad: 6px;
+  --sparkline-line-w: 2px;
+  --sparkline-dot-r: 4px;
+
+  /* Scrollbar Tokens */
+  --scrollbar-pad: 1.5px;
+  --scrollbar-thumb-min-size: 28px;
+
+  /* Table Tokens */
+  --table-header-h: 38px;
+  --table-radius: var(--radius-md);
+  --table-border-w: 1px;
+
+  /* Label Tokens */
+  --label-pad-x: 2px;
+  --label-font-size: 13px;
+  --label-font-family: sans-serif;
+  --label-font-weight: 400;
+
+  /* Search Entry & ComboBox Arrow Tokens */
+  --combobox-arrow-size: 4.5px;
+  --combobox-text-pad-x: 12px;
+  --search-icon-size: 4.5px;
+  --search-icon-line-w: 1.5px;
+  --search-icon-handle-w: 1.8px;
+  --search-icon-pad-x: 14px;
 }
 
 button {
@@ -328,11 +447,130 @@ inline const char* DEFAULT_LIGHT_THEME_CSS = R"css(
   --btn-pad-x: 4px;
   --btn-pad-top: 2px;
   --btn-pad-bottom: 6px;
+  --btn-border-width: 0px;
   --btn-shadow: var(--shadow);
   --btn-shadow-blur: 2px;
   --btn-shadow-blur-hover: 2.8px;
   --btn-shadow-y: 0.8px;
   --btn-shadow-y-hover: 1px;
+  --btn-press-displacement-y: 1px;
+  --btn-font-size: 13px;
+  --btn-font-family: sans-serif;
+  --btn-font-weight: 500;
+
+  /* Focus Ring Tokens */
+  --focus-ring-width: 2px;
+  --focus-ring-pad: 1.5px;
+  --focus-ring-color: var(--primary);
+  --text-baseline-offset: 0.35;
+
+  /* Switch Tokens */
+  --switch-track-w: 40px;
+  --switch-track-h: 22px;
+  --switch-pad-x: 4px;
+  --switch-focus-pad: 3.5px;
+  --switch-thumb-inset: 4px;
+  --switch-thumb-shadow-blur: 2px;
+  --switch-thumb-shadow-y: 1px;
+  --switch-text-spacing: 10px;
+  --switch-font-size: 13px;
+  --switch-font-family: sans-serif;
+
+  /* CheckBox Tokens */
+  --checkbox-size: 18px;
+  --checkbox-radius: 4px;
+  --checkbox-border-w: 1.5px;
+  --checkbox-stroke-w: 2.2px;
+  --checkbox-pad-x: 4px;
+  --checkbox-focus-pad: 3.5px;
+  --checkbox-text-spacing: 10px;
+  --checkbox-font-size: 13px;
+  --checkbox-font-family: sans-serif;
+
+  /* Radio Tokens */
+  --radio-size: 16px;
+  --radio-radius: 8px;
+  --radio-dot-r: 4px;
+  --radio-border-w: 1.5px;
+  --radio-pad-x: 4px;
+  --radio-focus-pad: 3.5px;
+  --radio-text-spacing: 8px;
+  --radio-font-size: 13px;
+  --radio-font-family: sans-serif;
+
+  /* Slider Tokens */
+  --slider-pad-x: 12px;
+  --slider-track-h: 4px;
+  --slider-track-radius: 2px;
+  --slider-thumb-r: 7px;
+  --slider-thumb-border-w: 1.5px;
+  --slider-thumb-shadow-blur: 2px;
+  --slider-thumb-shadow-y: 1px;
+
+  /* ProgressBar Tokens */
+  --progress-h: 6px;
+  --progress-radius: 3px;
+
+  /* Badge Tokens */
+  --badge-radius: 10px;
+  --badge-font-size: 11px;
+  --badge-font-family: sans-serif;
+  --badge-font-weight: 600;
+
+  /* Card & Frame Tokens */
+  --card-pad-x: 10px;
+  --card-pad-top: 8px;
+  --card-pad-bottom: 12px;
+  --card-radius: var(--radius-lg);
+  --card-border-w: 1px;
+  --card-shadow-blur: 8px;
+  --card-shadow-y: 3px;
+  --frame-radius: var(--radius-lg);
+  --frame-border-w: 0px;
+
+  /* Circular Progress / Gauge Tokens */
+  --circular-stroke-w: 8px;
+  --circular-font-family: sans-serif;
+
+  /* Segmented Button Tokens */
+  --segmented-pill-padding: 3px;
+  --segmented-border-w: 1px;
+  --segmented-font-size: 13px;
+  --segmented-font-family: sans-serif;
+
+  /* Range Slider Tokens */
+  --range-slider-pad-x: 14px;
+  --range-slider-track-h: 8px;
+  --range-slider-thumb-r: 10px;
+  --range-slider-thumb-border-w: 2px;
+
+  /* Sparkline Tokens */
+  --sparkline-pad: 6px;
+  --sparkline-line-w: 2px;
+  --sparkline-dot-r: 4px;
+
+  /* Scrollbar Tokens */
+  --scrollbar-pad: 1.5px;
+  --scrollbar-thumb-min-size: 28px;
+
+  /* Table Tokens */
+  --table-header-h: 38px;
+  --table-radius: var(--radius-md);
+  --table-border-w: 1px;
+
+  /* Label Tokens */
+  --label-pad-x: 2px;
+  --label-font-size: 13px;
+  --label-font-family: sans-serif;
+  --label-font-weight: 400;
+
+  /* Search Entry & ComboBox Arrow Tokens */
+  --combobox-arrow-size: 4.5px;
+  --combobox-text-pad-x: 12px;
+  --search-icon-size: 4.5px;
+  --search-icon-line-w: 1.5px;
+  --search-icon-handle-w: 1.8px;
+  --search-icon-pad-x: 14px;
 }
 
 button {

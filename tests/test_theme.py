@@ -383,6 +383,19 @@ def test_theme_metric_tokens():
     assert pal.get_scalar("btn_radius", 0.0) == 8.0
     assert pal.get_scalar("nonexistent_token", fallback=42.5) == 42.5
 
+    # Test new widget tokens across controls
+    assert pal.get_scalar("switch_track_w", 0.0) == 40.0
+    assert pal.get_scalar("switch_track_h", 0.0) == 22.0
+    assert pal.get_scalar("checkbox_size", 0.0) == 18.0
+    assert pal.get_scalar("radio_size", 0.0) == 16.0
+    assert pal.get_scalar("slider_thumb_r", 0.0) == 7.0
+    assert pal.get_scalar("progress_h", 0.0) == 6.0
+    assert pal.get_scalar("badge_radius", 0.0) == 10.0
+    assert pal.get_scalar("card_radius", 0.0) == 12.0
+    assert pal.get_scalar("table_header_h", 0.0) == 38.0
+    assert pal.get_scalar("focus_ring_width", 0.0) == 2.0
+    assert pal.get_scalar("btn_press_displacement_y", 0.0) == 1.0
+
     # Register custom theme with overrides
     custom_css = """
     :root {
@@ -392,6 +405,11 @@ def test_theme_metric_tokens():
       --input-radius: 14px;
       --btn-pad-x: 10px;
       --btn-radius: 16px;
+      --switch-track-w: 52px;
+      --switch-track-h: 28px;
+      --checkbox-size: 24px;
+      --slider-thumb-r: 12px;
+      --table-header-h: 48px;
     }
     """
     register_theme("custom_metric_test", custom_css)
@@ -402,9 +420,53 @@ def test_theme_metric_tokens():
     assert custom_pal.get_scalar("input_radius") == 14.0
     assert custom_pal.get_scalar("btn_pad_x") == 10.0
     assert custom_pal.get_scalar("btn_radius") == 16.0
+    assert custom_pal.get_scalar("switch_track_w") == 52.0
+    assert custom_pal.get_scalar("switch_track_h") == 28.0
+    assert custom_pal.get_scalar("checkbox_size") == 24.0
+    assert custom_pal.get_scalar("slider_thumb_r") == 12.0
+    assert custom_pal.get_scalar("table_header_h") == 48.0
 
     # Reset back to dark
     set_theme("dark")
+
+
+def test_drawengine_control_batch_generation_with_css_tokens():
+    from tkblend._tkblend import DrawEngine, ControllerPseudoState
+
+    # Generate batches for all 18 widget types to ensure no crashes and valid operations
+    widget_classes = [
+        "button", "switch", "checkbox", "radio", "slider", "progressbar",
+        "badge", "card", "frame", "circular_progress", "segmented_button",
+        "range_slider", "sparkline", "combobox", "scrollbar", "table",
+        "label", "entry", "search_entry"
+    ]
+
+    for wc in widget_classes:
+        batch = DrawEngine.create_control_batch(
+            wc,
+            int(ControllerPseudoState.Normal),
+            120.0,
+            36.0,
+            {"--text": "Test"}
+        )
+        assert len(batch) > 0, f"Batch for {wc} should contain drawing operations"
+
+    # Test with custom local variables overriding CSS tokens
+    custom_vars = {
+        "--text": "Custom Button",
+        "--btn-pad-x": "8.0",
+        "--btn-radius": "16.0",
+        "--btn-press-displacement-y": "3.0",
+    }
+    active_batch = DrawEngine.create_control_batch(
+        "button",
+        int(ControllerPseudoState.Active),
+        150.0,
+        40.0,
+        custom_vars
+    )
+    assert len(active_batch) > 0
+
 
 
 
