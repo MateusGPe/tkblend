@@ -468,5 +468,33 @@ def test_drawengine_control_batch_generation_with_css_tokens():
     assert len(active_batch) > 0
 
 
+def test_transparent_color_resolution():
+    from tkblend.theme import resolve_color_failsafe, to_tk_hex
+    from tkblend.surface import parse_color
+
+    assert resolve_color_failsafe("transparent") == "#00000000"
+    assert resolve_color_failsafe("none") == "#00000000"
+    assert to_tk_hex("transparent", fallback="#123456") == "#123456"
+    assert to_tk_hex("none", fallback="#abcdef") == "#abcdef"
+
+    c_trans = parse_color("transparent")
+    assert c_trans.a == 0
+    assert c_trans.r == 0
+    assert c_trans.g == 0
+    assert c_trans.b == 0
 
 
+def test_teal_orange_theme_scrollable_table_lifecycle(root):
+    from tkblend.widgets.scrollable_frame import ScrollableFrame
+    from tkblend.widgets.table import Table
+
+    set_theme("teal_orange")
+    scroller = ScrollableFrame(root, width=300, height=300)
+    scroller.pack(fill="both", expand=True)
+
+    tbl = Table(scroller.content, columns=["Col 1", "Col 2"], data=[["A", "B"], ["C", "D"]])
+    tbl.pack(fill="both", expand=True)
+
+    root.update()
+    scroller.destroy()
+    set_theme("dark")

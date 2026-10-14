@@ -1,0 +1,513 @@
+/* ==============================================================================
+ * Teal & Orange Modern Flat Theme (Material UI / M3 Borderless Aesthetic)
+ *
+ * A refined, modern design token sample showcasing all possible style,
+ * dimension, spacing, typography, and interactive dynamic properties in tkblend.
+ * ============================================================================== */
+
+:root {
+  /* --------------------------------------------------------------------------
+   * 1. Core Semantic Colors (Teal & Orange Palette)
+   * -------------------------------------------------------------------------- */
+  --bg: #0c1117;                    /* Deep modern slate background */
+  --fg: #f1f5f9;                    /* Crisp off-white primary text */
+  --fg-subtle: #94a3b8;             /* Subtle secondary text */
+  --text-muted: #64748b;            /* Muted helper text */
+
+  --surface: #141c26;               /* Tonal surface level 1 */
+  --surface-border: transparent;    /* Borderless flat style */
+  --card-bg: #1a2432;               /* Elevated tonal card surface level 2 */
+  --card-border: transparent;       /* Borderless flat style */
+  --card-hover: #222f42;            /* Subtle card hover tint */
+
+  /* Teal Primaries */
+  --primary: #14b8a6;               /* Electric teal */
+  --primary-hover: #2dd4bf;         /* Luminous teal hover */
+  --primary-active: #0d9488;        /* Deep teal active press */
+  --primary-fg: #042f2e;            /* High-contrast dark teal text */
+
+  /* Orange Secondaries & Accents */
+  --secondary: #263345;             /* Modern cool slate container */
+  --secondary-hover: #32435b;       /* Hover state for secondary containers */
+  --secondary-active: #1d2735;      /* Active state for secondary containers */
+  --secondary-fg: #f8fafc;          /* Off-white text on secondary */
+
+  --accent: #f97316;                /* Vibrant warm orange */
+  --accent-hover: #fb923c;          /* Radiant orange hover */
+  --accent-active: #ea580c;         /* Deep orange active press */
+  --accent-fg: #ffffff;             /* Crisp white text on orange */
+
+  /* Status Tokens */
+  --success: #10b981;               /* Emerald */
+  --warning: #f59e0b;               /* Amber */
+  --destructive: #f43f5e;           /* Modern vibrant rose/coral */
+  --danger: #f43f5e;
+
+  /* Ambient Elevation Shadows */
+  --shadow: rgba(0, 0, 0, 0.28);
+  --shadow-color: rgba(0, 0, 0, 0.28);
+  --card-shadow: rgba(0, 0, 0, 0.22);
+
+  /* --------------------------------------------------------------------------
+   * 2. Global Metric & Geometry Scales
+   * -------------------------------------------------------------------------- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+  --radius: var(--radius-md);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+  --text-baseline-offset: 0.35;
+
+  /* Focus Ring */
+  --focus-ring-color: #2dd4bf;
+  --focus-ring-width: 2px;
+  --focus-ring-pad: 2px;
+
+  /* --------------------------------------------------------------------------
+   * 3. Button Component Tokens (Flat, Borderless, M3 Elevation)
+   * -------------------------------------------------------------------------- */
+  --btn-bg: #222f42;
+  --btn-fg: #f1f5f9;
+  --btn-border: transparent;
+  --btn-border-width: 0px;
+  --btn-radius: var(--radius-md);
+
+  --btn-pad-x: 6px;
+  --btn-pad-top: 3px;
+  --btn-pad-bottom: 5px;
+
+  --btn-shadow: rgba(0, 0, 0, 0.16);
+  --btn-shadow-blur: 2px;
+  --btn-shadow-blur-hover: 4px;
+  --btn-shadow-y: 1px;
+  --btn-shadow-y-hover: 2px;
+  --btn-press-displacement-y: 1.5px;
+
+  --btn-font-size: 13px;
+  --btn-font-family: var(--font-sans);
+  --btn-font-weight: 500;
+
+  --btn-hover-bg: #2d3e56;
+  --btn-hover-fg: #ffffff;
+  --btn-active-bg: #1a2535;
+  --btn-active-fg: #cbd5e1;
+  --btn-disabled-bg: #161e2a;
+  --btn-disabled-fg: #64748b;
+
+  /* --------------------------------------------------------------------------
+   * 4. Switch / Toggle Component Tokens
+   * -------------------------------------------------------------------------- */
+  --switch-track-w: 42px;
+  --switch-track-h: 24px;
+  --switch-pad-x: 4px;
+  --switch-focus-pad: 3.5px;
+  --switch-thumb-inset: 3.5px;
+  --switch-thumb-shadow-blur: 3px;
+  --switch-thumb-shadow-y: 1px;
+  --switch-text-spacing: 10px;
+  --switch-font-size: 13px;
+  --switch-font-family: var(--font-sans);
+
+  --track-bg: #263345;
+  --active-bg: #14b8a6;
+  --active-track-bg: #14b8a6;
+  --thumb-bg: #94a3b8;
+  --thumb-active-bg: #042f2e;
+  --thumb-color: #f1f5f9;
+
+  /* --------------------------------------------------------------------------
+   * 5. Checkbox Component Tokens
+   * -------------------------------------------------------------------------- */
+  --checkbox-size: 19px;
+  --checkbox-radius: var(--radius-sm);
+  --checkbox-border-w: 0px;
+  --checkbox-stroke-w: 2.4px;
+  --checkbox-pad-x: 4px;
+  --checkbox-focus-pad: 3.5px;
+  --checkbox-text-spacing: 10px;
+  --checkbox-font-size: 13px;
+  --checkbox-font-family: var(--font-sans);
+
+  --box-bg: #222f42;
+  --box-border: transparent;
+  --check-color: #042f2e;
+
+  /* --------------------------------------------------------------------------
+   * 6. Radio Button Component Tokens
+   * -------------------------------------------------------------------------- */
+  --radio-size: 18px;
+  --radio-radius: 9px;
+  --radio-dot-r: 4.5px;
+  --radio-border-w: 0px;
+  --radio-pad-x: 4px;
+  --radio-focus-pad: 3.5px;
+  --radio-text-spacing: 10px;
+  --radio-font-size: 13px;
+  --radio-font-family: var(--font-sans);
+
+  --radio-bg: #222f42;
+  --radio-border: transparent;
+  --dot-color: #042f2e;
+
+  /* --------------------------------------------------------------------------
+   * 7. Slider & Range Slider Component Tokens
+   * -------------------------------------------------------------------------- */
+  --slider-pad-x: 12px;
+  --slider-track-h: 5px;
+  --slider-track-radius: 2.5px;
+  --slider-thumb-r: 8px;
+  --slider-thumb-border-w: 0px;
+  --slider-thumb-shadow-blur: 3px;
+  --slider-thumb-shadow-y: 1.5px;
+
+  --range-slider-pad-x: 14px;
+  --range-slider-track-h: 6px;
+  --range-slider-thumb-r: 9px;
+  --range-slider-thumb-border-w: 0px;
+
+  /* --------------------------------------------------------------------------
+   * 8. Progress Bar & Circular Gauge Tokens
+   * -------------------------------------------------------------------------- */
+  --progress-h: 6px;
+  --progress-radius: 3px;
+  --bar-bg: #14b8a6;
+
+  --circular-stroke-w: 8px;
+  --circular-font-family: var(--font-sans);
+
+  /* --------------------------------------------------------------------------
+   * 9. Badge Component Tokens (Pill Style)
+   * -------------------------------------------------------------------------- */
+  --badge-bg: #263345;
+  --badge-fg: #f1f5f9;
+  --badge-radius: var(--radius-full);
+  --badge-font-size: 11px;
+  --badge-font-family: var(--font-sans);
+  --badge-font-weight: 600;
+
+  /* --------------------------------------------------------------------------
+   * 10. Card & Frame Tokens (Borderless Modern Elevation)
+   * -------------------------------------------------------------------------- */
+  --card-pad-x: 12px;
+  --card-pad-top: 10px;
+  --card-pad-bottom: 14px;
+  --card-radius: var(--radius-lg);
+  --card-border-w: 0px;
+  --card-shadow-blur: 12px;
+  --card-shadow-y: 4px;
+
+  --frame-radius: var(--radius-lg);
+  --frame-border-w: 0px;
+
+  /* --------------------------------------------------------------------------
+   * 11. Segmented Button Component Tokens
+   * -------------------------------------------------------------------------- */
+  --segmented-pill-padding: 3px;
+  --segmented-border-w: 0px;
+  --segmented-font-size: 13px;
+  --segmented-font-family: var(--font-sans);
+
+  /* --------------------------------------------------------------------------
+   * 12. Sparkline Graph Component Tokens
+   * -------------------------------------------------------------------------- */
+  --sparkline-pad: 8px;
+  --sparkline-line-w: 2.2px;
+  --sparkline-dot-r: 4.5px;
+
+  /* --------------------------------------------------------------------------
+   * 13. Scrollbar Component Tokens
+   * -------------------------------------------------------------------------- */
+  --scrollbar-pad: 2px;
+  --scrollbar-thumb-min-size: 32px;
+
+  /* --------------------------------------------------------------------------
+   * 14. Table Component Tokens
+   * -------------------------------------------------------------------------- */
+  --table-bg: #1a2432;
+  --table-fg: #f1f5f9;
+  --table-header-bg: #141c26;
+  --table-header-fg: #94a3b8;
+  --table-zebra-bg: #1f2b3b;
+  --table-hover-bg: #28374c;
+  --table-selected-bg: #14b8a6;
+  --table-selected-fg: #042f2e;
+  --table-border: transparent;
+  --table-header-h: 40px;
+  --table-radius: var(--radius-md);
+  --table-border-w: 0px;
+  --table-scrollbar-thumb: #32435b;
+  --table-scrollbar-thumb-hover: #455d7e;
+
+  /* --------------------------------------------------------------------------
+   * 15. Input, Textbox & ComboBox Tokens
+   * -------------------------------------------------------------------------- */
+  --input-bg: #131a23;
+  --input-border: transparent;
+  --input-focus: #14b8a6;
+  --input-radius: var(--radius-md);
+
+  --input-pad-x: 4px;
+  --input-pad-top: 2px;
+  --input-pad-bottom: 5px;
+  --input-border-width: 0px;
+  --input-border-width-focus: 1.5px;
+
+  --input-shadow: rgba(0, 0, 0, 0.18);
+  --input-shadow-blur: 2px;
+  --input-shadow-blur-hover: 3px;
+  --input-shadow-blur-focus: 4px;
+  --input-shadow-y: 1px;
+  --input-shadow-y-focus: 1.5px;
+
+  --input-font-size: 13px;
+  --input-font-family: var(--font-sans);
+  --combobox-arrow-size: 4.5px;
+  --combobox-text-pad-x: 14px;
+
+  /* Search Entry */
+  --search-icon-size: 5px;
+  --search-icon-line-w: 1.6px;
+  --search-icon-handle-w: 2px;
+  --search-icon-pad-x: 14px;
+
+  /* --------------------------------------------------------------------------
+   * 16. Label Component Tokens
+   * -------------------------------------------------------------------------- */
+  --label-pad-x: 2px;
+  --label-font-size: 13px;
+  --label-font-family: var(--font-sans);
+  --label-font-weight: 400;
+}
+
+/* ==============================================================================
+ * Selectors & Variant Rules
+ * ============================================================================== */
+
+/* Push Button Base */
+button {
+  background: var(--surface);
+  color: var(--fg);
+  border: 0px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 3px var(--shadow);
+  font-size: var(--btn-font-size);
+  font-family: var(--btn-font-family);
+  font-weight: var(--btn-font-weight);
+}
+button:hover {
+  background: var(--btn-hover-bg);
+  color: var(--btn-hover-fg);
+  box-shadow: 0 3px 6px var(--shadow);
+}
+button:active {
+  background: var(--btn-active-bg);
+  box-shadow: none;
+}
+button:disabled {
+  background: var(--btn-disabled-bg);
+  color: var(--btn-disabled-fg);
+  box-shadow: none;
+}
+
+/* Primary Button (Teal Hero) */
+.btn-primary, button.primary {
+  background: var(--primary);
+  color: var(--primary-fg);
+  border: 0px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 5px rgba(20, 184, 166, 0.35);
+  font-weight: 600;
+}
+.btn-primary:hover, button.primary:hover {
+  background: var(--primary-hover);
+  color: var(--primary-fg);
+  box-shadow: 0 4px 10px rgba(20, 184, 166, 0.45);
+}
+.btn-primary:active, button.primary:active {
+  background: var(--primary-active);
+  box-shadow: none;
+}
+
+/* Secondary Button (Slate Surface) */
+.btn-secondary, button.secondary {
+  background: var(--secondary);
+  color: var(--secondary-fg);
+  border: 0px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 3px var(--shadow);
+}
+.btn-secondary:hover, button.secondary:hover {
+  background: var(--secondary-hover);
+}
+.btn-secondary:active, button.secondary:active {
+  background: var(--secondary-active);
+}
+
+/* Accent Button (Vibrant Warm Orange) */
+.btn-accent, button.accent, .btn-orange {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 0px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 6px rgba(249, 115, 22, 0.40);
+  font-weight: 600;
+}
+.btn-accent:hover, button.accent:hover, .btn-orange:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.50);
+}
+.btn-accent:active, button.accent:active, .btn-orange:active {
+  background: var(--accent-active);
+  box-shadow: none;
+}
+
+/* Destructive / Danger Button */
+.btn-destructive, button.destructive, .btn-danger, button.danger {
+  background: var(--destructive);
+  color: #ffffff;
+  border: 0px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 6px rgba(244, 63, 94, 0.35);
+}
+.btn-destructive:hover, button.destructive:hover {
+  background: #fb7185;
+}
+
+/* Success Button */
+.btn-success, button.success {
+  background: var(--success);
+  color: #022c22;
+  border: 0px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35);
+}
+
+/* Warning Button */
+.btn-warning, button.warning {
+  background: var(--warning);
+  color: #451a03;
+  border: 0px solid transparent;
+  border-radius: var(--radius-md);
+}
+
+/* Outline Buttons (Minimal border) */
+.btn-outline, button.outline, .btn-outline-primary {
+  background: transparent;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+.btn-outline:hover, button.outline:hover {
+  background: rgba(20, 184, 166, 0.15);
+  color: var(--primary-hover);
+}
+.btn-outline:active, button.outline:active {
+  background: rgba(20, 184, 166, 0.25);
+}
+
+.btn-outline-accent, .btn-outline-orange {
+  background: transparent;
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+.btn-outline-accent:hover {
+  background: rgba(249, 115, 22, 0.15);
+  color: var(--accent-hover);
+}
+
+/* Ghost / Flat Buttons */
+.btn-ghost, button.ghost, .btn-flat, button.flat {
+  background: transparent;
+  color: var(--fg);
+  border: 0px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+.btn-ghost:hover, button.ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+.btn-ghost:active, button.ghost:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Card & Surface Containers */
+card, .card {
+  background: var(--card-bg);
+  color: var(--fg);
+  border: 0px solid transparent;
+  border-radius: var(--card-radius);
+  box-shadow: 0 6px 18px var(--card-shadow);
+}
+
+/* Text Input & Entries */
+input, entry, .input, .entry {
+  background: var(--input-bg);
+  color: var(--fg);
+  border: 0px solid transparent;
+  border-radius: var(--input-radius);
+  font-size: var(--input-font-size);
+}
+input:focus, entry:focus {
+  border: 1.5px solid var(--input-focus);
+}
+
+/* Badges */
+badge, .badge {
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  border-radius: var(--badge-radius);
+  font-size: var(--badge-font-size);
+  font-weight: var(--badge-font-weight);
+}
+.badge-primary, badge.primary {
+  background: var(--primary);
+  color: var(--primary-fg);
+}
+.badge-accent, badge.accent, .badge-orange {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.badge-success, badge.success {
+  background: var(--success);
+  color: #022c22;
+}
+.badge-warning, badge.warning {
+  background: var(--warning);
+  color: #451a03;
+}
+.badge-danger, .badge-destructive, badge.danger {
+  background: var(--destructive);
+  color: #ffffff;
+}
+
+/* Switch & Toggles */
+switch, .switch {
+  background: var(--track-bg);
+  color: var(--thumb-color);
+  border-radius: var(--radius-full);
+}
+switch:checked {
+  background: var(--primary);
+}
+
+/* Progress Bars */
+progress, .progress {
+  background: var(--track-bg);
+  color: var(--primary);
+  border-radius: var(--radius-full);
+}
+
+/* Sliders */
+slider, .slider {
+  background: var(--track-bg);
+  color: var(--primary);
+  border-radius: var(--radius-full);
+}

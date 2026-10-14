@@ -68,6 +68,10 @@ def resolve_color_failsafe(
     if not c_clean:
         return default_bg
 
+    c_lower = c_clean.lower()
+    if c_lower in ("transparent", "none"):
+        return "#00000000"
+
     # Fast hex parsing check
     if c_clean.startswith("#"):
         hex_val = c_clean.lstrip("#")
@@ -85,7 +89,7 @@ def resolve_color_failsafe(
             return f"#{hex_val}"
 
     # Check semantic token in active palette
-    token = c_clean.lower().replace("-", "_")
+    token = c_lower.replace("-", "_")
     synonyms = {
         "dark": "bg",
         "light": "bg",
@@ -98,13 +102,24 @@ def resolve_color_failsafe(
 
     if hasattr(active_pal, token):
         val = getattr(active_pal, token)
-        if isinstance(val, str) and val.startswith("#"):
-            c_clean = val
+        if isinstance(val, str):
+            val_clean = val.strip().lower()
+            if val_clean in ("transparent", "none"):
+                return "#00000000"
+            if val.startswith("#"):
+                c_clean = val
 
     # StyleEngine C++ color/variable resolution
     try:
         resolved_c = StyleEngine.resolve_color_var(c_clean, Color(0, 0, 0, 0), active_pal.name)
-        if resolved_c.a > 0 or resolved_c.r > 0 or resolved_c.g > 0 or resolved_c.b > 0 or c_clean.lower() in ("black", "#000000", "#000"):
+        if (
+            resolved_c.a > 0
+            or resolved_c.r > 0
+            or resolved_c.g > 0
+            or resolved_c.b > 0
+            or c_lower in ("black", "#000000", "#000", "transparent", "none", "#00000000", "#0000", "rgba(0,0,0,0)", "rgba(0, 0, 0, 0)")
+            or (c_clean.startswith("--") and StyleEngine.get_variable(c_clean, active_pal.name) != "")
+        ):
             hex_res = resolved_c.to_hex(include_alpha=(resolved_c.a < 255))
             if alpha is not None:
                 return f"{hex_res[:7]}{_format_alpha(alpha)}"
@@ -112,24 +127,25 @@ def resolve_color_failsafe(
     except Exception:
         pass
 
-    # Try Tk winfo_rgb if master is provided
-    win = master
-    if win is None:
-        try:
-            win = getattr(tk, "_default_root", None)
-        except Exception:
-            pass
+    # Try Tk winfo_rgb if master is provided (avoid for CSS variables or transparent)
+    if not c_clean.startswith("--") and c_lower not in ("transparent", "none"):
+        win = master
+        if win is None:
+            try:
+                win = getattr(tk, "_default_root", None)
+            except Exception:
+                pass
 
-    if win is not None and hasattr(win, "winfo_rgb"):
-        try:
-            r16, g16, b16 = win.winfo_rgb(c_clean)
-            r8, g8, b8 = (r16 >> 8) & 0xFF, (g16 >> 8) & 0xFF, (b16 >> 8) & 0xFF
-            hex_str = f"#{r8:02x}{g8:02x}{b8:02x}"
-            if alpha is not None:
-                return f"{hex_str}{_format_alpha(alpha)}"
-            return hex_str
-        except Exception:
-            pass
+        if win is not None and hasattr(win, "winfo_rgb"):
+            try:
+                r16, g16, b16 = win.winfo_rgb(c_clean)
+                r8, g8, b8 = (r16 >> 8) & 0xFF, (g16 >> 8) & 0xFF, (b16 >> 8) & 0xFF
+                hex_str = f"#{r8:02x}{g8:02x}{b8:02x}"
+                if alpha is not None:
+                    return f"{hex_str}{_format_alpha(alpha)}"
+                return hex_str
+            except Exception:
+                pass
 
     return default_bg
 
@@ -147,6 +163,8 @@ def to_tk_hex(color: Any, fallback: str = "#000000") -> str:
         return fallback
     c = color.strip()
     if not c:
+        return fallback
+    if c.lower() in ("transparent", "none"):
         return fallback
     if c.startswith("#"):
         hex_part = c.lstrip("#")

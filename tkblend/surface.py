@@ -52,6 +52,9 @@ def parse_color(c: ColorLike, alpha: Optional[Union[float, int]] = None) -> _Nat
     if isinstance(c, _NativeColor):
         return c
     if isinstance(c, str):
+        c_str = c.strip().lower()
+        if c_str in ("transparent", "none"):
+            return _NativeColor(0, 0, 0, 0)
         resolved = resolve_theme_color(c, alpha=alpha)
         return _NativeColor.from_hex(resolved)
     if isinstance(c, int):
