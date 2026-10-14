@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <memory>
 #include <mutex>
+#include <atomic>
 #include <cstdint>
 
 #include "fnv1a.hpp"
@@ -94,7 +95,7 @@ public:
     Surface& surface();
     bool has_bound_surface() const { return bound_surface_id_ != 0 || external_surface_ != nullptr; }
     uint64_t bound_surface_id() const { return bound_surface_id_; }
-    void bind_surface(Surface& surf);
+    void bind_surface(nb::object surf);
     void bind_surface_handle(SurfaceHandle& handle);
     void bind_surface_id(uint64_t id);
     void unbind_surface();
@@ -221,6 +222,10 @@ private:
 
     std::unique_ptr<Surface> internal_surface_;
     Surface* external_surface_{nullptr};
+    // Strong reference that keeps external_surface_ alive (released via DeferredPy).
+    nb::object external_surface_py_;
+    // True while on_state_changed_ holds a callback; lets set_state skip the GIL.
+    std::atomic<bool> has_state_cb_{false};
     uint64_t bound_surface_id_{0};
     mutable std::recursive_mutex mutex_;
 

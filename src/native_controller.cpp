@@ -14,6 +14,19 @@ static Tcl_TimerToken s_global_anim_timer = nullptr;
 static std::mutex s_anim_mutex;
 
 static void GlobalAnimTimerCallback(ClientData clientData);
+
+// Holds a Python object that must be released with the GIL held, but only after
+// the controller mutex_ has been dropped. Declare it BEFORE the lock_guard so
+// reverse-order destruction unlocks first, then acquires the GIL.
+struct DeferredPy {
+    nb::object o;
+    ~DeferredPy() {
+        if (o.is_valid()) {
+            nb::gil_scoped_acquire gil;
+            o.reset();
+        }
+    }
+};
 } // namespace
 
 NativeWidgetController::NativeWidgetController()
@@ -75,6 +88,7 @@ bool NativeWidgetController::attach(uintptr_t interp_addr, const std::string& wi
 }
 
 void NativeWidgetController::detach() {
+    DeferredPy deferred;
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     has_pending_resize_ = false;
     pending_resize_w_ = -1;
@@ -113,10 +127,12 @@ void NativeWidgetController::detach() {
     widget_path_.clear();
     bound_surface_id_ = 0;
     external_surface_ = nullptr;
+    deferred.o = std::move(external_surface_py_);
     invalidate_cached_batch();
 }
 
 void NativeWidgetController::on_window_destroyed() {
+    DeferredPy deferred;
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     has_pending_resize_ = false;
     pending_resize_w_ = -1;
@@ -147,6 +163,7 @@ void NativeWidgetController::on_window_destroyed() {
     widget_path_.clear();
     bound_surface_id_ = 0;
     external_surface_ = nullptr;
+    deferred.o = std::move(external_surface_py_);
     invalidate_cached_batch();
 }
 
@@ -207,10 +224,16 @@ Surface& NativeWidgetController::surface() {
     return *internal_surface_;
 }
 
-void NativeWidgetController::bind_surface(Surface& surf) {
+void NativeWidgetController::bind_surface(nb::object surf) {
+    // Caller holds the GIL. Validate and keep the Python object alive so the
+    // raw Surface pointer below cannot dangle.
+    Surface& s = nb::cast<Surface&>(surf);
     {
+        DeferredPy deferred;
         std::lock_guard<std::recursive_mutex> lock(mutex_);
-        external_surface_ = &surf;
+        deferred.o = std::move(external_surface_py_);
+        external_surface_py_ = std::move(surf);
+        external_surface_ = &s;
         bound_surface_id_ = 0;
     }
     request_redraw();
@@ -218,7 +241,9 @@ void NativeWidgetController::bind_surface(Surface& surf) {
 
 void NativeWidgetController::bind_surface_handle(SurfaceHandle& handle) {
     {
+        DeferredPy deferred;
         std::lock_guard<std::recursive_mutex> lock(mutex_);
+        deferred.o = std::move(external_surface_py_);
         external_surface_ = nullptr;
         bound_surface_id_ = handle.surface_id();
     }
@@ -227,7 +252,9 @@ void NativeWidgetController::bind_surface_handle(SurfaceHandle& handle) {
 
 void NativeWidgetController::bind_surface_id(uint64_t id) {
     {
+        DeferredPy deferred;
         std::lock_guard<std::recursive_mutex> lock(mutex_);
+        deferred.o = std::move(external_surface_py_);
         external_surface_ = nullptr;
         bound_surface_id_ = id;
     }
@@ -236,7 +263,9 @@ void NativeWidgetController::bind_surface_id(uint64_t id) {
 
 void NativeWidgetController::unbind_surface() {
     {
+        DeferredPy deferred;
         std::lock_guard<std::recursive_mutex> lock(mutex_);
+        deferred.o = std::move(external_surface_py_);
         external_surface_ = nullptr;
         bound_surface_id_ = 0;
     }
@@ -299,7 +328,7 @@ void NativeWidgetController::set_state(uint16_t s) {
         if (animated_) {
             schedule_anim_step();
         }
-        {
+        if (has_state_cb_.load(std::memory_order_acquire)) {
             nb::gil_scoped_acquire gil;
             // Copy so the callback may safely replace/clear itself while running.
             nb::object cb = snapshot_callback(on_state_changed_);
@@ -1169,6 +1198,8 @@ void NativeWidgetController::set_on_state_changed(nb::object callback) {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         old = std::move(on_state_changed_);
         on_state_changed_ = std::move(callback);
+        has_state_cb_.store(on_state_changed_.is_valid() && !on_state_changed_.is_none(),
+                            std::memory_order_release);
     }
 }
 
@@ -1177,6 +1208,7 @@ void NativeWidgetController::clear_on_state_changed() {
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         old = std::move(on_state_changed_);
+        has_state_cb_.store(false, std::memory_order_release);
     }
     if (old.is_valid()) {
         nb::gil_scoped_acquire gil;
