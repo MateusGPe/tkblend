@@ -205,7 +205,7 @@ class GradientButton(BaseControl):
             "", 0.0, 0.0, 13.0, "sans-serif",
             "--btn-fg", "--text", "--font-size",
             Color(255, 255, 255), 1, 600, False,
-            "--text-x", "--text-y"
+            "--text-x", "--btn-text-y"
         )
         self._normal_batch = norm_batch
 
@@ -235,7 +235,7 @@ class GradientButton(BaseControl):
             "", 0.0, 0.0, 13.0, "sans-serif",
             "--btn-fg", "--text", "--font-size",
             Color(255, 255, 255), 1, 650, False,
-            "--text-x", "--text-y"
+            "--text-x", "--btn-text-y"
         )
         self._hover_batch = hover_batch
 
@@ -253,7 +253,7 @@ class GradientButton(BaseControl):
             "", 0.0, 0.0, 13.0, "sans-serif",
             "--btn-fg", "--text", "--font-size",
             Color(240, 240, 240), 1, 600, False,
-            "--text-x", "--text-y-pressed"
+            "--text-x", "--btn-text-y-pressed"
         )
         self._pressed_batch = pressed_batch
 
@@ -284,8 +284,8 @@ class GradientButton(BaseControl):
         self.set_var("--h_btn", str(bh))
         self.set_var("--text", self._text)
         self.set_var("--text-x", str(bx + bw / 2.0))
-        self.set_var("--text-y", str(by + bh / 2.0 + 13.0 * 0.35))
-        self.set_var("--text-y-pressed", str(by + bh / 2.0 + 13.0 * 0.35 + 1.0))
+        self.set_var("--btn-text-y", str(by + bh / 2.0 + 13.0 * 0.30))
+        self.set_var("--btn-text-y-pressed", str(by + bh / 2.0 + 13.0 * 0.30 + 1.0))
         self.set_var("--btn-fg", "#ffffff")
 
     def paint_and_blit(self) -> None:
