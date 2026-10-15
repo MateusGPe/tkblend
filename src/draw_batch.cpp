@@ -1,5 +1,7 @@
 #include "draw_batch.hpp"
 #include "compiled_draw_batch.hpp"
+#include "fnv1a.hpp"
+#include "string_utils.hpp"
 #include <utility>
 
 namespace tkblend {
@@ -144,11 +146,22 @@ void DrawBatch::reset_clip() { DrawOp op; op.type = DrawOpType::ResetClip; ops.p
 void DrawBatch::reset() { ops.clear(); }
 
 std::shared_ptr<CompiledDrawBatch> DrawBatch::compile(
-    const std::unordered_map<std::string, std::string>* local_vars
+    const std::unordered_map<uint64_t, std::string>* local_vars
 ) const {
     auto res = DrawBatchCompiler::compile(*this, local_vars);
     res->source_batch = std::make_shared<DrawBatch>(*this);
     return res;
+}
+
+std::shared_ptr<CompiledDrawBatch> DrawBatch::compile(
+    const std::unordered_map<std::string, std::string>& local_vars
+) const {
+    std::unordered_map<uint64_t, std::string> hashed;
+    hashed.reserve(local_vars.size());
+    for (const auto& [k, v] : local_vars) {
+        hashed[fnv1a64(extract_var_view(k))] = v;
+    }
+    return compile(&hashed);
 }
 
 } // namespace tkblend

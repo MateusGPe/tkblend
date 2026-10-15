@@ -1,6 +1,8 @@
 #include "native_controller.hpp"
 #include "style_engine.hpp"
 #include "draw_engine.hpp"
+#include "fnv1a.hpp"
+#include "string_utils.hpp"
 #include <algorithm>
 #include <sstream>
 #include <stdexcept>
@@ -687,9 +689,9 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                         double track_w = w - 28.0;
                         double pos = (track_w > 0) ? std::clamp((static_cast<double>(eventPtr->xbutton.x) - 14.0) / track_w, 0.0, 1.0) : 0.0;
                         double min_p = 0.25, max_p = 0.75;
-                        auto it_min = local_vars_.find("--thumb-min-pos");
+                        auto it_min = local_vars_.find("thumb-min-pos"_hash);
                         if (it_min != local_vars_.end()) { try { min_p = std::stod(it_min->second); } catch (...) {} }
-                        auto it_max = local_vars_.find("--thumb-max-pos");
+                        auto it_max = local_vars_.find("thumb-max-pos"_hash);
                         if (it_max != local_vars_.end()) { try { max_p = std::stod(it_max->second); } catch (...) {} }
                         if (std::abs(pos - min_p) <= std::abs(pos - max_p)) {
                             active_thumb_ = 0;
@@ -707,7 +709,7 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                     case WidgetKind::SegmentedButton: {
                         int w = width();
                         int count = 2;
-                        auto it_c = local_vars_.find("--count");
+                        auto it_c = local_vars_.find("count"_hash);
                         if (it_c != local_vars_.end()) {
                             try { count = std::max(1, std::stoi(it_c->second)); } catch (...) {}
                         }
@@ -719,7 +721,7 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                     }
                     case WidgetKind::Scrollbar: {
                         bool is_horiz = false;
-                        auto it_ori = local_vars_.find("--orientation");
+                        auto it_ori = local_vars_.find("orientation"_hash);
                         if (it_ori != local_vars_.end() && it_ori->second == "horizontal") {
                             is_horiz = true;
                         } else if (width() > height() * 1.5) {
@@ -728,7 +730,7 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                         int total_len = is_horiz ? width() : height();
                         double mouse_coord = is_horiz ? static_cast<double>(eventPtr->xbutton.x) : static_cast<double>(eventPtr->xbutton.y);
                         double thumb_sz = 0.3;
-                        auto it_sz = local_vars_.find("--thumb-size");
+                        auto it_sz = local_vars_.find("thumb-size"_hash);
                         if (it_sz != local_vars_.end()) { try { thumb_sz = std::clamp(std::stod(it_sz->second), 0.05, 1.0); } catch (...) {} }
                         double min_sz = std::min(static_cast<double>(total_len), 28.0);
                         double max_sz = std::max(min_sz, total_len * 0.30);
@@ -778,9 +780,9 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                         double track_w = w - 28.0;
                         double pos = (track_w > 0) ? std::clamp((static_cast<double>(eventPtr->xmotion.x) - 14.0) / track_w, 0.0, 1.0) : 0.0;
                         double min_p = 0.25, max_p = 0.75;
-                        auto it_min = local_vars_.find("--thumb-min-pos");
+                        auto it_min = local_vars_.find("thumb-min-pos"_hash);
                         if (it_min != local_vars_.end()) { try { min_p = std::stod(it_min->second); } catch (...) {} }
-                        auto it_max = local_vars_.find("--thumb-max-pos");
+                        auto it_max = local_vars_.find("thumb-max-pos"_hash);
                         if (it_max != local_vars_.end()) { try { max_p = std::stod(it_max->second); } catch (...) {} }
                         if (active_thumb_ == 0) {
                             min_p = std::min(pos, max_p);
@@ -795,7 +797,7 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                     }
                     case WidgetKind::Scrollbar: {
                         bool is_horiz = false;
-                        auto it_ori = local_vars_.find("--orientation");
+                        auto it_ori = local_vars_.find("orientation"_hash);
                         if (it_ori != local_vars_.end() && it_ori->second == "horizontal") {
                             is_horiz = true;
                         } else if (width() > height() * 1.5) {
@@ -804,7 +806,7 @@ void NativeWidgetController::on_tk_event(XEvent* eventPtr) {
                         int total_len = is_horiz ? width() : height();
                         double mouse_coord = is_horiz ? static_cast<double>(eventPtr->xmotion.x) : static_cast<double>(eventPtr->xmotion.y);
                         double thumb_sz = 0.3;
-                        auto it_sz = local_vars_.find("--thumb-size");
+                        auto it_sz = local_vars_.find("thumb-size"_hash);
                         if (it_sz != local_vars_.end()) { try { thumb_sz = std::clamp(std::stod(it_sz->second), 0.05, 1.0); } catch (...) {} }
                         double min_sz = std::min(static_cast<double>(total_len), 28.0);
                         double max_sz = std::max(min_sz, total_len * 0.30);
@@ -914,7 +916,7 @@ void NativeWidgetController::paint_and_blit() {
     int win_w = 0;
     int win_h = 0;
 
-    std::unordered_map<std::string, std::string> vars_copy;
+    std::unordered_map<uint64_t, std::string> vars_copy;
     std::string cls_str;
     uint16_t current_state = 0;
     std::shared_ptr<DrawBatch> local_batch;
@@ -959,36 +961,38 @@ void NativeWidgetController::paint_and_blit() {
         }
 
         if (!fast_compiled_ready) {
-            local_vars_["--hover-t"] = std::to_string(hover_t_);
-            local_vars_["--press-t"] = std::to_string(press_t_);
-            local_vars_["--focus-t"] = std::to_string(focus_t_);
+            local_vars_["hover-t"_hash] = std::to_string(hover_t_);
+            local_vars_["press-t"_hash] = std::to_string(press_t_);
+            local_vars_["focus-t"_hash] = std::to_string(focus_t_);
             if (win_w > 0 && win_h > 0) {
-                local_vars_["--width"] = std::to_string(win_w);
-                local_vars_["--height"] = std::to_string(win_h);
-                local_vars_["--w"] = std::to_string(win_w);
-                local_vars_["--h"] = std::to_string(win_h);
-                local_vars_["--w_fr"] = std::to_string(win_w + 4);
-                local_vars_["--h_fr"] = std::to_string(win_h + 4);
-                local_vars_["--text-x"] = std::to_string(win_w / 2.0);
+                local_vars_["width"_hash] = std::to_string(win_w);
+                local_vars_["height"_hash] = std::to_string(win_h);
+                local_vars_["w"_hash] = std::to_string(win_w);
+                local_vars_["h"_hash] = std::to_string(win_h);
+                local_vars_["w_fr"_hash] = std::to_string(win_w + 4);
+                local_vars_["h_fr"_hash] = std::to_string(win_h + 4);
+                local_vars_["text-x"_hash] = std::to_string(win_w / 2.0);
                 float press_off = (press_t_ > 0.0f) ? (1.0f * press_t_) : 0.0f;
-                local_vars_["--text-y"] = std::to_string(win_h / 2.0 + 13.0 * 0.35 + press_off);
+                local_vars_["text-y"_hash] = std::to_string(win_h / 2.0 + 13.0 * 0.35 + press_off);
             }
-            if (local_vars_.find("--focus-ring-width") == local_vars_.end()) {
-                local_vars_["--focus-ring-width"] = std::to_string(2.0f * focus_t_);
+            if (local_vars_.find("focus-ring-width"_hash) == local_vars_.end()) {
+                local_vars_["focus-ring-width"_hash] = std::to_string(2.0f * focus_t_);
             }
-            if (local_vars_.find("--thumb-pos") != local_vars_.end() && win_w > 0) {
+            auto it_tp = local_vars_.find("thumb-pos"_hash);
+            if (it_tp != local_vars_.end() && win_w > 0) {
                 try {
-                    double t = std::clamp(std::stod(local_vars_["--thumb-pos"]), 0.0, 1.0);
+                    double t = std::clamp(std::stod(it_tp->second), 0.0, 1.0);
                     double track_w = std::max(0.0, win_w - 24.0);
-                    local_vars_["--active-w"] = std::to_string(track_w * t);
-                    local_vars_["--thumb-x"] = std::to_string(12.0 + track_w * t);
-                    local_vars_["--thumb-y"] = std::to_string(win_h / 2.0);
+                    local_vars_["active-w"_hash] = std::to_string(track_w * t);
+                    local_vars_["thumb-x"_hash] = std::to_string(12.0 + track_w * t);
+                    local_vars_["thumb-y"_hash] = std::to_string(win_h / 2.0);
                 } catch (...) {}
             }
-            if (local_vars_.find("--progress") != local_vars_.end() && win_w > 0) {
+            auto it_pr = local_vars_.find("progress"_hash);
+            if (it_pr != local_vars_.end() && win_w > 0) {
                 try {
-                    double p = std::clamp(std::stod(local_vars_["--progress"]), 0.0, 1.0);
-                    local_vars_["--progress-w"] = std::to_string(win_w * p);
+                    double p = std::clamp(std::stod(it_pr->second), 0.0, 1.0);
+                    local_vars_["progress-w"_hash] = std::to_string(win_w * p);
                 } catch (...) {}
             }
             vars_copy = local_vars_;
@@ -1002,26 +1006,22 @@ void NativeWidgetController::paint_and_blit() {
 
         thumb_y_val = (win_h > 0) ? static_cast<float>(win_h / 2.0) : 0.0f;
 
-        auto it_tx = local_vars_.find("--thumb-x");
-        if (it_tx == local_vars_.end()) it_tx = local_vars_.find("thumb-x");
+        auto it_tx = local_vars_.find("thumb-x"_hash);
         if (it_tx != local_vars_.end() && !it_tx->second.empty()) {
             try { thumb_x_val = std::stof(it_tx->second); } catch (...) {}
         }
 
-        auto it_ty = local_vars_.find("--thumb-y");
-        if (it_ty == local_vars_.end()) it_ty = local_vars_.find("thumb-y");
+        auto it_ty = local_vars_.find("thumb-y"_hash);
         if (it_ty != local_vars_.end() && !it_ty->second.empty()) {
             try { thumb_y_val = std::stof(it_ty->second); } catch (...) {}
         }
 
-        auto it_aw = local_vars_.find("--active-w");
-        if (it_aw == local_vars_.end()) it_aw = local_vars_.find("active-w");
+        auto it_aw = local_vars_.find("active-w"_hash);
         if (it_aw != local_vars_.end() && !it_aw->second.empty()) {
             try { active_w_val = std::stof(it_aw->second); } catch (...) {}
         }
 
-        auto it_pw = local_vars_.find("--progress-w");
-        if (it_pw == local_vars_.end()) it_pw = local_vars_.find("progress-w");
+        auto it_pw = local_vars_.find("progress-w"_hash);
         if (it_pw != local_vars_.end() && !it_pw->second.empty()) {
             try { progress_w_val = std::stof(it_pw->second); } catch (...) {}
         }
@@ -1057,7 +1057,7 @@ void NativeWidgetController::paint_and_blit() {
         return;
     }
 
-    vars_copy["--parent-bg"] = eff_parent_bg.to_hex();
+    vars_copy["parent-bg"_hash] = eff_parent_bg.to_hex();
 
     DrawBatch dynamically_created_batch;
     const DrawBatch* batch_to_run = local_batch.get();
@@ -1346,7 +1346,8 @@ void NativeWidgetController::set_class_name(const std::string& cls) {
 void NativeWidgetController::set_var(const std::string& key, const std::string& val) {
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
-        local_vars_[key] = val;
+        local_vars_[fnv1a64(extract_var_view(key))] = val;
+        str_vars_cache_[key] = val;
         invalidate_cached_batch();
     }
     request_redraw();
@@ -1354,7 +1355,7 @@ void NativeWidgetController::set_var(const std::string& key, const std::string& 
 
 std::string NativeWidgetController::get_var(const std::string& key) const {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
-    auto it = local_vars_.find(key);
+    auto it = local_vars_.find(fnv1a64(extract_var_view(key)));
     if (it != local_vars_.end()) return it->second;
     return StyleEngine::instance().get_variable(key);
 }
@@ -1362,7 +1363,8 @@ std::string NativeWidgetController::get_var(const std::string& key) const {
 void NativeWidgetController::remove_var(const std::string& key) {
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
-        local_vars_.erase(key);
+        local_vars_.erase(fnv1a64(extract_var_view(key)));
+        str_vars_cache_.erase(key);
         invalidate_cached_batch();
     }
     request_redraw();
@@ -1372,6 +1374,7 @@ void NativeWidgetController::clear_vars() {
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         local_vars_.clear();
+        str_vars_cache_.clear();
         invalidate_cached_batch();
     }
     request_redraw();
@@ -1379,7 +1382,37 @@ void NativeWidgetController::clear_vars() {
 
 std::unordered_map<std::string, std::string> NativeWidgetController::get_vars() const {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
-    return local_vars_;
+    auto res = str_vars_cache_;
+    static const std::pair<uint64_t, const char*> kKnownVars[] = {
+        {"hover-t"_hash, "--hover-t"},
+        {"press-t"_hash, "--press-t"},
+        {"focus-t"_hash, "--focus-t"},
+        {"width"_hash, "--width"},
+        {"height"_hash, "--height"},
+        {"w"_hash, "--w"},
+        {"h"_hash, "--h"},
+        {"w_fr"_hash, "--w_fr"},
+        {"h_fr"_hash, "--h_fr"},
+        {"text-x"_hash, "--text-x"},
+        {"text-y"_hash, "--text-y"},
+        {"focus-ring-width"_hash, "--focus-ring-width"},
+        {"thumb-pos"_hash, "--thumb-pos"},
+        {"active-w"_hash, "--active-w"},
+        {"thumb-x"_hash, "--thumb-x"},
+        {"thumb-y"_hash, "--thumb-y"},
+        {"progress"_hash, "--progress"},
+        {"progress-w"_hash, "--progress-w"},
+        {"thumb-min-pos"_hash, "--thumb-min-pos"},
+        {"thumb-max-pos"_hash, "--thumb-max-pos"},
+        {"selected-index"_hash, "--selected-index"},
+    };
+    for (const auto& [h, name] : kKnownVars) {
+        auto it = local_vars_.find(h);
+        if (it != local_vars_.end() && res.find(name) == res.end()) {
+            res[name] = it->second;
+        }
+    }
+    return res;
 }
 
 void NativeWidgetController::bind_batch(const DrawBatch& batch) {

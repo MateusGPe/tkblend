@@ -1,6 +1,8 @@
 #include "draw_engine.hpp"
 #include "native_controller.hpp"
 #include "style_engine.hpp"
+#include "fnv1a.hpp"
+#include "string_utils.hpp"
 #include <algorithm>
 #include <cctype>
 
@@ -9,36 +11,32 @@ namespace tkblend {
 namespace {
 
 static inline double resolve_token(
-    const std::string& token,
-    const std::unordered_map<std::string, std::string>& vars,
+    std::string_view token,
+    const std::unordered_map<uint64_t, std::string>& vars,
     double fallback
 ) {
-    auto it = vars.find(token);
+    uint64_t hash = fnv1a64(extract_var_view(token));
+    auto it = vars.find(hash);
     if (it != vars.end() && !it->second.empty()) {
         try {
             size_t idx = 0;
             return std::stod(it->second, &idx);
         } catch (...) {}
     }
-    return StyleEngine::instance().resolve_scalar(token, fallback);
+    return StyleEngine::instance().resolve_scalar(std::string(token), fallback);
 }
 
 static inline std::string resolve_token_str(
-    const std::string& token,
-    const std::unordered_map<std::string, std::string>& vars,
+    std::string_view token,
+    const std::unordered_map<uint64_t, std::string>& vars,
     const std::string& fallback = ""
 ) {
-    auto it = vars.find(token);
+    uint64_t hash = fnv1a64(extract_var_view(token));
+    auto it = vars.find(hash);
     if (it != vars.end() && !it->second.empty()) {
         return it->second;
     }
-    if (token.rfind("--", 0) == 0) {
-        auto it2 = vars.find(token.substr(2));
-        if (it2 != vars.end() && !it2->second.empty()) {
-            return it2->second;
-        }
-    }
-    return StyleEngine::instance().resolve_string(token, fallback);
+    return StyleEngine::instance().resolve_string(std::string(token), fallback);
 }
 
 static std::string to_lower_trim(const std::string& str) {
@@ -144,6 +142,21 @@ DrawBatch DrawEngine::create_control_batch(
     double h,
     const std::unordered_map<std::string, std::string>& vars
 ) const {
+    std::unordered_map<uint64_t, std::string> hashed;
+    hashed.reserve(vars.size());
+    for (const auto& [k, v] : vars) {
+        hashed[fnv1a64(extract_var_view(k))] = v;
+    }
+    return create_control_batch(widget_class, state, w, h, hashed);
+}
+
+DrawBatch DrawEngine::create_control_batch(
+    const std::string& widget_class,
+    uint16_t state,
+    double w,
+    double h,
+    const std::unordered_map<uint64_t, std::string>& vars
+) const {
     std::string key_cls = to_lower_trim(widget_class);
     if (key_cls.empty() || w <= 0.0 || h <= 0.0) return DrawBatch();
 
@@ -162,10 +175,7 @@ DrawBatch DrawEngine::create_control_batch(
         double press_disp_y = resolve_token("--btn-press-displacement-y", vars, 1.0);
 
         std::string variant = "";
-        auto it_v = vars.find("--variant");
-        if (it_v == vars.end()) {
-            it_v = vars.find("variant");
-        }
+        auto it_v = vars.find("variant"_hash);
         if (it_v != vars.end()) {
             variant = to_lower_trim(it_v->second);
         }
@@ -563,7 +573,7 @@ DrawBatch DrawEngine::create_control_batch(
         double track_radius = resolve_token("--slider-track-radius", vars, 2.0);
         double track_y = (h > track_h) ? (h - track_h) / 2.0 : 0.0;
         double thumb_pos = 0.0;
-        auto it = vars.find("--thumb-pos");
+        auto it = vars.find("thumb-pos"_hash);
         if (it != vars.end()) {
             try { thumb_pos = std::clamp(std::stod(it->second), 0.0, 1.0); } catch (...) {}
         }
@@ -607,7 +617,7 @@ DrawBatch DrawEngine::create_control_batch(
         double bar_radius = resolve_token("--progress-radius", vars, 3.0);
         double bar_y = (h > bar_h) ? (h - bar_h) / 2.0 : 0.0;
         double progress = 0.0;
-        auto it = vars.find("--progress");
+        auto it = vars.find("progress"_hash);
         if (it != vars.end()) {
             try { progress = std::clamp(std::stod(it->second), 0.0, 1.0); } catch (...) {}
         }
@@ -663,12 +673,12 @@ DrawBatch DrawEngine::create_control_batch(
 
     if (key_cls == "frame") {
         double rx = resolve_token("--frame-radius", vars, 12.0);
-        auto it_rx = vars.find("--rx");
+        auto it_rx = vars.find("rx"_hash);
         if (it_rx != vars.end()) {
             try { rx = std::stod(it_rx->second); } catch (...) {}
         }
         double bw = resolve_token("--frame-border-w", vars, 0.0);
-        auto it_bw = vars.find("--bw");
+        auto it_bw = vars.find("bw"_hash);
         if (it_bw != vars.end()) {
             try { bw = std::stod(it_bw->second); } catch (...) {}
         }
@@ -683,7 +693,7 @@ DrawBatch DrawEngine::create_control_batch(
         double cx = w / 2.0;
         double cy = h / 2.0;
         double sw = resolve_token("--circular-stroke-w", vars, 8.0);
-        auto it_sw = vars.find("--stroke-width");
+        auto it_sw = vars.find("stroke-width"_hash);
         if (it_sw != vars.end()) {
             try { sw = std::stod(it_sw->second); } catch (...) {}
         }
@@ -691,17 +701,17 @@ DrawBatch DrawEngine::create_control_batch(
 
         double start_angle = -1.5707963267948966; // -90 deg
         double sweep_angle = 6.283185307179586;   // 360 deg
-        auto it_sa = vars.find("--start-angle");
+        auto it_sa = vars.find("start-angle"_hash);
         if (it_sa != vars.end()) {
             try { start_angle = std::stod(it_sa->second) * 3.141592653589793 / 180.0; } catch (...) {}
         }
-        auto it_swp = vars.find("--sweep-angle");
+        auto it_swp = vars.find("sweep-angle"_hash);
         if (it_swp != vars.end()) {
             try { sweep_angle = std::stod(it_swp->second) * 3.141592653589793 / 180.0; } catch (...) {}
         }
 
         double progress = 0.0;
-        auto it_p = vars.find("--progress");
+        auto it_p = vars.find("progress"_hash);
         if (it_p != vars.end()) {
             try { progress = std::clamp(std::stod(it_p->second), 0.0, 1.0); } catch (...) {}
         }
@@ -718,13 +728,13 @@ DrawBatch DrawEngine::create_control_batch(
         }
 
         std::string show_val = "1";
-        auto it_sv = vars.find("--show-value");
+        auto it_sv = vars.find("show-value"_hash);
         if (it_sv != vars.end()) show_val = it_sv->second;
         if (show_val != "0" && show_val != "false") {
             float font_sz = static_cast<float>(std::max(10.0, r * 0.42));
             std::string font_family = resolve_token_str("--circular-font-family", vars, "sans-serif");
             std::string title = "";
-            auto it_t = vars.find("--title");
+            auto it_t = vars.find("title"_hash);
             if (it_t != vars.end()) title = it_t->second;
 
             if (!title.empty()) {
@@ -739,12 +749,12 @@ DrawBatch DrawEngine::create_control_batch(
 
     if (key_cls == "segmented_button") {
         int count = 2;
-        auto it_c = vars.find("--count");
+        auto it_c = vars.find("count"_hash);
         if (it_c != vars.end()) {
             try { count = std::max(1, std::stoi(it_c->second)); } catch (...) {}
         }
         int selected = 0;
-        auto it_s = vars.find("--selected-index");
+        auto it_s = vars.find("selected-index"_hash);
         if (it_s != vars.end()) {
             try { selected = std::clamp(std::stoi(it_s->second), 0, count - 1); } catch (...) {}
         }
@@ -782,7 +792,7 @@ DrawBatch DrawEngine::create_control_batch(
         for (int i = 0; i < count; ++i) {
             std::string var_name = "--seg-" + std::to_string(i) + "-text";
             std::string txt = "";
-            auto it_txt = vars.find(var_name);
+            auto it_txt = vars.find(fnv1a64(extract_var_view(var_name)));
             if (it_txt != vars.end()) txt = it_txt->second;
             double seg_cx = (i + 0.5) * seg_w;
             double txt_y = h / 2.0 + font_size * baseline_offset;
@@ -800,9 +810,9 @@ DrawBatch DrawEngine::create_control_batch(
         double track_w = std::max(10.0, w - 2.0 * pad_x);
 
         double min_p = 0.25, max_p = 0.75;
-        auto it_min = vars.find("--thumb-min-pos");
+        auto it_min = vars.find("thumb-min-pos"_hash);
         if (it_min != vars.end()) { try { min_p = std::clamp(std::stod(it_min->second), 0.0, 1.0); } catch (...) {} }
-        auto it_max = vars.find("--thumb-max-pos");
+        auto it_max = vars.find("thumb-max-pos"_hash);
         if (it_max != vars.end()) { try { max_p = std::clamp(std::stod(it_max->second), 0.0, 1.0); } catch (...) {} }
         if (min_p > max_p) std::swap(min_p, max_p);
 
@@ -831,7 +841,7 @@ DrawBatch DrawEngine::create_control_batch(
 
     if (key_cls == "sparkline") {
         std::string raw_data = "";
-        auto it_d = vars.find("--data");
+        auto it_d = vars.find("data"_hash);
         if (it_d != vars.end()) raw_data = it_d->second;
 
         std::vector<double> pts;
@@ -940,13 +950,13 @@ DrawBatch DrawEngine::create_control_batch(
     if (key_cls == "scrollbar") {
         b.clear_var("--parent-bg");
         // Thumb / scrollbar auto-hide when content completely fits without scrolling
-        auto it_hid = vars.find("--thumb-hidden");
+        auto it_hid = vars.find("thumb-hidden"_hash);
         if (it_hid != vars.end() && it_hid->second == "1") {
             return b;
         }
 
         bool is_horiz = false;
-        auto it_ori = vars.find("--orientation");
+        auto it_ori = vars.find("orientation"_hash);
         if (it_ori != vars.end() && it_ori->second == "horizontal") {
             is_horiz = true;
         } else if (w > h * 1.5) {
@@ -959,9 +969,9 @@ DrawBatch DrawEngine::create_control_batch(
 
         double thumb_pos = 0.0;
         double thumb_sz = 0.3;
-        auto it_pos = vars.find("--thumb-pos");
+        auto it_pos = vars.find("thumb-pos"_hash);
         if (it_pos != vars.end()) { try { thumb_pos = std::clamp(std::stod(it_pos->second), 0.0, 1.0); } catch (...) {} }
-        auto it_sz = vars.find("--thumb-size");
+        auto it_sz = vars.find("thumb-size"_hash);
         if (it_sz != vars.end()) { try { thumb_sz = std::clamp(std::stod(it_sz->second), 0.05, 1.0); } catch (...) {} }
 
         if (thumb_sz >= 0.999) {
@@ -991,7 +1001,7 @@ DrawBatch DrawEngine::create_control_batch(
 
     if (key_cls == "table") {
         double header_h = resolve_token("--table-header-h", vars, 38.0);
-        auto it_hh = vars.find("--header-height");
+        auto it_hh = vars.find("header-height"_hash);
         if (it_hh != vars.end()) { try { header_h = std::stod(it_hh->second); } catch (...) {} }
 
         double table_radius = resolve_token("--table-radius", vars, 8.0);

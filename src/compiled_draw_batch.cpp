@@ -46,23 +46,11 @@ static constexpr std::optional<ColorSlot> match_color_slot(std::string_view raw_
 }
 
 static const std::string* lookup_local_var(
-    const std::unordered_map<std::string, std::string>& vars,
+    const std::unordered_map<uint64_t, std::string>& vars,
     std::string_view key
 ) noexcept {
-    // 1. Direct search
-    auto it = vars.find(std::string(key));
+    auto it = vars.find(fnv1a64(extract_var_view(key)));
     if (it != vars.end()) return &it->second;
-
-    // 2. Try stripped / prepended prefix
-    if (key.starts_with("--")) {
-        auto it2 = vars.find(std::string(key.substr(2)));
-        if (it2 != vars.end()) return &it2->second;
-    } else {
-        std::string with_dash = "--";
-        with_dash.append(key);
-        auto it3 = vars.find(with_dash);
-        if (it3 != vars.end()) return &it3->second;
-    }
     return nullptr;
 }
 
@@ -70,7 +58,7 @@ static const std::string* lookup_local_var(
 
 std::shared_ptr<CompiledDrawBatch> DrawBatchCompiler::compile(
     const DrawBatch& batch,
-    const std::unordered_map<std::string, std::string>* local_vars
+    const std::unordered_map<uint64_t, std::string>* local_vars
 ) {
     auto res = std::make_shared<CompiledDrawBatch>();
     res->ops.reserve(batch.ops.size());

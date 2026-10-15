@@ -258,7 +258,8 @@ private:
     std::string widget_class_;
     WidgetKind widget_kind_{WidgetKind::Generic};
     std::vector<std::string> classes_;
-    std::unordered_map<std::string, std::string> local_vars_;
+    std::unordered_map<uint64_t, std::string> local_vars_;
+    std::unordered_map<std::string, std::string> str_vars_cache_;
     std::shared_ptr<DrawBatch> draw_batch_{nullptr};
     int active_thumb_{0};
     int req_w_{0};

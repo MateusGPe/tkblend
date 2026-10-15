@@ -107,7 +107,7 @@ class DrawBatchCompiler {
 public:
     static std::shared_ptr<CompiledDrawBatch> compile(
         const DrawBatch& batch,
-        const std::unordered_map<std::string, std::string>* local_vars = nullptr
+        const std::unordered_map<uint64_t, std::string>* local_vars = nullptr
     );
 };
 

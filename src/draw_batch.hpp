@@ -102,7 +102,11 @@ public:
     size_t size() const { return ops.size(); }
 
     std::shared_ptr<class CompiledDrawBatch> compile(
-        const std::unordered_map<std::string, std::string>* local_vars = nullptr
+        const std::unordered_map<uint64_t, std::string>* local_vars = nullptr
+    ) const;
+
+    std::shared_ptr<class CompiledDrawBatch> compile(
+        const std::unordered_map<std::string, std::string>& local_vars
     ) const;
 };
 

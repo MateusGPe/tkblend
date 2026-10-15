@@ -4,6 +4,8 @@
 #include "surface_registry.hpp"
 #include "native_controller.hpp"
 #include "compiled_draw_batch.hpp"
+#include "fnv1a.hpp"
+#include "string_utils.hpp"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -283,7 +285,23 @@ void bind_draw_batch(nb::module_& m) {
         .def("clip_rounded_rect", &DrawBatch::clip_rounded_rect, nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"), nb::arg("rx"), nb::arg("ry"))
         .def("reset_clip", &DrawBatch::reset_clip)
         .def("reset", &DrawBatch::reset)
-        .def("compile", &DrawBatch::compile)
+        .def("compile", [](const DrawBatch& self, nb::handle vars_obj) {
+            if (!vars_obj.is_valid() || vars_obj.is_none()) {
+                return self.compile(static_cast<const std::unordered_map<uint64_t, std::string>*>(nullptr));
+            }
+            if (nb::isinstance<nb::dict>(vars_obj)) {
+                nb::dict d = nb::borrow<nb::dict>(vars_obj);
+                std::unordered_map<uint64_t, std::string> hashed;
+                hashed.reserve(d.size());
+                for (auto [k, v] : d) {
+                    std::string_view k_sv = nb::cast<std::string_view>(k);
+                    std::string_view v_sv = nb::cast<std::string_view>(v);
+                    hashed[fnv1a64(extract_var_view(k_sv))] = std::string(v_sv);
+                }
+                return self.compile(&hashed);
+            }
+            return self.compile(static_cast<const std::unordered_map<uint64_t, std::string>*>(nullptr));
+        }, nb::arg("local_vars") = nb::none())
         .def("__len__", &DrawBatch::size);
 
     nb::class_<FastRegisterBank>(m, "FastRegisterBank")
@@ -1409,9 +1427,19 @@ void bind_draw_engine(nb::module_& m) {
         .def_static("reset_defaults", []() {
             DrawEngine::instance().reset_defaults();
         })
-        .def_static("create_control_batch", [](const std::string& widget_class, uint16_t state, double w, double h, const std::unordered_map<std::string, std::string>& vars) {
-            return DrawEngine::instance().create_control_batch(widget_class, state, w, h, vars);
-        }, nb::arg("widget_class"), nb::arg("state") = 0, nb::arg("w") = 100.0, nb::arg("h") = 30.0, nb::arg("vars") = std::unordered_map<std::string, std::string>());
+        .def_static("create_control_batch", [](const std::string& widget_class, uint16_t state, double w, double h, nb::handle vars_obj) {
+            std::unordered_map<uint64_t, std::string> hashed;
+            if (vars_obj.is_valid() && !vars_obj.is_none() && nb::isinstance<nb::dict>(vars_obj)) {
+                nb::dict d = nb::borrow<nb::dict>(vars_obj);
+                hashed.reserve(d.size());
+                for (auto [k, v] : d) {
+                    std::string_view k_sv = nb::cast<std::string_view>(k);
+                    std::string_view v_sv = nb::cast<std::string_view>(v);
+                    hashed[fnv1a64(extract_var_view(k_sv))] = std::string(v_sv);
+                }
+            }
+            return DrawEngine::instance().create_control_batch(widget_class, state, w, h, hashed);
+        }, nb::arg("widget_class"), nb::arg("state") = 0, nb::arg("w") = 100.0, nb::arg("h") = 30.0, nb::arg("vars") = nb::none());
 }
 
 } // anonymous namespace

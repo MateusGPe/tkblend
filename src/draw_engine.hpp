@@ -37,6 +37,14 @@ public:
         uint16_t state,
         double width,
         double height,
+        const std::unordered_map<uint64_t, std::string>& vars
+    ) const;
+
+    DrawBatch create_control_batch(
+        const std::string& widget_class,
+        uint16_t state,
+        double width,
+        double height,
         const std::unordered_map<std::string, std::string>& vars
     ) const;
 
