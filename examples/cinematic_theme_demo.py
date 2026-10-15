@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-Teal & Orange Theme Showcase
-Demonstrating the refined borderless, flat, Material UI (M3) modern theme in tkblend.
+Cinematic Theme Showcase
+Demonstrating the blockbuster Teal & Orange aesthetic in tkblend.
+Warm glowing amber interactive controls (switches, sliders, checkboxes, radios, focus)
+paired with refined peacock teal primary actions and table selection.
 """
 
 import tkinter as tk
@@ -27,15 +29,15 @@ from tkblend import (
 )
 
 
-class TealOrangeDemoApp(tk.Tk):
+class CinematicDemoApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("tkblend — Teal & Orange Modern Flat Theme")
+        self.title("tkblend — Cinematic Theme (Peacock Teal & Warm Amber)")
         self.geometry("980x760")
         self.minsize(860, 640)
 
-        # Apply the new teal_orange theme
-        tb.set_theme("teal_orange")
+        # Apply the new cinematic theme
+        tb.set_theme("cinematic")
         pal = tb.get_theme()
         self.configure(bg=pal.bg)
 
@@ -51,7 +53,7 @@ class TealOrangeDemoApp(tk.Tk):
 
         tk.Label(
             header,
-            text="Material Flat UI: Teal & Orange",
+            text="Cinematic Modern UI: Peacock Teal & Warm Amber",
             font=("sans-serif", 18, "bold"),
             fg=pal.fg,
             bg=pal.bg,
@@ -59,7 +61,7 @@ class TealOrangeDemoApp(tk.Tk):
 
         tk.Label(
             header,
-            text="Refined borderless surfaces, tonal layers, smooth rounded radii, and ambient elevation.",
+            text="Blockbuster color grade: glowing warm amber interactive controls & deep peacock teal primary elements.",
             font=("sans-serif", 10),
             fg=pal.fg_subtle,
             bg=pal.bg,
@@ -103,7 +105,7 @@ class TealOrangeDemoApp(tk.Tk):
         b_pri = Button(btn_row1, text="Primary Teal", variant="primary", width=130, height=36)
         b_pri.pack(side="left", padx=(0, 8))
 
-        b_acc = Button(btn_row1, text="Accent Orange", variant="accent", width=130, height=36)
+        b_acc = Button(btn_row1, text="Amber Accent", variant="accent", width=130, height=36)
         b_acc.pack(side="left", padx=4)
 
         b_sec = Button(btn_row1, text="Secondary", variant="secondary", width=120, height=36)
@@ -140,7 +142,7 @@ class TealOrangeDemoApp(tk.Tk):
         seg.pack(anchor="w")
 
         # ----------------------------------------------------------------------
-        # Card 2: Form Toggles & Switches (Right)
+        # Card 2: Form Toggles & Switches (Right) - Warm Amber Interactive Controls
         # ----------------------------------------------------------------------
         c_toggle = Card(col_right, width=440, height=280)
         c_toggle.pack(fill="x", pady=(0, 14))
@@ -150,7 +152,7 @@ class TealOrangeDemoApp(tk.Tk):
 
         tk.Label(
             c_tog_content,
-            text="Selection Controls & Toggles",
+            text="Warm Amber Toggles & Selection Controls",
             font=("sans-serif", 12, "bold"),
             fg=pal.fg,
             bg=pal.card_bg,
@@ -201,7 +203,7 @@ class TealOrangeDemoApp(tk.Tk):
 
         tk.Label(
             c_met_content,
-            text="Sliders, Gauges & Sparklines",
+            text="Sliders, Gauges & Waveforms",
             font=("sans-serif", 12, "bold"),
             fg=pal.fg,
             bg=pal.card_bg,
@@ -215,8 +217,8 @@ class TealOrangeDemoApp(tk.Tk):
         sl.set(65.0)
         sl.pack(side="left")
 
-        # Progress bar
-        tk.Label(c_met_content, text="Buffer Capacity (84%):", font=("sans-serif", 9), fg=pal.fg_subtle, bg=pal.card_bg).pack(anchor="w", pady=(8, 2))
+        # Progress bar (Peacock Teal)
+        tk.Label(c_met_content, text="Buffer Capacity — Teal Fill (84%):", font=("sans-serif", 9), fg=pal.fg_subtle, bg=pal.card_bg).pack(anchor="w", pady=(8, 2))
         pb = Progressbar(c_met_content, width=380, height=6)
         pb.set(0.84)
         pb.pack(anchor="w", pady=(0, 10))
@@ -266,7 +268,7 @@ class TealOrangeDemoApp(tk.Tk):
         )
         search.pack(anchor="w")
 
-        # Circular Gauge
+        # Circular Gauge (Warm Amber Accent)
         right_side = tk.Frame(split_row, bg=pal.card_bg)
         right_side.pack(side="right", padx=(10, 0))
 
@@ -275,13 +277,13 @@ class TealOrangeDemoApp(tk.Tk):
             size=100,
             value=78.0,
             title="GPU 78%",
-            color=pal.accent,  # Vibrant orange accent
+            color=pal.accent,  # Warm amber accent
             show_value=True,
         )
         gauge.pack()
 
         # ----------------------------------------------------------------------
-        # Full-Width Card: High-Performance Data Table
+        # Full-Width Card: High-Performance Data Table (Peacock Teal Selection)
         # ----------------------------------------------------------------------
         c_table = Card(body, width=900, height=240)
         c_table.pack(fill="x", pady=(0, 14))
@@ -324,5 +326,5 @@ class TealOrangeDemoApp(tk.Tk):
 
 
 if __name__ == "__main__":
-    app = TealOrangeDemoApp()
+    app = CinematicDemoApp()
     app.mainloop()

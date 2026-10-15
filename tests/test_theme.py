@@ -484,11 +484,11 @@ def test_transparent_color_resolution():
     assert c_trans.b == 0
 
 
-def test_teal_orange_theme_scrollable_table_lifecycle(root):
+def test_cinematic_theme_scrollable_table_lifecycle(root):
     from tkblend.widgets.scrollable_frame import ScrollableFrame
     from tkblend.widgets.table import Table
 
-    set_theme("teal_orange")
+    set_theme("cinematic")
     scroller = ScrollableFrame(root, width=300, height=300)
     scroller.pack(fill="both", expand=True)
 

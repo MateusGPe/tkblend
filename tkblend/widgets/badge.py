@@ -14,6 +14,7 @@ class Badge(BaseControl):
         self,
         master: Optional[tk.Misc] = None,
         text: str = "",
+        variant: str = "default",
         width: int = 60,
         height: int = 24,
         **kwargs,
@@ -27,6 +28,11 @@ class Badge(BaseControl):
         )
         if text:
             self.set_var("--text", str(text))
+        self._variant = str(variant or "default").lower()
+        if self._variant and self._variant != "default":
+            self.set_var("--variant", self._variant)
+            self.add_class(f"badge-{self._variant}")
+            self.add_class(self._variant)
 
     @property
     def text(self) -> str:
@@ -36,3 +42,21 @@ class Badge(BaseControl):
     def text(self, val: str) -> None:
         self.set_var("--text", str(val))
         self.request_redraw()
+
+    @property
+    def variant(self) -> str:
+        return self._variant
+
+    @variant.setter
+    def variant(self, val: str) -> None:
+        val = str(val or "default").lower()
+        if val != self._variant:
+            if self._variant and self._variant != "default":
+                self.remove_class(f"badge-{self._variant}")
+                self.remove_class(self._variant)
+            self._variant = val
+            if val != "default":
+                self.set_var("--variant", val)
+                self.add_class(f"badge-{val}")
+                self.add_class(val)
+            self.request_redraw()

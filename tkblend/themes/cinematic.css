@@ -1,52 +1,62 @@
 /* ==============================================================================
- * Teal & Orange Modern Flat Theme (Material UI / M3 Borderless Aesthetic)
+ * Cinematic Theme (Blockbuster Teal & Orange Aesthetic)
  *
- * A refined, modern design token sample showcasing all possible style,
- * dimension, spacing, typography, and interactive dynamic properties in tkblend.
+ * An evocative, modern design token system pairing deep peacock teal with
+ * warm glowing amber across refined midnight-slate surfaces.
+ *
+ * Interactive Controls (Switches, Sliders, Checkboxes, Radios, Focus Rings)
+ * star in glowing warm amber, balanced harmoniously against peacock teal
+ * primary hero actions, progress indicators, and table selections.
  * ============================================================================== */
 
 :root {
   /* --------------------------------------------------------------------------
-   * 1. Core Semantic Colors (Teal & Orange Palette)
+   * 1. Core Semantic Colors (Peacock Teal & Warm Amber Palette)
    * -------------------------------------------------------------------------- */
-  --bg: #0c1117;                    /* Deep modern slate background */
+  --bg: #0a0e14;                    /* Deep cinematic midnight slate background */
   --fg: #f1f5f9;                    /* Crisp off-white primary text */
-  --fg-subtle: #94a3b8;             /* Subtle secondary text */
+  --fg-subtle: #94a3b8;             /* Subtle secondary slate text */
   --text-muted: #64748b;            /* Muted helper text */
 
-  --surface: #141c26;               /* Tonal surface level 1 */
+  --surface: #111822;               /* Tonal surface level 1 */
   --surface-border: transparent;    /* Borderless flat style */
-  --card-bg: #1a2432;               /* Elevated tonal card surface level 2 */
+  --card-bg: #17202c;               /* Elevated tonal card surface level 2 */
   --card-border: transparent;       /* Borderless flat style */
-  --card-hover: #222f42;            /* Subtle card hover tint */
+  --card-hover: #1e293b;            /* Subtle card hover tint */
 
-  /* Teal Primaries */
-  --primary: #14b8a6;               /* Electric teal */
-  --primary-hover: #2dd4bf;         /* Luminous teal hover */
-  --primary-active: #0d9488;        /* Deep teal active press */
-  --primary-fg: #042f2e;            /* High-contrast dark teal text */
+  /* Peacock Teal Primaries (Cool Shadow & Hero Action) */
+  --primary: #0d9488;               /* Sophisticated deep peacock teal */
+  --primary-hover: #14b8a6;         /* Luminous electric teal hover */
+  --primary-active: #0f766e;        /* Deep rich teal active press */
+  --primary-fg: #f0fdfa;            /* Crisp light teal contrast text */
 
-  /* Orange Secondaries & Accents */
-  --secondary: #263345;             /* Modern cool slate container */
-  --secondary-hover: #32435b;       /* Hover state for secondary containers */
-  --secondary-active: #1d2735;      /* Active state for secondary containers */
+  /* Cool Slate Containers */
+  --secondary: #1e293b;             /* Modern cool slate container */
+  --secondary-hover: #29384f;       /* Hover state for secondary containers */
+  --secondary-active: #16202e;      /* Active state for secondary containers */
   --secondary-fg: #f8fafc;          /* Off-white text on secondary */
 
-  --accent: #f97316;                /* Vibrant warm orange */
-  --accent-hover: #fb923c;          /* Radiant orange hover */
-  --accent-active: #ea580c;         /* Deep orange active press */
-  --accent-fg: #ffffff;             /* Crisp white text on orange */
+  /* Warm Amber & Orange Accents (Glowing Warm Highlight) */
+  --accent: #f59e0b;                /* Radiant warm amber gold */
+  --accent-hover: #fbbf24;          /* Luminous warm amber hover */
+  --accent-active: #d97706;         /* Deep amber active press */
+  --accent-fg: #1c1917;             /* Crisp dark text on warm amber */
+
+  --orange: #f97316;                /* Vibrant tangerine secondary accent */
+  --orange-hover: #fb923c;          /* Radiant orange hover */
+  --orange-active: #ea580c;         /* Deep orange active press */
+  --orange-fg: #ffffff;             /* Crisp white text on orange */
 
   /* Status Tokens */
   --success: #10b981;               /* Emerald */
   --warning: #f59e0b;               /* Amber */
-  --destructive: #f43f5e;           /* Modern vibrant rose/coral */
+  --destructive: #f43f5e;           /* Vibrant rose/coral */
   --danger: #f43f5e;
 
   /* Ambient Elevation Shadows */
-  --shadow: rgba(0, 0, 0, 0.28);
-  --shadow-color: rgba(0, 0, 0, 0.28);
-  --card-shadow: rgba(0, 0, 0, 0.22);
+  --shadow: rgba(0, 0, 0, 0.35);
+  --shadow-color: rgba(0, 0, 0, 0.35);
+  --card-shadow: rgba(0, 0, 0, 0.28);
 
   /* --------------------------------------------------------------------------
    * 2. Global Metric & Geometry Scales
@@ -62,15 +72,15 @@
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
   --text-baseline-offset: 0.35;
 
-  /* Focus Ring */
-  --focus-ring-color: #2dd4bf;
+  /* Warm Amber Focus Ring */
+  --focus-ring-color: #f59e0b;
   --focus-ring-width: 2px;
   --focus-ring-pad: 2px;
 
   /* --------------------------------------------------------------------------
    * 3. Button Component Tokens (Flat, Borderless, M3 Elevation)
    * -------------------------------------------------------------------------- */
-  --btn-bg: #222f42;
+  --btn-bg: #1e293b;
   --btn-fg: #f1f5f9;
   --btn-border: transparent;
   --btn-border-width: 0px;
@@ -80,7 +90,7 @@
   --btn-pad-top: 3px;
   --btn-pad-bottom: 5px;
 
-  --btn-shadow: rgba(0, 0, 0, 0.16);
+  --btn-shadow: rgba(0, 0, 0, 0.22);
   --btn-shadow-blur: 2px;
   --btn-shadow-blur-hover: 4px;
   --btn-shadow-y: 1px;
@@ -91,15 +101,15 @@
   --btn-font-family: var(--font-sans);
   --btn-font-weight: 500;
 
-  --btn-hover-bg: #2d3e56;
+  --btn-hover-bg: #28374d;
   --btn-hover-fg: #ffffff;
-  --btn-active-bg: #1a2535;
+  --btn-active-bg: #151e2b;
   --btn-active-fg: #cbd5e1;
-  --btn-disabled-bg: #161e2a;
-  --btn-disabled-fg: #64748b;
+  --btn-disabled-bg: #111822;
+  --btn-disabled-fg: #475569;
 
   /* --------------------------------------------------------------------------
-   * 4. Switch / Toggle Component Tokens
+   * 4. Switch / Toggle Component Tokens (Warm Amber Glow)
    * -------------------------------------------------------------------------- */
   --switch-track-w: 42px;
   --switch-track-h: 24px;
@@ -112,15 +122,15 @@
   --switch-font-size: 13px;
   --switch-font-family: var(--font-sans);
 
-  --track-bg: #263345;
-  --active-bg: #14b8a6;
-  --active-track-bg: #14b8a6;
+  --track-bg: #1e293b;
+  --active-bg: #f59e0b;             /* Warm glowing amber active track */
+  --active-track-bg: #f59e0b;
   --thumb-bg: #94a3b8;
-  --thumb-active-bg: #042f2e;
+  --thumb-active-bg: #1c1917;        /* Crisp dark contrast thumb */
   --thumb-color: #f1f5f9;
 
   /* --------------------------------------------------------------------------
-   * 5. Checkbox Component Tokens
+   * 5. Checkbox Component Tokens (Warm Amber Checked Box)
    * -------------------------------------------------------------------------- */
   --checkbox-size: 19px;
   --checkbox-radius: var(--radius-sm);
@@ -132,12 +142,12 @@
   --checkbox-font-size: 13px;
   --checkbox-font-family: var(--font-sans);
 
-  --box-bg: #222f42;
+  --box-bg: #1e293b;
   --box-border: transparent;
-  --check-color: #042f2e;
+  --check-color: #1c1917;           /* High contrast dark checkmark on amber */
 
   /* --------------------------------------------------------------------------
-   * 6. Radio Button Component Tokens
+   * 6. Radio Button Component Tokens (Warm Amber Indicator)
    * -------------------------------------------------------------------------- */
   --radio-size: 18px;
   --radio-radius: 9px;
@@ -149,32 +159,34 @@
   --radio-font-size: 13px;
   --radio-font-family: var(--font-sans);
 
-  --radio-bg: #222f42;
+  --radio-bg: #1e293b;
   --radio-border: transparent;
-  --dot-color: #042f2e;
+  --dot-color: #f59e0b;             /* Warm glowing amber dot */
 
   /* --------------------------------------------------------------------------
-   * 7. Slider & Range Slider Component Tokens
+   * 7. Slider & Range Slider Component Tokens (Warm Amber Track & Thumb)
    * -------------------------------------------------------------------------- */
   --slider-pad-x: 12px;
   --slider-track-h: 5px;
   --slider-track-radius: 2.5px;
   --slider-thumb-r: 8px;
-  --slider-thumb-border-w: 0px;
+  --slider-thumb-border-w: 1.5px;
   --slider-thumb-shadow-blur: 3px;
   --slider-thumb-shadow-y: 1.5px;
 
   --range-slider-pad-x: 14px;
   --range-slider-track-h: 6px;
   --range-slider-thumb-r: 9px;
-  --range-slider-thumb-border-w: 0px;
+  --range-slider-thumb-border-w: 1.5px;
+
+  --thumb-border: #fbbf24;
 
   /* --------------------------------------------------------------------------
-   * 8. Progress Bar & Circular Gauge Tokens
+   * 8. Progress Bar & Circular Gauge Tokens (Peacock Teal Counterpart)
    * -------------------------------------------------------------------------- */
   --progress-h: 6px;
   --progress-radius: 3px;
-  --bar-bg: #14b8a6;
+  --bar-bg: #0d9488;                /* Peacock teal progress bar */
 
   --circular-stroke-w: 8px;
   --circular-font-family: var(--font-sans);
@@ -182,7 +194,7 @@
   /* --------------------------------------------------------------------------
    * 9. Badge Component Tokens (Pill Style)
    * -------------------------------------------------------------------------- */
-  --badge-bg: #263345;
+  --badge-bg: #1e293b;
   --badge-fg: #f1f5f9;
   --badge-radius: var(--radius-full);
   --badge-font-size: 11px;
@@ -197,7 +209,7 @@
   --card-pad-bottom: 14px;
   --card-radius: var(--radius-lg);
   --card-border-w: 0px;
-  --card-shadow-blur: 12px;
+  --card-shadow-blur: 14px;
   --card-shadow-y: 4px;
 
   --frame-radius: var(--radius-lg);
@@ -225,29 +237,29 @@
   --scrollbar-thumb-min-size: 32px;
 
   /* --------------------------------------------------------------------------
-   * 14. Table Component Tokens
+   * 14. Table Component Tokens (Peacock Teal Selection)
    * -------------------------------------------------------------------------- */
-  --table-bg: #1a2432;
+  --table-bg: #17202c;
   --table-fg: #f1f5f9;
-  --table-header-bg: #141c26;
+  --table-header-bg: #111822;
   --table-header-fg: #94a3b8;
-  --table-zebra-bg: #1f2b3b;
-  --table-hover-bg: #28374c;
-  --table-selected-bg: #14b8a6;
-  --table-selected-fg: #042f2e;
+  --table-zebra-bg: #1c2736;
+  --table-hover-bg: #233245;
+  --table-selected-bg: #0d9488;     /* Peacock teal selected row */
+  --table-selected-fg: #f0fdfa;
   --table-border: transparent;
   --table-header-h: 40px;
   --table-radius: var(--radius-md);
   --table-border-w: 0px;
-  --table-scrollbar-thumb: #32435b;
-  --table-scrollbar-thumb-hover: #455d7e;
+  --table-scrollbar-thumb: #2a3b50;
+  --table-scrollbar-thumb-hover: #3b526f;
 
   /* --------------------------------------------------------------------------
    * 15. Input, Textbox & ComboBox Tokens
    * -------------------------------------------------------------------------- */
-  --input-bg: #131a23;
+  --input-bg: #0f151e;
   --input-border: transparent;
-  --input-focus: #14b8a6;
+  --input-focus: #f59e0b;           /* Warm amber focus border */
   --input-radius: var(--radius-md);
 
   --input-pad-x: 4px;
@@ -256,7 +268,7 @@
   --input-border-width: 0px;
   --input-border-width-focus: 1.5px;
 
-  --input-shadow: rgba(0, 0, 0, 0.18);
+  --input-shadow: rgba(0, 0, 0, 0.22);
   --input-shadow-blur: 2px;
   --input-shadow-blur-hover: 3px;
   --input-shadow-blur-focus: 4px;
@@ -313,13 +325,13 @@ button:disabled {
   box-shadow: none;
 }
 
-/* Primary Button (Teal Hero) */
+/* Primary Button (Peacock Teal Hero) */
 .btn-primary, button.primary {
   background: var(--primary);
   color: var(--primary-fg);
   border: 0px solid transparent;
   border-radius: var(--radius-md);
-  box-shadow: 0 2px 5px rgba(20, 184, 166, 0.35);
+  box-shadow: 0 2px 5px rgba(13, 148, 136, 0.35);
   font-weight: 600;
 }
 .btn-primary:hover, button.primary:hover {
@@ -347,20 +359,20 @@ button:disabled {
   background: var(--secondary-active);
 }
 
-/* Accent Button (Vibrant Warm Orange) */
-.btn-accent, button.accent, .btn-orange {
+/* Accent Button (Radiant Warm Amber Glow) */
+.btn-accent, button.accent, .btn-orange, button.orange {
   background: var(--accent);
   color: var(--accent-fg);
   border: 0px solid transparent;
   border-radius: var(--radius-md);
-  box-shadow: 0 2px 6px rgba(249, 115, 22, 0.40);
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.40);
   font-weight: 600;
 }
-.btn-accent:hover, button.accent:hover, .btn-orange:hover {
+.btn-accent:hover, button.accent:hover, .btn-orange:hover, button.orange:hover {
   background: var(--accent-hover);
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.50);
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.50);
 }
-.btn-accent:active, button.accent:active, .btn-orange:active {
+.btn-accent:active, button.accent:active, .btn-orange:active, button.orange:active {
   background: var(--accent-active);
   box-shadow: none;
 }
@@ -403,11 +415,11 @@ button:disabled {
   box-shadow: none;
 }
 .btn-outline:hover, button.outline:hover {
-  background: rgba(20, 184, 166, 0.15);
+  background: rgba(13, 148, 136, 0.15);
   color: var(--primary-hover);
 }
 .btn-outline:active, button.outline:active {
-  background: rgba(20, 184, 166, 0.25);
+  background: rgba(13, 148, 136, 0.25);
 }
 
 .btn-outline-accent, .btn-outline-orange {
@@ -418,7 +430,7 @@ button:disabled {
   box-shadow: none;
 }
 .btn-outline-accent:hover {
-  background: rgba(249, 115, 22, 0.15);
+  background: rgba(245, 158, 11, 0.15);
   color: var(--accent-hover);
 }
 
@@ -495,19 +507,19 @@ switch, .switch {
   border-radius: var(--radius-full);
 }
 switch:checked {
-  background: var(--primary);
+  background: var(--active-bg);
 }
 
 /* Progress Bars */
 progress, .progress {
   background: var(--track-bg);
-  color: var(--primary);
+  color: var(--bar-bg);
   border-radius: var(--radius-full);
 }
 
 /* Sliders */
 slider, .slider {
   background: var(--track-bg);
-  color: var(--primary);
+  color: var(--active-track-bg);
   border-radius: var(--radius-full);
 }

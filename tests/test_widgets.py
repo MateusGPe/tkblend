@@ -154,6 +154,14 @@ def test_badge_and_label_and_card(root):
     root.update_idletasks()
 
     assert badge.text == "Status"
+    assert badge.variant == "default"
+    badge.variant = "success"
+    assert badge.variant == "success"
+    assert badge.has_class("badge-success")
+    badge.variant = "danger"
+    assert badge.variant == "danger"
+    assert not badge.has_class("badge-success")
+    assert badge.has_class("badge-danger")
     assert lbl.text == "Information"
 
 

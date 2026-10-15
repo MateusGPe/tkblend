@@ -430,6 +430,7 @@ CYBERPUNK_PALETTE = Palette("cyberpunk")
 SOLARIZED_DARK_PALETTE = Palette("solarized_dark")
 SOLARIZED_LIGHT_PALETTE = Palette("solarized_light")
 SLATE_PALETTE = Palette("slate")
+CINEMATIC_PALETTE = Palette("cinematic")
 
 
 def get_preset_semantic_colors() -> Dict[str, Set[str]]:

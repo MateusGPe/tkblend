@@ -24,10 +24,26 @@ The Showcase Hub includes a modern sidebar allowing you to test every demo insid
 
 ---
 
-### 1. [Unified Showcase Hub](file:///home/mateusgp/projects/tkblend/examples/hub.py) (`examples/hub.py`)
-* **What it demonstrates**: Master interactive flagship hub with sidebar navigation, live embedded previews, standalone launcher, and runtime theme switcher across all 13+ presets.
+### 1. [API Inspector & REST Client](file:///examples/api_inspector.py) (`examples/api_inspector.py`)
+* **What it demonstrates**: Production-grade desktop REST client demonstrating a functional, real-world utility: non-blocking threaded HTTP requests, live status code badges, request history table with click-to-restore, response latency sparklines, formatted JSON viewer, quick presets, offline mock mode, and seamless runtime theming.
 ```bash
-uv run python examples/hub.py
+uv run python examples/api_inspector.py
+```
+
+---
+
+### 2. [Cinematic Theme Showcase](file:///examples/cinematic_theme_demo.py) (`examples/cinematic_theme_demo.py`)
+* **What it demonstrates**: Dedicated blockbuster Peacock Teal and Warm Amber theme demo across interactive vector widgets.
+```bash
+uv run python examples/cinematic_theme_demo.py
+```
+
+---
+
+### 3. [Unified Showcase Hub](file:///examples/showcase.py) (`examples/showcase.py`)
+* **What it demonstrates**: Master interactive widget matrix showcasing buttons, switches, sliders, tables, tabviews, textboxes, progressbars, and badges across all 13+ presets.
+```bash
+uv run python examples/showcase.py
 ```
 
 ---
