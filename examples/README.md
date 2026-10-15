@@ -1,121 +1,73 @@
-# ⚡ tkblend Showcase & Example Suite
+# tkblend Showcase & Example Suite
 
-Welcome to the **tkblend** showcase suite. These examples demonstrate the full power of pure Blend2D 2D vector rendering for Python Tkinter — delivering subpixel anti-aliasing, 3-pass separable soft drop shadows, multi-stop linear/radial gradients, dynamic theming, and 60+ FPS zero-copy blitting with **zero TTK dependencies**.
+This directory contains standalone example applications demonstrating various widgets and capabilities of **tkblend** — including vector controls, separable soft drop shadows, linear/radial gradients, CSS theming, and immediate-mode canvas drawing.
 
 ---
 
-## 🕹️ Quick Start: Unified Showcase Hub
+## Quick Start: Master Widget Showcase
 
-The easiest way to explore the entire suite is via the **Unified Showcase Hub**:
+To launch the interactive widget showcase with live theme hot-switching:
 
 ```bash
-uv run python examples/hub.py
+uv run python examples/showcase.py
 ```
 
 <p align="center">
-  <img src="../docs/assets/widget_matrix_theming.gif" alt="tkblend Showcase Hub" width="860"/>
+  <img src="../docs/assets/widget_matrix_theming.gif" alt="tkblend Showcase" width="860"/>
 </p>
 
-The Showcase Hub includes a modern sidebar allowing you to test every demo inside an embedded live viewport or pop out any demo into a dedicated standalone window with real-time theme switching.
+The showcase organizes widgets into functional tabs (`Buttons & Toggles`, `Sliders & Progress`, `Data & Inputs`, `Themes`) with property inspectors and runtime palette switching.
 
 ---
 
-## 🚀 Showcase Applications
+## Showcase Applications
 
----
-
-### 1. [API Inspector & REST Client](file:///examples/api_inspector.py) (`examples/api_inspector.py`)
-* **What it demonstrates**: Production-grade desktop REST client demonstrating a functional, real-world utility: non-blocking threaded HTTP requests, live status code badges, request history table with click-to-restore, response latency sparklines, formatted JSON viewer, quick presets, offline mock mode, and seamless runtime theming.
-```bash
-uv run python examples/api_inspector.py
-```
-
----
-
-### 2. [Cinematic Theme Showcase](file:///examples/cinematic_theme_demo.py) (`examples/cinematic_theme_demo.py`)
-* **What it demonstrates**: Dedicated blockbuster Peacock Teal and Warm Amber theme demo across interactive vector widgets.
-```bash
-uv run python examples/cinematic_theme_demo.py
-```
-
----
-
-### 3. [Unified Showcase Hub](file:///examples/showcase.py) (`examples/showcase.py`)
-* **What it demonstrates**: Master interactive widget matrix showcasing buttons, switches, sliders, tables, tabviews, textboxes, progressbars, and badges across all 13+ presets.
+### 1. [Master Widget Showcase](showcase.py) (`examples/showcase.py`)
+* **Description**: Interactive widget matrix featuring buttons, switches, sliders, range sliders, progressbars, circular gauges, segmented buttons, textboxes, badges, and tables across built-in palettes.
 ```bash
 uv run python examples/showcase.py
 ```
 
 ---
 
-### 2. [Analytics & Telemetry Dashboard](file:///home/mateusgp/projects/tkblend/examples/analytics_dashboard.py) (`examples/analytics_dashboard.py`)
-* **What it demonstrates**: Production-grade SaaS and telemetry dashboard with live data streaming, circular gauges, sparklines, Bezier throughput curves, and incident data grids.
-```bash
-uv run python examples/analytics_dashboard.py
-```
-
----
-
-### 3. [Multimedia & Studio Workstation](file:///home/mateusgp/projects/tkblend/examples/multimedia_dashboard.py) (`examples/multimedia_dashboard.py`)
-* **What it demonstrates**: Real-time 48-band audio spectrum analyzer (RTA), oscilloscope waveform, stereo VU meters with LED & gradient modes, playback transport controls, and session playlist manager.
-```bash
-uv run python examples/multimedia_dashboard.py
-```
-
----
-
-### 4. [Vector File Explorer](file:///home/mateusgp/projects/tkblend/examples/file_explorer.py) (`examples/file_explorer.py`)
-* **What it demonstrates**: Full-featured 3-pane modern file manager with Quick Access favorites, path navigation entry, live search filtering, sortable file metadata table, and text/code snippet preview.
-```bash
-uv run python examples/file_explorer.py
-```
-
----
-
-### 5. [60 FPS Real-Time Engine Lab](file:///home/mateusgp/projects/tkblend/examples/realtime_visualizer.py) (`examples/realtime_visualizer.py`)
-* **What it demonstrates**: Extreme rendering speed and zero-copy blitting stressing high frame rates across particle swarm physics, neon audio spectrum, and harmonic Lissajous curves.
-```bash
-uv run python examples/realtime_visualizer.py
-```
-
----
-
-### 6. [Custom Vector Widget Cookbook](file:///home/mateusgp/projects/tkblend/examples/custom_widget_cookbook.py) (`examples/custom_widget_cookbook.py`)
-* **What it demonstrates**: Developer architectural reference guide for creating custom zero-TTK vector widgets by subclassing `BaseControl` (Radar Chart, Speedometer Gauge, Step Progress Bar).
-```bash
-uv run python examples/custom_widget_cookbook.py
-```
-
----
-
-### 7. [Icons & Advanced Typography Demo](file:///home/mateusgp/projects/tkblend/examples/icons_and_typography_demo.py) (`examples/icons_and_typography_demo.py`)
-* **What it demonstrates**: Font Awesome 6 and Lucide vector icon integration, antialiased typography, text metrics, and code boxes.
-```bash
-uv run python examples/icons_and_typography_demo.py
-```
-
----
-
-### 8. [Canvas Studio & Vector Lab](file:///home/mateusgp/projects/tkblend/examples/canvas_studio.py) (`examples/canvas_studio.py`)
-* **What it demonstrates**: Deep dive into `BlendCanvas` and `Surface` vector graphics capabilities with Bezier paths, multi-stop gradients, composition blend modes, and drop shadows.
-```bash
-uv run python examples/canvas_studio.py
-```
-
----
-
-### 9. [Custom Gradient Widgets Showcase](file:///home/mateusgp/projects/tsurf/examples/gradient_widgets.py) (`examples/gradient_widgets.py`)
-* **What it demonstrates**: Blueprint implementation of custom pure vector widgets powered by C++ `DrawBatch` display lists with multi-stop linear and radial shaders, bounding-box relative coordinates, dynamic state transitions (hover sheens, pressed insets), metric container cards, progress bars, and spectrum sliders.
+### 2. [Gradient Widgets Showcase](gradient_widgets.py) (`examples/gradient_widgets.py`)
+* **Description**: Multi-stop linear and radial gradient styling across vector controls, dual-handle range sliders with dynamic gradient fills, live color pickers, and configurable drop shadows.
 ```bash
 uv run python examples/gradient_widgets.py
 ```
 
 ---
 
-## 🏗️ Architectural Highlights ("The New Ways")
+### 3. [API Inspector & REST Client](api_inspector.py) (`examples/api_inspector.py`)
+* **Description**: Desktop REST client demonstration showing non-blocking threaded HTTP requests, live status code badges, request history table with click-to-restore, response latency sparklines, JSON viewer, and offline mock mode.
+```bash
+uv run python examples/api_inspector.py
+```
 
-* **Zero TTK Dependencies**: Pure `BaseControl` subclasses with native Blend2D zero-copy blitting directly into Tk window drawables.
-* **Transparent Frame Protocol**: Seamless borderless container integration with zero background flickering (`super().__init__(..., background="")`).
-* **Dynamic Theming (13+ Palettes)**: Instant runtime theme transitions with compound container `.bg_color` cascade recursion across `DARK`, `LIGHT`, `CATPPUCCIN_MOCHA`, `TOKYO_NIGHT`, `CYBERPUNK`, `DRACULA`, `EMERALD_FOREST`, `NORD`, `SUNSET_AMBER`, `MONOKAI_PRO`, `SOLARIZED_DARK`, and `SOLARIZED_LIGHT`.
-* **High-DPI Coordinate Scaling**: DPI-aware layout, border, geometry, and font metrics via `ScalingTracker`.
+---
 
+### 4. [Cinematic Theme Showcase](cinematic_theme_demo.py) (`examples/cinematic_theme_demo.py`)
+* **Description**: Demonstration of the Peacock Teal (`#028090`) and Warm Amber (`#f4a261`) palette across vector cards, pills, badges, and responsive buttons.
+```bash
+uv run python examples/cinematic_theme_demo.py
+```
+
+---
+
+### 5. [Vector Table Demo](table_demo.py) (`examples/table_demo.py`)
+* **Description**: Vector data grid demonstration with drag-to-resize columns, click-to-sort headers, zebra striping, selection modes, inline cell editors, and antialiased capsule scrollbars.
+```bash
+uv run python examples/table_demo.py
+```
+
+---
+
+## Documentation Reference
+
+For architecture guides, widget references, and theming documentation, see the [Documentation Hub](../docs/README.md):
+* [Getting Started Guide](../docs/getting_started.md)
+* [Architecture & Rendering Pipeline](../docs/architecture.md)
+* [Widget Catalog](../docs/widgets.md)
+* [Theming Engine & Palettes](../docs/theming.md)
+* [Canvas & Custom Vector Drawing](../docs/canvas_and_vector.md)
+* [Caveats, Edge Cases & Troubleshooting](../docs/caveats_and_edge_cases.md)

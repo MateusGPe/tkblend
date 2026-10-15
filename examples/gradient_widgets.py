@@ -811,6 +811,7 @@ class GradientSlider(BaseControl):
 
     def _sync_thumb_pos(self, current_w: Optional[float] = None) -> None:
         pad = 16.0
+        thumb_r = 8.0
         if current_w is not None and current_w > 1:
             w = max(pad * 2.0 + 1.0, float(current_w))
         else:
@@ -819,7 +820,8 @@ class GradientSlider(BaseControl):
         span = max(1e-6, abs(self._to - self._from))
         t = max(0.0, min(1.0, (self._value - self._from) / span))
         thumb_x = pad + t * usable
-        self.set_var("--w_track", str(usable))
+        track_w = usable + 2.0 * thumb_r
+        self.set_var("--w_track", str(track_w))
         self.set_var("--thumb-x", str(thumb_x))
         self.set_var("--thumb-ring", "#ffffff")
         self.set_var("--thumb-center", "#6366f1")
@@ -859,15 +861,15 @@ class GradientSlider(BaseControl):
         batch = DrawBatch()
         batch.clear_var("--parent-bg")
 
-        # 1. Gradient Track (height 8px, rounded 4px)
+        # 1. Gradient Track (height 8px, rounded 4px, cradling thumb endpoints)
         batch.fill_rounded_rect_gradient(
-            16.0, 12.0, 0.0, 8.0, 4.0, 4.0,
+            8.0, 12.0, 0.0, 8.0, 4.0, 4.0,
             track_grad, bbox_relative=True,
             w_var="--w_track"
         )
         # Track stroke
         batch.stroke_rounded_rect_var(
-            16.0, 12.0, 0.0, 8.0, 4.0, 4.0,
+            8.0, 12.0, 0.0, 8.0, 4.0, 4.0,
             "--track-border", 1.0, "", "", "",
             Color(255, 255, 255, 30), "--w_track"
         )
@@ -902,19 +904,22 @@ class GradientSlider(BaseControl):
         surf.clear(self.resolved_parent_bg)
 
         pad = 16.0 * s
+        thumb_r = 8.0 * s
         track_h = 8.0 * s
         track_y = (height - track_h) / 2.0
-        track_w = max(1.0, width - 2.0 * pad)
+        usable = max(1.0, width - 2.0 * pad)
+        track_x = pad - thumb_r
+        track_w = usable + 2.0 * thumb_r
 
         # 1. Gradient Track
-        grad = _create_linear_gradient(self._stops, pad, track_y, pad + track_w, track_y)
-        surf.fill_rounded_rect(pad, track_y, track_w, track_h, 4.0 * s, 4.0 * s, grad)
-        surf.stroke_rounded_rect(pad, track_y, track_w, track_h, 4.0 * s, 4.0 * s, Color(255, 255, 255, 35), 1.0 * s)
+        grad = _create_linear_gradient(self._stops, track_x, track_y, track_x + track_w, track_y)
+        surf.fill_rounded_rect(track_x, track_y, track_w, track_h, 4.0 * s, 4.0 * s, grad)
+        surf.stroke_rounded_rect(track_x, track_y, track_w, track_h, 4.0 * s, 4.0 * s, Color(255, 255, 255, 35), 1.0 * s)
 
         # 2. Thumb Handle
         span = max(1e-6, self._to - self._from)
         t = max(0.0, min(1.0, (self._value - self._from) / span))
-        thumb_x = pad + t * track_w
+        thumb_x = pad + t * usable
         thumb_y = height / 2.0
 
         # Thumb soft drop shadow
@@ -1123,7 +1128,7 @@ class GradientShowcaseApp(tk.Tk):
         s1_row = tk.Frame(card2_inner, bg=self.slider_card.bg_color)
         s1_row.pack(fill="x", pady=4)
         tk.Label(s1_row, text="Intensity", font=("sans-serif", 10, "bold"), fg=pal.fg, bg=self.slider_card.bg_color, width=10, anchor="w").pack(side="left")
-        self.s1_val_lbl = tk.Label(s1_row, text="65%", font=("sans-serif", 10), fg=pal.fg, bg=self.slider_card.bg_color)
+        self.s1_val_lbl = tk.Label(s1_row, text="65%", font=("sans-serif", 10), fg=pal.fg, bg=self.slider_card.bg_color, width=4, anchor="e")
         self.s1_val_lbl.pack(side="right", padx=(8, 0))
         self.slider1 = GradientSlider(s1_row, from_=0, to=100, value=65, preset="sunset", command=self._on_slider1_change, width=280)
         self.slider1.pack(side="left", fill="x", expand=True, padx=8)
@@ -1132,7 +1137,7 @@ class GradientShowcaseApp(tk.Tk):
         s2_row = tk.Frame(card2_inner, bg=self.slider_card.bg_color)
         s2_row.pack(fill="x", pady=6)
         tk.Label(s2_row, text="Frequency", font=("sans-serif", 10, "bold"), fg=pal.fg, bg=self.slider_card.bg_color, width=10, anchor="w").pack(side="left")
-        self.s2_val_lbl = tk.Label(s2_row, text="40%", font=("sans-serif", 10), fg=pal.fg, bg=self.slider_card.bg_color)
+        self.s2_val_lbl = tk.Label(s2_row, text="40%", font=("sans-serif", 10), fg=pal.fg, bg=self.slider_card.bg_color, width=4, anchor="e")
         self.s2_val_lbl.pack(side="right", padx=(8, 0))
         self.slider2 = GradientSlider(s2_row, from_=0, to=100, value=40, preset="ocean", command=self._on_slider2_change, width=280)
         self.slider2.pack(side="left", fill="x", expand=True, padx=8)

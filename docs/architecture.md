@@ -1,0 +1,150 @@
+# Architecture & Rendering Pipeline
+
+**tkblend** connects standard Python Tkinter with **Blend2D**, a 2D vector graphics library written in C++ that uses JIT-compiled SIMD pipelines (via AsmJit) for rasterization.
+
+This document describes the rendering architecture, memory lifecycle, C++ blitting pipeline, GIL interaction, and event handling that tkblend uses to draw vector interfaces in Tkinter without relying on TTK themes.
+
+---
+
+## Architectural Motivation: Custom Vector Rendering
+
+Standard Tkinter user interfaces typically rely on one of the following approaches:
+1. **Core Tk Canvas Shapes**: The built-in Tk canvas rasterizer is simple, lacks subpixel antialiasing for arbitrary geometries, and does not provide built-in multi-stop gradients or soft shadows.
+2. **The Tcl/Tk TTK Engine (`ttk.Style`)**: TTK is based on a structured element engine traditionally styled with 9-slice bitmap skins or platform-native controls. Customizing dynamic geometry, complex gradients, or drop shadows within TTK can be restrictive.
+3. **Pillow Intermediates**: Rendering UI frames into PIL images and loading them via `ImageTk.PhotoImage` introduces per-frame Python memory allocations, pixel format conversions (e.g. RGBA to photo format), and GIL contention during rendering.
+
+### The tkblend Approach
+tkblend renders custom UI elements analytically using Blend2D into C++ memory buffers, blitting directly to native Tk window drawables or through the `Tk_PhotoPutBlock` C-API.
+
+```mermaid
+flowchart TD
+    subgraph PythonLayer["Python Application Layer"]
+        W[BaseControl Widget] -->|State change / Event| RR["request_redraw()"]
+        RR -->|after_idle coalesce| P["render(surf, palette, w, h, scale)"]
+    end
+
+    subgraph NativeLayer["C++ / nanobind Native Engine"]
+        P -->|Vector commands| S["Blend2D Surface"]
+        S -->|Rasterize pixel buffer| B["Contiguous Pixel Buffer (32-bit ARGB/PRGB)"]
+        B -->|Direct blit| NWC["NativeWidgetController"]
+    end
+
+    subgraph TkLayer["Tcl/Tk Window System"]
+        NWC -->|Native Drawable / Tk_PhotoPutBlock| TK["Tk Window Frame Buffer"]
+        TK -->|X11 / Win32 GDI / Cocoa| SCR["Screen Display"]
+    end
+```
+
+---
+
+## The Buffer Transfer Pipeline
+
+### 1. Direct Buffer Transfer via Native Drawables and `Tk_PhotoPutBlock`
+Blend2D renders directly into a contiguous native memory buffer owned by `BLImage`. Rather than converting this buffer into a PIL Image or allocating intermediate byte arrays in Python, tkblend transfers pixel data directly:
+
+* **Direct transfer**: Memory is allocated and owned by `Blend2D::BLImage`, avoiding Python heap allocations during rasterization.
+* **Platform backends**:
+  * **Linux (X11)**: Uses `XPutImage` to blit the shared memory buffer directly to the window's `XID` drawable.
+  * **Windows (Win32)**: Uses `SetDIBitsToDevice` / `BitBlt` to transfer the DIB buffer to the window's device context (`HDC`).
+  * **macOS (Cocoa)**: Binds to the underlying `NSView` / `CALayer` surface.
+  * **Fallback**: When native drawables are unavailable, tkblend writes directly into Tkinter's internal photo image via `Tk_PhotoPutBlock`.
+* **GIL release during rasterization**: Path calculations and rasterization execute in C++ and can release the Python GIL during heavy math operations.
+
+### 2. Transparent Frame Handling
+Standard Tkinter `tk.Frame` widgets redraw a solid background rectangle in C whenever an `Expose` or `Configure` event fires (`DisplayFrame` in Tcl/Tk's `tkFrame.c`). If a custom drawing engine paints directly over a frame, Tk's default background redraw can overwrite the vector surface, causing noticeable flicker.
+
+tkblend addresses this during `BaseControl` initialization:
+```python
+# BaseControl initialization
+super().__init__(master=master, background="", **kwargs)
+```
+When `background=""` (an empty string) is configured:
+1. Tk's internal frame struct sets `framePtr->border = NULL`.
+2. When `DisplayFrame` executes, Tk checks if `framePtr->border == NULL` and skips drawing the solid background.
+3. Blend2D can paint directly into the window drawable without Tk clearing the background first.
+
+---
+
+## Widget Lifecycle & Event Handling
+
+Interactive widgets in tkblend inherit from `BaseControl`, which pairs a `tk.Frame` with a native `NativeWidgetController`.
+
+```mermaid
+sequenceDiagram
+    participant User as User / OS
+    participant NWC as NativeWidgetController (C++)
+    participant BC as BaseControl (Python)
+    participant B2D as Blend2D Surface (C++)
+    participant Tk as Tk Display Frame
+
+    User->>NWC: Window Event (Enter / Motion / Click)
+    NWC->>NWC: Update PseudoState (Hover / Pressed)
+    NWC->>BC: Notify State Changed
+    BC->>BC: request_redraw() (coalesced via after_idle)
+    BC->>B2D: render(surf, pal, width, height, scale)
+    B2D->>B2D: Execute Blend2D Draw Commands
+    B2D->>Tk: Blit to Window Drawable
+    Tk->>User: Frame Rendered
+```
+
+### Pseudo-State Machine
+`NativeWidgetController` tracks interactive states:
+* `NORMAL` (`0x00`): Default idle appearance.
+* `HOVER` (`0x01`): Cursor is within widget bounds.
+* `PRESSED` (`0x02`): Primary mouse button is held down.
+* `FOCUSED` (`0x04`): Widget holds keyboard focus.
+* `DISABLED` (`0x08`): Widget ignores user inputs.
+
+State changes evaluate whether a redraw is required. Multiple rapid events (such as repeated mouse motion events) are coalesced into a single scheduled redraw using Tkinter's `after_idle` queue.
+
+---
+
+## Memory Management & Threading
+
+### 1. Buffer View Locking and Resize Safety
+When Python code or an external consumer requests a raw memory buffer via `Surface.acquire_buffer_view()`, a native view reference is tracked:
+* Active buffer views increment an `active_buffers_` counter protected by a mutex.
+* If a window resize occurs while an external consumer holds an active buffer view, `Surface::resize()` postpones buffer reallocation until views are released.
+* This prevents dangling pointers or reading invalid memory regions during asynchronous operations.
+
+### 2. GIL Boundary Management
+* **Rasterization**: Vector path evaluations and gradient calculations execute in C++ and release the GIL (`nb::call_guard<nb::gil_scoped_release>()`) so that other Python threads can continue running.
+* **Callbacks**: When C++ event hooks dispatch Python callbacks (such as click handlers or slider change notifications), they acquire the GIL using `nb::gil_scoped_acquire`.
+* **Tkinter Main Thread Constraint**: Even though rasterization happens in C++, Tkinter's event loop and widget hierarchy management are inherently bound to Python's main thread.
+
+---
+
+## Display List Acceleration (`DrawBatch`)
+
+For scenarios where Python overhead per frame should be reduced, tkblend provides `DrawBatch` and `CompiledDrawBatch`:
+
+```mermaid
+graph LR
+    subgraph SetupPass["Setup / Compilation"]
+        DB["DrawBatch (C++)"] -->|Record drawing ops| CDB["CompiledDrawBatch"]
+        CDB -->|Bind to widget| NWC["NativeWidgetController"]
+    end
+
+    subgraph FastPath["Event Loop / Repaint"]
+        EV["Expose / Damage Event"] --> NWC
+        NWC -->|Replay compiled ops in C++| B2D["Blend2D Rasterizer"]
+        B2D --> BLIT["Window Blit"]
+    end
+```
+
+* **Compiled Display Lists**: Pre-records drawing commands (rounded rectangles, linear gradients, shadows, text metrics) directly in C++ structures.
+* **Register Bank**: Dynamic tokens (such as theme color slots and animated progress values) can be updated in a contiguous register bank and resolved in C++ using FNV-1a hashing.
+* **Expose Event Replay**: When windows are uncovered or damaged, `NativeWidgetController` can replay the compiled draw batch directly to refresh the damaged region without re-evaluating Python drawing logic.
+
+---
+
+## Architectural Constraints & Trade-offs
+
+1. **Native Compilation Requirement**: tkblend relies on compiled C++ extensions (`nanobind`, `Blend2D`, `AsmJit`). A suitable compiler and development headers for Tcl/Tk are required for installation.
+2. **Single-Threaded UI Loop**: All widget state changes, user interactions, and geometry updates must occur on the main Python thread running the Tkinter event loop.
+3. **Platform Differences**: Direct drawable blitting depends on OS-level windowing subsystem support (X11 on Linux, GDI on Windows, Cocoa on macOS). Environments without direct drawable handles fall back to `Tk_PhotoPutBlock`.
+4. **Text Layout**: Text rendering uses Blend2D's font rendering engine. It handles single-line and basic multi-line layout well, but does not include full complex text shaping engines (such as HarfBuzz) for complex scripts or bidirectional text.
+
+> [!TIP]
+> For in-depth technical analysis, concrete symptoms, and code workarounds for platform blitting, Wayland unmapped window IDs, thread safety, and buffer view locks, see the [Caveats, Edge Cases & Troubleshooting Guide](caveats_and_edge_cases.md).
+
