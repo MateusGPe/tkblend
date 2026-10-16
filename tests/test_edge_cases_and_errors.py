@@ -50,19 +50,20 @@ class TestEdgeCasesAndErrors(unittest.TestCase):
         s.draw_shadow(-100, -100, 200, 200, 10, 10, blur_radius=20.0)
         s.flush()
 
-    def test_decorator_class_hierarchy_and_panedwindow(self):
+    def test_card_class_hierarchy_and_panedwindow(self):
         import tkinter as tk
-        from tkblend import BlendDecorator, is_inside_card
+        from tkblend.widgets import Card
+        from tkblend import is_inside_card
         root = tk.Tk()
         try:
-            dec = BlendDecorator(root)
-            self.assertIsInstance(dec, BlendDecorator)
-            lbl = tk.Label(dec, text="Inside Decorator")
+            card = Card(root)
+            self.assertIsInstance(card, Card)
+            lbl = tk.Label(card, text="Inside Card")
             self.assertTrue(is_inside_card(lbl))
 
             paned = tk.PanedWindow(root, orient="horizontal")
-            pane_dec = BlendDecorator(paned)
-            btn = tk.Button(pane_dec, text="Test")
+            pane_card = Card(paned)
+            btn = tk.Button(pane_card, text="Test")
             self.assertTrue(is_inside_card(btn))
         finally:
             root.destroy()

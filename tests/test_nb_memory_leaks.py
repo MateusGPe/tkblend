@@ -415,15 +415,15 @@ def _photoimage_registry_pattern(root, n: int):
     and the image data is never freed.
     """
     for _ in range(n):
-        dec = tb.BlendDecorator(root, width=64, height=64)
+        card = tb.Card(root, width=64, height=64)
         canvas = tb.BlendCanvas(root, width=64, height=64)
         root.update_idletasks()
 
-        dec.destroy()
+        card.destroy()
         canvas.destroy()
         root.update_idletasks()
 
-    del dec, canvas
+    del card, canvas
     gc.collect()
 
 
@@ -794,10 +794,10 @@ def test_buffer_slicing_and_resize_stress_no_leak():
 # ===========================================================================
 
 def _widget_swarm_pattern(root, n: int):
-    """Instantiate and destroy BlendDecorator and BlendCanvas instances."""
+    """Instantiate and destroy Card and BlendCanvas instances."""
     for _ in range(n):
         f = tk.Frame(root)
-        card = tb.BlendDecorator(f, width=200, height=100)
+        card = tb.Card(f, width=200, height=100)
         btn = tk.Button(card, text="Button")
         lbl = tk.Label(card, text="Label")
         canvas = tb.BlendCanvas(card, width=64, height=64)
@@ -827,9 +827,9 @@ def test_widget_swarm_lifecycle_no_leak(root):
 
 
 def _theme_storm_pattern(root, n: int):
-    """Rapid theme switching with an active decorator hierarchy."""
+    """Rapid theme switching with an active card hierarchy."""
     f = tk.Frame(root)
-    card = tb.BlendDecorator(f, width=200, height=100)
+    card = tb.Card(f, width=200, height=100)
     btn = tk.Button(card, text="Button")
     root.update_idletasks()
 

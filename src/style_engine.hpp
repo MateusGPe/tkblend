@@ -69,11 +69,13 @@ public:
     // CSS Custom Property / Variable access
     void set_variable(const std::string& key, const std::string& value, const std::string& theme_name = "");
     std::string get_variable(const std::string& key, const std::string& theme_name = "") const;
+    std::unordered_map<std::string, std::string> get_all_variables(const std::string& theme_name = "") const;
     std::string resolve_var_string(const std::string& val, int depth = 0, const std::string& theme_name = "") const;
 
     // Color & Typed Variable resolution
     Color resolve_color(const std::string& color_str) const;
     Color resolve_color_var(const std::string& val, const Color& fallback = Color{0, 0, 0, 0}, const std::string& theme_name = "") const;
+    Color get_contrast_color(const Color& bg, const Color& light_fg = Color(255, 255, 255, 255), const Color& dark_fg = Color(15, 23, 42, 255)) const;
     double resolve_scalar(const std::string& val, double fallback = 0.0, const std::string& theme_name = "") const;
     std::string resolve_string(const std::string& val, const std::string& fallback = "", const std::string& theme_name = "") const;
 

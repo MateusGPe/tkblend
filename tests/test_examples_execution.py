@@ -20,7 +20,6 @@ if examples_dir not in sys.path:
 
 import tkblend as tb
 from canvas_studio import CanvasStudio
-from decorator_showcase import DecoratorShowcase
 from ctk_showcase import CTKBridgeInfoFrame, _HAS_CTK
 
 
@@ -53,22 +52,6 @@ def test_canvas_studio_lifecycle(root):
     studio._on_theme_changed("ocean")
     root.update_idletasks()
     studio.destroy()
-
-
-def test_decorator_showcase_lifecycle(root):
-    app = DecoratorShowcase(root)
-    root.update_idletasks()
-    app._on_radius_changed(16.0)
-    app._on_border_w_changed(2.0)
-    app._on_blur_changed(14.0)
-    app._on_offset_y_changed(4.0)
-    app._on_focus_ring_w_changed(3.0)
-    app._on_toggle_shadows(False)
-    app._on_toggle_shadows(True)
-    app._on_change_theme("nord")
-    app._on_change_theme("tokyo-night")
-    root.update_idletasks()
-    app.destroy()
 
 
 def test_ctk_bridge_fallback_lifecycle(root):

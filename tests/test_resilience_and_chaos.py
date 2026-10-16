@@ -19,7 +19,6 @@ from tkblend._tkblend import (
     Surface as NativeSurface,
     Color as NativeColor,
     NativeWidgetController,
-    NativeDecorator,
 )
 from tkblend.widgets import (
     BaseControl,
@@ -93,7 +92,7 @@ class TestAbruptTerminationAndLifecycleChaos:
         del btn, sw, root
         gc.collect()
 
-        leaked = [o for o in gc.get_objects() if isinstance(o, (NativeWidgetController, NativeDecorator))]
+        leaked = [o for o in gc.get_objects() if isinstance(o, NativeWidgetController)]
         assert len(leaked) == 0
 
     def test_toplevel_destruction_storm(self, clean_gc):

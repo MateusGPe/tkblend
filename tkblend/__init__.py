@@ -132,15 +132,17 @@ try:
         get_contrast_color,
         adjust_brightness,
         to_tk_hex,
-        to_tk_color,
         is_inside_card,
         is_ttkbootstrap_installed,
         cascade_bg_to_children,
+        set_theme_variable,
+        set_var,
+        get_theme_variable,
+        get_var,
     )
 
     resolve_color = resolve_theme_color
 
-    from tkblend.decorator import BlendDecorator
     from tkblend.controller import NativeController, NativeBlitCanvas
     from tkblend.widgets import (
         BaseControl,
@@ -255,8 +257,11 @@ __all__ = [
     "is_inside_card",
     "is_ttkbootstrap_installed",
     "cascade_bg_to_children",
-    # Decorator & Controller
-    "BlendDecorator",
+    "set_theme_variable",
+    "set_var",
+    "get_theme_variable",
+    "get_var",
+    # Controller
     "NativeController",
     "NativeWidgetController",
     "ControllerPseudoState",

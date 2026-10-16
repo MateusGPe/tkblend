@@ -101,4 +101,28 @@ Color Color::with_alpha_f(double new_a) const {
     return Color(r, g, b, na);
 }
 
+double Color::relative_luminance() const {
+    auto lin = [](double c) -> double {
+        return (c <= 0.04045) ? (c / 12.92) : std::pow((c + 0.055) / 1.055, 2.4);
+    };
+    double rf = lin(static_cast<double>(r) / 255.0);
+    double gf = lin(static_cast<double>(g) / 255.0);
+    double bf = lin(static_cast<double>(b) / 255.0);
+    return 0.2126 * rf + 0.7152 * gf + 0.0722 * bf;
+}
+
+Color Color::get_contrast_color(const Color& light_fg, const Color& dark_fg) const {
+    return (relative_luminance() > 0.45) ? dark_fg : light_fg;
+}
+
+std::string Color::to_hex(bool include_alpha) const {
+    char buf[10];
+    if (include_alpha) {
+        std::snprintf(buf, sizeof(buf), "#%02x%02x%02x%02x", r, g, b, a);
+    } else {
+        std::snprintf(buf, sizeof(buf), "#%02x%02x%02x", r, g, b);
+    }
+    return std::string(buf);
+}
+
 } // namespace tkblend

@@ -28,6 +28,9 @@ struct Color {
     Color lerp(const Color& other, double t) const;
     Color with_alpha(uint8_t new_a) const;
     Color with_alpha_f(double new_a) const;
+    double relative_luminance() const;
+    Color get_contrast_color(const Color& light_fg = Color(255, 255, 255, 255), const Color& dark_fg = Color(15, 23, 42, 255)) const;
+    std::string to_hex(bool include_alpha = false) const;
 };
 
 } // namespace tkblend

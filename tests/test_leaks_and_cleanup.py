@@ -30,17 +30,17 @@ def test_widget_lifecycle_leak_prevention(root):
     gc.collect()
 
     for _ in range(10):
-        dec = tb.BlendDecorator(root, width=100, height=40)
+        card = tb.Card(root, width=100, height=40)
         cvs = tb.BlendCanvas(root, width=100, height=40)
         surf = tb.Surface(100, 40)
 
         root.update_idletasks()
 
-        dec.destroy()
+        card.destroy()
         cvs.destroy()
         surf.close()
 
-    del dec, cvs, surf
+    del card, cvs, surf
     gc.collect()
 
     surfaces_alive = [obj for obj in gc.get_objects() if isinstance(obj, NativeSurface)]
@@ -75,13 +75,13 @@ def test_theme_manager_weak_listener_pruning(root):
     initial_listeners_count = len(tm._listeners)
 
     def create_and_discard():
-        dec = tb.BlendDecorator(root, width=100, height=40)
+        card = tb.Card(root, width=100, height=40)
         root.update_idletasks()
-        return dec
+        return card
 
-    dec = create_and_discard()
-    dec.destroy()
-    del dec
+    card = create_and_discard()
+    card.destroy()
+    del card
     gc.collect()
 
     # Trigger notify to prune dead weak references
@@ -91,8 +91,8 @@ def test_theme_manager_weak_listener_pruning(root):
     assert len(tm._listeners) <= initial_listeners_count
 
 
-def test_decorator_showcase_complete_teardown_zero_leaks():
-    """Verify headless DecoratorShowcase initialization and destruction leaves zero memory leaks."""
+def test_showcase_complete_teardown_zero_leaks():
+    """Verify headless CanvasStudio initialization and destruction leaves zero memory leaks."""
     gc.collect()
 
     import sys
@@ -100,14 +100,14 @@ def test_decorator_showcase_complete_teardown_zero_leaks():
     examples_dir = os.path.join(os.path.dirname(__file__), "..", "examples")
     if examples_dir not in sys.path:
         sys.path.insert(0, examples_dir)
-    from decorator_showcase import DecoratorShowcase
+    from canvas_studio import CanvasStudio
 
     r = tk.Tk()
     r.withdraw()
-    app = DecoratorShowcase(r)
+    app = CanvasStudio(r)
     r.update_idletasks()
 
-    app._on_change_theme("light")
+    app._on_theme_changed("light")
     r.update_idletasks()
 
     r.destroy()
@@ -360,10 +360,10 @@ def test_tracemalloc_stress_lifecycle_bounded_memory(root):
     snapshot1 = tracemalloc.take_snapshot()
 
     for _ in range(50):
-        dec = tb.BlendDecorator(root, width=120, height=40)
+        card = tb.Card(root, width=120, height=40)
         cvs = tb.BlendCanvas(root, width=64, height=64)
         root.update_idletasks()
-        dec.destroy()
+        card.destroy()
         cvs.destroy()
 
     root.update_idletasks()

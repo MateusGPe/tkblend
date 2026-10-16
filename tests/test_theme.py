@@ -25,7 +25,7 @@ from tkblend.theme import (
     is_inside_card,
     is_ttkbootstrap_installed,
 )
-from tkblend import BlendDecorator
+from tkblend.widgets import Card
 
 
 @pytest.fixture
@@ -161,11 +161,11 @@ def test_resolve_ancestor_bg(root):
     # None master returns palette.bg
     assert resolve_ancestor_bg(None) == DARK_PALETTE.bg
 
-    # Inside a BlendDecorator card container
-    card = BlendDecorator(root, bg_color="#332244")
+    # Inside a Card container
+    card = Card(root, bg_color="#332244")
     assert resolve_ancestor_bg(card) == "#332244"
 
-    # Inside a tk.Frame that is inside the BlendDecorator
+    # Inside a tk.Frame that is inside the Card
     subframe = tk.Frame(card)
     assert resolve_ancestor_bg(subframe) == "#332244"
 
@@ -189,7 +189,7 @@ def test_apply_theme_and_dynamic_injection(root):
     f = tk.Frame(root)
     lbl = tk.Label(root, text="Hello")
     cvs = tk.Canvas(root)
-    dec = BlendDecorator(root)
+    card = Card(root)
 
     cleanup = apply_theme(root, "dark")
     root.update_idletasks()
@@ -214,7 +214,7 @@ def test_apply_theme_and_dynamic_injection(root):
     f.destroy()
     lbl.destroy()
     cvs.destroy()
-    dec.destroy()
+    card.destroy()
 
 
 def test_apply_theme_preserve_overrides(root):
@@ -251,9 +251,9 @@ def test_apply_theme_preserve_overrides(root):
 
 def test_dynamic_container_bg_cascade(root):
     set_theme("dark")
-    card = BlendDecorator(root, bg_color="#112233")
+    card = Card(root, bg_color="#112233")
     subframe = tk.Frame(card)
-    lbl = tk.Label(subframe, text="Inside Decorator")
+    lbl = tk.Label(subframe, text="Inside Card")
 
     root.update_idletasks()
     assert resolve_ancestor_bg(subframe) == "#112233"

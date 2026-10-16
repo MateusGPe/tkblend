@@ -1,14 +1,14 @@
 """
 Declarative theme engine and color palette management for tkblend.
 Bridges to the high-performance C++ StyleEngine singleton with support for external .css theme files.
+All theming is strictly driven by CSS variables in C++ StyleEngine.
 """
 
 from __future__ import annotations
 import logging
 import weakref
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any, Callable, Optional, Union, List, Set
+from typing import Dict, Any, Callable, Optional, Union, List, Set, Sequence
 
 import tkinter as tk
 from tkblend._tkblend import (
@@ -66,24 +66,7 @@ def resolve_color_failsafe(
     if not c_clean:
         return default_bg
 
-    # Check semantic token in active palette
-    token = c_clean.lower().replace("-", "_")
-    synonyms = {
-        "dark": "bg",
-        "light": "bg",
-        "background": "bg",
-        "foreground": "fg",
-        "card": "card_bg",
-        "border": "card_border",
-    }
-    if token in synonyms:
-        token = synonyms[token]
-
-    if hasattr(active_pal, token):
-        val = getattr(active_pal, token)
-        if isinstance(val, str) and val.startswith("#"):
-            c_clean = val
-
+    # Fast hex parsing check
     if c_clean.startswith("#"):
         hex_val = c_clean.lstrip("#")
         if len(hex_val) == 3:
@@ -99,35 +82,33 @@ def resolve_color_failsafe(
         elif len(hex_val) in (4, 5, 7):
             return f"#{hex_val}"
 
-    # Named colors map
-    named_map = {
-        "transparent": "#00000000",
-        "white": "#ffffff",
-        "black": "#000000",
-        "red": "#ff0000",
-        "green": "#00ff00",
-        "blue": "#0000ff",
-        "yellow": "#ffff00",
-        "cyan": "#00ffff",
-        "magenta": "#ff00ff",
-        "gray": "#808080",
-        "grey": "#808080",
-        "silver": "#c0c0c0",
-        "maroon": "#800000",
-        "olive": "#808000",
-        "lime": "#00ff00",
-        "aqua": "#00ffff",
-        "teal": "#008080",
-        "navy": "#000080",
-        "purple": "#800080",
-        "orange": "#ffa500",
+    # Check semantic token in active palette
+    token = c_clean.lower().replace("-", "_")
+    synonyms = {
+        "dark": "bg",
+        "light": "bg",
+        "background": "bg",
+        "foreground": "fg",
+        "card": "card_bg",
+        "border": "card_border",
     }
-    low = c_clean.lower()
-    if low in named_map:
-        base = named_map[low]
-        if alpha is not None and len(base) == 7:
-            return f"{base}{_format_alpha(alpha)}"
-        return base
+    token = synonyms.get(token, token)
+
+    if hasattr(active_pal, token):
+        val = getattr(active_pal, token)
+        if isinstance(val, str) and val.startswith("#"):
+            c_clean = val
+
+    # StyleEngine C++ color/variable resolution
+    try:
+        resolved_c = StyleEngine.resolve_color_var(c_clean, Color(0, 0, 0, 0), active_pal.name)
+        if resolved_c.a > 0 or resolved_c.r > 0 or resolved_c.g > 0 or resolved_c.b > 0 or c_clean.lower() in ("black", "#000000", "#000"):
+            hex_res = resolved_c.to_hex(include_alpha=(resolved_c.a < 255))
+            if alpha is not None:
+                return f"{hex_res[:7]}{_format_alpha(alpha)}"
+            return hex_res
+    except Exception:
+        pass
 
     # Try Tk winfo_rgb if master is provided
     win = master
@@ -202,7 +183,7 @@ to_tk_color = to_tk_hex
 
 
 def blend_color_hex(c1: str, c2: str, t: float) -> Optional[str]:
-    """Linearly interpolate between two hex color strings at factor t (0.0 to 1.0)."""
+    """Linearly interpolate between two hex color strings at factor t (0.0 to 1.0) in C++."""
     if c1 is None or c2 is None or not isinstance(c1, str) or not isinstance(c2, str):
         logger.warning("Failed blending colors %r and %r: invalid color input", c1, c2)
         return None
@@ -214,28 +195,21 @@ def blend_color_hex(c1: str, c2: str, t: float) -> Optional[str]:
         col1 = Color.from_hex(c1)
         col2 = Color.from_hex(c2)
         res = col1.lerp(col2, float(t))
-        if col1.a < 255 or col2.a < 255:
-            return f"#{res.r:02x}{res.g:02x}{res.b:02x}{res.a:02x}"
-        return f"#{res.r:02x}{res.g:02x}{res.b:02x}"
+        return res.to_hex(include_alpha=(col1.a < 255 or col2.a < 255))
     except Exception as e:
         logger.warning("Failed blending colors %r and %r: %s", c1, c2, e)
         return c1 if t < 0.5 else c2
 
 
 def adjust_brightness(hex_code: str, factor: float) -> Optional[str]:
-    """Lighten (> 1.0) or darken (< 1.0) a hex color."""
+    """Lighten (> 1.0) or darken (< 1.0) a hex color in C++."""
     if hex_code is None or not isinstance(hex_code, str):
         logger.warning("Failed adjusting brightness on %r: invalid color input", hex_code)
         return None
     try:
         col = Color.from_hex(hex_code)
-        if factor >= 1.0:
-            res = col.lighten(float(factor))
-        else:
-            res = col.darken(float(factor))
-        if col.a < 255:
-            return f"#{res.r:02x}{res.g:02x}{res.b:02x}{res.a:02x}"
-        return f"#{res.r:02x}{res.g:02x}{res.b:02x}"
+        res = col.lighten(float(factor)) if factor >= 1.0 else col.darken(float(factor))
+        return res.to_hex(include_alpha=(col.a < 255))
     except Exception as e:
         logger.warning("Failed adjusting brightness on %r: %s", hex_code, e)
         return hex_code
@@ -247,27 +221,16 @@ def get_contrast_color(
     dark_fg: str = "#0f172a",
     palette: Optional[Palette] = None,
 ) -> str:
-    """Calculate perceived relative luminance and return optimal contrasting text color."""
+    """Calculate perceived relative luminance in C++ and return optimal contrasting text color."""
     if bg_color is None:
         return light_fg
     resolved = resolve_color_failsafe(bg_color, palette=palette)
-    if not resolved or not resolved.startswith("#"):
-        return light_fg
-    hex_str = resolved.lstrip("#")
-    if len(hex_str) in (3, 4):
-        hex_str = "".join(c + c for c in hex_str[:3])
-    if len(hex_str) < 6:
+    if not resolved:
         return light_fg
     try:
-        r = int(hex_str[0:2], 16) / 255.0
-        g = int(hex_str[2:4], 16) / 255.0
-        b = int(hex_str[4:6], 16) / 255.0
-
-        def _lin(c: float) -> float:
-            return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-
-        lum = 0.2126 * _lin(r) + 0.7152 * _lin(g) + 0.0722 * _lin(b)
-        return dark_fg if lum > 0.45 else light_fg
+        col = Color.from_hex(resolved)
+        res = col.get_contrast_color(Color.from_hex(light_fg), Color.from_hex(dark_fg))
+        return res.to_hex()
     except Exception:
         return light_fg
 
@@ -289,110 +252,64 @@ def normalize_theme_name(name: str) -> str:
     return THEME_ALIASES.get(n, n)
 
 
-
-@dataclass
 class Palette:
-    """Semantic color palette definition queryable from StyleEngine variables."""
-    name: str = "dark"
-    dark_mode: bool = True
+    """
+    Dynamic semantic color palette proxying StyleEngine CSS variables directly from C++.
+    Supports attribute access (pal.primary), item lookup (pal['--primary']), and variable introspection.
+    """
+    __slots__ = ("_theme_name",)
 
-    # Canvas & Window background
-    bg: str = "#100e14"
-    fg: str = "#e6e0e9"
-    text_muted: str = "#cac4d0"
-
-    # Surface & Containers
-    card_bg: str = "#25232a"
-    card_border: str = "#49454f"
-    surface: str = "#1d1b20"
-    surface_border: str = "#36343b"
-
-    # Primary brand accent
-    primary: str = "#d0bcff"
-    primary_hover: str = "#e8def8"
-    primary_active: str = "#b69df8"
-    primary_fg: str = "#381e72"
-
-    # Secondary action
-    secondary: str = "#06b6d4"
-    secondary_hover: str = "#22d3ee"
-    secondary_active: str = "#0891b2"
-    secondary_fg: str = "#ffffff"
-
-    # Status & Accent colors
-    accent: str = "#efb8c8"
-    success: str = "#85d697"
-    warning: str = "#ffb877"
-    destructive: str = "#ffb4ab"
-
-    # Inputs & Controls
-    input_bg: str = "#1d1b20"
-    input_border: str = "#49454f"
-    input_focus: str = "#d0bcff"
-    track_bg: str = "#36343b"
-    thumb_color: str = "#d0bcff"
-    shadow_color: str = "#00000055"
+    def __init__(self, name: str = "dark"):
+        self._theme_name = normalize_theme_name(name)
 
     @property
-    def fg_subtle(self) -> str:
-        return self.text_muted
+    def name(self) -> str:
+        return self._theme_name
 
     @property
-    def danger(self) -> str:
-        return self.destructive
+    def dark_mode(self) -> bool:
+        return self._theme_name not in ("light", "catppuccin_latte", "solarized_light")
 
-    @property
-    def border(self) -> str:
-        return self.card_border
+    def __getattr__(self, item: str) -> str:
+        key = item.replace("_", "-")
+        # Direct lookup from C++ StyleEngine
+        val = StyleEngine.get_variable(f"--{key}", self._theme_name)
+        if not val:
+            val = StyleEngine.get_variable(key, self._theme_name)
+        if val:
+            return val
+
+        # Semantic aliases
+        alias_map = {
+            "border": "card-border",
+            "fg-subtle": "text-muted",
+            "danger": "destructive",
+        }
+        if key in alias_map:
+            alias_key = alias_map[key]
+            val = StyleEngine.get_variable(f"--{alias_key}", self._theme_name) or StyleEngine.get_variable(alias_key, self._theme_name)
+            if val:
+                return val
+
+        raise AttributeError(f"'Palette' object has no attribute {item!r}")
+
+    def __getitem__(self, key: str) -> str:
+        k = key.lstrip("-")
+        return getattr(self, k.replace("-", "_"))
+
+    def get(self, key: str, default: str = "") -> str:
+        val = getattr(self, key.replace("-", "_"), default)
+        return val if val != "#00000000" else default
 
     @classmethod
     def from_theme(cls, theme_name: str) -> Palette:
-        """Create a Palette reflecting active StyleEngine CSS variables."""
-        norm_name = normalize_theme_name(theme_name)
+        return cls(theme_name)
 
-        def v(key: str, default: str) -> str:
-            res = StyleEngine.get_variable(f"--{key}", norm_name)
-            if not res:
-                res = StyleEngine.get_variable(key, norm_name)
-            if not res and norm_name != theme_name:
-                res = StyleEngine.get_variable(f"--{key}", theme_name)
-                if not res:
-                    res = StyleEngine.get_variable(key, theme_name)
-            return res if res else default
+    def to_dict(self) -> Dict[str, str]:
+        return StyleEngine.get_all_variables(self._theme_name)
 
-        is_dark = norm_name not in ("light", "catppuccin_latte", "solarized_light")
-        default_bg = "#100e14" if is_dark else "#f4f5f7"
-        default_fg = "#e6e0e9" if is_dark else "#0f172a"
-
-        return cls(
-            name=theme_name,
-            dark_mode=is_dark,
-            bg=v("bg", default_bg),
-            fg=v("fg", default_fg),
-            text_muted=v("text-muted", "#a1a1aa" if is_dark else "#475569"),
-            card_bg=v("card-bg", "#25232a" if is_dark else "#ffffff"),
-            card_border=v("card-border", "#49454f" if is_dark else "#cbd5e1"),
-            surface=v("surface", "#1d1b20" if is_dark else "#e2e8f0"),
-            surface_border=v("surface-border", "#36343b" if is_dark else "#cbd5e1"),
-            primary=v("primary", "#8b5cf6" if is_dark else "#6366f1"),
-            primary_hover=v("primary-hover", "#7c3aed" if is_dark else "#4f46e5"),
-            primary_active=v("primary-active", "#6d28d9" if is_dark else "#4338ca"),
-            primary_fg=v("primary-fg", "#ffffff" if is_dark else "#ffffff"),
-            secondary=v("secondary", "#06b6d4" if is_dark else "#0284c7"),
-            secondary_hover=v("secondary-hover", "#22d3ee" if is_dark else "#0ea5e9"),
-            secondary_active=v("secondary-active", "#0891b2" if is_dark else "#0369a1"),
-            secondary_fg=v("secondary-fg", "#ffffff" if is_dark else "#ffffff"),
-            accent=v("accent", "#ec4899" if is_dark else "#0ea5e9"),
-            success=v("success", "#10b981" if is_dark else "#10b981"),
-            warning=v("warning", "#f59e0b" if is_dark else "#f59e0b"),
-            destructive=v("destructive", "#ef4444" if is_dark else "#ef4444"),
-            input_bg=v("input-bg", "#1d1b20" if is_dark else "#ffffff"),
-            input_border=v("input-border", "#3f3f46" if is_dark else "#94a3b8"),
-            input_focus=v("input-focus", "#8b5cf6" if is_dark else "#6366f1"),
-            track_bg=v("track-bg", "#27272a" if is_dark else "#e2e8f0"),
-            thumb_color=v("thumb-color", "#8b5cf6" if is_dark else "#6366f1"),
-            shadow_color=v("shadow-color", "#00000055" if is_dark else "#00000018"),
-        )
+    def __repr__(self) -> str:
+        return f"Palette(name={self._theme_name!r}, dark_mode={self.dark_mode})"
 
 
 def register_theme(name: str, css_text: str) -> None:
@@ -408,8 +325,6 @@ def load_theme_file(filepath: Union[str, Path], name: Optional[str] = None) -> s
     css_text = p.read_text(encoding="utf-8")
     theme_name = name or p.stem.lower()
     register_theme(theme_name, css_text)
-    if "THEME_PRESETS" in globals():
-        THEME_PRESETS[theme_name] = Palette.from_theme(theme_name)
     return theme_name
 
 
@@ -437,47 +352,55 @@ def _load_builtin_themes() -> None:
 
 _load_builtin_themes()
 
-DARK_PALETTE = Palette.from_theme("dark")
-LIGHT_PALETTE = Palette.from_theme("light")
-NORD_PALETTE = Palette.from_theme("nord")
-DRACULA_PALETTE = Palette.from_theme("dracula")
-TOKYO_NIGHT_PALETTE = Palette.from_theme("tokyo_night")
-CATPPUCCIN_MOCHA_PALETTE = Palette.from_theme("catppuccin_mocha")
-CATPPUCCIN_LATTE_PALETTE = Palette.from_theme("catppuccin_latte")
-EMERALD_PALETTE = Palette.from_theme("emerald")
-EMERALD_FOREST_PALETTE = Palette.from_theme("emerald_forest")
-OCEAN_PALETTE = Palette.from_theme("ocean")
-SUNSET_PALETTE = Palette.from_theme("sunset")
-SUNSET_AMBER_PALETTE = Palette.from_theme("sunset_amber")
-MONOKAI_PALETTE = Palette.from_theme("monokai")
-MONOKAI_PRO_PALETTE = Palette.from_theme("monokai_pro")
-CYBERPUNK_PALETTE = Palette.from_theme("cyberpunk")
-SOLARIZED_DARK_PALETTE = Palette.from_theme("solarized_dark")
-SOLARIZED_LIGHT_PALETTE = Palette.from_theme("solarized_light")
-SLATE_PALETTE = Palette.from_theme("slate")
 
-THEME_PRESETS: Dict[str, Palette] = {
-    "dark": DARK_PALETTE,
-    "light": LIGHT_PALETTE,
-    "nord": NORD_PALETTE,
-    "dracula": DRACULA_PALETTE,
-    "tokyo_night": TOKYO_NIGHT_PALETTE,
-    "catppuccin_mocha": CATPPUCCIN_MOCHA_PALETTE,
-    "catppuccin_latte": CATPPUCCIN_LATTE_PALETTE,
-    "emerald": EMERALD_PALETTE,
-    "emerald_forest": EMERALD_FOREST_PALETTE,
-    "ocean": OCEAN_PALETTE,
-    "sunset": SUNSET_PALETTE,
-    "sunset_amber": SUNSET_AMBER_PALETTE,
-    "monokai": MONOKAI_PALETTE,
-    "monokai_pro": MONOKAI_PRO_PALETTE,
-    "cyberpunk": CYBERPUNK_PALETTE,
-    "solarized_dark": SOLARIZED_DARK_PALETTE,
-    "solarized_light": SOLARIZED_LIGHT_PALETTE,
-    "slate": SLATE_PALETTE,
-    "forest": EMERALD_FOREST_PALETTE,
-    "neon": CYBERPUNK_PALETTE,
-}
+class _ThemePresetsDict(dict):
+    """Dynamic theme presets dictionary querying C++ StyleEngine on demand."""
+
+    def __getitem__(self, key: str) -> Palette:
+        norm = normalize_theme_name(key)
+        return Palette(norm)
+
+    def __contains__(self, key: object) -> bool:
+        if not isinstance(key, str):
+            return False
+        norm = normalize_theme_name(key)
+        return norm in StyleEngine.get_available_themes()
+
+    def values(self) -> List[Palette]:
+        return [Palette(t) for t in StyleEngine.get_available_themes()]
+
+    def items(self) -> List[tuple[str, Palette]]:
+        return [(t, Palette(t)) for t in StyleEngine.get_available_themes()]
+
+    def keys(self) -> List[str]:
+        return StyleEngine.get_available_themes()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        try:
+            return self[key]
+        except Exception:
+            return default
+
+
+THEME_PRESETS: Dict[str, Palette] = _ThemePresetsDict()
+DARK_PALETTE = Palette("dark")
+LIGHT_PALETTE = Palette("light")
+NORD_PALETTE = Palette("nord")
+DRACULA_PALETTE = Palette("dracula")
+TOKYO_NIGHT_PALETTE = Palette("tokyo_night")
+CATPPUCCIN_MOCHA_PALETTE = Palette("catppuccin_mocha")
+CATPPUCCIN_LATTE_PALETTE = Palette("catppuccin_latte")
+EMERALD_PALETTE = Palette("emerald")
+EMERALD_FOREST_PALETTE = Palette("emerald_forest")
+OCEAN_PALETTE = Palette("ocean")
+SUNSET_PALETTE = Palette("sunset")
+SUNSET_AMBER_PALETTE = Palette("sunset_amber")
+MONOKAI_PALETTE = Palette("monokai")
+MONOKAI_PRO_PALETTE = Palette("monokai_pro")
+CYBERPUNK_PALETTE = Palette("cyberpunk")
+SOLARIZED_DARK_PALETTE = Palette("solarized_dark")
+SOLARIZED_LIGHT_PALETTE = Palette("solarized_light")
+SLATE_PALETTE = Palette("slate")
 
 
 def get_preset_semantic_colors() -> Dict[str, Set[str]]:
@@ -498,14 +421,8 @@ def get_preset_semantic_colors() -> Dict[str, Set[str]]:
     return res
 
 
-
 class SafeWeakMethod:
-    """
-    Lightweight, GC-safe weak reference for bound methods.
-
-    Avoids Python 3.12's stdlib weakref.WeakMethod bug where self._alive throws
-    AttributeError during shutdown or GC when WeakMethod is collected before its referent.
-    """
+    """Lightweight, GC-safe weak reference for bound methods."""
     __slots__ = ("_obj_ref", "_func", "_dead_cb")
 
     def __init__(self, method: Any, dead_cb: Optional[Callable[[Any], None]] = None):
@@ -546,7 +463,7 @@ class ThemeManager:
             cls._instance = super().__new__(cls)
             cls._instance._listeners = []
             cls._instance._priority_listeners = []
-            cls._instance._current_palette = Palette.from_theme(StyleEngine.get_theme())
+            cls._instance._current_palette = Palette(StyleEngine.get_theme())
             cls._instance._pending_renders = weakref.WeakSet()
             cls._instance._render_scheduled = False
         return cls._instance
@@ -565,7 +482,7 @@ class ThemeManager:
             target_name = detect_system_theme()
         target_name = normalize_theme_name(target_name)
         StyleEngine.set_theme(target_name)
-        self._current_palette = Palette.from_theme(target_name)
+        self._current_palette = Palette(target_name)
 
         try:
             r = getattr(tk, "_default_root", None)
@@ -602,44 +519,43 @@ class ThemeManager:
 
     def add_listener(self, callback: Callable[[Palette], None], priority: bool = False) -> None:
         target_list = self._priority_listeners if priority else self._listeners
-        # If already added, ignore
-        for item in target_list:
-            if item == callback:
-                return
-            cb = item() if isinstance(item, (weakref.ref, SafeWeakMethod)) else item
-            if cb == callback:
-                return
-
-        if hasattr(callback, "__self__"):
-            target_list.append(SafeWeakMethod(callback, lambda ref: self._remove_dead_ref(ref, target_list)))
+        if hasattr(callback, "__self__") and getattr(callback, "__self__", None) is not None:
+            def _on_dead(wr):
+                if wr in target_list:
+                    target_list.remove(wr)
+            wrapped = SafeWeakMethod(callback, dead_cb=_on_dead)
+            if wrapped not in target_list:
+                target_list.append(wrapped)
         else:
-            target_list.append(callback)
+            if callback not in target_list:
+                target_list.append(callback)
 
     def remove_listener(self, callback: Callable[[Palette], None]) -> None:
         for target_list in (self._priority_listeners, self._listeners):
-            for item in list(target_list):
-                if item == callback:
-                    target_list.remove(item)
-                    continue
-                cb = item() if isinstance(item, (weakref.ref, SafeWeakMethod)) else item
-                if cb == callback:
+            to_remove = []
+            for item in target_list:
+                if isinstance(item, (weakref.ref, SafeWeakMethod)):
+                    cb = item()
+                    if cb is None or cb == callback:
+                        to_remove.append(item)
+                elif item == callback:
+                    to_remove.append(item)
+            for item in to_remove:
+                if item in target_list:
                     target_list.remove(item)
 
-    def _remove_dead_ref(self, ref: Any, target_list: List) -> None:
-        if ref in target_list:
-            target_list.remove(ref)
-
-    def queue_render(self, widget: Any) -> None:
-        """Schedule non-blocking widget render batch."""
+    def schedule_render(self, widget: Any) -> None:
+        """Schedule non-blocking batched redraw for widget."""
         self._pending_renders.add(widget)
         if not self._render_scheduled:
             self._render_scheduled = True
-            try:
-                if hasattr(widget, "after_idle"):
-                    widget.after_idle(self._flush_renders)
-                else:
+            root = getattr(tk, "_default_root", None)
+            if root is not None and hasattr(root, "after_idle"):
+                try:
+                    root.after_idle(self._flush_renders)
+                except Exception:
                     self._flush_renders()
-            except Exception:
+            else:
                 self._flush_renders()
 
     def _flush_renders(self) -> None:
@@ -656,7 +572,6 @@ class ThemeManager:
                         w.render()
             except Exception:
                 pass
-
 
     def add_priority_listener(self, callback: Callable[[Palette], None]) -> None:
         self.add_listener(callback, priority=True)
@@ -699,6 +614,22 @@ def get_available_themes() -> List[str]:
     return StyleEngine.get_available_themes()
 
 
+def set_theme_variable(key: str, value: str, theme_name: str = "") -> None:
+    """Set a CSS theme variable in C++ StyleEngine and notify listeners."""
+    StyleEngine.set_variable(key, value, theme_name)
+    _theme_manager.notify_listeners()
+
+
+set_var = set_theme_variable
+
+
+def get_theme_variable(key: str, theme_name: str = "") -> str:
+    """Get a CSS theme variable from C++ StyleEngine."""
+    return StyleEngine.get_variable(key, theme_name)
+
+
+get_var = get_theme_variable
+
 
 def add_theme_listener(callback: Callable[[Palette], None], priority: bool = False) -> None:
     """Register a callback to be notified on theme changes."""
@@ -733,8 +664,9 @@ def resolve_ancestor_bg(widget: Optional[tk.Misc], palette: Optional[Palette] = 
             try:
                 bg = str(curr.cget("background")).lower()
                 if bg:
-                    for p_name, p_pal in THEME_PRESETS.items():
+                    for p_name in StyleEngine.get_available_themes():
                         if p_name != active_pal.name:
+                            p_pal = THEME_PRESETS[p_name]
                             if bg == p_pal.bg.lower():
                                 return active_pal.bg
                             if bg == p_pal.card_bg.lower():
@@ -792,11 +724,6 @@ def cascade_bg_to_children(container: tk.Misc, bg_color: str, preserve_overrides
                         curr_fg = str(child.cget("foreground")).strip().lower()
                         is_bold = "bold" in str(child.cget("font")).lower()
                         
-                        # Known old theme fg / text_muted values across presets
-                        known_fgs = {p.fg.lower() for p in THEME_PRESETS.values()}
-                        known_muteds = {p.text_muted.lower() for p in THEME_PRESETS.values()}
-                        
-                        # Contrast check: if background and foreground share same luminance polarity, contrast is broken
                         bg_contrast_need = get_contrast_color(child_bg)
                         fg_contrast_need = get_contrast_color(curr_fg) if curr_fg.startswith("#") else None
                         is_low_contrast = (fg_contrast_need is not None and bg_contrast_need == fg_contrast_need)
@@ -809,10 +736,6 @@ def cascade_bg_to_children(container: tk.Misc, bg_color: str, preserve_overrides
                         ):
                             fg_col = pal.fg if is_bold else pal.text_muted
                             child.configure(background=child_bg, foreground=to_tk_hex(fg_col))
-                        elif curr_fg in known_fgs:
-                            child.configure(background=child_bg, foreground=to_tk_hex(pal.fg))
-                        elif curr_fg in known_muteds:
-                            child.configure(background=child_bg, foreground=to_tk_hex(pal.text_muted))
                         else:
                             child.configure(background=child_bg)
                     except Exception:
@@ -831,15 +754,13 @@ def cascade_bg_to_children(container: tk.Misc, bg_color: str, preserve_overrides
                     cascade_bg_to_children(child, resolved, preserve_overrides=preserve_overrides, render=render, palette=pal)
         except Exception:
             pass
-        except Exception:
-            pass
 
 
 def is_inside_card(widget: Optional[tk.Misc]) -> bool:
-    """Return True if widget is nested within a Card or BlendDecorator container."""
+    """Return True if widget is nested within a Card container."""
     curr = widget
     while curr is not None:
-        if getattr(curr, "__class__", None).__name__ in ("Card", "BlendDecorator"):
+        if getattr(curr, "__class__", None).__name__ == "Card":
             return True
         curr = getattr(curr, "master", None)
     return False

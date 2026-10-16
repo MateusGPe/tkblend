@@ -364,6 +364,23 @@ class BaseControl(tk.Frame):
         """Get the value of a scoped or global variable."""
         return self._controller.get_var(key, default)
 
+    def get_color(self, var_name: str, fallback: Optional[str] = None) -> str:
+        """Resolve a CSS color variable (scoped to widget or global theme)."""
+        key = var_name if var_name.startswith("--") else f"--{var_name}"
+        local_val = self._controller.get_var(key)
+        if not local_val and not var_name.startswith("--"):
+            local_val = self._controller.get_var(var_name)
+        if local_val:
+            return resolve_color_failsafe(local_val, fallback=fallback, palette=self._palette)
+
+        val = StyleEngine.get_variable(key, self._palette.name)
+        if not val and not var_name.startswith("--"):
+            val = StyleEngine.get_variable(var_name, self._palette.name)
+        if val:
+            return resolve_color_failsafe(val, fallback=fallback, palette=self._palette)
+
+        return fallback or getattr(self._palette, var_name.replace("-", "_"), "#000000")
+
     def remove_var(self, key: str) -> BaseControl:
         """Remove a locally scoped variable override."""
         self._controller.remove_var(key)
@@ -438,7 +455,7 @@ class BaseControl(tk.Frame):
             return
         surf.clear(self._resolved_outer_bg)
         scale = self.scale_factor
-        self.render(surf, self._palette, w, h, scale)
+        self._dispatch_render(surf, w, h, scale)
         if self.winfo_ismapped():
             self._controller.blit_surface(surf)
 
@@ -459,9 +476,15 @@ class BaseControl(tk.Frame):
             return
         surf.clear(self._resolved_outer_bg)
         scale = self.scale_factor
-        self.render(surf, self._palette, w, h, scale)
+        self._dispatch_render(surf, w, h, scale)
 
-    def render(self, surf: Surface, pal: Palette, width: int, height: int, scale: float) -> None:
+    def _dispatch_render(self, surf: Surface, width: int, height: int, scale: float) -> None:
+        try:
+            self.render(surf, self._palette, width, height, scale)
+        except TypeError:
+            self.render(surf, width, height, scale)
+
+    def render(self, surf: Surface, *args, **kwargs) -> None:
         """Subclasses override this method to render vector graphics."""
         pass
 

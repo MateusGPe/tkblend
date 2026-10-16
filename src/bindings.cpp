@@ -1,7 +1,6 @@
 #include "tkblend.hpp"
 #include "style_engine.hpp"
 #include "surface_registry.hpp"
-#include "native_decorator.hpp"
 #include "native_controller.hpp"
 
 #include <nanobind/nanobind.h>
@@ -64,6 +63,13 @@ void bind_color(nb::module_& m) {
         .def("lerp", &Color::lerp, nb::arg("other"), nb::arg("t"))
         .def("with_alpha", &Color::with_alpha, nb::arg("new_a"))
         .def("with_alpha_f", &Color::with_alpha_f, nb::arg("new_a"))
+        .def("relative_luminance", &Color::relative_luminance)
+        .def("get_contrast_color", [](const Color& c, std::optional<Color> light_fg, std::optional<Color> dark_fg) {
+            Color l = light_fg.value_or(Color(255, 255, 255, 255));
+            Color d = dark_fg.value_or(Color(15, 23, 42, 255));
+            return c.get_contrast_color(l, d);
+        }, nb::arg("light_fg") = nb::none(), nb::arg("dark_fg") = nb::none())
+        .def("to_hex", &Color::to_hex, nb::arg("include_alpha") = false)
         .def("__eq__", [](const Color& a, const Color& b) {
             return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
         })
@@ -947,12 +953,23 @@ void bind_style_engine(nb::module_& m) {
         .def_static("resolve_string", [](const std::string& val, const std::string& fallback, const std::string& theme_name) {
             return StyleEngine::instance().resolve_string(val, fallback, theme_name);
         }, nb::arg("val"), nb::arg("fallback") = "", nb::arg("theme_name") = "")
+        .def_static("resolve_var_string", [](const std::string& val, const std::string& theme_name) {
+            return StyleEngine::instance().resolve_var_string(val, 0, theme_name);
+        }, nb::arg("val"), nb::arg("theme_name") = "")
+        .def_static("get_contrast_color", [](const Color& bg, std::optional<Color> light_fg, std::optional<Color> dark_fg) {
+            Color l = light_fg.value_or(Color(255, 255, 255, 255));
+            Color d = dark_fg.value_or(Color(15, 23, 42, 255));
+            return StyleEngine::instance().get_contrast_color(bg, l, d);
+        }, nb::arg("bg"), nb::arg("light_fg") = nb::none(), nb::arg("dark_fg") = nb::none())
         .def_static("set_variable", [](const std::string& key, const std::string& val, const std::string& theme_name) {
             StyleEngine::instance().set_variable(key, val, theme_name);
         }, nb::arg("key"), nb::arg("val"), nb::arg("theme_name") = "")
         .def_static("get_variable", [](const std::string& key, const std::string& theme_name) {
             return StyleEngine::instance().get_variable(key, theme_name);
         }, nb::arg("key"), nb::arg("theme_name") = "")
+        .def_static("get_all_variables", [](const std::string& theme_name) {
+            return StyleEngine::instance().get_all_variables(theme_name);
+        }, nb::arg("theme_name") = "")
         .def_static("clear_cache", []() {
             StyleEngine::instance().clear_cache();
         });
@@ -1183,93 +1200,6 @@ void bind_surface_registry(nb::module_& m) {
         .def("clear_all", &SurfaceRegistry::clear_all);
 }
 
-void bind_native_decorator(nb::module_& m) {
-    nb::class_<NativeDecorator>(m, "NativeDecorator")
-        .def(nb::init<uintptr_t, const std::string&, const std::string&, int, int>(),
-             nb::arg("interp_addr"),
-             nb::arg("parent_path"),
-             nb::arg("widget_name"),
-             nb::arg("width") = 200,
-             nb::arg("height") = 45)
-        .def_prop_ro("path", &NativeDecorator::path)
-        .def_prop_ro("is_attached", &NativeDecorator::is_attached)
-        .def_prop_ro("child_path", &NativeDecorator::child_path)
-        .def_prop_rw("is_focused", &NativeDecorator::is_focused, &NativeDecorator::set_focused)
-        .def("set_focused", &NativeDecorator::set_focused, nb::arg("focused"))
-        .def_prop_rw("is_hovered", &NativeDecorator::is_hovered, &NativeDecorator::set_hovered)
-        .def("set_hovered", &NativeDecorator::set_hovered, nb::arg("hovered"))
-        .def("attach_child", &NativeDecorator::attach_child, nb::arg("child_path"))
-        .def("detach_child", &NativeDecorator::detach_child)
-        .def("set_geometry_request", &NativeDecorator::set_geometry_request, nb::arg("width"), nb::arg("height"))
-        .def("request_redraw", &NativeDecorator::request_redraw)
-        .def("get_insets", &NativeDecorator::get_insets)
-        .def("update_child_shape", &NativeDecorator::update_child_shape)
-        .def("set_style", &NativeDecorator::set_style,
-             nb::arg("bg_color") = nb::none(),
-             nb::arg("hover_bg_color") = nb::none(),
-             nb::arg("focus_bg_color") = nb::none(),
-             nb::arg("parent_bg") = nb::none(),
-             nb::arg("border_color") = nb::none(),
-             nb::arg("border_hover_color") = nb::none(),
-             nb::arg("border_focus_color") = nb::none(),
-             nb::arg("border_width") = nb::none(),
-             nb::arg("rx") = nb::none(),
-             nb::arg("ry") = nb::none(),
-             nb::arg("shadow_color") = nb::none(),
-             nb::arg("shadow_blur") = nb::none(),
-             nb::arg("shadow_spread") = nb::none(),
-             nb::arg("shadow_offset_x") = nb::none(),
-             nb::arg("shadow_offset_y") = nb::none(),
-             nb::arg("shadow_enabled") = nb::none(),
-             nb::arg("focus_ring_color") = nb::none(),
-             nb::arg("focus_ring_width") = nb::none(),
-             nb::arg("focus_ring_offset") = nb::none(),
-             nb::arg("clip_child") = nb::none(),
-             nb::arg("child_rx") = nb::none(),
-             nb::arg("child_ry") = nb::none()
-        )
-        .def_prop_rw("clip_child", &NativeDecorator::clip_child, &NativeDecorator::set_clip_child)
-        .def("set_clip_child", &NativeDecorator::set_clip_child, nb::arg("clip"))
-        .def_prop_rw("child_rx", &NativeDecorator::child_rx, &NativeDecorator::set_child_rx)
-        .def("set_child_rx", &NativeDecorator::set_child_rx, nb::arg("rx"))
-        .def_prop_rw("child_ry", &NativeDecorator::child_ry, &NativeDecorator::set_child_ry)
-        .def("set_child_ry", &NativeDecorator::set_child_ry, nb::arg("ry"))
-        .def_prop_rw("bg_color", &NativeDecorator::bg_color, &NativeDecorator::set_bg_color)
-        .def_prop_rw("hover_bg_color", &NativeDecorator::hover_bg_color, &NativeDecorator::set_hover_bg_color)
-        .def_prop_rw("focus_bg_color", &NativeDecorator::focus_bg_color, &NativeDecorator::set_focus_bg_color)
-        .def_prop_rw("parent_bg", &NativeDecorator::parent_bg, &NativeDecorator::set_parent_bg)
-        .def_prop_rw("border_color", &NativeDecorator::border_color, &NativeDecorator::set_border_color)
-        .def_prop_rw("border_hover_color", &NativeDecorator::border_hover_color, &NativeDecorator::set_border_hover_color)
-        .def_prop_rw("border_focus_color", &NativeDecorator::border_focus_color, &NativeDecorator::set_border_focus_color)
-        .def_prop_rw("border_width", &NativeDecorator::border_width, &NativeDecorator::set_border_width)
-        .def_prop_rw("rx", &NativeDecorator::rx, &NativeDecorator::set_rx)
-        .def_prop_rw("ry", &NativeDecorator::ry, &NativeDecorator::set_ry)
-        .def_prop_rw("shadow_color", &NativeDecorator::shadow_color, &NativeDecorator::set_shadow_color)
-        .def_prop_rw("shadow_blur", &NativeDecorator::shadow_blur, &NativeDecorator::set_shadow_blur)
-        .def_prop_rw("shadow_spread", &NativeDecorator::shadow_spread, &NativeDecorator::set_shadow_spread)
-        .def_prop_rw("shadow_offset_x", &NativeDecorator::shadow_offset_x, &NativeDecorator::set_shadow_offset_x)
-        .def_prop_rw("shadow_offset_y", &NativeDecorator::shadow_offset_y, &NativeDecorator::set_shadow_offset_y)
-        .def_prop_rw("shadow_enabled", &NativeDecorator::shadow_enabled, &NativeDecorator::set_shadow_enabled)
-        .def_prop_rw("focus_ring_color", &NativeDecorator::focus_ring_color, &NativeDecorator::set_focus_ring_color)
-        .def_prop_rw("focus_ring_width", &NativeDecorator::focus_ring_width, &NativeDecorator::set_focus_ring_width)
-        .def_prop_rw("focus_ring_offset", &NativeDecorator::focus_ring_offset, &NativeDecorator::set_focus_ring_offset)
-        // CSS Classes, dynamic vars, and DrawBatch
-        .def("add_class", &NativeDecorator::add_class, nb::arg("name"))
-        .def("remove_class", &NativeDecorator::remove_class, nb::arg("name"))
-        .def("toggle_class", &NativeDecorator::toggle_class, nb::arg("name"))
-        .def("has_class", &NativeDecorator::has_class, nb::arg("name"))
-        .def_prop_rw("classes", &NativeDecorator::get_classes, &NativeDecorator::set_classes)
-        .def_prop_rw("class_name", &NativeDecorator::class_name, &NativeDecorator::set_class_name)
-        .def("set_var", &NativeDecorator::set_var, nb::arg("key"), nb::arg("val"))
-        .def("get_var", &NativeDecorator::get_var, nb::arg("key"))
-        .def("remove_var", &NativeDecorator::remove_var, nb::arg("key"))
-        .def("clear_vars", &NativeDecorator::clear_vars)
-        .def("get_vars", &NativeDecorator::get_vars)
-        .def("bind_batch", &NativeDecorator::bind_batch, nb::arg("batch"))
-        .def("clear_batch", &NativeDecorator::clear_batch)
-        .def_prop_ro("has_batch", &NativeDecorator::has_batch);
-}
-
 void bind_native_controller(nb::module_& m) {
     nb::enum_<ControllerPseudoState>(m, "ControllerPseudoState", nb::is_arithmetic())
         .value("Normal", ControllerPseudoState::StateNormal)
@@ -1355,7 +1285,6 @@ NB_MODULE(_tkblend, m) {
     tkblend::bind_style_engine(m);
     tkblend::bind_surface_handle(m);
     tkblend::bind_surface_registry(m);
-    tkblend::bind_native_decorator(m);
     tkblend::bind_native_controller(m);
 }
 

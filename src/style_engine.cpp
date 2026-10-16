@@ -170,6 +170,34 @@ std::string StyleEngine::get_variable(const std::string& key, const std::string&
     return "";
 }
 
+std::unordered_map<std::string, std::string> StyleEngine::get_all_variables(const std::string& theme_name) const {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    std::unordered_map<std::string, std::string> result;
+    std::string eff_theme = theme_name.empty() ? current_theme_ : theme_name;
+
+    // Start with dark theme defaults if not already dark
+    if (eff_theme != "dark") {
+        auto it_dark = theme_variables_.find("dark");
+        if (it_dark != theme_variables_.end()) {
+            for (const auto& [id, raw_val] : it_dark->second) {
+                if (id < id_to_token_.size()) {
+                    result[id_to_token_[id]] = resolve_var_string(raw_val, 0, eff_theme);
+                }
+            }
+        }
+    }
+
+    auto it_theme = theme_variables_.find(eff_theme);
+    if (it_theme != theme_variables_.end()) {
+        for (const auto& [id, raw_val] : it_theme->second) {
+            if (id < id_to_token_.size()) {
+                result[id_to_token_[id]] = resolve_var_string(raw_val, 0, eff_theme);
+            }
+        }
+    }
+    return result;
+}
+
 std::string StyleEngine::resolve_var_string(const std::string& val, int depth, const std::string& theme_name) const {
     if (depth > 8) return val;
     std::string s = trim(val);
@@ -305,7 +333,7 @@ Color StyleEngine::resolve_color(const std::string& color_str) const {
         return resolve_color(token_val2);
     }
 
-    return Color(0, 0, 0, 255);
+    return Color(0, 0, 0, 0);
 }
 
 Color StyleEngine::resolve_color_var(const std::string& val, const Color& fallback, const std::string& theme_name) const {
@@ -313,7 +341,18 @@ Color StyleEngine::resolve_color_var(const std::string& val, const Color& fallba
     std::string s = resolve_var_string(val, 0, theme_name);
     s = trim(s);
     if (s.empty()) return fallback;
-    return resolve_color(s);
+    Color c = resolve_color(s);
+    if (c.a == 0 && c.r == 0 && c.g == 0 && c.b == 0) {
+        std::string low = to_lower(s);
+        if (low != "transparent" && low != "none" && low != "#00000000" && low != "#0000") {
+            return fallback;
+        }
+    }
+    return c;
+}
+
+Color StyleEngine::get_contrast_color(const Color& bg, const Color& light_fg, const Color& dark_fg) const {
+    return bg.get_contrast_color(light_fg, dark_fg);
 }
 
 double StyleEngine::resolve_scalar(const std::string& val, double fallback, const std::string& theme_name) const {

@@ -2,7 +2,6 @@ import tkinter as tk
 import pytest
 from tkblend._tkblend import DrawBatch, StyleEngine, Color, Surface as _NativeSurface
 from tkblend.surface import Surface
-from tkblend.decorator import BlendDecorator
 from tkblend.controller import NativeController
 from tkblend.widgets.base import BaseControl
 from tkblend.theme import set_theme
@@ -44,10 +43,12 @@ def test_draw_batch_variable_execution_on_surface():
     # Successfully rendered without error
 
 
-def test_decorator_bind_batch_zero_python(root):
+def test_controller_bind_batch_zero_python(root):
     set_theme("dark")
-    dec = BlendDecorator(root, width=150, height=60)
+    frame = tk.Frame(root, width=150, height=60)
+    frame.pack()
     root.update_idletasks()
+    ctrl = NativeController(frame)
 
     # Create C++ DrawBatch
     batch = DrawBatch()
@@ -59,18 +60,18 @@ def test_decorator_bind_batch_zero_python(root):
         fallback=Color(0, 128, 255, 255)
     )
 
-    # Bind batch to decorator
-    dec.bind_batch(batch)
-    assert dec.has_batch
+    # Bind batch to controller
+    ctrl.bind_batch(batch)
+    assert ctrl.has_batch
 
     # Set local variables and redraw
-    dec.set_var("--accent-col", "#ff0088")
-    dec.set_var("--card-rx", "20.0")
+    ctrl.set_var("--accent-col", "#ff0088")
+    ctrl.set_var("--card-rx", "20.0")
     root.update_idletasks()
 
     # Clear batch returns to default
-    dec.clear_batch()
-    assert not dec.has_batch
+    ctrl.clear_batch()
+    assert not ctrl.has_batch
 
 
 def test_base_control_batch_binding(root):

@@ -17,7 +17,7 @@ from tkblend import (
     get_available_themes,
     apply_theme,
     flush_theme_queue,
-    BlendDecorator,
+    Card,
     BlendCanvas,
 )
 
@@ -39,22 +39,22 @@ def test_multistep_theme_cycling_colors(tk_root):
     root = tk_root
     pal = get_theme()
     
-    # Left Column: Standard controls decorated by BlendDecorator
-    dec1 = BlendDecorator(root, radius=12, width=380, height=250, shadow_blur=8)
-    dec1.pack(side="left", padx=15, pady=15, fill="both", expand=True)
+    # Left Column: Standard controls hosted in Card
+    card1 = Card(root, corner_radius=12, width=380, height=250, shadow_blur=8)
+    card1.pack(side="left", padx=15, pady=15, fill="both", expand=True)
     
-    lbl1 = tk.Label(dec1, text="Decorated Label", font=("Segoe UI", 12, "bold"))
+    lbl1 = tk.Label(card1, text="Decorated Label", font=("Segoe UI", 12, "bold"))
     lbl1.pack(pady=8)
-    entry1 = ttk.Entry(dec1)
+    entry1 = ttk.Entry(card1)
     entry1.pack(pady=8)
-    btn1 = ttk.Button(dec1, text="Action Button")
+    btn1 = ttk.Button(card1, text="Action Button")
     btn1.pack(pady=8)
 
-    # Right Column: Canvas & secondary decorator
-    dec2 = BlendDecorator(root, radius=16, width=380, height=250, shadow_blur=10)
-    dec2.pack(side="right", padx=15, pady=15, fill="both", expand=True)
+    # Right Column: Canvas & secondary card
+    card2 = Card(root, corner_radius=16, width=380, height=250, shadow_blur=10)
+    card2.pack(side="right", padx=15, pady=15, fill="both", expand=True)
     
-    canvas = BlendCanvas(dec2, width=300, height=150)
+    canvas = BlendCanvas(card2, width=300, height=150)
     canvas.pack(pady=10)
 
     root.update()

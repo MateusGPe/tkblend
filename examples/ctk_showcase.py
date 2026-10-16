@@ -15,7 +15,7 @@ from typing import Optional
 
 import tkblend as tb
 from tkblend import (
-    BlendDecorator,
+    Card,
     get_theme,
     set_theme,
 )
@@ -42,7 +42,7 @@ class CTKBridgeInfoFrame(tk.Frame):
         pal = get_theme()
         self.configure(background=pal.bg)
 
-        card = BlendDecorator(self, radius=16, bg_color=pal.card_bg, shadow_blur=8, shadow_enabled=True)
+        card = Card(self, corner_radius=16, bg_color=pal.card_bg, shadow_blur=8, shadow=True)
         card.pack(fill="both", expand=True, padx=24, pady=24)
 
         body = tk.Frame(card, bg=pal.card_bg)
@@ -76,7 +76,7 @@ class CTKBridgeInfoFrame(tk.Frame):
         info_lbl.pack(anchor="w", padx=16, pady=12)
 
         # Code snippet display
-        code_card = BlendDecorator(body, radius=10, bg_color=pal.input_bg, shadow_blur=4, shadow_enabled=True)
+        code_card = Card(body, corner_radius=10, bg_color=pal.input_bg, shadow_blur=4, shadow=True)
         code_card.pack(fill="both", expand=True, padx=16, pady=8)
 
         code_text = (

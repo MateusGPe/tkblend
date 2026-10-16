@@ -357,7 +357,6 @@ set(TKBLEND_SOURCES
     src/draw_batch.cpp
     src/style_engine.cpp
     src/surface.cpp
-    src/native_decorator.cpp
     src/native_controller.cpp
     src/window_shape.cpp
     src/bindings.cpp

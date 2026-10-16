@@ -19,7 +19,7 @@ from tkblend import (
     load_theme_dir,
     THEME_PRESETS,
     Palette,
-    BlendDecorator,
+    Card,
     get_contrast_color,
     SLATE_PALETTE,
 )
@@ -143,9 +143,9 @@ def test_custom_theme_dir_loading(tmp_path):
 
 
 def test_soft_shadow_rendering(tk_root):
-    """Verify BlendDecorator renders with soft Gaussian elevation shadows without clipping."""
+    """Verify Card renders with soft Gaussian elevation shadows without clipping."""
     set_theme("dark")
-    card = BlendDecorator(tk_root, width=300, height=200, shadow_blur=12.0, shadow_enabled=True)
+    card = Card(tk_root, width=300, height=200, shadow_blur=12.0, shadow=True)
     card.update_idletasks()
     assert card.winfo_reqwidth() > 0
     assert card.winfo_reqheight() > 0
