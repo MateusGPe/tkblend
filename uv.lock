@@ -815,19 +815,6 @@ wheels = [
 ]
 
 [[package]]
-name = "customtkinter"
-version = "6.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "darkdetect" },
-    { name = "packaging" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c4/36/aee6ed9171a5a232da66a8b257752bd03d25b487c9d67ba367ad159bd976/customtkinter-6.0.0.tar.gz", hash = "sha256:c782df167bc64ab3fc3140286df06967ac2de4dcc97dd5958426fe9c1a98057b", size = 267195, upload-time = "2026-06-24T20:14:32.144Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/63/e2d3387432c5a94dec64031c86b5ba737216de7e7490abb55efd64dec054/customtkinter-6.0.0-py3-none-any.whl", hash = "sha256:704fcbf1d2fca06bd7881b0afacfae72aed9864c9b6de2870e632e55eb3a0456", size = 302166, upload-time = "2026-06-24T20:14:30.191Z" },
-]
-
-[[package]]
 name = "darkdetect"
 version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2051,7 +2038,6 @@ dev = [
     { name = "cibuildwheel", version = "4.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "coverage", version = "7.10.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "coverage", version = "7.16.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "customtkinter" },
     { name = "darkdetect" },
     { name = "gcovr", version = "8.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "gcovr", version = "8.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -2060,14 +2046,8 @@ dev = [
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pytest", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest-cov" },
-    { name = "ttkbootstrap", version = "1.18.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "ttkbootstrap", version = "2.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "twine", version = "6.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "twine", version = "7.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-]
-ttkbootstrap = [
-    { name = "ttkbootstrap", version = "1.18.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "ttkbootstrap", version = "2.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 
 [package.metadata]
@@ -2075,18 +2055,15 @@ requires-dist = [
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "cibuildwheel", marker = "extra == 'dev'", specifier = ">=2.19.0" },
     { name = "coverage", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "customtkinter", marker = "extra == 'dev'", specifier = ">=5.2.0" },
     { name = "darkdetect", marker = "extra == 'autotheme'", specifier = ">=0.8.0" },
     { name = "darkdetect", marker = "extra == 'dev'", specifier = ">=0.8.0" },
     { name = "gcovr", marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "pillow", marker = "extra == 'dev'", specifier = ">=9.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1.0" },
-    { name = "ttkbootstrap", marker = "extra == 'dev'", specifier = ">=1.10.0" },
-    { name = "ttkbootstrap", marker = "extra == 'ttkbootstrap'", specifier = ">=1.10.0" },
     { name = "twine", marker = "extra == 'dev'", specifier = ">=4.0.0" },
 ]
-provides-extras = ["ttkbootstrap", "autotheme", "dev"]
+provides-extras = ["autotheme", "dev"]
 
 [[package]]
 name = "tomli"
@@ -2140,38 +2117,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/12/64/da524626d3b9cc40c168a13da8335fe1c51be12c0a63685cc6db7308daae/tomli-2.4.1-cp314-cp314t-win_amd64.whl", hash = "sha256:2c1c351919aca02858f740c6d33adea0c5deea37f9ecca1cc1ef9e884a619d26", size = 121196, upload-time = "2026-03-25T20:22:01.169Z" },
     { url = "https://files.pythonhosted.org/packages/5a/cd/e80b62269fc78fc36c9af5a6b89c835baa8af28ff5ad28c7028d60860320/tomli-2.4.1-cp314-cp314t-win_arm64.whl", hash = "sha256:eab21f45c7f66c13f2a9e0e1535309cee140182a9cdae1e041d02e47291e8396", size = 100393, upload-time = "2026-03-25T20:22:02.137Z" },
     { url = "https://files.pythonhosted.org/packages/7b/61/cceae43728b7de99d9b847560c262873a1f6c98202171fd5ed62640b494b/tomli-2.4.1-py3-none-any.whl", hash = "sha256:0d85819802132122da43cb86656f8d1f8c6587d54ae7dcaf30e90533028b49fe", size = 14583, upload-time = "2026-03-25T20:22:03.012Z" },
-]
-
-[[package]]
-name = "ttkbootstrap"
-version = "1.18.2"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version > '3.9' and python_full_version < '3.10'",
-    "python_full_version <= '3.9'",
-]
-dependencies = [
-    { name = "pillow", version = "11.3.0", source = { registry = "https://pypi.org/simple" } },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a4/9d/9e83d2daaf571af324e2e65d0a881dd8330aeddfd6078adc0406e0b51751/ttkbootstrap-1.18.2.tar.gz", hash = "sha256:fb44c5a38e277a801039b0257e8faa657d2a291c7c8baf0d14a64180959c5109", size = 173473, upload-time = "2025-11-11T08:44:50.264Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a2/8c/7b300210730684f80a79b09410319a19b8aab013121d1bab0dcf985317c8/ttkbootstrap-1.18.2-py3-none-any.whl", hash = "sha256:0f508ab5eb0ff5472356147ff15c9e553f887b1eb6c0ea2ec30d9837d8dcf3ab", size = 189911, upload-time = "2025-11-11T08:44:48.158Z" },
-]
-
-[[package]]
-name = "ttkbootstrap"
-version = "2.2.3"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.11'",
-    "python_full_version == '3.10.*'",
-]
-dependencies = [
-    { name = "pillow", version = "12.3.0", source = { registry = "https://pypi.org/simple" } },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/7b/36/c90cc09fc6d5b33f8b8a0cbe6d83e1e58b3df743189777245e1f18eb055a/ttkbootstrap-2.2.3.tar.gz", hash = "sha256:31b71ca273e2cd2fc354f9f736498bb334209703aea22a0abc076b6231dcfc0f", size = 604551, upload-time = "2026-09-12T20:01:25.975Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/cd/45eeaabad8d1a162fd300813da4be4669dd7b531ae14b24ee840e99bfbf3/ttkbootstrap-2.2.3-py3-none-any.whl", hash = "sha256:00db93ee9d064d2d7bcac2158ca2d852f2844277d0da0a526163077ca9623417", size = 553505, upload-time = "2026-09-12T20:01:21.517Z" },
 ]
 
 [[package]]

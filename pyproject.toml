@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: C++",
     "Topic :: Multimedia :: Graphics",
     "Topic :: Software Development :: User Interfaces",
@@ -29,9 +30,6 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-ttkbootstrap = [
-    "ttkbootstrap>=1.10.0",
-]
 autotheme = [
     "darkdetect>=0.8.0",
 ]
@@ -43,10 +41,8 @@ dev = [
     "build>=1.0.0",
     "twine>=4.0.0",
     "cibuildwheel>=2.19.0",
-    "ttkbootstrap>=1.10.0",
     "darkdetect>=0.8.0",
     "Pillow>=9.0.0",
-    "customtkinter>=5.2.0",
 ]
 
 
@@ -95,7 +91,7 @@ exclude_lines = [
 # Build CPython 3.9 through 3.13
 build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
 skip = "pp* *musllinux* cp36-* cp37-* cp38-*"
-test-requires = ["pytest", "Pillow", "customtkinter"]
+test-requires = ["pytest", "Pillow"]
 test-command = "pytest {project}/tests"
 
 [tool.cibuildwheel.linux]

@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-14, windows-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
         exclude:
           # macos-14 runner is ARM64 and only supports Python >= 3.10
           - os: macos-14
@@ -61,13 +61,13 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install cmake ninja nanobind scikit-build-core pytest Pillow customtkinter ttkbootstrap darkdetect
+          python -m pip install cmake ninja nanobind scikit-build-core pytest Pillow darkdetect
 
       - name: Install Windows build tools & dependencies
         if: runner.os == 'Windows'
         run: |
           micromamba run -n tkblend-tcltk python -m pip install --upgrade pip setuptools wheel
-          micromamba run -n tkblend-tcltk python -m pip install cmake ninja nanobind scikit-build-core pytest Pillow customtkinter ttkbootstrap darkdetect
+          micromamba run -n tkblend-tcltk python -m pip install cmake ninja nanobind scikit-build-core pytest Pillow darkdetect
 
       - name: Verify Windows tkinter
         if: runner.os == 'Windows'
@@ -121,7 +121,7 @@ jobs:
       - name: Install build tools & test dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install cmake ninja nanobind scikit-build-core pytest Pillow customtkinter ttkbootstrap darkdetect
+          python -m pip install cmake ninja nanobind scikit-build-core pytest Pillow darkdetect
 
       - name: Run ASan & UBSan Sanitizer Test Suite
         run: |
@@ -150,7 +150,7 @@ jobs:
       - name: Install build tools & coverage dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install cmake ninja nanobind scikit-build-core pytest pytest-cov coverage gcovr Pillow customtkinter ttkbootstrap darkdetect
+          python -m pip install cmake ninja nanobind scikit-build-core pytest pytest-cov coverage gcovr Pillow darkdetect
 
       - name: Run Dual Coverage Suite (Python + C++)
         run: |
@@ -169,3 +169,95 @@ jobs:
         with:
           name: cpp-coverage-report
           path: build/coverage/cpp_html/
+
+  windows_direct_link:
+    name: Windows Direct-Link Validation (Py 3.12)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Windows Tcl/Tk development files
+        id: tcltk
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-name: tkblend-tcltk-direct
+          create-args: >-
+            --channel conda-forge
+            python=3.12
+            tk=8.6.13
+          init-shell: none
+
+      - name: Install Windows build tools & dependencies
+        run: |
+          micromamba run -n tkblend-tcltk-direct python -m pip install --upgrade pip setuptools wheel
+          micromamba run -n tkblend-tcltk-direct python -m pip install cmake ninja nanobind scikit-build-core pytest Pillow darkdetect
+
+      - name: Verify Windows tkinter
+        run: micromamba run -n tkblend-tcltk-direct python -c "import tkinter; print(tkinter.TkVersion)"
+
+      - name: Build and install tkblend (Direct-Link mode)
+        run: micromamba run -n tkblend-tcltk-direct python -m pip install -e . --no-build-isolation -v -Ccmake.define.TKBLEND_PURE_STUBS=OFF
+        env:
+          CMAKE_PREFIX_PATH: ${{ steps.tcltk.outputs.environment-path }}/Library
+          CMAKE_ARGS: "-DTKBLEND_PURE_STUBS=OFF"
+
+      - name: Verify PE imports for direct Tk linking
+        run: |
+          micromamba run -n tkblend-tcltk-direct python -c "
+          import glob, struct, sys
+
+          pyd_files = glob.glob('tkblend/_tkblend*.pyd')
+          if not pyd_files:
+              print('Error: Could not find _tkblend*.pyd in tkblend/', file=sys.stderr)
+              sys.exit(1)
+
+          pyd_path = pyd_files[0]
+          print(f'Inspecting PE imports for: {pyd_path}')
+
+          with open(pyd_path, 'rb') as f:
+              data = f.read()
+
+          e_lfanew = struct.unpack_from('<I', data, 0x3C)[0]
+          magic = struct.unpack_from('<H', data, e_lfanew + 24)[0]
+
+          if magic == 0x20B:
+              import_rva, import_size = struct.unpack_from('<II', data, e_lfanew + 24 + 120)
+          else:
+              import_rva, import_size = struct.unpack_from('<II', data, e_lfanew + 24 + 104)
+
+          num_sections = struct.unpack_from('<H', data, e_lfanew + 6)[0]
+          opt_header_size = struct.unpack_from('<H', data, e_lfanew + 20)[0]
+          section_offset = e_lfanew + 24 + opt_header_size
+
+          def rva_to_offset(rva):
+              for i in range(num_sections):
+                  sec = section_offset + i * 40
+                  sec_vsize, sec_va, sec_raw_size, sec_raw_offset = struct.unpack_from('<IIII', data, sec + 8)
+                  if sec_va <= rva < sec_va + max(sec_vsize, sec_raw_size):
+                      return sec_raw_offset + (rva - sec_va)
+              return None
+
+          imports = []
+          curr = rva_to_offset(import_rva)
+          while curr is not None and curr + 20 <= len(data):
+              orig_first_thunk, ts, fchain, name_rva, first_thunk = struct.unpack_from('<IIIII', data, curr)
+              if name_rva == 0:
+                  break
+              name_offset = rva_to_offset(name_rva)
+              if name_offset:
+                  name = data[name_offset:data.find(b'\x00', name_offset)].decode('ascii', errors='ignore')
+                  imports.append(name.lower())
+              curr += 20
+
+          print(f'Imported DLLs: {imports}')
+          assert any('tk86' in imp or 'tk' in imp for imp in imports), f'Expected direct link to Tk DLL in PE imports, found: {imports}'
+          print('Verified: Direct link to Tk is active in PE imports.')
+          "
+
+      - name: Run tests (Windows Direct-Link)
+        run: |
+          micromamba run -n tkblend-tcltk-direct python -m pytest -v -m "not slow"
+
