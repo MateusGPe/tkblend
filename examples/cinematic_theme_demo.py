@@ -53,8 +53,8 @@ class CinematicDemoApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("tkblend — Cinematic Theme (Peacock Teal & Warm Amber)")
-        self.geometry("980x760")
-        self.minsize(860, 640)
+        self.geometry("1060x800")
+        self.minsize(920, 680)
 
         tb.set_theme("cinematic")
         pal = tb.get_theme()
@@ -88,7 +88,7 @@ class CinematicDemoApp(tk.Tk):
 
         tk.Label(
             header,
-            text="Blockbuster color grade: glowing warm amber interactive controls & deep peacock teal primary elements.",
+            text="Blockbuster color grade: pure flat tonal surfaces, zero borders & shadows, glowing warm amber focus & highlights.",
             font=("sans-serif", 9),
             fg=pal.fg_subtle,
             bg=pal.bg,
@@ -112,7 +112,7 @@ class CinematicDemoApp(tk.Tk):
         # ----------------------------------------------------------------------
         # Card 1: Buttons & Actions (Left)
         # ----------------------------------------------------------------------
-        c_btn = Card(col_left, width=430, height=215)
+        c_btn = Card(col_left, width=430, height=225, auto_height=True)
         c_btn.pack(fill="x", pady=(0, 12))
 
         c_btn_content = c_btn.content
@@ -128,25 +128,25 @@ class CinematicDemoApp(tk.Tk):
         btn_row1 = tk.Frame(c_btn_content, bg=pal.card_bg)
         btn_row1.pack(fill="x", pady=(0, 4))
 
-        b_pri = Button(btn_row1, text="Primary Teal", variant="primary", width=125, height=32)
+        b_pri = Button(btn_row1, text="Primary Teal", variant="primary", width=130, height=34, auto_fit=True)
         b_pri.pack(side="left", padx=(0, 6))
 
-        b_acc = Button(btn_row1, text="Amber Accent", variant="accent", width=125, height=32)
+        b_acc = Button(btn_row1, text="Amber Accent", variant="accent", width=130, height=34, auto_fit=True)
         b_acc.pack(side="left", padx=4)
 
-        b_sec = Button(btn_row1, text="Secondary", variant="secondary", width=115, height=32)
+        b_sec = Button(btn_row1, text="Secondary", variant="secondary", width=120, height=34, auto_fit=True)
         b_sec.pack(side="left", padx=4)
 
         btn_row2 = tk.Frame(c_btn_content, bg=pal.card_bg)
         btn_row2.pack(fill="x", pady=(0, 8))
 
-        b_out = Button(btn_row2, text="Outline Teal", variant="outline", width=125, height=32)
+        b_out = Button(btn_row2, text="Tinted Teal", variant="outline", width=130, height=34, auto_fit=True)
         b_out.pack(side="left", padx=(0, 6))
 
-        b_ghost = Button(btn_row2, text="Flat Ghost", variant="ghost", width=125, height=32)
+        b_ghost = Button(btn_row2, text="Flat Ghost", variant="ghost", width=130, height=34, auto_fit=True)
         b_ghost.pack(side="left", padx=4)
 
-        b_dang = Button(btn_row2, text="Destructive", variant="destructive", width=115, height=32)
+        b_dang = Button(btn_row2, text="Destructive", variant="destructive", width=120, height=34, auto_fit=True)
         b_dang.pack(side="left", padx=4)
 
         # Segmented Button
@@ -163,14 +163,14 @@ class CinematicDemoApp(tk.Tk):
             values=["Analytics", "Telemetry", "Diagnostics"],
             default_value="Analytics",
             width=380,
-            height=30,
+            height=32,
         )
         seg.pack(anchor="w")
 
         # ----------------------------------------------------------------------
         # Card 2: Form Toggles & Switches (Right) - Warm Amber Interactive Controls
         # ----------------------------------------------------------------------
-        c_toggle = Card(col_right, width=430, height=215)
+        c_toggle = Card(col_right, width=430, height=225, auto_height=True)
         c_toggle.pack(fill="x", pady=(0, 12))
 
         c_tog_content = c_toggle.content
@@ -220,7 +220,7 @@ class CinematicDemoApp(tk.Tk):
         # ----------------------------------------------------------------------
         # Card 3: Metrics, Sliders & Gauges (Left)
         # ----------------------------------------------------------------------
-        c_metrics = Card(col_left, width=430, height=195)
+        c_metrics = Card(col_left, width=430, height=210, auto_height=True)
         c_metrics.pack(fill="x", pady=(0, 12))
 
         c_met_content = c_metrics.content
@@ -255,7 +255,7 @@ class CinematicDemoApp(tk.Tk):
         # ----------------------------------------------------------------------
         # Card 4: Inputs & Circular Progress (Right)
         # ----------------------------------------------------------------------
-        c_inputs = Card(col_right, width=430, height=195)
+        c_inputs = Card(col_right, width=430, height=210, auto_height=True)
         c_inputs.pack(fill="x", pady=(0, 12))
 
         c_inp_content = c_inputs.content
@@ -310,7 +310,7 @@ class CinematicDemoApp(tk.Tk):
         # ----------------------------------------------------------------------
         # Full-Width Card: High-Performance Data Table (Peacock Teal Selection)
         # ----------------------------------------------------------------------
-        c_table = Card(body, width=880, height=285)
+        c_table = Card(body, width=880, height=295, auto_height=True)
         c_table.pack(fill="x", pady=(0, 12))
 
         c_tbl_content = c_table.content

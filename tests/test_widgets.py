@@ -978,3 +978,49 @@ def test_table_light_theme_and_color_overrides(root):
     assert tbl.table_fg == "#000000"
 
     root.update_idletasks()
+
+
+def test_card_auto_height(root):
+    set_theme("dark")
+    card_fixed = Card(root, width=200, height=150, auto_height=False)
+    assert not card_fixed.auto_height
+
+    card_auto = Card(root, width=200, height=None, auto_height=True)
+    assert card_auto.auto_height
+    lbl = tk.Label(card_auto, text="Auto-sized child")
+    lbl.pack(pady=20)
+    root.update_idletasks()
+
+    card_fixed.auto_height = True
+    assert card_fixed.auto_height
+
+
+def test_button_auto_fit(root):
+    set_theme("dark")
+    btn = Button(root, text="Short", width=80, auto_fit=True)
+    btn.pack()
+    root.update_idletasks()
+    assert btn.auto_fit
+    initial_w = btn.width
+
+    # Changing to much longer text should dynamically expand button width
+    btn.text = "A Significantly Longer Button Title For Auto Fit Testing"
+    root.update_idletasks()
+    assert btn.width > initial_w
+
+
+def test_textbox_and_entry_decoration_insets(root):
+    set_theme("dark")
+    entry = Entry(root, width=200, height=38, corner_radius=12.0, border_width=2.0)
+    entry.pack()
+    root.update_idletasks()
+    pad_l, pad_r = entry._calc_padding()
+    # Inset must comfortably clear corner radius + border width
+    assert pad_l >= 12 + 2
+
+    tb_box = TextBox(root, width=280, height=140, corner_radius=10.0, border_width=1.5)
+    tb_box.pack()
+    root.update_idletasks()
+    # Check that tk.Text is placed with safe margins
+    info = tb_box._text.place_info()
+    assert int(info["x"]) >= 10

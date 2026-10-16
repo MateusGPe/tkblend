@@ -39,8 +39,8 @@ class TableDemoApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("tkblend - Dedicated Vector Table Showcase")
-        self.geometry("1020x760")
-        self.minsize(800, 600)
+        self.geometry("1080x800")
+        self.minsize(920, 640)
 
         # Start in dark mode
         self._current_theme = "dark"
@@ -80,8 +80,9 @@ class TableDemoApp(tk.Tk):
             self.header_frame,
             text="Switch to Light Theme",
             command=self._toggle_theme,
-            width=170,
+            width=180,
             height=34,
+            auto_fit=True,
         )
         self.btn_theme.pack(side="right")
 
@@ -98,7 +99,7 @@ class TableDemoApp(tk.Tk):
             text="Multi-Select Mode",
             checked=False,
             command=self._on_multiselect_toggle,
-            width=160,
+            width=170,
             height=32,
         )
         self.sw_multi.pack(side="left", padx=(0, 16))
@@ -119,8 +120,9 @@ class TableDemoApp(tk.Tk):
             tool_content,
             text="+10 Rows",
             command=lambda: self._add_rows(10),
-            width=90,
+            width=95,
             height=32,
+            auto_fit=True,
         )
         self.btn_add_10.pack(side="left", padx=(0, 8))
 
@@ -129,8 +131,9 @@ class TableDemoApp(tk.Tk):
             tool_content,
             text="+100 Rows",
             command=lambda: self._add_rows(100),
-            width=100,
+            width=105,
             height=32,
+            auto_fit=True,
         )
         self.btn_add_100.pack(side="left", padx=(0, 8))
 
@@ -139,8 +142,9 @@ class TableDemoApp(tk.Tk):
             tool_content,
             text="Clear Selection",
             command=self._clear_selection,
-            width=120,
+            width=125,
             height=32,
+            auto_fit=True,
         )
         self.btn_clear_sel.pack(side="left", padx=(0, 8))
 
@@ -149,8 +153,9 @@ class TableDemoApp(tk.Tk):
             tool_content,
             text="Reset Data",
             command=self._reset_sample_data,
-            width=100,
+            width=105,
             height=32,
+            auto_fit=True,
         )
         self.btn_reset.pack(side="right")
 

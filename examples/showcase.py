@@ -42,8 +42,8 @@ class ShowcaseApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("tkblend Vector UI Showcase - Material Design 3")
-        self.geometry("1060x860")
-        self.minsize(920, 720)
+        self.geometry("1120x880")
+        self.minsize(980, 720)
 
         # Start with dark theme
         set_theme("dark")
@@ -131,7 +131,7 @@ class ShowcaseApp(tk.Tk):
         # -------------------------------------------------------------
         # Card 1: Buttons & Interactive Push Controls (Left)
         # -------------------------------------------------------------
-        c1 = Card(col_left, width=460, height=330)
+        c1 = Card(col_left, width=460, height=330, auto_height=True)
         c1.pack(fill="x", pady=(0, 16))
 
         c1_content = tk.Frame(c1, bg=pal.card_bg)
@@ -154,8 +154,9 @@ class ShowcaseApp(tk.Tk):
             text="Clicked: 0 times",
             variant="primary",
             command=self._on_btn_click,
-            width=160,
+            width=165,
             height=38,
+            auto_fit=True,
         )
         self.btn_counter.pack(side="left", padx=(0, 10))
 
@@ -164,27 +165,28 @@ class ShowcaseApp(tk.Tk):
             text="Reset Counter",
             variant="outline",
             command=self._on_btn_reset,
-            width=130,
+            width=135,
             height=38,
+            auto_fit=True,
         )
         self.btn_reset.pack(side="left")
 
         btn_row2 = tk.Frame(c1_content, bg=pal.card_bg)
         btn_row2.pack(fill="x", pady=6)
 
-        btn_tonal = Button(btn_row2, text="Secondary", variant="secondary", width=120, height=36)
+        btn_tonal = Button(btn_row2, text="Secondary", variant="secondary", width=120, height=36, auto_fit=True)
         btn_tonal.pack(side="left", padx=(0, 8))
 
-        btn_danger = Button(btn_row2, text="Destructive", variant="destructive", width=120, height=36)
+        btn_danger = Button(btn_row2, text="Destructive", variant="destructive", width=120, height=36, auto_fit=True)
         btn_danger.pack(side="left", padx=(0, 8))
 
-        btn_ghost = Button(btn_row2, text="Ghost Action", variant="ghost", width=110, height=36)
+        btn_ghost = Button(btn_row2, text="Ghost Action", variant="ghost", width=120, height=36, auto_fit=True)
         btn_ghost.pack(side="left")
 
         self.lbl_status = Label(
             c1_content,
             text="Ready. Click any interactive button to inspect native blits.",
-            width=360,
+            width=380,
             height=26,
         )
         self.lbl_status.pack(anchor="w", pady=(14, 0))
@@ -192,7 +194,7 @@ class ShowcaseApp(tk.Tk):
         # -------------------------------------------------------------
         # Card 2: Form Toggles & Switches (Left)
         # -------------------------------------------------------------
-        c2 = Card(col_left, width=460, height=260)
+        c2 = Card(col_left, width=460, height=260, auto_height=True)
         c2.pack(fill="x", pady=(0, 16))
 
         c2_content = tk.Frame(c2, bg=pal.card_bg)
@@ -231,7 +233,7 @@ class ShowcaseApp(tk.Tk):
             text="Hardware Direct Drawable Blits",
             is_checked=True,
             command=self._on_pref_change,
-            width=240,
+            width=260,
             height=32,
         )
         self.cb_gpu.pack(anchor="w", pady=2)
@@ -239,7 +241,7 @@ class ShowcaseApp(tk.Tk):
         # -------------------------------------------------------------
         # Card 3: Text Input Fields (Left)
         # -------------------------------------------------------------
-        c_inputs = Card(col_left, width=460, height=270)
+        c_inputs = Card(col_left, width=460, height=280, auto_height=True)
         c_inputs.pack(fill="x", pady=(0, 16))
 
         c_inputs_content = tk.Frame(c_inputs, bg=pal.card_bg)
@@ -260,14 +262,14 @@ class ShowcaseApp(tk.Tk):
         self.search_entry = SearchEntry(c_inputs_content, placeholder="Search vector components...", width=380, height=38)
         self.search_entry.pack(fill="x", pady=(0, 8))
 
-        self.textbox = TextBox(c_inputs_content, width=380, height=75)
+        self.textbox = TextBox(c_inputs_content, width=380, height=85)
         self.textbox.pack(fill="x")
         self.textbox.insert("1.0", "Material Design 3 multiline text editor with native vector border highlight.")
 
         # -------------------------------------------------------------
         # Card 4: Metrics, Circular Gauges & Sliders (Right)
         # -------------------------------------------------------------
-        c3 = Card(col_right, width=460, height=400)
+        c3 = Card(col_right, width=460, height=400, auto_height=True)
         c3.pack(fill="x", pady=(0, 16))
 
         c3_content = tk.Frame(c3, bg=pal.card_bg)
@@ -359,7 +361,7 @@ class ShowcaseApp(tk.Tk):
         # -------------------------------------------------------------
         # Card 5: Sparkline Charts & Trend Analytics (Right)
         # -------------------------------------------------------------
-        c_trends = Card(col_right, width=460, height=220)
+        c_trends = Card(col_right, width=460, height=220, auto_height=True)
         c_trends.pack(fill="x", pady=(0, 16))
 
         c_trends_content = tk.Frame(c_trends, bg=pal.card_bg)
@@ -395,13 +397,13 @@ class ShowcaseApp(tk.Tk):
         # -------------------------------------------------------------
         # Card 6: Tabview Container (Right)
         # -------------------------------------------------------------
-        c_tabs = Card(col_right, width=460, height=230)
+        c_tabs = Card(col_right, width=460, height=240, auto_height=True)
         c_tabs.pack(fill="x", pady=(0, 16))
 
         c_tabs_content = tk.Frame(c_tabs, bg=pal.card_bg)
         c_tabs_content.pack(fill="both", expand=True, padx=16, pady=14)
 
-        self.tabview = Tabview(c_tabs_content, width=420, height=180)
+        self.tabview = Tabview(c_tabs_content, width=420, height=190)
         self.tabview.pack(fill="both", expand=True)
 
         tab1 = self.tabview.add("Engine")
@@ -419,7 +421,7 @@ class ShowcaseApp(tk.Tk):
         # -------------------------------------------------------------
         # Full-Width Card: High-Performance Data Table
         # -------------------------------------------------------------
-        c_tbl = Card(main_content, width=960, height=260)
+        c_tbl = Card(main_content, width=960, height=280, auto_height=True)
         c_tbl.pack(fill="x", pady=(0, 20))
 
         c_tbl_content = tk.Frame(c_tbl, bg=pal.card_bg)

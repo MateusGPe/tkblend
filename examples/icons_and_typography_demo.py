@@ -148,16 +148,16 @@ class IconsAndTypographyDemo(tk.Frame):
         btn_row1 = tk.Frame(left_inner, bg=pal.card_bg)
         btn_row1.pack(fill="x", pady=4)
 
-        Button(btn_row1, text="🚀 Launch", width=110, height=32).pack(side="left", padx=(0, 4))
-        Button(btn_row1, text="🔍 Search", width=110, height=32).pack(side="left", padx=4)
-        Button(btn_row1, text="⚙️ Settings", width=105, height=32).pack(side="left", padx=4)
+        Button(btn_row1, text="🚀 Launch", width=115, height=34, auto_fit=True).pack(side="left", padx=(0, 4))
+        Button(btn_row1, text="🔍 Search", width=115, height=34, auto_fit=True).pack(side="left", padx=4)
+        Button(btn_row1, text="⚙️ Settings", width=115, height=34, auto_fit=True).pack(side="left", padx=4)
 
         btn_row2 = tk.Frame(left_inner, bg=pal.card_bg)
         btn_row2.pack(fill="x", pady=4)
 
-        Button(btn_row2, text="📥 Download", width=110, height=30).pack(side="left", padx=(0, 4))
-        Button(btn_row2, text="▶ Play", width=110, height=30).pack(side="left", padx=4)
-        Button(btn_row2, text="🔖 Bookmark", width=105, height=30).pack(side="left", padx=4)
+        Button(btn_row2, text="📥 Download", width=115, height=32, auto_fit=True).pack(side="left", padx=(0, 4))
+        Button(btn_row2, text="▶ Play", width=105, height=32, auto_fit=True).pack(side="left", padx=4)
+        Button(btn_row2, text="🔖 Bookmark", width=115, height=32, auto_fit=True).pack(side="left", padx=4)
 
         # Vector Icon Canvas Display
         tk.Label(left_inner, text="Pure Vector Glyphs (NativeBlitCanvas)", font=("sans-serif", 11, "bold"), bg=pal.card_bg, fg=pal.fg).pack(anchor="w", pady=(12, 4))
@@ -190,13 +190,13 @@ class IconsAndTypographyDemo(tk.Frame):
 
         tk.Label(type_box, text="Display Title (18pt Bold)", font=("sans-serif", 18, "bold"), bg=pal.card_bg, fg=pal.fg).pack(anchor="w", pady=2)
         tk.Label(type_box, text="Heading 2 (13pt Bold)", font=("sans-serif", 13, "bold"), bg=pal.card_bg, fg=pal.primary).pack(anchor="w", pady=2)
-        tk.Label(type_box, text="Body Text: High-performance pure vector typography rendering directly to Tkinter drawables with zero TTK dependencies.", font=("sans-serif", 10), bg=pal.card_bg, fg=pal.fg, wraplength=340, justify="left").pack(anchor="w", pady=4)
+        tk.Label(type_box, text="Body Text: High-performance pure vector typography rendering directly to Tkinter drawables with zero TTK dependencies.", font=("sans-serif", 10), bg=pal.card_bg, fg=pal.fg, wraplength=380, justify="left").pack(anchor="w", pady=4)
         tk.Label(type_box, text="Caption / Muted metadata text (9pt)", font=("sans-serif", 9), bg=pal.card_bg, fg=pal.text_muted).pack(anchor="w", pady=2)
 
         # Multiline code preview
         tk.Label(right_inner, text="Syntax Highlight / Code Box:", font=("sans-serif", 10, "bold"), bg=pal.card_bg, fg=pal.fg).pack(anchor="w", pady=(10, 2))
 
-        tb_box = TextBox(right_inner, height=90)
+        tb_box = TextBox(right_inner, height=115)
         tb_box.pack(fill="both", expand=True, pady=(2, 6))
         tb_box.insert("1.0", "import tkblend as tb\n\nbtn = tb.Button(master, text='🚀 Launch')\nbtn.pack(padx=20, pady=20)\n")
 
@@ -213,8 +213,8 @@ class IconsAndTypographyDemo(tk.Frame):
 def main():
     root = tk.Tk()
     root.title("tkblend - Embedded Icons & Advanced Typography")
-    root.geometry("880x560")
-    root.minsize(740, 460)
+    root.geometry("1020x680")
+    root.minsize(880, 580)
 
     app = IconsAndTypographyDemo(root)
     app.pack(fill="both", expand=True)

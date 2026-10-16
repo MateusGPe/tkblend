@@ -945,8 +945,8 @@ class GradientShowcaseApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("tkblend - Custom Gradient Widgets Showcase")
-        self.geometry("980x760")
-        self.minsize(860, 680)
+        self.geometry("1060x800")
+        self.minsize(920, 680)
 
         set_theme("dark")
         self._current_theme = "dark"
@@ -1006,7 +1006,7 @@ class GradientShowcaseApp(tk.Tk):
         # -------------------------------------------------------------
         # Left Column - Card 1: Interactive Gradient Buttons
         # -------------------------------------------------------------
-        self.btn_card = GradientCard(col_left, preset="card_dark", subtle=True, width=440, height=315)
+        self.btn_card = GradientCard(col_left, preset="card_dark", subtle=True, width=440, height=330)
         self.btn_card.pack(fill="x", pady=(0, 16))
 
         card1_inner = self.btn_card.content
@@ -1099,7 +1099,7 @@ class GradientShowcaseApp(tk.Tk):
         # -------------------------------------------------------------
         # Left Column - Card 2: Gradient Sliders & Range Controls
         # -------------------------------------------------------------
-        self.slider_card = GradientCard(col_left, preset="card_dark", subtle=True, width=440, height=265)
+        self.slider_card = GradientCard(col_left, preset="card_dark", subtle=True, width=440, height=280)
         self.slider_card.pack(fill="x")
 
         card2_inner = self.slider_card.content
@@ -1177,7 +1177,7 @@ class GradientShowcaseApp(tk.Tk):
         # -------------------------------------------------------------
         # Right Column - Card 4: Gradient Progress Bars & Gauges
         # -------------------------------------------------------------
-        self.prog_card = GradientCard(col_right, preset="card_dark", subtle=True, width=440, height=355)
+        self.prog_card = GradientCard(col_right, preset="card_dark", subtle=True, width=440, height=370)
         self.prog_card.pack(fill="both", expand=True)
 
         card4_inner = self.prog_card.content

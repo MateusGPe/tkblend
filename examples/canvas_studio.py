@@ -234,7 +234,7 @@ class CanvasStudio(tk.Frame):
         tk.Label(p_paths, text="Wave Stroke Width", font=("sans-serif", 10, "bold"), bg=pal.card_bg, fg=pal.fg).pack(anchor="w", pady=(4, 2))
         Slider(p_paths, from_=1.0, to=12.0, value=self._path_stroke_width, command=self._set_path_stroke_width, height=26).pack(fill="x", pady=(0, 16))
 
-        Button(p_paths, text="Re-seed Curve Points", height=32, command=self._reseed_curves).pack(fill="x", pady=4)
+        Button(p_paths, text="Re-seed Curve Points", height=34, auto_fit=True, command=self._reseed_curves).pack(fill="x", pady=4)
 
         # 2. Gradients & Extends Panel
         p_grad = tk.Frame(container, background=pal.card_bg)
@@ -246,7 +246,7 @@ class CanvasStudio(tk.Frame):
         tk.Label(p_grad, text="Extend Mode", font=("sans-serif", 10, "bold"), bg=pal.card_bg, fg=pal.fg).pack(anchor="w", pady=(4, 2))
         OptionMenu(p_grad, values=["PAD", "REPEAT", "REFLECT"], current_value=self._extend_mode_name, command=self._set_extend_mode, height=32).pack(fill="x", pady=(0, 14))
 
-        Button(p_grad, text="Invert Gradient Stops", height=32, command=self._invert_gradients).pack(fill="x", pady=6)
+        Button(p_grad, text="Invert Gradient Stops", height=34, auto_fit=True, command=self._invert_gradients).pack(fill="x", pady=6)
 
         # 3. Composition Modes Panel
         p_comp = tk.Frame(container, background=pal.card_bg)
@@ -667,8 +667,8 @@ class CanvasStudio(tk.Frame):
 def main():
     root = tk.Tk()
     root.title("tkblend Creative Canvas & Vector Art Studio")
-    root.geometry("1060x740")
-    root.minsize(920, 620)
+    root.geometry("1100x760")
+    root.minsize(940, 640)
 
     set_theme("dark")
 

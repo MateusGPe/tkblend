@@ -85,25 +85,25 @@ class FileExplorerApp(tk.Frame):
         nav_inner.pack(fill="both", expand=True, padx=18, pady=(10, 14))
 
         # Back / Forward / Up buttons
-        btn_back = Button(nav_inner, text="◀", width=36, height=30, command=self._nav_back)
+        btn_back = Button(nav_inner, text="◀", width=38, height=32, command=self._nav_back)
         btn_back.pack(side="left", padx=(4, 2))
 
-        btn_fwd = Button(nav_inner, text="▶", width=36, height=30, command=self._nav_forward)
+        btn_fwd = Button(nav_inner, text="▶", width=38, height=32, command=self._nav_forward)
         btn_fwd.pack(side="left", padx=2)
 
-        btn_up = Button(nav_inner, text="▲", width=36, height=30, command=self._nav_up)
+        btn_up = Button(nav_inner, text="▲", width=38, height=32, command=self._nav_up)
         btn_up.pack(side="left", padx=2)
 
-        btn_refresh = Button(nav_inner, text="🔄", width=36, height=30, command=self._refresh)
+        btn_refresh = Button(nav_inner, text="🔄", width=38, height=32, command=self._refresh)
         btn_refresh.pack(side="left", padx=2)
 
         # Path Entry Box
-        self._path_entry = Entry(nav_inner, text=str(self._current_path), width=320, height=30)
+        self._path_entry = Entry(nav_inner, text=str(self._current_path), width=320, height=34)
         self._path_entry.pack(side="left", fill="x", expand=True, padx=8)
         self._path_entry.entry.bind("<Return>", self._on_path_entered)
 
         # Search Entry Box
-        self._search_box = SearchEntry(nav_inner, placeholder="Search folder...", width=160, height=30)
+        self._search_box = SearchEntry(nav_inner, placeholder="Search folder...", width=180, height=34)
         self._search_box.pack(side="left", padx=4)
         self._search_box.entry.bind("<KeyRelease>", self._on_search_typed)
 
@@ -114,7 +114,7 @@ class FileExplorerApp(tk.Frame):
             current_value=pal.name,
             command=self._on_theme_change,
             width=120,
-            height=30,
+            height=32,
         )
         self._theme_opt.pack(side="right", padx=(6, 4))
 
@@ -124,8 +124,8 @@ class FileExplorerApp(tk.Frame):
             text="Hidden",
             is_checked=False,
             command=self._toggle_hidden,
-            width=75,
-            height=26,
+            width=95,
+            height=28,
         )
         self._hidden_switch.pack(side="right", padx=4)
 
@@ -179,7 +179,7 @@ class FileExplorerApp(tk.Frame):
         self._file_table.bind("<Double-Button-1>", self._on_double_click_item, add="+")
 
         # 3. Right: File Details & Preview Panel
-        preview_card = Card(workspace, width=270)
+        preview_card = Card(workspace, width=280)
         preview_card.pack(side="right", fill="y", padx=(8, 0))
 
         prev_inner = tk.Frame(preview_card, bg=pal.card_bg)
@@ -187,10 +187,10 @@ class FileExplorerApp(tk.Frame):
 
         tk.Label(prev_inner, text="Item Details", font=("sans-serif", 10, "bold"), bg=pal.card_bg, fg=pal.fg).pack(anchor="w", pady=(4, 4))
 
-        self._lbl_prev_name = tk.Label(prev_inner, text="No selection", font=("sans-serif", 11, "bold"), bg=pal.card_bg, fg=pal.fg, wraplength=220)
+        self._lbl_prev_name = tk.Label(prev_inner, text="No selection", font=("sans-serif", 11, "bold"), bg=pal.card_bg, fg=pal.fg, wraplength=240)
         self._lbl_prev_name.pack(anchor="w", pady=2)
 
-        self._badge_prev_type = Badge(prev_inner, text="FOLDER", variant="primary", height=20)
+        self._badge_prev_type = Badge(prev_inner, text="FOLDER", variant="primary", height=24)
         self._badge_prev_type.pack(anchor="w", pady=4)
 
         self._lbl_prev_size = tk.Label(prev_inner, text="Size: -", font=("sans-serif", 9), bg=pal.card_bg, fg=pal.text_muted)
@@ -201,7 +201,7 @@ class FileExplorerApp(tk.Frame):
 
         tk.Label(prev_inner, text="Content Snippet:", font=("sans-serif", 9, "bold"), bg=pal.card_bg, fg=pal.fg).pack(anchor="w", pady=(10, 2))
 
-        self._preview_text = TextBox(prev_inner, width=220, height=200)
+        self._preview_text = TextBox(prev_inner, width=240, height=200)
         self._preview_text.pack(fill="both", expand=True, pady=(2, 6))
 
         # Bottom Status Bar Card
@@ -360,8 +360,8 @@ class FileExplorerApp(tk.Frame):
 def main():
     root = tk.Tk()
     root.title("tkblend - Pure Vector File Explorer")
-    root.geometry("1040x680")
-    root.minsize(860, 540)
+    root.geometry("1080x720")
+    root.minsize(920, 580)
 
     app = FileExplorerApp(root)
     app.pack(fill="both", expand=True)

@@ -158,8 +158,8 @@ class RealtimeVisualizer(tk.Frame):
             values=["Particles", "Spectrum", "Lissajous"],
             selected_value="Particles",
             command=self._on_mode_change,
-            height=26,
-            width=260,
+            height=30,
+            width=280,
         )
         self._mode_seg.pack(side="right")
 
@@ -208,10 +208,10 @@ class RealtimeVisualizer(tk.Frame):
         self._slider_grav.pack(fill="x", pady=(2, 10))
 
         # Action Buttons
-        btn_blast = Button(ctrl_inner, text="💥 Blast Particle Field", command=self._blast_particles, height=30)
+        btn_blast = Button(ctrl_inner, text="💥 Blast Particle Field", command=self._blast_particles, height=34, auto_fit=True)
         btn_blast.pack(fill="x", pady=4)
 
-        btn_reset = Button(ctrl_inner, text="🔄 Reset Simulation", command=self._init_particles, height=30)
+        btn_reset = Button(ctrl_inner, text="🔄 Reset Simulation", command=self._init_particles, height=34, auto_fit=True)
         btn_reset.pack(fill="x", pady=4)
 
         cascade_bg_to_children(self, pal.bg, palette=pal)
@@ -443,8 +443,8 @@ class RealtimeVisualizer(tk.Frame):
 def main():
     root = tk.Tk()
     root.title("tkblend - 60 FPS Real-time Engine Lab")
-    root.geometry("1040x680")
-    root.minsize(860, 560)
+    root.geometry("1080x720")
+    root.minsize(920, 600)
 
     app = RealtimeVisualizer(root)
     app.pack(fill="both", expand=True)

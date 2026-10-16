@@ -288,13 +288,13 @@ class MultimediaDashboard(tk.Frame):
         ctrl_bar = tk.Frame(player_inner, bg=pal.card_bg)
         ctrl_bar.pack(fill="x", pady=(4, 6))
 
-        btn_prev = Button(ctrl_bar, text="⏮ Prev", width=70, height=28)
+        btn_prev = Button(ctrl_bar, text="⏮ Prev", width=82, height=30, auto_fit=True)
         btn_prev.pack(side="left", padx=3)
 
-        self._btn_play = Button(ctrl_bar, text="⏸ Pause", width=85, height=28, command=self._toggle_play)
+        self._btn_play = Button(ctrl_bar, text="⏸ Pause", width=95, height=30, auto_fit=True, command=self._toggle_play)
         self._btn_play.pack(side="left", padx=3)
 
-        btn_next = Button(ctrl_bar, text="Next ⏭", width=70, height=28)
+        btn_next = Button(ctrl_bar, text="Next ⏭", width=82, height=30, auto_fit=True)
         btn_next.pack(side="left", padx=3)
 
         # Volume Slider
@@ -402,8 +402,8 @@ class MultimediaDashboard(tk.Frame):
 def main():
     root = tk.Tk()
     root.title("tkblend - Multimedia Studio Suite")
-    root.geometry("1060x700")
-    root.minsize(880, 580)
+    root.geometry("1100x740")
+    root.minsize(920, 620)
 
     app = MultimediaDashboard(root)
     app.pack(fill="both", expand=True)

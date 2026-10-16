@@ -472,8 +472,8 @@ class CustomWidgetCookbook(tk.Frame):
         step_btn_row = tk.Frame(c3_inner, bg=pal.card_bg)
         step_btn_row.pack(pady=(2, 8))
 
-        Button(step_btn_row, text="◀ Prev Step", width=95, height=28, command=lambda: self._step_bar.set_step(self._step_bar._current - 1)).pack(side="left", padx=4)
-        Button(step_btn_row, text="Next Step ▶", width=95, height=28, command=lambda: self._step_bar.set_step(self._step_bar._current + 1)).pack(side="left", padx=4)
+        Button(step_btn_row, text="◀ Prev Step", width=115, height=32, auto_fit=True, command=lambda: self._step_bar.set_step(self._step_bar._current - 1)).pack(side="left", padx=4)
+        Button(step_btn_row, text="Next Step ▶", width=115, height=32, auto_fit=True, command=lambda: self._step_bar.set_step(self._step_bar._current + 1)).pack(side="left", padx=4)
 
         grid_frame.columnconfigure(0, weight=1)
         grid_frame.columnconfigure(1, weight=1)
@@ -495,8 +495,8 @@ class CustomWidgetCookbook(tk.Frame):
 def main():
     root = tk.Tk()
     root.title("tkblend - Custom Widget Cookbook")
-    root.geometry("880x640")
-    root.minsize(740, 520)
+    root.geometry("980x740")
+    root.minsize(860, 620)
 
     app = CustomWidgetCookbook(root)
     app.pack(fill="both", expand=True)

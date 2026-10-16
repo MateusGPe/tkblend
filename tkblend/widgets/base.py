@@ -351,6 +351,22 @@ class BaseControl(tk.Frame):
             pass
         self.request_redraw()
 
+    @property
+    def width(self) -> int:
+        return self._logical_w
+
+    @width.setter
+    def width(self, val: int) -> None:
+        self.set_geometry_request(int(val), self._logical_h)
+
+    @property
+    def height(self) -> int:
+        return self._logical_h
+
+    @height.setter
+    def height(self, val: int) -> None:
+        self.set_geometry_request(self._logical_w, int(val))
+
     # Container layer management
     @property
     def container_layer(self) -> int:

@@ -306,8 +306,9 @@ class ShowcaseHub(tk.Frame):
         self._btn_launch_external = Button(
             self._view_topbar,
             text="🚀 Launch Standalone Window",
-            width=210,
-            height=30,
+            width=230,
+            height=32,
+            auto_fit=True,
             command=self._launch_current_standalone,
         )
         self._btn_launch_external.pack(side="right")
@@ -439,8 +440,8 @@ class ShowcaseHub(tk.Frame):
 def main():
     root = tk.Tk()
     root.title("tkblend - Unified Showcase Hub")
-    root.geometry("1180x780")
-    root.minsize(980, 640)
+    root.geometry("1240x820")
+    root.minsize(1040, 680)
 
     app = ShowcaseHub(root)
     app.pack(fill="both", expand=True)

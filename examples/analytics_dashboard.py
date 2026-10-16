@@ -303,7 +303,7 @@ class AnalyticsDashboard(tk.Frame):
             lbl_name = tk.Label(top_box, text=name, font=("sans-serif", 9), bg=pal.card_bg, fg=pal.text_muted)
             lbl_name.pack(side="left")
 
-            badge = Badge(top_box, text=diff, variant="success" if ("+" in diff and "Req" in name) or ("-" in diff and "Lat" in name) else "primary", height=18, font_size=8)
+            badge = Badge(top_box, text=diff, variant="success" if ("+" in diff and "Req" in name) or ("-" in diff and "Lat" in name) else "primary", height=22, font_size=9)
             badge.pack(side="right")
 
             bot_box = tk.Frame(inner, bg=pal.card_bg)
@@ -336,8 +336,8 @@ class AnalyticsDashboard(tk.Frame):
             chart_hdr,
             values=["1H", "6H", "24H", "7D"],
             selected_value="1H",
-            height=26,
-            width=180,
+            height=30,
+            width=200,
         )
         self._seg_filter.pack(side="right")
 
@@ -460,8 +460,8 @@ class AnalyticsDashboard(tk.Frame):
 def main():
     root = tk.Tk()
     root.title("tkblend - Modern Analytics Dashboard")
-    root.geometry("980x720")
-    root.minsize(800, 600)
+    root.geometry("1080x760")
+    root.minsize(920, 640)
 
     app = AnalyticsDashboard(root)
     app.pack(fill="both", expand=True)

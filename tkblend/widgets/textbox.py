@@ -72,7 +72,7 @@ class Entry(BaseControl):
         """Compute horizontal insets dynamically based on corner radius, border width, and scale factor."""
         scale = self._scale_factor
         margin_x = int(self._palette.get_scalar("input_pad_x", 3.0) * scale)
-        pad_x = margin_x + max(int(self._corner_radius * scale + 4), int(self._border_width * scale + 8))
+        pad_x = margin_x + max(int(self._corner_radius * scale + 6), int(self._border_width * scale + 10))
         return pad_x, pad_x
 
     def _apply_layout(self) -> None:
@@ -199,9 +199,9 @@ class SearchEntry(Entry):
         """Account for the vector search icon on the left while computing insets."""
         scale = self._scale_factor
         margin_x = int(self._palette.get_scalar("input_pad_x", 3.0) * scale)
-        pad_right = margin_x + max(int(self._corner_radius * scale + 4), int(self._border_width * scale + 8))
+        pad_right = margin_x + max(int(self._corner_radius * scale + 6), int(self._border_width * scale + 10))
         # Icon center is at margin_x + 14px, diameter ~9px; inset text comfortably past the icon
-        pad_left = margin_x + max(int(self._corner_radius * scale + 24), int(32 * scale))
+        pad_left = margin_x + max(int(self._corner_radius * scale + 28), int(36 * scale))
         return pad_left, pad_right
 
 
@@ -239,14 +239,6 @@ class TextBox(BaseControl):
         bg_hex = to_tk_hex(pal.input_bg)
         fg_hex = to_tk_hex(pal.fg)
 
-        scale = self._scale_factor
-        margin_x = int(3.0 * scale)
-        margin_top = int(2.0 * scale)
-        margin_bottom = int(4.0 * scale)
-        pad_x = margin_x + max(int(self._corner_radius * scale + 2), int(self._border_width * scale + 6))
-        pad_top = margin_top + max(int(self._corner_radius * scale * 0.75), int(self._border_width * scale + 4))
-        pad_bottom = margin_bottom + max(int(self._corner_radius * scale * 0.75), int(self._border_width * scale + 4))
-
         self._text = tk.Text(
             self,
             background=bg_hex,
@@ -257,8 +249,8 @@ class TextBox(BaseControl):
             highlightthickness=0,
             font=self._font_spec,
             wrap="word",
-            padx=2,
-            pady=2,
+            padx=4,
+            pady=3,
         )
         self._apply_layout()
 
@@ -271,9 +263,9 @@ class TextBox(BaseControl):
         margin_x = int(self._palette.get_scalar("input_pad_x", 3.0) * scale)
         margin_top = int(self._palette.get_scalar("input_pad_top", 2.0) * scale)
         margin_bottom = int(self._palette.get_scalar("input_pad_bottom", 4.0) * scale)
-        pad_x = margin_x + max(int(self._corner_radius * scale + 2), int(self._border_width * scale + 6))
-        pad_top = margin_top + max(int(self._corner_radius * scale * 0.75), int(self._border_width * scale + 4))
-        pad_bottom = margin_bottom + max(int(self._corner_radius * scale * 0.75), int(self._border_width * scale + 4))
+        pad_x = margin_x + max(int(self._corner_radius * scale + 4), int(self._border_width * scale + 8))
+        pad_top = margin_top + max(int(self._corner_radius * scale + 2), int(self._border_width * scale + 6))
+        pad_bottom = margin_bottom + max(int(self._corner_radius * scale + 2), int(self._border_width * scale + 6))
 
         self._text.place(
             x=pad_x,

@@ -1,39 +1,38 @@
 /* ==============================================================================
- * Cinematic Theme (Blockbuster Teal & Orange Aesthetic)
+ * Cinematic Theme (Blockbuster Teal & Orange Aesthetic - Enhanced Pure Flat)
  *
- * An evocative, modern design token system pairing deep peacock teal with
+ * An evocative, modern flat design token system pairing deep peacock teal with
  * warm glowing amber across refined midnight-slate surfaces.
  *
- * Interactive Controls (Switches, Sliders, Checkboxes, Radios, Focus Rings)
- * star in glowing warm amber, balanced harmoniously against peacock teal
- * primary hero actions, progress indicators, and table selections.
+ * All surfaces are delimited purely by intentional tonal contrast without
+ * shadows or borders (preserving only high-visibility focus rings).
  * ============================================================================== */
 
 :root {
   /* --------------------------------------------------------------------------
    * 1. Core Semantic Colors (Peacock Teal & Warm Amber Palette)
    * -------------------------------------------------------------------------- */
-  --bg: #0a0e14;                    /* Deep cinematic midnight slate background */
+  --bg: #080c12;                    /* Deepest abyssal base canvas */
   --fg: #f1f5f9;                    /* Crisp off-white primary text */
   --fg-subtle: #94a3b8;             /* Subtle secondary slate text */
   --text-muted: #64748b;            /* Muted helper text */
 
-  --surface: #111822;               /* Tonal surface level 1 */
+  --surface: #0f1722;               /* Tonal surface level 1 */
   --surface-border: transparent;    /* Borderless flat style */
-  --card-bg: #17202c;               /* Elevated tonal card surface level 2 */
+  --card-bg: #172232;               /* Elevated tonal card surface level 2 */
   --card-border: transparent;       /* Borderless flat style */
-  --card-hover: #1e293b;            /* Subtle card hover tint */
+  --card-hover: #1e2b3e;            /* Subtle card hover tint */
 
-  /* Peacock Teal Primaries (Cool Shadow & Hero Action) */
+  /* Peacock Teal Primaries (Cool Hero Action) */
   --primary: #0d9488;               /* Sophisticated deep peacock teal */
-  --primary-hover: #14b8a6;         /* Luminous electric teal hover */
-  --primary-active: #0f766e;        /* Deep rich teal active press */
+  --primary-hover: #14b8a6;         /* Luminous electric teal hover (+8% lightness) */
+  --primary-active: #0f766e;        /* Deep rich teal active press (-8% lightness) */
   --primary-fg: #f0fdfa;            /* Crisp light teal contrast text */
 
-  /* Cool Slate Containers */
-  --secondary: #1e293b;             /* Modern cool slate container */
-  --secondary-hover: #29384f;       /* Hover state for secondary containers */
-  --secondary-active: #16202e;      /* Active state for secondary containers */
+  /* Cool Slate Containers & Interactive Controls */
+  --secondary: #202e42;             /* Tonal interactive surface level 3 */
+  --secondary-hover: #2b3e58;       /* Hover state for secondary containers */
+  --secondary-active: #182333;      /* Active state for secondary containers */
   --secondary-fg: #f8fafc;          /* Off-white text on secondary */
 
   /* Warm Amber & Orange Accents (Glowing Warm Highlight) */
@@ -53,10 +52,10 @@
   --destructive: #f43f5e;           /* Vibrant rose/coral */
   --danger: #f43f5e;
 
-  /* Ambient Elevation Shadows */
-  --shadow: rgba(0, 0, 0, 0.35);
-  --shadow-color: rgba(0, 0, 0, 0.35);
-  --card-shadow: rgba(0, 0, 0, 0.28);
+  /* Zero Shadows (Clean Flat Modern Surfaces) */
+  --shadow: transparent;
+  --shadow-color: transparent;
+  --card-shadow: transparent;
 
   /* --------------------------------------------------------------------------
    * 2. Global Metric & Geometry Scales
@@ -72,15 +71,15 @@
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
   --text-baseline-offset: 0.35;
 
-  /* Warm Amber Focus Ring */
+  /* Warm Amber Focus Ring (Preserved Single Structural Border) */
   --focus-ring-color: #f59e0b;
   --focus-ring-width: 2px;
   --focus-ring-pad: 2px;
 
   /* --------------------------------------------------------------------------
-   * 3. Button Component Tokens (Flat, Borderless, M3 Elevation)
+   * 3. Button Component Tokens (Flat, Zero Border, Zero Shadow)
    * -------------------------------------------------------------------------- */
-  --btn-bg: #1e293b;
+  --btn-bg: #202e42;
   --btn-fg: #f1f5f9;
   --btn-border: transparent;
   --btn-border-width: 0px;
@@ -90,22 +89,22 @@
   --btn-pad-top: 3px;
   --btn-pad-bottom: 5px;
 
-  --btn-shadow: rgba(0, 0, 0, 0.22);
-  --btn-shadow-blur: 2px;
-  --btn-shadow-blur-hover: 4px;
-  --btn-shadow-y: 1px;
-  --btn-shadow-y-hover: 2px;
-  --btn-press-displacement-y: 1.5px;
+  --btn-shadow: transparent;
+  --btn-shadow-blur: 0px;
+  --btn-shadow-blur-hover: 0px;
+  --btn-shadow-y: 0px;
+  --btn-shadow-y-hover: 0px;
+  --btn-press-displacement-y: 0px;
 
   --btn-font-size: 13px;
   --btn-font-family: var(--font-sans);
   --btn-font-weight: 500;
 
-  --btn-hover-bg: #28374d;
+  --btn-hover-bg: #2b3e58;
   --btn-hover-fg: #ffffff;
-  --btn-active-bg: #151e2b;
+  --btn-active-bg: #182333;
   --btn-active-fg: #cbd5e1;
-  --btn-disabled-bg: #111822;
+  --btn-disabled-bg: #0f1722;
   --btn-disabled-fg: #475569;
 
   /* --------------------------------------------------------------------------
@@ -116,13 +115,13 @@
   --switch-pad-x: 4px;
   --switch-focus-pad: 3.5px;
   --switch-thumb-inset: 3.5px;
-  --switch-thumb-shadow-blur: 3px;
-  --switch-thumb-shadow-y: 1px;
+  --switch-thumb-shadow-blur: 0px;
+  --switch-thumb-shadow-y: 0px;
   --switch-text-spacing: 10px;
   --switch-font-size: 13px;
   --switch-font-family: var(--font-sans);
 
-  --track-bg: #1e293b;
+  --track-bg: #101824;
   --active-bg: #f59e0b;             /* Warm glowing amber active track */
   --active-track-bg: #f59e0b;
   --thumb-bg: #94a3b8;
@@ -142,7 +141,7 @@
   --checkbox-font-size: 13px;
   --checkbox-font-family: var(--font-sans);
 
-  --box-bg: #1e293b;
+  --box-bg: #101824;
   --box-border: transparent;
   --check-color: #1c1917;           /* High contrast dark checkmark on amber */
 
@@ -159,7 +158,7 @@
   --radio-font-size: 13px;
   --radio-font-family: var(--font-sans);
 
-  --radio-bg: #1e293b;
+  --radio-bg: #101824;
   --radio-border: transparent;
   --dot-color: #f59e0b;             /* Warm glowing amber dot */
 
@@ -170,16 +169,16 @@
   --slider-track-h: 5px;
   --slider-track-radius: 2.5px;
   --slider-thumb-r: 8px;
-  --slider-thumb-border-w: 1.5px;
-  --slider-thumb-shadow-blur: 3px;
-  --slider-thumb-shadow-y: 1.5px;
+  --slider-thumb-border-w: 0px;
+  --slider-thumb-shadow-blur: 0px;
+  --slider-thumb-shadow-y: 0px;
 
   --range-slider-pad-x: 14px;
   --range-slider-track-h: 6px;
   --range-slider-thumb-r: 9px;
-  --range-slider-thumb-border-w: 1.5px;
+  --range-slider-thumb-border-w: 0px;
 
-  --thumb-border: #fbbf24;
+  --thumb-border: transparent;
 
   /* --------------------------------------------------------------------------
    * 8. Progress Bar & Circular Gauge Tokens (Peacock Teal Counterpart)
@@ -194,7 +193,7 @@
   /* --------------------------------------------------------------------------
    * 9. Badge Component Tokens (Pill Style)
    * -------------------------------------------------------------------------- */
-  --badge-bg: #1e293b;
+  --badge-bg: #202e42;
   --badge-fg: #f1f5f9;
   --badge-radius: var(--radius-sm);
   --badge-font-size: 11px;
@@ -202,15 +201,15 @@
   --badge-font-weight: 600;
 
   /* --------------------------------------------------------------------------
-   * 10. Card & Frame Tokens (Borderless Modern Elevation)
+   * 10. Card & Frame Tokens (Borderless Modern Flat Elevation)
    * -------------------------------------------------------------------------- */
   --card-pad-x: 12px;
   --card-pad-top: 10px;
   --card-pad-bottom: 10px;
   --card-radius: var(--radius-lg);
   --card-border-w: 0px;
-  --card-shadow-blur: 14px;
-  --card-shadow-y: 4px;
+  --card-shadow-blur: 0px;
+  --card-shadow-y: 0px;
 
   --frame-radius: var(--radius-lg);
   --frame-border-w: 0px;
@@ -239,27 +238,41 @@
   /* --------------------------------------------------------------------------
    * 14. Table Component Tokens (Peacock Teal Selection)
    * -------------------------------------------------------------------------- */
+  --table-bg: #172232;
+  --table-fg: #f1f5f9;
+  --table-header-bg: #0f1722;
+  --table-header-fg: #94a3b8;
+  --table-zebra-bg: #121c29;
+  --table-hover-bg: #1e2c3f;
+  --table-selected-bg: #0d9488;
+  --table-selected-fg: #f0fdfa;
+  --table-border: transparent;
+  --table-scrollbar-thumb: #25364d;
+  --table-scrollbar-thumb-hover: #374e6f;
+  --table-header-h: 40px;
+  --table-radius: var(--radius-md);
+  --table-border-w: 0px;
 
   /* --------------------------------------------------------------------------
-   * 15. Input, Textbox & ComboBox Tokens
+   * 15. Input, Textbox & ComboBox Tokens (Recessed Level 0 Surface)
    * -------------------------------------------------------------------------- */
-  --input-bg: #0f151e;
+  --input-bg: #0a1017;
   --input-border: transparent;
-  --input-focus: #f59e0b;           /* Warm amber focus border */
+  --input-focus: #f59e0b;           /* Warm amber focus ring */
   --input-radius: var(--radius-md);
 
   --input-pad-x: 4px;
   --input-pad-top: 2px;
   --input-pad-bottom: 5px;
   --input-border-width: 0px;
-  --input-border-width-focus: 1.5px;
+  --input-border-width-focus: 2px;
 
-  --input-shadow: rgba(0, 0, 0, 0.22);
-  --input-shadow-blur: 2px;
-  --input-shadow-blur-hover: 3px;
-  --input-shadow-blur-focus: 4px;
-  --input-shadow-y: 1px;
-  --input-shadow-y-focus: 1.5px;
+  --input-shadow: transparent;
+  --input-shadow-blur: 0px;
+  --input-shadow-blur-hover: 0px;
+  --input-shadow-blur-focus: 0px;
+  --input-shadow-y: 0px;
+  --input-shadow-y-focus: 0px;
 
   --input-font-size: 13px;
   --input-font-family: var(--font-sans);
@@ -279,22 +292,6 @@
   --label-font-size: 13px;
   --label-font-family: var(--font-sans);
   --label-font-weight: 400;
-
-  /* Table Component Tokens */
-  --table-bg: #17202c;
-  --table-fg: #f1f5f9;
-  --table-header-bg: #111822;
-  --table-header-fg: #94a3b8;
-  --table-zebra-bg: #1c2736;
-  --table-hover-bg: #233245;
-  --table-selected-bg: #0d9488;
-  --table-selected-fg: #f0fdfa;
-  --table-border: transparent;
-  --table-scrollbar-thumb: #2a3b50;
-  --table-scrollbar-thumb-hover: #3b526f;
-  --table-header-h: 40px;
-  --table-radius: var(--radius-md);
-  --table-border-w: 0px;
 }
 
 /* ==============================================================================
@@ -303,22 +300,22 @@
 
 /* Push Button Base */
 button {
-  background: var(--surface);
+  background: var(--secondary);
   color: var(--fg);
   border: 0px solid transparent;
   border-radius: var(--radius-md);
-  box-shadow: 0 1px 3px var(--shadow);
+  box-shadow: none;
   font-size: var(--btn-font-size);
   font-family: var(--btn-font-family);
   font-weight: var(--btn-font-weight);
 }
 button:hover {
-  background: var(--btn-hover-bg);
+  background: var(--secondary-hover);
   color: var(--btn-hover-fg);
-  box-shadow: 0 3px 6px var(--shadow);
+  box-shadow: none;
 }
 button:active {
-  background: var(--btn-active-bg);
+  background: var(--secondary-active);
   box-shadow: none;
 }
 button:disabled {
@@ -333,32 +330,34 @@ button:disabled {
   color: var(--primary-fg);
   border: 0px solid transparent;
   border-radius: var(--radius-md);
-  box-shadow: 0 2px 5px rgba(13, 148, 136, 0.35);
+  box-shadow: none;
   font-weight: 600;
 }
 .btn-primary:hover, button.primary:hover {
   background: var(--primary-hover);
   color: var(--primary-fg);
-  box-shadow: 0 4px 10px rgba(20, 184, 166, 0.45);
+  box-shadow: none;
 }
 .btn-primary:active, button.primary:active {
   background: var(--primary-active);
   box-shadow: none;
 }
 
-/* Secondary Button (Slate Surface) */
+/* Secondary Button (Slate Interactive Surface) */
 .btn-secondary, button.secondary {
   background: var(--secondary);
   color: var(--secondary-fg);
   border: 0px solid transparent;
   border-radius: var(--radius-md);
-  box-shadow: 0 1px 3px var(--shadow);
+  box-shadow: none;
 }
 .btn-secondary:hover, button.secondary:hover {
   background: var(--secondary-hover);
+  box-shadow: none;
 }
 .btn-secondary:active, button.secondary:active {
   background: var(--secondary-active);
+  box-shadow: none;
 }
 
 /* Accent Button (Radiant Warm Amber Glow) */
@@ -367,12 +366,12 @@ button:disabled {
   color: var(--accent-fg);
   border: 0px solid transparent;
   border-radius: var(--radius-md);
-  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.40);
+  box-shadow: none;
   font-weight: 600;
 }
 .btn-accent:hover, button.accent:hover, .btn-orange:hover, button.orange:hover {
   background: var(--accent-hover);
-  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.50);
+  box-shadow: none;
 }
 .btn-accent:active, button.accent:active, .btn-orange:active, button.orange:active {
   background: var(--accent-active);
@@ -385,10 +384,15 @@ button:disabled {
   color: #ffffff;
   border: 0px solid transparent;
   border-radius: var(--radius-md);
-  box-shadow: 0 2px 6px rgba(244, 63, 94, 0.35);
+  box-shadow: none;
 }
 .btn-destructive:hover, button.destructive:hover {
   background: #fb7185;
+  box-shadow: none;
+}
+.btn-destructive:active, button.destructive:active {
+  background: #e11d48;
+  box-shadow: none;
 }
 
 /* Success Button */
@@ -397,7 +401,15 @@ button:disabled {
   color: #022c22;
   border: 0px solid transparent;
   border-radius: var(--radius-md);
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35);
+  box-shadow: none;
+}
+.btn-success:hover, button.success:hover {
+  background: #34d399;
+  box-shadow: none;
+}
+.btn-success:active, button.success:active {
+  background: #059669;
+  box-shadow: none;
 }
 
 /* Warning Button */
@@ -406,34 +418,42 @@ button:disabled {
   color: #451a03;
   border: 0px solid transparent;
   border-radius: var(--radius-md);
+  box-shadow: none;
 }
 
-/* Outline Buttons (Minimal border) */
+/* Tinted / Subtle Surface Buttons (Zero border, semi-transparent color tint) */
 .btn-outline, button.outline, .btn-outline-primary {
-  background: transparent;
-  color: var(--primary);
-  border: 1.5px solid var(--primary);
+  background: rgba(13, 148, 136, 0.16);
+  color: var(--primary-hover);
+  border: 0px solid transparent;
   border-radius: var(--radius-md);
   box-shadow: none;
 }
 .btn-outline:hover, button.outline:hover {
-  background: rgba(13, 148, 136, 0.15);
-  color: var(--primary-hover);
+  background: rgba(13, 148, 136, 0.26);
+  color: #5eead4;
+  box-shadow: none;
 }
 .btn-outline:active, button.outline:active {
-  background: rgba(13, 148, 136, 0.25);
+  background: rgba(13, 148, 136, 0.36);
+  box-shadow: none;
 }
 
 .btn-outline-accent, .btn-outline-orange {
-  background: transparent;
-  color: var(--accent);
-  border: 1.5px solid var(--accent);
+  background: rgba(245, 158, 11, 0.16);
+  color: var(--accent-hover);
+  border: 0px solid transparent;
   border-radius: var(--radius-md);
   box-shadow: none;
 }
 .btn-outline-accent:hover {
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--accent-hover);
+  background: rgba(245, 158, 11, 0.26);
+  color: #fde68a;
+  box-shadow: none;
+}
+.btn-outline-accent:active {
+  background: rgba(245, 158, 11, 0.36);
+  box-shadow: none;
 }
 
 /* Ghost / Flat Buttons */
@@ -447,9 +467,11 @@ button:disabled {
 .btn-ghost:hover, button.ghost:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
+  box-shadow: none;
 }
 .btn-ghost:active, button.ghost:active {
   background: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
 }
 
 /* Card & Surface Containers */
@@ -458,7 +480,7 @@ card, .card {
   color: var(--fg);
   border: 0px solid transparent;
   border-radius: var(--card-radius);
-  box-shadow: 0 6px 18px var(--card-shadow);
+  box-shadow: none;
 }
 
 /* Text Input & Entries */
@@ -468,9 +490,10 @@ input, entry, .input, .entry {
   border: 0px solid transparent;
   border-radius: var(--input-radius);
   font-size: var(--input-font-size);
+  box-shadow: none;
 }
 input:focus, entry:focus {
-  border: 1.5px solid var(--input-focus);
+  border: 2px solid var(--focus-ring-color);
 }
 
 /* Badges */
@@ -480,6 +503,7 @@ badge, .badge {
   border-radius: var(--badge-radius);
   font-size: var(--badge-font-size);
   font-weight: var(--badge-font-weight);
+  box-shadow: none;
 }
 .badge-primary, badge.primary {
   background: var(--primary);

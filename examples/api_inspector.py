@@ -414,8 +414,9 @@ class APIInspectorApp(tk.Tk):
             h_top,
             text="Clear",
             command=self._clear_history,
-            width=54,
-            height=24,
+            width=58,
+            height=26,
+            auto_fit=True,
         )
         btn_clear_hist.pack(side="right")
 
@@ -478,8 +479,9 @@ class APIInspectorApp(tk.Tk):
             url_inner,
             text="Copy cURL",
             command=self._copy_curl,
-            width=88,
+            width=95,
             height=34,
+            auto_fit=True,
         )
         self.curl_btn.pack(side="right", padx=(8, 0))
 
@@ -488,8 +490,9 @@ class APIInspectorApp(tk.Tk):
             text="Send Request",
             variant="primary",
             command=self._on_send_clicked,
-            width=115,
+            width=120,
             height=34,
+            auto_fit=True,
         )
         self.send_btn.pack(side="right")
 
@@ -511,8 +514,9 @@ class APIInspectorApp(tk.Tk):
             body_ctrl_box,
             text="Format JSON",
             command=self._format_request_json,
-            width=95,
-            height=24,
+            width=110,
+            height=28,
+            auto_fit=True,
         )
         btn_format_json.pack(side="left", padx=(0, 6))
 
@@ -520,12 +524,13 @@ class APIInspectorApp(tk.Tk):
             body_ctrl_box,
             text="Clear Body",
             command=lambda: self.body_text.delete("1.0", "end"),
-            width=85,
-            height=24,
+            width=95,
+            height=28,
+            auto_fit=True,
         )
         btn_clear_body.pack(side="left")
 
-        self.body_text = TextBox(tab_body, font=("monospace", 9), height=85)
+        self.body_text = TextBox(tab_body, font=("monospace", 9), height=95)
         self.body_text.pack(fill="both", expand=True)
 
         # Tab: Query Params (Fully active and merged into request URL)
@@ -645,8 +650,9 @@ class APIInspectorApp(tk.Tk):
             resp_body_bar,
             text="Copy Body",
             command=self._copy_response_body,
-            width=85,
-            height=24,
+            width=95,
+            height=28,
+            auto_fit=True,
         )
         btn_copy_body.pack(side="left", padx=(0, 6))
 
@@ -654,8 +660,9 @@ class APIInspectorApp(tk.Tk):
             resp_body_bar,
             text="Format JSON",
             command=self._format_response_json,
-            width=95,
-            height=24,
+            width=110,
+            height=28,
+            auto_fit=True,
         )
         btn_fmt_body.pack(side="left")
 
@@ -677,8 +684,9 @@ class APIInspectorApp(tk.Tk):
             resp_hdrs_bar,
             text="Copy Headers",
             command=self._copy_response_headers,
-            width=100,
-            height=24,
+            width=110,
+            height=28,
+            auto_fit=True,
         )
         btn_copy_hdrs.pack(side="left")
 
@@ -695,8 +703,9 @@ class APIInspectorApp(tk.Tk):
             resp_diag_bar,
             text="Copy Report",
             command=self._copy_diagnostics,
-            width=95,
-            height=24,
+            width=105,
+            height=28,
+            auto_fit=True,
         )
         btn_copy_diag.pack(side="left")
 
