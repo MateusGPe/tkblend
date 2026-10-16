@@ -498,3 +498,55 @@ def test_cinematic_theme_scrollable_table_lifecycle(root):
     root.update()
     scroller.destroy()
     set_theme("dark")
+
+
+def test_all_themes_table_tokens_uniformity_and_contrast():
+    """Verify that all built-in themes expose a uniform set of table tokens with WCAG contrast."""
+    from tkblend.theme import get_available_themes
+    from scripts.standardize_table_themes import parse_color, contrast_ratio
+
+    themes = get_available_themes()
+    assert len(themes) >= 18, f"Expected at least 18 themes, got {len(themes)}"
+
+    required_attributes = [
+        "table_bg",
+        "table_fg",
+        "table_header_bg",
+        "table_header_fg",
+        "table_zebra_bg",
+        "table_hover_bg",
+        "table_selected_bg",
+        "table_selected_fg",
+        "table_border",
+        "table_scrollbar_thumb",
+        "table_scrollbar_thumb_hover",
+    ]
+
+    for t_name in themes:
+        pal = Palette(t_name)
+
+        # 1. Uniform token completeness
+        for attr in required_attributes:
+            val = getattr(pal, attr, None)
+            assert val is not None and len(str(val)) > 0, f"Theme '{t_name}' missing token '{attr}'"
+
+        # Geometry tokens
+        assert pal.get_scalar("table_header_h", 0.0) >= 30.0, f"Theme '{t_name}' invalid table_header_h"
+        assert pal.get_scalar("table_radius", -1.0) >= 0.0, f"Theme '{t_name}' invalid table_radius"
+        assert pal.get_scalar("table_border_w", -1.0) >= 0.0, f"Theme '{t_name}' invalid table_border_w"
+
+        # 2. WCAG Contrast verification
+        table_bg_rgb = parse_color(pal.table_bg)
+        table_fg_rgb = parse_color(pal.table_fg, table_bg_rgb)
+        cr_body = contrast_ratio(table_fg_rgb, table_bg_rgb)
+        assert cr_body >= 4.5, f"Theme '{t_name}' body contrast {cr_body:.2f} < 4.5"
+
+        header_bg_rgb = parse_color(pal.table_header_bg, table_bg_rgb)
+        header_fg_rgb = parse_color(pal.table_header_fg, header_bg_rgb)
+        cr_header = contrast_ratio(header_fg_rgb, header_bg_rgb)
+        assert cr_header >= 3.0, f"Theme '{t_name}' header contrast {cr_header:.2f} < 3.0"
+
+        sel_bg_rgb = parse_color(pal.table_selected_bg, table_bg_rgb)
+        sel_fg_rgb = parse_color(pal.table_selected_fg, sel_bg_rgb)
+        cr_sel = contrast_ratio(sel_fg_rgb, sel_bg_rgb)
+        assert cr_sel >= 3.0, f"Theme '{t_name}' selection contrast {cr_sel:.2f} < 3.0"

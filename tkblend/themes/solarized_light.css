@@ -67,10 +67,13 @@
   --table-zebra-bg: #eee8d5;
   --table-hover-bg: #e0d9c4;
   --table-selected-bg: #d3368222;
-  --table-selected-fg: #268bd2;
+  --table-selected-fg: #073642;
   --table-border: #93a1a1;
   --table-scrollbar-thumb: #93a1a1;
   --table-scrollbar-thumb-hover: #586e75;
+  --table-header-h: 38px;
+  --table-radius: 8px;
+  --table-border-w: 1px;
 }
 
 button {

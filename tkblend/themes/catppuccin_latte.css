@@ -71,6 +71,9 @@
   --table-border: #ccd0da;
   --table-scrollbar-thumb: #bcc0cc;
   --table-scrollbar-thumb-hover: #8c8fa1;
+  --table-header-h: 38px;
+  --table-radius: 8px;
+  --table-border-w: 1px;
 }
 
 button {

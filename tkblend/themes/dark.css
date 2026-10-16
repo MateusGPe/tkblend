@@ -165,11 +165,6 @@
   --scrollbar-pad: 1.5px;
   --scrollbar-thumb-min-size: 28px;
 
-  /* Table Tokens */
-  --table-header-h: 38px;
-  --table-radius: 8px;
-  --table-border-w: 1px;
-
   /* Label Tokens */
   --label-pad-x: 2px;
   --label-font-size: 13px;
@@ -204,6 +199,9 @@
   --table-border: #49454f;
   --table-scrollbar-thumb: #49454f;
   --table-scrollbar-thumb-hover: #79747e;
+  --table-header-h: 38px;
+  --table-radius: 8px;
+  --table-border-w: 1px;
 }
 
 button {

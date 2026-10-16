@@ -57,6 +57,22 @@
   --badge-fg: #fcfcfa;
   --focus-ring-color: #ffd866;
   --focus-ring-width: 2px;
+
+  /* Table Component Tokens */
+  --table-bg: #3a373b;
+  --table-fg: #fcfcfa;
+  --table-header-bg: #221f22;
+  --table-header-fg: #939293;
+  --table-zebra-bg: #423f43;
+  --table-hover-bg: #4a474b;
+  --table-selected-bg: #ffd866;
+  --table-selected-fg: #2d2a2e;
+  --table-border: #504d51;
+  --table-scrollbar-thumb: #504d51;
+  --table-scrollbar-thumb-hover: #968559;
+  --table-header-h: 38px;
+  --table-radius: 8px;
+  --table-border-w: 1px;
 }
 
 button {

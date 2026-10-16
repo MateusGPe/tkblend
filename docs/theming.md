@@ -82,6 +82,24 @@ Widgets query colors from semantic tokens exposed by the `Palette` object:
 | `palette.warning` | `--warning` | Semantic yellow/amber for warnings. |
 | `palette.danger` | `--danger` | Semantic red for errors or destructive actions. |
 
+### Table Component Tokens
+
+The `Table` widget uses a standardized set of tokens defined across all built-in themes:
+
+| Token Property | CSS Variable | Description |
+| :--- | :--- | :--- |
+| `palette.table_bg` | `--table-bg` | Table container surface background. |
+| `palette.table_fg` | `--table-fg` | Primary table cell text foreground. |
+| `palette.table_header_bg` | `--table-header-bg` | Column header bar background. |
+| `palette.table_header_fg` | `--table-header-fg` | Column header title text foreground. |
+| `palette.table_zebra_bg` | `--table-zebra-bg` | Alternating row stripe background. |
+| `palette.table_hover_bg` | `--table-hover-bg` | Interactive row hover highlight. |
+| `palette.table_selected_bg` | `--table-selected-bg` | Active row selection highlight. |
+| `palette.table_selected_fg` | `--table-selected-fg` | Selected row text foreground. |
+| `palette.table_border` | `--table-border` | Table outer border and row divider lines. |
+| `palette.table_scrollbar_thumb` | `--table-scrollbar-thumb` | Embedded table scrollbar idle thumb. |
+| `palette.table_scrollbar_thumb_hover` | `--table-scrollbar-thumb-hover` | Embedded table scrollbar active/hover thumb. |
+
 ---
 
 ## Container Background Cascading

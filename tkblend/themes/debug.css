@@ -110,6 +110,22 @@
   --badge-fg: #f0f6fc;
   --focus-ring-color: hsl(212, 100%, 65%);
   --focus-ring-width: 2px;
+
+  /* Table Component Tokens */
+  --table-bg: #161b22;
+  --table-fg: #f0f6fc;
+  --table-header-bg: #21262d;
+  --table-header-fg: #8b949e;
+  --table-zebra-bg: #1f242b;
+  --table-hover-bg: #292d34;
+  --table-selected-bg: #4da0ff;
+  --table-selected-fg: #0d1117;
+  --table-border: #30363d;
+  --table-scrollbar-thumb: #30363d;
+  --table-scrollbar-thumb-hover: #3c608b;
+  --table-header-h: 38px;
+  --table-radius: 8px;
+  --table-border-w: 1px;
 }
 
 /* =============================================================================

@@ -239,20 +239,6 @@
   /* --------------------------------------------------------------------------
    * 14. Table Component Tokens (Peacock Teal Selection)
    * -------------------------------------------------------------------------- */
-  --table-bg: #17202c;
-  --table-fg: #f1f5f9;
-  --table-header-bg: #111822;
-  --table-header-fg: #94a3b8;
-  --table-zebra-bg: #1c2736;
-  --table-hover-bg: #233245;
-  --table-selected-bg: #0d9488;     /* Peacock teal selected row */
-  --table-selected-fg: #f0fdfa;
-  --table-border: transparent;
-  --table-header-h: 40px;
-  --table-radius: var(--radius-md);
-  --table-border-w: 0px;
-  --table-scrollbar-thumb: #2a3b50;
-  --table-scrollbar-thumb-hover: #3b526f;
 
   /* --------------------------------------------------------------------------
    * 15. Input, Textbox & ComboBox Tokens
@@ -293,6 +279,22 @@
   --label-font-size: 13px;
   --label-font-family: var(--font-sans);
   --label-font-weight: 400;
+
+  /* Table Component Tokens */
+  --table-bg: #17202c;
+  --table-fg: #f1f5f9;
+  --table-header-bg: #111822;
+  --table-header-fg: #94a3b8;
+  --table-zebra-bg: #1c2736;
+  --table-hover-bg: #233245;
+  --table-selected-bg: #0d9488;
+  --table-selected-fg: #f0fdfa;
+  --table-border: transparent;
+  --table-scrollbar-thumb: #2a3b50;
+  --table-scrollbar-thumb-hover: #3b526f;
+  --table-header-h: 40px;
+  --table-radius: var(--radius-md);
+  --table-border-w: 0px;
 }
 
 /* ==============================================================================
