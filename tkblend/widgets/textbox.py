@@ -146,6 +146,10 @@ class Entry(BaseControl):
         else:
             self._show_placeholder()
 
+    def set(self, val: str) -> None:
+        """Set the text value of the entry."""
+        self.text = val
+
     def get(self) -> str:
         return "" if self._is_showing_placeholder else self._entry.get()
 

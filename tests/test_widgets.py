@@ -165,6 +165,75 @@ def test_badge_and_label_and_card(root):
     assert lbl.text == "Information"
 
 
+def test_badge_auto_fit(root):
+    set_theme("dark")
+    # Auto-fit width calculation
+    badge_short = Badge(root, text="OK")
+    badge_short.pack()
+    root.update_idletasks()
+    w_short = badge_short.winfo_reqwidth()
+    assert w_short >= 24
+
+    badge_long = Badge(root, text="FLAGSHIP STATUS")
+    badge_long.pack()
+    root.update_idletasks()
+    w_long = badge_long.winfo_reqwidth()
+    assert w_long > w_short
+
+    # Dynamic text resize
+    badge_short.text = "A very long message to expand"
+    root.update_idletasks()
+    assert badge_short.winfo_reqwidth() > w_long
+
+    # Explicit width override
+    badge_fixed = Badge(root, text="Fixed", width=120)
+    badge_fixed.pack()
+    root.update_idletasks()
+    assert badge_fixed.winfo_reqwidth() == 120
+    badge_fixed.text = "Extremely long text that should not change fixed width"
+    root.update_idletasks()
+    assert badge_fixed.winfo_reqwidth() == 120
+
+    # Custom padding_x
+    b_pad20 = Badge(root, text="Test", padding_x=20)
+    b_pad8 = Badge(root, text="Test", padding_x=8)
+    b_pad20.pack()
+    b_pad8.pack()
+    root.update_idletasks()
+    assert b_pad20.winfo_reqwidth() > b_pad8.winfo_reqwidth()
+
+
+def test_card_content_inner_padding(root):
+    set_theme("dark")
+    # Default padding test
+    card = Card(root, width=300, height=200)
+    card.pack()
+    root.update_idletasks()
+    assert card.pad_x == Card.INNER_PAD_X
+    assert card.pad_y == Card.INNER_PAD_Y
+
+    content = card.content
+    root.update_idletasks()
+    # Content frame placement should reflect SHADOW_PAD + INNER_PAD
+    expected_x = Card.SHADOW_PAD_X + Card.INNER_PAD_X
+    expected_y = Card.SHADOW_PAD_TOP + Card.INNER_PAD_Y
+    place_info = content.place_info()
+    assert int(place_info["x"]) == expected_x
+    assert int(place_info["y"]) == expected_y
+
+    # Custom padding test
+    custom_card = Card(root, width=320, height=220, pad_x=24, pad_y=20)
+    custom_card.pack()
+    root.update_idletasks()
+    assert custom_card.pad_x == 24
+    assert custom_card.pad_y == 20
+    custom_content = custom_card.content
+    root.update_idletasks()
+    cust_place_info = custom_content.place_info()
+    assert int(cust_place_info["x"]) == Card.SHADOW_PAD_X + 24
+    assert int(cust_place_info["y"]) == Card.SHADOW_PAD_TOP + 20
+
+
 def test_frame_widget(root):
     set_theme("dark")
     frame = Frame(root, width=180, height=120, corner_radius=12.0, border_width=1.0)

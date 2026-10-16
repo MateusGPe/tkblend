@@ -191,37 +191,102 @@ class SpeedometerGauge(BaseControl):
         w = float(width)
         h = float(height)
         cx = w / 2.0
-        cy = h - 15.0 * s
-        r = min(w / 2.0 - 20.0 * s, h - 25.0 * s)
+        cy = h - 22.0 * s
+        r = min(w / 2.0 - 24.0 * s, h - 34.0 * s)
+        if r <= 10.0:
+            return
 
-        # Background Arc Track (180 degrees sweep)
-        surf.stroke_arc(cx, cy, r, -180.0, 180.0, pal.track_bg, stroke_width=10.0 * s)
+        # Track thickness
+        track_w = 8.0 * s
 
-        # Active colored arc
-        fraction = self._value / max(1.0, self._max_speed)
-        sweep = 180.0 * fraction
-        if sweep > 0.5:
-            surf.stroke_arc(cx, cy, r, -180.0, sweep, pal.primary, stroke_width=10.0 * s)
+        # Background Arc Track (Semi-circle: -180 deg to 0 deg in radians)
+        surf.stroke_arc(cx, cy, r, -math.pi, math.pi, pal.track_bg, stroke_width=track_w)
 
-        # Needle
-        needle_rad = math.pi + (sweep * math.pi / 180.0)
-        nx = cx + math.cos(needle_rad) * (r - 12.0 * s)
-        ny = cy + math.sin(needle_rad) * (r - 12.0 * s)
+        # Redline Warning Arc (top speed zone, last 20% of scale)
+        redline_val = self._max_speed * 0.8
+        redline_start_ang = -math.pi + math.pi * (redline_val / self._max_speed)
+        redline_sweep = math.pi - math.pi * (redline_val / self._max_speed)
+        danger_col = resolve_color_failsafe(pal.danger, palette=pal, fallback="#ef4444")
+        surf.stroke_arc(cx, cy, r, redline_start_ang, redline_sweep, danger_col, stroke_width=track_w)
 
-        surf.stroke_line(cx, cy, nx, ny, pal.danger, stroke_width=3.0 * s)
-        surf.fill_circle(cx, cy, 8.0 * s, pal.danger)
-        surf.stroke_circle(cx, cy, 8.0 * s, pal.card_bg, stroke_width=2.0 * s)
+        # Active Progress Arc
+        fraction = min(1.0, max(0.0, self._value / max(1.0, self._max_speed)))
+        active_sweep = math.pi * fraction
+        if active_sweep > 0.01:
+            primary_col = resolve_color_failsafe(pal.primary, palette=pal, fallback="#3b82f6")
+            surf.stroke_arc(cx, cy, r, -math.pi, active_sweep, primary_col, stroke_width=track_w)
+
+        # Tick marks & dial numbers
+        major_step = 30 if self._max_speed <= 180 else 40
+        num_major = int(self._max_speed // major_step)
+        muted_col = resolve_color_failsafe(pal.text_muted, palette=pal, fallback="#71717a")
+        fg_col = resolve_color_failsafe(pal.fg, palette=pal, fallback="#e4e4e7")
+
+        for val in range(0, int(self._max_speed) + 1, 10):
+            tf = val / self._max_speed
+            ang = -math.pi + math.pi * tf
+            is_major = (val % major_step == 0)
+            inner_r = r - (16.0 if is_major else 10.0) * s
+            outer_r = r - 5.0 * s
+
+            x1 = cx + math.cos(ang) * inner_r
+            y1 = cy + math.sin(ang) * inner_r
+            x2 = cx + math.cos(ang) * outer_r
+            y2 = cy + math.sin(ang) * outer_r
+
+            tick_col = danger_col if val >= redline_val else (fg_col if is_major else muted_col)
+            surf.stroke_line(x1, y1, x2, y2, tick_col, stroke_width=(2.0 if is_major else 1.0) * s)
+
+            # Major numeric scale label
+            if is_major:
+                lbl_r = r - 26.0 * s
+                lx = cx + math.cos(ang) * lbl_r
+                ly = cy + math.sin(ang) * lbl_r
+                font_sz = 8.5 * s
+                surf.draw_text(
+                    str(val),
+                    lx,
+                    compute_text_baseline_y(ly, font_sz),
+                    font_size=font_sz,
+                    color=tick_col,
+                    align="center",
+                )
+
+        # Needle pointer with counterweight
+        needle_ang = -math.pi + active_sweep
+        tip_r = r - 12.0 * s
+        nx = cx + math.cos(needle_ang) * tip_r
+        ny = cy + math.sin(needle_ang) * tip_r
+        bx = cx - math.cos(needle_ang) * (12.0 * s)
+        by = cy - math.sin(needle_ang) * (12.0 * s)
+
+        needle_col = danger_col
+        surf.stroke_line(bx, by, nx, ny, needle_col, stroke_width=3.0 * s)
+
+        # Center Pivot Hub
+        surf.fill_circle(cx, cy, 7.0 * s, needle_col)
+        card_bg_col = resolve_color_failsafe(pal.card_bg, palette=pal, fallback="#1e1e2e")
+        surf.fill_circle(cx, cy, 3.5 * s, card_bg_col)
 
         # Center Text readout
-        font_sz = 14.0 * s
-        readout = f"{int(self._value)} {self._unit}"
+        readout_font_sz = 14.0 * s
+        unit_font_sz = 9.0 * s
+        readout = f"{int(round(self._value))}"
         surf.draw_text(
             readout,
             cx,
-            compute_text_baseline_y(cy - 25.0 * s, font_sz),
-            font_size=font_sz,
-            color=pal.fg,
+            compute_text_baseline_y(cy - 24.0 * s, readout_font_sz),
+            font_size=readout_font_sz,
+            color=fg_col,
             bold=True,
+            align="center",
+        )
+        surf.draw_text(
+            self._unit,
+            cx,
+            compute_text_baseline_y(cy - 12.0 * s, unit_font_sz),
+            font_size=unit_font_sz,
+            color=muted_col,
             align="center",
         )
 

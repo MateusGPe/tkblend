@@ -48,6 +48,7 @@ from tkblend import (
     set_theme,
     get_available_themes,
     cascade_bg_to_children,
+    resolve_color_failsafe,
     ScalingTracker,
     Button,
     Card,
@@ -295,16 +296,24 @@ class CanvasStudio(tk.Frame):
         color_grid = tk.Frame(p_pad, background=pal.card_bg)
         color_grid.pack(fill="x", pady=(0, 14))
 
+        self._palette_buttons = {}
         for idx, col in enumerate(colors):
             c_btn = Button(
                 color_grid,
                 text="",
-                width=30,
-                height=30,
+                width=32,
+                height=32,
                 command=lambda c=col: self._set_brush_color(c),
             )
-            c_btn.set_inner_bg(col)
-            c_btn.grid(row=idx // 4, column=idx % 4, padx=3, pady=3)
+            c_btn.set_var("--btn-bg", col)
+            c_btn.set_var("--btn-hover-bg", col)
+            c_btn.set_var("--btn-active-bg", col)
+            c_btn.set_var("--btn-radius", "8.0")
+            c_btn.set_var("--btn-font-size", "14.0")
+            c_btn.grid(row=idx // 4, column=idx % 4, padx=4, pady=4)
+            self._palette_buttons[col] = c_btn
+
+        self._update_swatch_selection()
 
         btn_row = tk.Frame(p_pad, background=pal.card_bg)
         btn_row.pack(fill="x", pady=6)
@@ -376,6 +385,22 @@ class CanvasStudio(tk.Frame):
 
     def _set_brush_color(self, col: str) -> None:
         self._brush_color = col
+        self._update_swatch_selection()
+
+    def _update_swatch_selection(self) -> None:
+        pal = get_theme()
+        border_col = resolve_color_failsafe(pal.fg, palette=pal, fallback="#ffffff")
+        for c, btn in getattr(self, "_palette_buttons", {}).items():
+            if c == self._brush_color:
+                btn.text = "✓"
+                fg_col = "#000000" if c == "#f8fafc" else "#ffffff"
+                btn.set_var("--btn-fg", fg_col)
+                btn.set_var("--btn-border", border_col)
+                btn.set_var("--btn-border-width", "2.5")
+            else:
+                btn.text = ""
+                btn.set_var("--btn-border-width", "0.0")
+            btn.request_redraw()
 
     def _undo_stroke(self) -> None:
         if self._freehand_strokes:
@@ -635,6 +660,7 @@ class CanvasStudio(tk.Frame):
         pal = get_theme()
         self.configure(background=pal.bg)
         cascade_bg_to_children(self, pal.bg, palette=pal)
+        self._update_swatch_selection()
         self._canvas.request_redraw()
 
 

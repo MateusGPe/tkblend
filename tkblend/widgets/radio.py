@@ -35,11 +35,34 @@ class Radio(BaseControl):
         if text:
             self.set_var("--text", str(text))
 
+        self._trace_id: Optional[str] = None
         if self._variable is not None and self._value is not None:
             try:
                 self.is_checked = (self._variable.get() == self._value)
             except Exception:
                 pass
+            try:
+                self._trace_id = self._variable.trace_add("write", self._on_var_changed)
+            except Exception:
+                pass
+
+    def _on_var_changed(self, *args) -> None:
+        if self._variable is not None and self._value is not None:
+            try:
+                should_be_checked = (self._variable.get() == self._value)
+                if self.is_checked != should_be_checked:
+                    self.is_checked = should_be_checked
+            except Exception:
+                pass
+
+    def destroy(self) -> None:
+        if self._variable is not None and self._trace_id is not None:
+            try:
+                self._variable.trace_remove("write", self._trace_id)
+            except Exception:
+                pass
+            self._trace_id = None
+        super().destroy()
 
     @property
     def text(self) -> str:

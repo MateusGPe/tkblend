@@ -14,12 +14,16 @@ class Card(BaseControl):
     SHADOW_PAD_X: int = 10
     SHADOW_PAD_TOP: int = 8
     SHADOW_PAD_BOTTOM: int = 12
+    INNER_PAD_X: int = 18
+    INNER_PAD_Y: int = 14
 
     def __init__(
         self,
         master: Optional[tk.Misc] = None,
         width: int = 240,
         height: int = 180,
+        pad_x: Optional[int] = None,
+        pad_y: Optional[int] = None,
         **kwargs,
     ):
         super().__init__(
@@ -30,23 +34,38 @@ class Card(BaseControl):
             takefocus=False,
             **kwargs,
         )
+        self._pad_x = pad_x if pad_x is not None else self.INNER_PAD_X
+        self._pad_y = pad_y if pad_y is not None else self.INNER_PAD_Y
         self._controller.container_layer = ContainerLayer.Surface
         self.pack_propagate(False)
         self.grid_propagate(False)
         self._content: Optional[tk.Frame] = None
 
     @property
+    def pad_x(self) -> int:
+        """Horizontal inner padding inset for content container."""
+        return self._pad_x
+
+    @property
+    def pad_y(self) -> int:
+        """Vertical inner padding inset for content container."""
+        return self._pad_y
+
+    @property
     def content(self) -> tk.Frame:
-        """Lazy inner content container frame positioned inside the card's rounded surface."""
+        """Lazy inner content container frame positioned inside the card's rounded surface with inset padding."""
         if self._content is None:
             self._content = tk.Frame(self, background=self.inner_bg)
+            total_pad_x = self.SHADOW_PAD_X + self._pad_x
+            total_pad_top = self.SHADOW_PAD_TOP + self._pad_y
+            total_pad_bottom = self.SHADOW_PAD_BOTTOM + self._pad_y
             self._content.place(
-                x=self.SHADOW_PAD_X,
-                y=self.SHADOW_PAD_TOP,
+                x=total_pad_x,
+                y=total_pad_top,
                 relwidth=1.0,
                 relheight=1.0,
-                width=-(2 * self.SHADOW_PAD_X),
-                height=-(self.SHADOW_PAD_TOP + self.SHADOW_PAD_BOTTOM),
+                width=-(2 * total_pad_x),
+                height=-(total_pad_top + total_pad_bottom),
             )
         return self._content
 
