@@ -86,11 +86,11 @@ class TableDemoApp(tk.Tk):
         self.btn_theme.pack(side="right")
 
         # Control Toolbar
-        toolbar_card = Card(self, height=56)
+        toolbar_card = Card(self, height=64)
         toolbar_card.pack(fill="x", padx=24, pady=(0, 16))
 
         tool_content = tk.Frame(toolbar_card, bg=pal.card_bg)
-        tool_content.pack(fill="both", expand=True, padx=16, pady=8)
+        tool_content.pack(fill="both", expand=True, padx=18, pady=(10, 14))
 
         # Multi-select toggle
         self.sw_multi = Switch(
@@ -159,7 +159,7 @@ class TableDemoApp(tk.Tk):
         main_card.pack(fill="both", expand=True, padx=24, pady=(0, 12))
 
         main_card_inner = tk.Frame(main_card, bg=pal.card_bg)
-        main_card_inner.pack(fill="both", expand=True, padx=16, pady=16)
+        main_card_inner.pack(fill="both", expand=True, padx=18, pady=16)
 
         self.table_header_lbl = tk.Label(
             main_card_inner,
@@ -206,11 +206,11 @@ class TableDemoApp(tk.Tk):
         self.table.pack(fill="both", expand=True)
 
         # Status Bar Card
-        status_card = Card(self, height=44)
+        status_card = Card(self, height=48)
         status_card.pack(fill="x", padx=24, pady=(0, 18))
 
         status_content = tk.Frame(status_card, bg=pal.card_bg)
-        status_content.pack(fill="both", expand=True, padx=16, pady=6)
+        status_content.pack(fill="both", expand=True, padx=18, pady=(8, 12))
 
         self.lbl_status = tk.Label(
             status_content,

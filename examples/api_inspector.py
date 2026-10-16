@@ -357,11 +357,11 @@ class APIInspectorApp(tk.Tk):
         self.sidebar_frame.pack_propagate(False)
 
         # Sidebar Card 1: Presets
-        presets_card = Card(self.sidebar_frame, height=130)
+        presets_card = Card(self.sidebar_frame, height=140)
         presets_card.pack(fill="x", pady=(0, 10))
 
         p_inner = tk.Frame(presets_card, bg=pal.card_bg)
-        p_inner.pack(fill="both", expand=True, padx=12, pady=10)
+        p_inner.pack(fill="both", expand=True, padx=18, pady=16)
 
         self.preset_title_lbl = tk.Label(
             p_inner,
@@ -396,7 +396,7 @@ class APIInspectorApp(tk.Tk):
         history_card.pack(fill="both", expand=True)
 
         h_inner = tk.Frame(history_card, bg=pal.card_bg)
-        h_inner.pack(fill="both", expand=True, padx=12, pady=10)
+        h_inner.pack(fill="both", expand=True, padx=18, pady=16)
 
         h_top = tk.Frame(h_inner, bg=pal.card_bg)
         h_top.pack(fill="x", pady=(0, 6))
@@ -449,11 +449,11 @@ class APIInspectorApp(tk.Tk):
         self.stage_frame.pack(side="right", fill="both", expand=True)
 
         # 1. URL Request Bar Card
-        url_card = Card(self.stage_frame, height=64)
+        url_card = Card(self.stage_frame, height=68)
         url_card.pack(fill="x", pady=(0, 10))
 
         url_inner = tk.Frame(url_card, bg=pal.card_bg)
-        url_inner.pack(fill="both", expand=True, padx=12, pady=10)
+        url_inner.pack(fill="both", expand=True, padx=18, pady=(10, 14))
 
         self.method_combo = ComboBox(
             url_inner,
@@ -595,7 +595,7 @@ class APIInspectorApp(tk.Tk):
         resp_card.pack(fill="both", expand=True)
 
         resp_inner = tk.Frame(resp_card, bg=pal.card_bg)
-        resp_inner.pack(fill="both", expand=True, padx=14, pady=12)
+        resp_inner.pack(fill="both", expand=True, padx=18, pady=16)
 
         # Response Top Metrics Bar
         resp_metrics = tk.Frame(resp_inner, bg=pal.card_bg)
