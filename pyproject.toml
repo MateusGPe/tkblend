@@ -11,7 +11,22 @@ requires-python = ">=3.9"
 authors = [
     { name = "Mateus GP" }
 ]
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE*"]
+keywords = [
+    "blend2d",
+    "tkinter",
+    "ttkbootstrap",
+    "customtkinter",
+    "vector-graphics",
+    "2d-graphics",
+    "gui",
+    "widgets",
+    "antialiasing",
+    "high-performance",
+    "zero-copy",
+    "blitting",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -28,6 +43,12 @@ classifiers = [
     "Topic :: Software Development :: User Interfaces",
 ]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/MateusGPe/tkblend"
+Repository = "https://github.com/MateusGPe/tkblend"
+Issues = "https://github.com/MateusGPe/tkblend/issues"
+Documentation = "https://github.com/MateusGPe/tkblend#readme"
 
 [project.optional-dependencies]
 autotheme = [

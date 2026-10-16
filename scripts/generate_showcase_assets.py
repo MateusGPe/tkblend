@@ -28,7 +28,7 @@ import tkblend as tb
 from tkblend import set_theme
 
 from analytics_dashboard import AnalyticsDashboard
-from widget_gallery import WidgetGallery
+from showcase import ShowcaseApp
 from realtime_visualizer import RealtimeVisualizer
 from canvas_studio import CanvasStudio
 from custom_widget_cookbook import CustomWidgetCookbook
@@ -59,9 +59,9 @@ def capture_frame(root: tk.Tk, wait_ms: float = 0.05) -> Image.Image:
 # ==============================================================================
 # 1. Hero Analytics Dashboard Capture
 # ==============================================================================
-def record_analytics_showcase(out_gif: str, out_dark_png: str, out_light_png: str):
+def record_analytics_showcase(out_gif: str, out_cinematic_png: str, out_dark_png: str, out_light_png: str):
     print("  -> Recording Real Analytics Dashboard...")
-    set_theme("catppuccin_mocha")
+    set_theme("cinematic")
 
     root = tk.Tk()
     root.title("tkblend Analytics Telemetry")
@@ -74,12 +74,21 @@ def record_analytics_showcase(out_gif: str, out_dark_png: str, out_light_png: st
     root.update()
     time.sleep(0.3)
 
-    # 1. Save dark mode static PNG
+    # 1. Save cinematic static PNG
+    img_cinematic = capture_frame(root, wait_ms=0.1)
+    img_cinematic.save(out_cinematic_png, quality=95)
+    print(f"     ✓ Saved {os.path.basename(out_cinematic_png)}")
+
+    # 2. Switch to dark mode (Catppuccin Mocha) and save dark static PNG
+    dash._on_change_theme("catppuccin_mocha")
+    root.update_idletasks()
+    root.update()
+    time.sleep(0.2)
     img_dark = capture_frame(root, wait_ms=0.1)
     img_dark.save(out_dark_png, quality=95)
     print(f"     ✓ Saved {os.path.basename(out_dark_png)}")
 
-    # 2. Switch to light mode and save light static PNG
+    # 3. Switch to light mode and save light static PNG
     dash._on_change_theme("light")
     root.update_idletasks()
     root.update()
@@ -88,18 +97,62 @@ def record_analytics_showcase(out_gif: str, out_dark_png: str, out_light_png: st
     img_light.save(out_light_png, quality=95)
     print(f"     ✓ Saved {os.path.basename(out_light_png)}")
 
-    # 3. Capture animated frames cycling through themes while streaming
+    # 4. Capture animated frames cycling through curated theme lineup with continuous movement
     frames: List[Image.Image] = []
-    themes = ["catppuccin_mocha", "cyberpunk", "tokyo_night", "light", "dracula", "nord", "dark"]
+    themes = ["cinematic", "catppuccin_mocha", "cyberpunk", "tokyo_night", "sunset_amber", "emerald_forest", "light"]
+    seg_values = ["1H", "6H", "24H", "7D"]
 
-    for th in themes:
+    for t_idx, th in enumerate(themes):
         dash._on_change_theme(th)
-        for _ in range(5):
+        if hasattr(dash, "_theme_opt"):
+            dash._theme_opt.set(th)
+
+        seg_val = seg_values[t_idx % len(seg_values)]
+        if hasattr(dash, "_seg_filter"):
+            dash._seg_filter.set(seg_val)
+
+        for step in range(7):
+            if dash._stream_job:
+                dash.after_cancel(dash._stream_job)
+                dash._stream_job = None
             dash._start_data_stream()
-            frame = capture_frame(root, wait_ms=0.08)
+
+            # Smooth hover cursor motion across spline chart points
+            if hasattr(dash, "_telemetry_chart"):
+                n_pts = len(dash._telemetry_chart._data_primary)
+                dash._telemetry_chart._hover_idx = (t_idx * 2 + step) % max(1, n_pts)
+                dash._telemetry_chart.request_redraw()
+
+            # Fluid radial gauge saturation oscillations
+            phase = (t_idx * 7 + step) * 0.32
+            if hasattr(dash, "_cpu_gauge"):
+                cpu_v = 55.0 + math.sin(phase) * 26.0
+                dash._cpu_gauge.value = round(cpu_v, 1)
+                dash._cpu_gauge.request_redraw()
+            if hasattr(dash, "_mem_gauge"):
+                mem_v = 60.0 + math.cos(phase * 0.85) * 18.0
+                dash._mem_gauge.value = round(mem_v, 1)
+                dash._mem_gauge.request_redraw()
+
+            # Cycle table selection
+            if hasattr(dash, "_table"):
+                r_idx = (step + t_idx) % len(dash._table.data)
+                dash._table.selected_row = r_idx
+                dash._table.request_redraw()
+
+            # Occasional live streaming toggle pulse
+            if hasattr(dash, "_stream_switch") and step == 3:
+                dash._stream_switch.is_checked = not dash._stream_switch.is_checked
+                dash._stream_switch.request_redraw()
+
+            frame = capture_frame(root, wait_ms=0.06)
             small = frame.resize((884, 578), Image.Resampling.LANCZOS)
             frames.append(small.quantize(colors=256, method=Image.Quantize.MEDIANCUT))
 
+    dash._is_streaming = False
+    if dash._stream_job:
+        dash.after_cancel(dash._stream_job)
+        dash._stream_job = None
     dash.destroy()
     root.destroy()
 
@@ -108,7 +161,7 @@ def record_analytics_showcase(out_gif: str, out_dark_png: str, out_light_png: st
             out_gif,
             save_all=True,
             append_images=frames[1:],
-            duration=130,
+            duration=120,
             loop=0,
             optimize=True,
         )
@@ -120,7 +173,7 @@ def record_analytics_showcase(out_gif: str, out_dark_png: str, out_light_png: st
 # ==============================================================================
 def record_visualizer_showcase(out_gif: str, out_part_png: str, out_spec_png: str):
     print("  -> Recording Real 60 FPS Visualizer...")
-    set_theme("catppuccin_mocha")
+    set_theme("cinematic")
 
     root = tk.Tk()
     root.title("tkblend 60 FPS Visualizer")
@@ -136,25 +189,26 @@ def record_visualizer_showcase(out_gif: str, out_part_png: str, out_spec_png: st
     frames: List[Image.Image] = []
 
     # Mode 1: Particle Swarm with simulated mouse motion
-    vis._set_mode("Particle Swarm")
-    vis._mode_seg.set("Particle Swarm")
+    vis._mode_seg.set("Particles")
+    vis._on_mode_change("Particles")
 
     w_canvas = 620.0
     h_canvas = 520.0
 
-    for step in range(24):
+    for step in range(22):
         t = step * 0.28
         mx = (w_canvas / 2.0) + math.cos(t) * (w_canvas * 0.35)
         my = (h_canvas / 2.0) + math.sin(t * 1.3) * (h_canvas * 0.3)
-        vis._mouse_pos = (mx, my)
+        vis._mouse_attractor = (mx, my)
 
-        vis._render_frame()
+        vis._canvas.paint_and_blit()
         if hasattr(vis, "_fps_badge"):
-            vis._fps_badge.set_text("FPS: 60.0")
-            vis._ms_badge.set_text("Render: 0.38 ms")
+            vis._fps_badge.text = "60 FPS | 0.38 ms"
+        if hasattr(vis, "_gauge_fps"):
+            vis._gauge_fps.value = 60.0
         frame = capture_frame(root, wait_ms=0.04)
 
-        if step == 10:
+        if step == 8:
             frame.save(out_part_png, quality=95)
             print(f"     ✓ Saved {os.path.basename(out_part_png)}")
 
@@ -162,23 +216,25 @@ def record_visualizer_showcase(out_gif: str, out_part_png: str, out_spec_png: st
         frames.append(small.quantize(colors=256, method=Image.Quantize.MEDIANCUT))
 
     # Mode 2: Audio Spectrum Equalizer
-    vis._set_mode("Audio Spectrum")
-    vis._mode_seg.set("Audio Spectrum")
+    vis._mode_seg.set("Spectrum")
+    vis._on_mode_change("Spectrum")
 
-    for step in range(24):
-        vis._render_frame()
+    for step in range(22):
+        vis._canvas.paint_and_blit()
         if hasattr(vis, "_fps_badge"):
-            vis._fps_badge.set_text("FPS: 60.0")
-            vis._ms_badge.set_text("Render: 0.38 ms")
+            vis._fps_badge.text = "60 FPS | 0.38 ms"
+        if hasattr(vis, "_gauge_fps"):
+            vis._gauge_fps.value = 60.0
         frame = capture_frame(root, wait_ms=0.04)
 
-        if step == 10:
+        if step == 8:
             frame.save(out_spec_png, quality=95)
             print(f"     ✓ Saved {os.path.basename(out_spec_png)}")
 
         small = frame.resize((884, 578), Image.Resampling.LANCZOS)
         frames.append(small.quantize(colors=256, method=Image.Quantize.MEDIANCUT))
 
+    vis.destroy()
     root.destroy()
 
     if frames:
@@ -186,7 +242,7 @@ def record_visualizer_showcase(out_gif: str, out_part_png: str, out_spec_png: st
             out_gif,
             save_all=True,
             append_images=frames[1:],
-            duration=75,
+            duration=80,
             loop=0,
             optimize=True,
         )
@@ -194,66 +250,103 @@ def record_visualizer_showcase(out_gif: str, out_part_png: str, out_spec_png: st
 
 
 # ==============================================================================
-# 3. Widget Gallery Matrix & Theming Capture
+# 3. Modern Material Design 3 ShowcaseApp (Catalog & Matrix)
 # ==============================================================================
-def record_widget_gallery_showcase(out_gif: str, out_png: str):
-    print("  -> Recording Real Widget Gallery & Theming...")
-    set_theme("catppuccin_mocha")
+def record_showcase_app_assets(out_gif: str, out_png: str):
+    print("  -> Recording Real Modern ShowcaseApp (Widget Catalog & Matrix)...")
+    set_theme("cinematic")
 
-    root = tk.Tk()
-    root.title("tkblend Widget Catalog")
-    root.geometry("1140x700")
-
-    gallery = WidgetGallery(root)
-    gallery.pack(fill="both", expand=True)
-
-    root.update_idletasks()
-    root.update()
+    app = ShowcaseApp()
+    app._select_theme("cinematic")
+    app.geometry("1120x860")
+    app.update_idletasks()
+    app.update()
     time.sleep(0.3)
 
-    # Save static overview
-    img_static = capture_frame(root, wait_ms=0.1)
+    # Save static overview in Cinematic theme
+    img_static = capture_frame(app, wait_ms=0.1)
     img_static.save(out_png, quality=95)
-    print(f"     ✓ Saved {os.path.basename(out_png)}")
+    print(f"     ✓ Saved {os.path.basename(out_png)} (Cinematic theme)")
 
     frames: List[Image.Image] = []
+    themes = ["cinematic", "catppuccin_mocha", "cyberpunk", "tokyo_night", "sunset_amber", "emerald_forest", "light"]
+    segments = ["Standard", "Balanced", "Performance"]
+    tabs = ["Engine", "Surface", "Theme"]
+    search_queries = ["B", "Bl", "Blend", "Blend2D", "Vector", "Native", ""]
 
-    tabs = [
-        "Buttons & Badges",
-        "Inputs & Forms",
-        "Selectors & Sliders",
-        "Indicators & Gauges",
-        "Containers",
-        "Data Table",
-    ]
-    themes = ["catppuccin_mocha", "tokyo_night", "cyberpunk", "emerald_forest", "light", "dark"]
+    for idx, th in enumerate(themes):
+        app._select_theme(th)
 
-    for idx, tab_name in enumerate(tabs):
-        th = themes[idx % len(themes)]
-        gallery._on_theme_changed(th)
-        gallery._tabview.set(tab_name)
+        # Tab switch per theme
+        tab_name = tabs[idx % len(tabs)]
+        app.tabview.set(tab_name)
 
-        root.update_idletasks()
-        root.update()
+        # Segment switcher
+        seg = segments[idx % len(segments)]
+        app.seg_button.set(seg)
+        app._on_segment_click(seg)
 
-        for sub_step in range(4):
-            if hasattr(gallery, "_rx_slider"):
-                gallery._rx_slider.set_value(6.0 + sub_step * 4.0)
-            if hasattr(gallery, "_shadow_slider"):
-                gallery._shadow_slider.set_value(4.0 + sub_step * 3.0)
+        # Counter click
+        app._on_btn_click()
 
-            frame = capture_frame(root, wait_ms=0.08)
-            small = frame.resize((884, 578), Image.Resampling.LANCZOS)
+        # Perform 7 fluid sub-steps of continuous movement per theme
+        for step in range(7):
+            t = (idx * 7 + step) * 0.35
+
+            # Smooth slider sweeping back and forth
+            slider_val = 20.0 + (math.sin(t) * 0.5 + 0.5) * 65.0
+            app.slider.set(slider_val)
+            app._on_slider_moved(slider_val)
+
+            # Smooth range slider expansion/contraction
+            low_val = 10.0 + (math.sin(t * 0.8) * 0.5 + 0.5) * 25.0
+            high_val = 60.0 + (math.cos(t * 0.7) * 0.5 + 0.5) * 35.0
+            app.range_slider.set(low_val, high_val)
+            app._on_range_slider_moved((low_val, high_val))
+
+            # Smooth circular gauge and speed gauge
+            if hasattr(app, "circular_prog"):
+                app.circular_prog.value = round(35.0 + (math.sin(t * 1.2) * 0.5 + 0.5) * 60.0, 1)
+                app.circular_prog.request_redraw()
+            if hasattr(app, "speed_gauge"):
+                app.speed_gauge.value = round(50.0 + (math.cos(t * 1.1) * 0.5 + 0.5) * 45.0, 1)
+                app.speed_gauge.request_redraw()
+
+            # Flip switches / checkboxes periodically
+            if step == 2 and hasattr(app, "sw_notif"):
+                app.sw_notif.is_checked = not app.sw_notif.is_checked
+                app.sw_notif.request_redraw()
+            if step == 5 and hasattr(app, "cb_gpu"):
+                app.cb_gpu.is_checked = not app.cb_gpu.is_checked
+                app.cb_gpu.request_redraw()
+
+            # Simulated live search entry typing
+            if hasattr(app, "search_entry"):
+                q_idx = (idx * 2 + (step // 4)) % len(search_queries)
+                app.search_entry.delete(0, tk.END)
+                app.search_entry.insert(0, search_queries[q_idx])
+
+            # Select data table row
+            r_idx = (step + idx) % len(app.table.data)
+            app.table.selected_row = r_idx
+            app.table.request_redraw()
+            app._on_table_row_select(r_idx, app.table.data[r_idx])
+
+            app.update_idletasks()
+            app.update()
+
+            frame = capture_frame(app, wait_ms=0.06)
+            small = frame.resize((884, 678), Image.Resampling.LANCZOS)
             frames.append(small.quantize(colors=256, method=Image.Quantize.MEDIANCUT))
 
-    root.destroy()
+    app.destroy()
 
     if frames:
         frames[0].save(
             out_gif,
             save_all=True,
             append_images=frames[1:],
-            duration=160,
+            duration=120,
             loop=0,
             optimize=True,
         )
@@ -317,13 +410,16 @@ def record_canvas_and_cookbook_showcase(out_gif: str, out_canvas_png: str, out_c
 
     for step in range(16):
         if step % 4 == 0:
-            cb_app._next_step()
+            step_idx = (step // 4) + 1
+            cb_app._step_bar.set_step(step_idx)
 
-        speed_val = 20.0 + (step / 15.0) * 120.0
-        cb_app._speedo.set_value(speed_val)
+        speed_val = 20.0 + (step / 15.0) * 140.0
+        cb_app._speedo.value = speed_val
+        cb_app._speedo.request_redraw()
 
         if step == 8:
-            cb_app._randomize_radar()
+            cb_app._radar.values = [80.0, 45.0, 90.0, 70.0, 60.0]
+            cb_app._radar.request_redraw()
 
         frame = capture_frame(root_cb, wait_ms=0.08)
         small = frame.resize((884, 578), Image.Resampling.LANCZOS)
@@ -347,11 +443,12 @@ def record_canvas_and_cookbook_showcase(out_gif: str, out_canvas_png: str, out_c
 # Main Orchestrator
 # ==============================================================================
 def main():
-    print(f"[*] Starting Authentic Showcase Asset Generation into {ASSETS_DIR}...")
+    print(f"[*] Starting Authentic Showcase Asset Generator into {ASSETS_DIR}...")
 
     # 1. Hero Analytics Dashboard
     record_analytics_showcase(
         out_gif=os.path.join(ASSETS_DIR, "hero_showcase.gif"),
+        out_cinematic_png=os.path.join(ASSETS_DIR, "hero_analytics_cinematic.png"),
         out_dark_png=os.path.join(ASSETS_DIR, "hero_analytics_dark.png"),
         out_light_png=os.path.join(ASSETS_DIR, "hero_analytics_light.png"),
     )
@@ -363,8 +460,8 @@ def main():
         out_spec_png=os.path.join(ASSETS_DIR, "realtime_spectrum.png"),
     )
 
-    # 3. Widget Gallery & Theming
-    record_widget_gallery_showcase(
+    # 3. Modern Material Design 3 ShowcaseApp (Widget Matrix & Catalog)
+    record_showcase_app_assets(
         out_gif=os.path.join(ASSETS_DIR, "widget_matrix_theming.gif"),
         out_png=os.path.join(ASSETS_DIR, "widget_catalog_overview.png"),
     )

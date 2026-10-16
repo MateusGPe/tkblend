@@ -86,8 +86,9 @@ An immediate-mode vector drawing widget for animations, charts, and visualizatio
 ### 4. Dynamic Theming
 
 <p align="center">
-  <img src="docs/assets/hero_analytics_dark.png" alt="Analytics Dashboard Dark Mode" width="48%"/>
-  <img src="docs/assets/hero_analytics_light.png" alt="Analytics Dashboard Light Mode" width="48%"/>
+  <img src="docs/assets/hero_analytics_cinematic.png" alt="Analytics Dashboard Cinematic Theme" width="32%"/>
+  <img src="docs/assets/hero_analytics_dark.png" alt="Analytics Dashboard Dark Mode (Catppuccin)" width="32%"/>
+  <img src="docs/assets/hero_analytics_light.png" alt="Analytics Dashboard Light Mode" width="32%"/>
 </p>
 
 * **Runtime switching**: Change themes dynamically via `set_theme("catppuccin_mocha")`, `set_theme("cinematic")`, or `set_theme("light")`.
