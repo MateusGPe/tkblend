@@ -87,7 +87,7 @@ class ShowcaseApp(tk.Tk):
         )
         title_lbl.pack(side="left")
 
-        version_badge = Badge(title_box, text="v0.3.0 M3", width=95, height=26)
+        version_badge = Badge(title_box, text=f"v{tb.__version__} M3", width=95, height=26)
         version_badge.pack(side="left", padx=12)
 
         # Theme Switcher in Header using native vector ComboBox
@@ -405,7 +405,7 @@ class ShowcaseApp(tk.Tk):
         self.tabview.pack(fill="both", expand=True)
 
         tab1 = self.tabview.add("Engine")
-        tk.Label(tab1, text="Blend2D Direct Pipeline v0.3.0", font=("sans-serif", 11, "bold"), fg=pal.fg, bg=pal.card_bg).pack(pady=10)
+        tk.Label(tab1, text=f"Blend2D Direct Pipeline v{tb.__version__}", font=("sans-serif", 11, "bold"), fg=pal.fg, bg=pal.card_bg).pack(pady=10)
         tk.Label(tab1, text="Zero TTK overhead, immediate blit directly to window.", font=("sans-serif", 9), fg=pal.text_muted, bg=pal.card_bg).pack()
 
         tab2 = self.tabview.add("Surface")

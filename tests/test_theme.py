@@ -495,7 +495,7 @@ def test_cinematic_theme_scrollable_table_lifecycle(root):
     tbl = Table(scroller.content, columns=["Col 1", "Col 2"], data=[["A", "B"], ["C", "D"]])
     tbl.pack(fill="both", expand=True)
 
-    root.update()
+    root.update_idletasks()
     scroller.destroy()
     set_theme("dark")
 

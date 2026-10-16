@@ -707,11 +707,11 @@ def test_combobox_popup_lifecycle_and_selection(root):
         height=36,
     )
     cb.pack(padx=20, pady=20)
-    root.update()
+    root.update_idletasks()
 
     # Open popup
     cb.on_click(10, 10, 1)
-    root.update()
+    root.update_idletasks()
     assert cb._popup is not None
     assert cb._popup.winfo_exists()
 
@@ -726,7 +726,7 @@ def test_combobox_popup_lifecycle_and_selection(root):
     # Click on Option 2
     lbl_opt2 = cb._popup._labels[1]
     lbl_opt2.event_generate("<Button-1>", x=5, y=5)
-    root.update()
+    root.update_idletasks()
 
     assert cb.get() == "Option 2"
     assert selected_vals == ["Option 2"]
@@ -743,10 +743,10 @@ def test_combobox_popup_keyboard_navigation(root):
         height=36,
     )
     cb.pack(padx=20, pady=20)
-    root.update()
+    root.update_idletasks()
 
     cb.on_click(10, 10, 1)
-    root.update()
+    root.update_idletasks()
     popup = cb._popup
     assert popup is not None
 
@@ -764,7 +764,7 @@ def test_combobox_popup_keyboard_navigation(root):
 
     # Press Select (Enter)
     popup._on_key_select()
-    root.update()
+    root.update_idletasks()
 
     assert cb.get() == "Item B"
     assert cb._popup is None or not cb._popup.winfo_exists()
@@ -780,26 +780,26 @@ def test_combobox_popup_outside_click_and_toggle(root):
         height=36,
     )
     cb.pack(padx=20, pady=20)
-    root.update()
+    root.update_idletasks()
 
     # Open popup
     cb.on_click(10, 10, 1)
-    root.update()
+    root.update_idletasks()
     assert cb._popup is not None and cb._popup.winfo_exists()
 
     # Outside click dismisses
     root.event_generate("<Button-1>", x=1, y=1)
-    root.update()
+    root.update_idletasks()
     assert cb._popup is None or not cb._popup.winfo_exists()
 
     # Reopen popup
     cb.on_click(10, 10, 1)
-    root.update()
+    root.update_idletasks()
     assert cb._popup is not None and cb._popup.winfo_exists()
 
     # Clicking combobox again toggles it closed
     cb.on_click(10, 10, 1)
-    root.update()
+    root.update_idletasks()
     assert cb._popup is None or not cb._popup.winfo_exists()
 
 
@@ -815,10 +815,10 @@ def test_combobox_popup_scrolling_long_list(root):
         height=36,
     )
     cb.pack(padx=20, pady=20)
-    root.update()
+    root.update_idletasks()
 
     cb.on_click(10, 10, 1)
-    root.update()
+    root.update_idletasks()
     popup = cb._popup
     assert popup is not None
     assert popup._needs_scroll is True
@@ -836,11 +836,11 @@ def test_combobox_popup_scrolling_long_list(root):
     scroll_event.delta = -120
     scroll_event.num = 5
     popup._on_mousewheel(scroll_event)
-    root.update()
+    root.update_idletasks()
     assert popup._canvas.yview()[0] >= initial_yview
 
     popup.dismiss()
-    root.update()
+    root.update_idletasks()
 
 
 def test_scrollbar_math_utilities():

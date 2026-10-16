@@ -299,7 +299,7 @@ class APIInspectorApp(tk.Tk):
         )
         self.title_lbl.pack(side="left")
 
-        version_badge = Badge(title_box, text="v0.3.0", width=62, height=24)
+        version_badge = Badge(title_box, text=f"v{tb.__version__}", width=62, height=24)
         version_badge.pack(side="left", padx=10)
 
         self.subtitle_lbl = tk.Label(

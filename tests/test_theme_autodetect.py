@@ -145,18 +145,18 @@ def test_auto_theme_live_listener_dispatch(root):
 
         # Simulate OS dark mode change to Light
         listener_cb("Light")
-        root.update()
+        root.update_idletasks()
         assert get_theme().name == "light"
 
         # Simulate OS dark mode change to Dark
         listener_cb("Dark")
-        root.update()
+        root.update_idletasks()
         assert get_theme().name == "dark"
 
         # Test cleanup stops auto theme
         cleanup()
         listener_cb("Light")
-        root.update()
+        root.update_idletasks()
         # Should stay dark because listener was stopped
         assert get_theme().name == "dark"
 
@@ -179,7 +179,7 @@ def test_apply_theme_auto_detect(root):
 
         if listener_cb:
             listener_cb("Dark")
-            root.update()
+            root.update_idletasks()
             assert get_theme().name == "dark"
 
         cleanup()

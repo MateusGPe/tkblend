@@ -62,7 +62,7 @@ def test_native_state_lerping_and_timer(root):
 
     # Simulate hover event
     ctrl.is_hovered = True
-    root.update()
+    root.update_idletasks()
 
     # Hover lerp advances smoothly towards 1.0
     ctrl.hover_t = 0.5
@@ -70,7 +70,7 @@ def test_native_state_lerping_and_timer(root):
 
     # Simulate press
     ctrl.is_pressed = True
-    root.update()
+    root.update_idletasks()
     ctrl.press_t = 0.8
     assert ctrl.press_t == pytest.approx(0.8, abs=1e-4)
 

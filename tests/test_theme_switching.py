@@ -29,7 +29,7 @@ def tk_root():
     try:
         r = tk.Tk()
         r.geometry("900x700")
-        r.update()
+        r.update_idletasks()
         yield r
         r.destroy()
     except tk.TclError:
@@ -59,7 +59,7 @@ def test_multistep_theme_cycling_colors(tk_root):
     canvas = BlendCanvas(card2, width=300, height=150)
     canvas.pack(pady=10)
 
-    root.update()
+    root.update_idletasks()
 
     themes_sequence = ["dark", "light", "dracula", "cyberpunk", "solarized_light", "nord", "dark"]
 
@@ -67,10 +67,9 @@ def test_multistep_theme_cycling_colors(tk_root):
         apply_theme(root, theme_name)
         flush_theme_queue()
         root.update_idletasks()
-        root.update()
         import time
         time.sleep(0.02)
-        root.update()
+        root.update_idletasks()
         
         cur_pal = get_theme()
         assert cur_pal.name == theme_name
