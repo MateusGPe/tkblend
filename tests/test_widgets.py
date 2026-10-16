@@ -189,10 +189,13 @@ def test_badge_auto_fit(root):
     badge_fixed = Badge(root, text="Fixed", width=120)
     badge_fixed.pack()
     root.update_idletasks()
-    assert badge_fixed.winfo_reqwidth() == 120
+    assert badge_fixed.width == 120
+    expected_fixed_w = max(1, int(120 * badge_fixed.scale_factor))
+    assert badge_fixed.winfo_reqwidth() == expected_fixed_w
     badge_fixed.text = "Extremely long text that should not change fixed width"
     root.update_idletasks()
-    assert badge_fixed.winfo_reqwidth() == 120
+    assert badge_fixed.width == 120
+    assert badge_fixed.winfo_reqwidth() == expected_fixed_w
 
     # Custom padding_x
     b_pad20 = Badge(root, text="Test", padding_x=20)

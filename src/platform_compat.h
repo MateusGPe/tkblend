@@ -178,7 +178,7 @@ static inline int TkBlend_InitStubs(Tcl_Interp *interp) {
         if (!stubs || (stubs->magic != TKBLEND_TCL_STUB_MAGIC_86 && stubs->magic != TKBLEND_TCL_STUB_MAGIC_90)) {
             return TCL_ERROR;
         }
-        tclStubsPtr = stubs;
+        tclStubsPtr = (decltype(tclStubsPtr))stubs;
         void *pkgData = nullptr;
         const char *actualVersion = tclStubsPtr->tcl_PkgRequireEx(interp, "Tcl", "8.6-", 0, &pkgData);
         if (!actualVersion) {
@@ -188,7 +188,7 @@ static inline int TkBlend_InitStubs(Tcl_Interp *interp) {
             }
         }
         if (stubs->magic == TKBLEND_TCL_STUB_MAGIC_90 && pkgData) {
-            tclStubsPtr = reinterpret_cast<const struct TclStubs*>(pkgData);
+            tclStubsPtr = (decltype(tclStubsPtr))pkgData;
         }
     }
 #endif
@@ -211,9 +211,9 @@ static inline int TkBlend_InitStubs(Tcl_Interp *interp) {
             return TCL_ERROR;
         }
         const auto *tkInfo = reinterpret_cast<const TkStubInfoShim*>(pkgData);
-        tkStubsPtr = tkInfo->tkStubsPtr;
+        tkStubsPtr = (decltype(tkStubsPtr))tkInfo->tkStubsPtr;
 #if defined(_WIN32) || defined(__CYGWIN__)
-        tkPlatStubsPtr = tkInfo->tkPlatStubsPtr;
+        tkPlatStubsPtr = (decltype(tkPlatStubsPtr))tkInfo->tkPlatStubsPtr;
 #endif
     }
 #endif
