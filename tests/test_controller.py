@@ -234,3 +234,21 @@ class TestNativeController:
                 pass
             ScalingTracker._cached_factor = None
 
+    def test_scaling_tracker_darwin_baseline(self, tk_root, monkeypatch):
+        import sys
+        from tkblend.widgets.base import ScalingTracker
+
+        ScalingTracker._cached_factor = None
+        monkeypatch.setattr(sys, "platform", "darwin")
+        try:
+            original_scale = float(tk_root.tk.call("tk", "scaling"))
+            tk_root.tk.call("tk", "scaling", 1.0)
+            factor = ScalingTracker.get_scaling_factor(tk_root)
+            assert factor == pytest.approx(1.0, rel=1e-2)
+        finally:
+            ScalingTracker._cached_factor = None
+            try:
+                tk_root.tk.call("tk", "scaling", original_scale)
+            except Exception:
+                pass
+

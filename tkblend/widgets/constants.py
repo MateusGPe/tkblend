@@ -11,8 +11,9 @@ from __future__ import annotations
 # Global & Shared Design Constants
 # ==============================================================================
 
-# Scaling baseline ratio (Tk standard 72 DPI base -> 96 / 72 = 4/3)
+# Scaling baseline ratio (Tk standard 72 DPI base -> 96 / 72 = 4/3 on Windows/X11, 72 / 72 = 1.0 on macOS Aqua)
 TK_SCALING_BASE: float = 1.3333333333333333
+TK_SCALING_BASE_DARWIN: float = 1.0
 TK_SCALING_MIN_THRESHOLD: float = 0.1
 
 # Standard typography alignment factors

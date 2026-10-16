@@ -5,6 +5,7 @@ Zero TTK dependencies, zero PhotoImage allocations.
 
 from __future__ import annotations
 
+import sys
 import tkinter as tk
 from typing import Optional, Callable, Any, Union, Dict, Sequence
 
@@ -29,6 +30,7 @@ from tkblend.theme import (
 )
 from tkblend.widgets.constants import (
     TK_SCALING_BASE,
+    TK_SCALING_BASE_DARWIN,
     TK_SCALING_MIN_THRESHOLD,
     DEFAULT_BASE_WIDTH,
     DEFAULT_BASE_HEIGHT,
@@ -73,9 +75,10 @@ class ScalingTracker:
                 except Exception:
                     pass
 
-                # 2. Query standard Tk scaling (72 points per inch standard base -> 96 / 72 = 1.333)
+                # 2. Query standard Tk scaling (72 points per inch standard base -> 96 / 72 = 1.333 on Windows/X11, 72 / 72 = 1.0 on Aqua)
                 scale = float(widget.tk.call("tk", "scaling"))
-                factor = scale / TK_SCALING_BASE
+                base = TK_SCALING_BASE_DARWIN if sys.platform == "darwin" else TK_SCALING_BASE
+                factor = scale / base
                 if factor > TK_SCALING_MIN_THRESHOLD:
                     cls._cached_factor = factor
                     return factor

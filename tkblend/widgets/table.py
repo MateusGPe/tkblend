@@ -893,7 +893,10 @@ class Table(BaseControl):
         entry.bind("<Escape>", _on_escape)
         entry.bind("<Tab>", _on_tab)
         entry.bind("<Shift-Tab>", _on_shift_tab)
-        entry.bind("<ISO_Left_Tab>", _on_shift_tab)
+        try:
+            entry.bind("<ISO_Left_Tab>", _on_shift_tab)
+        except tk.TclError:
+            pass
         entry.bind("<FocusOut>", _on_blur)
 
         editor_frame.place(x=place_x, y=place_y, width=place_w, height=place_h)
