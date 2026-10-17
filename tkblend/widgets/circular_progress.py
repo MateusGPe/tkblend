@@ -3,6 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 from typing import Optional, Any
 from tkblend.widgets.base import BaseControl
+from tkblend.widgets.utils import bind_variable_trace, unbind_variable_trace
 
 
 class CircularProgress(BaseControl):
@@ -11,11 +12,18 @@ class CircularProgress(BaseControl):
     """
 
     WIDGET_CLASS = "circular_progress"
+    DEFAULT_ANCHOR = "center"
 
     def __init__(
         self,
         master: Optional[tk.Misc] = None,
-        size: int = 110,
+        size: Optional[int] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        min_width: Optional[int] = None,
+        max_width: Optional[int] = None,
+        min_height: Optional[int] = None,
+        max_height: Optional[int] = None,
         value: float = 65.0,
         min_value: float = 0.0,
         max_value: float = 100.0,
@@ -32,17 +40,24 @@ class CircularProgress(BaseControl):
         self._max = float(max_value)
         self._unit = str(unit or "")
         self._title = title
-        self._variable = variable
         self._show_value = show_value
         self._stroke_w = float(stroke_width)
         self._start_angle = float(start_angle)
         self._sweep_angle = float(sweep_angle)
+        self._trace_id: Optional[str] = None
+
+        eff_size = size or width or height or 110
 
         super().__init__(
             master=master,
             widget_class="circular_progress",
-            width=size,
-            height=size,
+            width=width or eff_size,
+            height=height or eff_size,
+            min_width=min_width,
+            max_width=max_width,
+            min_height=min_height,
+            max_height=max_height,
+            variable=variable,
             takefocus=False,
             **kwargs,
         )
@@ -60,32 +75,41 @@ class CircularProgress(BaseControl):
                 init_val = float(self._variable.get())
             except Exception:
                 pass
+            self._trace_id = bind_variable_trace(self._variable, self._on_var_changed)
+
         self.set(init_val)
 
-    @property
-    def value(self) -> float:
-        return self.get()
+    def _get_content_size(self) -> tuple[int, int]:
+        s = self._explicit_width or self._explicit_height or 110
+        return s, s
 
-    @value.setter
-    def value(self, val: float) -> None:
-        self.set(val)
+    def _on_var_changed(self, *args) -> None:
+        if self._variable is not None:
+            try:
+                v = float(self._variable.get())
+                if abs(self.get() - v) > 1e-5:
+                    self.set(v)
+            except Exception:
+                pass
+
+    def destroy(self) -> None:
+        if self._variable is not None and self._trace_id is not None:
+            unbind_variable_trace(self._variable, self._trace_id)
+            self._trace_id = None
+        super().destroy()
 
     def get(self) -> float:
-        try:
-            norm = float(self.get_var("--progress") or 0.0)
-        except Exception:
-            norm = 0.0
+        norm = float(self.get_var("--progress", "0.0") or 0.0)
         return self._min + norm * (self._max - self._min)
 
     def set(self, val: float) -> None:
+        span = self._max - self._min
         clamped = max(self._min, min(self._max, float(val)))
-        span = max(0.0001, self._max - self._min)
-        norm = (clamped - self._min) / span
-        self.set_var("--progress", str(max(0.0, min(1.0, norm))))
-
-        val_str = f"{int(clamped) if clamped.is_integer() else clamped:.1f}{self._unit}"
-        self.set_var("--text", val_str)
-
+        norm = (clamped - self._min) / span if span > 0 else 0.0
+        self.set_var("--progress", f"{norm:.4f}")
+        if self._show_value:
+            display_str = f"{int(round(clamped))}{self._unit}"
+            self.set_var("--text", display_str)
         if self._variable is not None:
             try:
                 self._variable.set(clamped)
@@ -94,7 +118,16 @@ class CircularProgress(BaseControl):
         self.request_redraw()
 
     def step(self, amount: float = 1.0) -> None:
+        """Step progress value by amount, clamping to max_value."""
         self.set(self.get() + float(amount))
+
+    @property
+    def value(self) -> float:
+        return self.get()
+
+    @value.setter
+    def value(self, val: float) -> None:
+        self.set(val)
 
     @property
     def title(self) -> Optional[str]:
@@ -120,7 +153,9 @@ class Gauge(CircularProgress):
     def __init__(
         self,
         master: Optional[tk.Misc] = None,
-        size: int = 140,
+        size: Optional[int] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
         value: float = 50.0,
         min_value: float = 0.0,
         max_value: float = 100.0,
@@ -130,7 +165,9 @@ class Gauge(CircularProgress):
     ):
         super().__init__(
             master=master,
-            size=size,
+            size=size or width or height or 140,
+            width=width,
+            height=height,
             value=value,
             min_value=min_value,
             max_value=max_value,

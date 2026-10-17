@@ -278,3 +278,96 @@ def compute_scroll_jump(
     click_ratio = max(0.0, min(1.0, click_offset_in_track / max(1.0, track_len)))
     return click_ratio * max_scroll
 
+
+_MEASURE_SURFACE: Optional[Surface] = None
+
+
+def get_measure_surface() -> Optional[Surface]:
+    """Provide a thread-safe singleton 1x1 Surface for text measurement."""
+    global _MEASURE_SURFACE
+    if _MEASURE_SURFACE is None:
+        try:
+            _MEASURE_SURFACE = Surface(1, 1)
+        except Exception:
+            _MEASURE_SURFACE = None
+    return _MEASURE_SURFACE
+
+
+def normalize_anchor(anchor: Optional[str]) -> str:
+    """Normalize cardinal anchor strings ('w', 'center', 'e') or aliases ('left', 'c', 'right')."""
+    if not anchor:
+        return "center"
+    a = str(anchor).lower().strip()
+    if a in ("w", "left", "west"):
+        return "w"
+    elif a in ("e", "right", "east"):
+        return "e"
+    elif a in ("center", "c", "middle"):
+        return "center"
+    return "center"
+
+
+def measure_text_dimensions(
+    text: str,
+    font_size: float = 13.0,
+    font_family: str = "sans-serif",
+    font_weight: int = 400,
+    italic: bool = False,
+    font: Any = None,
+    pad_x: int = 0,
+    pad_y: int = 0,
+    min_w: int = 0,
+    min_h: int = 0,
+    line_spacing: float = 1.3,
+) -> tuple[int, int]:
+    """
+    Measure natural bounding dimensions of text including multi-line strings.
+    Safe to invoke before widget window creation and in headless environments.
+    """
+    import math
+
+    if font is not None:
+        from tkblend.font import parse_font
+        cfg = parse_font(font)
+        font_size = cfg.size
+        font_family = cfg.family
+        font_weight = cfg.effective_weight
+        italic = cfg.italic
+
+    if not text:
+        return max(min_w, 2 * pad_x), max(min_h, int(math.ceil(font_size * line_spacing + 2 * pad_y)))
+
+    lines = str(text).split("\n")
+    surf = get_measure_surface()
+    max_w = 0.0
+
+    for line in lines:
+        if not line:
+            continue
+        line_w = 0.0
+        if surf is not None:
+            try:
+                metrics = surf.measure_text(
+                    line,
+                    font_size=float(font_size),
+                    font_family=str(font_family or "sans-serif"),
+                    weight=int(font_weight),
+                    italic=bool(italic),
+                )
+                line_w = metrics.advance_x
+            except Exception:
+                line_w = len(line) * float(font_size) * 0.6
+        else:
+            line_w = len(line) * float(font_size) * 0.6
+        if line_w > max_w:
+            max_w = line_w
+
+    num_lines = max(1, len(lines))
+    total_line_h = float(font_size) * line_spacing * num_lines
+
+    calc_w = int(math.ceil(max_w + 2 * pad_x))
+    calc_h = int(math.ceil(total_line_h + 2 * pad_y))
+
+    return max(min_w, calc_w), max(min_h, calc_h)
+
+

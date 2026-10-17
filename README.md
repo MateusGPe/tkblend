@@ -66,7 +66,9 @@ Pixel buffers are rendered in memory by Blend2D and transferred directly to Tkin
   <img src="https://raw.githubusercontent.com/MateusGPe/tkblend/main/docs/assets/widget_matrix_theming.gif" alt="tkblend Widget Matrix" width="860"/>
 </p>
 
-A collection of custom-drawn widgets that operate independently of TTK themes:
+A collection of custom-drawn widgets that operate independently of TTK themes, featuring a uniform control API and responsive geometry negotiation:
+* **Uniform Control Contract**: Standard `.configure()`, `.cget()`, dictionary subscription (`widget["text"]`), two-way `variable=` synchronization, and normalized `state="normal"|"disabled"` (`is_disabled`) across all controls.
+* **Fit-to-Content & Responsive Layout**: Controls automatically measure their text and content dimensions, respect `min_width`/`max_width` constraints, and support content anchoring (`anchor="w"|"center"|"e"`) when expanding inside `pack(fill="x")` or `grid(sticky="ew")`.
 * **Controls**: `Button` (Primary, Secondary, Success, Danger, Outline), `Switch`, `Checkbox`, `Radio`, `SegmentedButton`.
 * **Sliders & Gauges**: `Slider` (single handle), `RangeSlider` (dual handle), `Progressbar`, `CircularProgress`.
 * **Containers**: `Card` (with box-blur soft shadows), `Frame`, `ScrollableFrame`, `Tabview`.
@@ -179,8 +181,9 @@ def on_slider(val):
 slider = Slider(card.content, width=280, value=75.0, command=on_slider)
 slider.pack(pady=8)
 
-# Toggle switch
-switch = Switch(card.content, text="Enable Feature", is_checked=True)
+# Toggle switch with variable binding and left alignment
+feature_var = tk.BooleanVar(value=True)
+switch = Switch(card.content, text="Enable Feature", variable=feature_var, anchor="w")
 switch.pack(pady=10)
 
 # Theme toggle button

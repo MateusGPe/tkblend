@@ -27,41 +27,149 @@
 | | `ComboBox` / `OptionMenu` | Dropdown picker with popup selection menu. |
 | **Data & Metrics** | `Table` | Vector data grid with sortable columns, virtualized row rendering, and zebra striping. |
 | | `Badge` | Pill-shaped status badge with variants (`default`, `primary`, `success`, `warning`, `danger`). |
-| | `Label` | Vector-rendered text label with font and color options. |
+| | `Label` | Vector-rendered text label with font, anchor alignment, and multiline auto-fit options. |
 | | `Sparkline` | Compact trend line chart with area fill and Bézier curve smoothing. |
+
+---
+
+## Common Control API & Layout Contract
+
+All interactive vector controls in `tkblend` inherit from `BaseControl`, providing a uniform API, standard Tkinter interoperability, and automated layout negotiation.
+
+### 1. Universal Geometry & Layout Properties
+
+Every control supports explicit sizing, boundary constraints, automated content measurement, and content anchoring:
+
+| Property / Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `width` | `int \| None` | Widget default | Explicit logical pixel width. When omitted, the widget auto-fits to its content. |
+| `height` | `int \| None` | Widget default | Explicit logical pixel height. When omitted, the widget auto-fits to its content. |
+| `min_width` | `int \| None` | `None` | Minimum width constraint. Natural or requested width cannot shrink below this value. |
+| `max_width` | `int \| None` | `None` | Maximum width constraint. Natural or requested width cannot expand beyond this value. |
+| `min_height` | `int \| None` | `None` | Minimum height constraint. |
+| `max_height` | `int \| None` | `None` | Maximum height constraint. |
+| `auto_fit` | `bool` | `True` (if width is None) | When `True`, natural content size (text metrics + padding) determines geometry requests. |
+| `anchor` | `str` | `"center"` or `"w"` | Internal content alignment within the surface: `"w"` (left), `"center"`, `"e"` (right). |
+| `corner_radius` | `float \| None` | Theme default | Outer border corner radius in logical pixels. |
+| `font` | `Any` | System sans-serif | Font descriptor (e.g. `("Inter", 12, "bold")` or `FontConfig`). |
+| `text_overflow` | `str` | `"clip"` | Text truncation strategy: `"clip"` or `"ellipsis"`. |
+
+```python
+from tkblend import Button, Label, Switch
+
+# Auto-fits to text length with boundary constraints
+btn = Button(
+    master,
+    text="Confirm Transaction",
+    min_width=120,
+    max_width=240,
+    anchor="center",
+    corner_radius=8.0,
+)
+btn.pack(pady=6)
+
+# Left-aligned switch inside an expanded column
+sw = Switch(
+    master,
+    text="Background Sync",
+    anchor="w",
+)
+sw.pack(fill="x", padx=12, pady=4)
+```
+
+### 2. State & Tkinter Interoperability
+
+All widgets follow standard Tkinter conventions for state management, variable binding, and dynamic configuration:
+
+* **State**: Standard `state="normal"` or `state="disabled"` strings, accompanied by the `is_disabled` boolean property. Disabled controls update their cursor, skip click callbacks, and render using disabled theme tokens.
+* **Tkinter Variables**: Pass Tkinter variables directly via `variable=var` (`StringVar`, `BooleanVar`, `IntVar`, `DoubleVar`). Changes synchronize two-way between the vector widget and the variable with automatic trace cleanup on destruction.
+* **Dynamic Configuration**: Configure properties at runtime via `.configure(key=value)`, `.config(key=value)`, dict assignment (`widget["text"] = "New"`), or direct property setters (`widget.text = "New"`).
+* **Property Retrieval**: Inspect properties using `.cget("key")`, dict lookup (`widget["text"]`), or direct property reads (`widget.text`).
+
+```python
+import tkinter as tk
+from tkblend import Checkbox, Button
+
+checked_var = tk.BooleanVar(value=True)
+
+chk = Checkbox(
+    master,
+    text="Enable Developer Diagnostics",
+    variable=checked_var,
+    state="normal",
+)
+chk.pack(pady=4)
+
+# Dynamic updates via property setters or .configure()
+chk.configure(text="Diagnostics Active", state="disabled")
+assert chk.is_disabled is True
+
+# Dict-style access
+chk["state"] = "normal"
+print("Checkbox anchor:", chk.cget("anchor"))
+```
+
+### 3. Responsive Pack and Grid Behavior
+
+tkblend controls participate seamlessly in Tkinter geometry managers (`pack` and `grid`):
+
+* **Auto-Fit by Default**: When no explicit width is passed, controls request exactly the geometry needed to render their text, icons, and padding without truncation.
+* **Responsive Expansion (`fill="x"` / `sticky="ew"`)**: When expanded by a layout manager to fill extra space, the Blend2D surface resizes to the allocated bounds while `anchor` cleanly positions the vector contents (left, center, or right) across the expanded surface.
+* **Dynamic Content Mutation**: Changing a widget's text dynamically (`lbl.text = "Much longer text..."`) recalculates the natural bounding box and triggers Tkinter geometry propagation automatically.
+
+```python
+from tkblend import Frame, Button, Label
+
+row = Frame(master)
+row.pack(fill="x", padx=16, pady=8)
+
+# Left-anchored title that fills available horizontal space
+title = Label(row, text="System Performance", anchor="w", font=("sans-serif", 14, "bold"))
+title.pack(side="left", fill="x", expand=True)
+
+# Right-anchored action button with clamped width
+action = Button(row, text="Refresh", anchor="center", min_width=90, max_width=140)
+action.pack(side="right")
+```
 
 ---
 
 ## Interactive Controls
 
 ### 1. Button
-Push button supporting multiple visual variants and click callbacks.
+Push button supporting multiple visual variants, auto-fit or explicit dimensions, anchors, and click callbacks.
 
 ```python
 from tkblend import Button
 
-# Standard primary button
+# Auto-fitting button with min/max bounds and anchor alignment
 btn = Button(
     master,
     text="Confirm Action",
     variant="primary",   # default, primary, secondary, success, danger, outline
+    anchor="center",     # "w", "center", "e"
+    min_width=120,
+    max_width=220,
+    corner_radius=8.0,
     command=lambda: print("Clicked!"),
-    width=140,
-    height=36,
 )
 btn.pack(pady=8)
 
-# Update text dynamically
+# Update text and state dynamically
 btn.text = "Processing..."
+btn.state = "disabled"   # disables clicks and updates cursor/styling
 ```
 
 ---
 
 ### 2. Switch
-Toggle switch with optional text label and state change callback.
+Toggle switch with vector rounded track, animated thumb, optional text label, and `tk.Variable` binding.
 
 ```python
+import tkinter as tk
 from tkblend import Switch
+
+switch_var = tk.BooleanVar(value=True)
 
 def on_toggle():
     print("Switch state:", switch.is_checked)
@@ -69,42 +177,53 @@ def on_toggle():
 switch = Switch(
     master,
     text="Enable Notifications",
-    is_checked=True,
+    variable=switch_var,
+    anchor="w",
     command=on_toggle,
 )
-switch.pack(pady=8)
+switch.pack(fill="x", padx=12, pady=6)
 
 # Programmatic toggle
 switch.toggle()
+assert switch_var.get() is False
 ```
 
 ---
 
 ### 3. Checkbox & Radio
-Vector checkboxes and radio button groups linked to Tkinter variables.
+Vector checkboxes and radio button groups linked to Tkinter variables with auto-sized labels and anchor alignment.
 
 ```python
 import tkinter as tk
 from tkblend import Checkbox, Radio
 
-# Checkbox
-chk = Checkbox(master, text="Remember session credentials", is_checked=False)
-chk.pack(pady=4)
+# Checkbox with two-way variable synchronization
+chk_var = tk.BooleanVar(value=False)
+chk = Checkbox(
+    master,
+    text="Remember session credentials",
+    variable=chk_var,
+    anchor="w",
+)
+chk.pack(fill="x", padx=12, pady=4)
 
-# Radio Group
+# Radio Group with shared StringVar
 radio_var = tk.StringVar(value="medium")
-r1 = Radio(master, text="Low Priority", value="low", variable=radio_var)
-r2 = Radio(master, text="Medium Priority", value="medium", variable=radio_var)
-r3 = Radio(master, text="High Priority", value="high", variable=radio_var)
-r1.pack(pady=2)
-r2.pack(pady=2)
-r3.pack(pady=2)
+r1 = Radio(master, text="Low Priority", value="low", variable=radio_var, anchor="w")
+r2 = Radio(master, text="Medium Priority", value="medium", variable=radio_var, anchor="w")
+r3 = Radio(master, text="High Priority", value="high", variable=radio_var, anchor="w")
+r1.pack(fill="x", padx=12, pady=2)
+r2.pack(fill="x", padx=12, pady=2)
+r3.pack(fill="x", padx=12, pady=2)
+
+# Check active selection
+assert r2.is_selected is True
 ```
 
 ---
 
 ### 4. SegmentedButton
-Segmented button selector for choosing from a list of options.
+Segmented button selector for mutually exclusive options with animated selection indicator.
 
 ```python
 from tkblend import SegmentedButton
@@ -121,6 +240,9 @@ seg = SegmentedButton(
     height=36,
 )
 seg.pack(pady=12)
+
+# Programmatic value selection
+seg.set("Monthly")
 ```
 
 ---
@@ -287,39 +409,64 @@ Label(tab_security, text="Security & Encryption").pack(pady=20)
 ## Inputs & Pickers
 
 ### 12. Entry & SearchEntry
-Text input fields with placeholder text support and focus borders.
+Vector single-line text input fields with placeholder text support, focus rings, and `tk.Variable` binding.
 
 ```python
+import tkinter as tk
 from tkblend import Entry, SearchEntry
 
-# Standard entry with placeholder
-entry = Entry(master, placeholder="Enter username...", width=260)
-entry.pack(pady=8)
+username_var = tk.StringVar(value="")
 
-# Search entry with search icon
-search = SearchEntry(master, placeholder="Search logs...", width=260)
-search.pack(pady=8)
+# Standard entry with placeholder and variable binding
+entry = Entry(
+    master,
+    placeholder="Enter username...",
+    variable=username_var,
+    min_width=200,
+)
+entry.pack(fill="x", padx=16, pady=6)
+
+# Search entry with built-in search icon and clear button
+search = SearchEntry(
+    master,
+    placeholder="Search logs...",
+    min_width=240,
+)
+search.pack(fill="x", padx=16, pady=6)
 ```
 
 ---
 
 ### 13. TextBox
-Multiline text editor.
+Multiline text editor with word wrapping, themeable background, and clipboard integration.
 
 ```python
 from tkblend import TextBox
 
-text_box = TextBox(master, width=340, height=160, font=("sans-serif", 10))
+text_box = TextBox(
+    master,
+    width=340,
+    height=160,
+    font=("sans-serif", 10),
+    corner_radius=8.0,
+)
 text_box.pack(pady=10)
+
+# Modify content programmatically
+text_box.set("Initial system configuration text...")
+content = text_box.get()
 ```
 
 ---
 
 ### 14. ComboBox & OptionMenu
-Dropdown picker with vector popup menu.
+Dropdown picker with vector popup menu and selection callbacks.
 
 ```python
+import tkinter as tk
 from tkblend import ComboBox
+
+selected_choice = tk.StringVar(value="Option A")
 
 def on_selection(choice):
     print("User picked:", choice)
@@ -328,8 +475,10 @@ combo = ComboBox(
     master,
     values=["Option A", "Option B", "Option C"],
     selected="Option A",
+    variable=selected_choice,
     command=on_selection,
-    width=220,
+    anchor="w",
+    min_width=180,
 )
 combo.pack(pady=10)
 ```
@@ -338,7 +487,48 @@ combo.pack(pady=10)
 
 ## Data & Metrics
 
-### 15. Table
+### 15. Label
+Vector-rendered text label with font styling, multi-line auto-fit, and anchor alignment.
+
+```python
+from tkblend import Label
+
+# Auto-fits horizontally and vertically to multi-line strings
+lbl = Label(
+    master,
+    text="Service Cluster: EU-West\nStatus: Operational",
+    anchor="w",                       # "w" (left), "center", "e" (right)
+    font=("sans-serif", 11, "bold"),
+    min_width=160,
+)
+lbl.pack(fill="x", padx=16, pady=8)
+
+# Dynamic text change re-measures dimensions and updates geometry
+lbl.text = "Service Cluster: EU-West\nStatus: Maintenance Scheduled"
+```
+
+---
+
+### 16. Badge
+Pill-shaped semantic status badge with auto-fitting width and corner radius constraints.
+
+```python
+from tkblend import Badge
+
+b1 = Badge(master, text="CONNECTED", variant="success", anchor="center")
+b2 = Badge(master, text="WARNING", variant="warning", anchor="center")
+b3 = Badge(master, text="OFFLINE", variant="danger", anchor="center")
+b1.pack(side="left", padx=4)
+b2.pack(side="left", padx=4)
+b3.pack(side="left", padx=4)
+
+# Dynamic text mutation
+b1.text = "SYNCED"
+```
+
+---
+
+### 17. Table
 Vector data grid with sortable column headers, virtualized row rendering, and zebra striping.
 
 ```python
@@ -367,21 +557,12 @@ table.pack(fill="both", expand=True, padx=16, pady=16)
 
 ---
 
-### 16. Badge & Sparkline
-Status badges and compact trend lines.
+### 18. Sparkline
+Compact trend line chart with Bézier curve smoothing and optional area gradient fill.
 
 ```python
-from tkblend import Badge, Sparkline
+from tkblend import Sparkline
 
-# Badges with semantic variants
-b1 = Badge(master, text="CONNECTED", variant="success")
-b2 = Badge(master, text="WARNING", variant="warning")
-b3 = Badge(master, text="OFFLINE", variant="danger")
-b1.pack(side="left", padx=4)
-b2.pack(side="left", padx=4)
-b3.pack(side="left", padx=4)
-
-# Sparkline trend graph
 points = [12, 19, 3, 5, 2, 3, 20, 33, 23, 40, 38, 55]
 sparkline = Sparkline(master, data=points, width=160, height=36)
 sparkline.pack(pady=8)

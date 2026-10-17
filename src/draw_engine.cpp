@@ -352,12 +352,25 @@ DrawBatch DrawEngine::create_control_batch(
         int font_weight = static_cast<int>(resolve_token("--btn-font-weight", vars, 500.0));
         double baseline_offset = resolve_token("--text-baseline-offset", vars, 0.35);
 
+        std::string anchor = resolve_token_str("--anchor", vars, "center");
+        double btn_pad_x = resolve_token("--btn-pad-x", vars, 14.0);
+        double text_x = bx + bw / 2.0;
+        int align_mode = 1; // center
+        if (anchor == "w" || anchor == "left") {
+            text_x = bx + btn_pad_x;
+            align_mode = 0; // left
+        } else if (anchor == "e" || anchor == "right") {
+            text_x = bx + bw - btn_pad_x;
+            align_mode = 2; // right
+        }
+
         b.draw_text_var(
-            btn_text, bx + bw / 2.0, by + bh / 2.0 + font_size * baseline_offset, font_size, font_family,
+            btn_text, text_x, by + bh / 2.0 + font_size * baseline_offset, font_size, font_family,
             fg_var, "--text", "--font-size",
             fallback_fg,
-            1 /* center */, font_weight
+            align_mode, font_weight
         );
+
 
         if ((state & ControllerPseudoState::StateFocused) != 0) {
             double focus_ring_w = resolve_token("--focus-ring-width", vars, 2.0);
@@ -386,8 +399,16 @@ DrawBatch DrawEngine::create_control_batch(
             track_h = std::max(8.0, h - 2.0 * focus_pad);
         }
 
+        std::string anchor = resolve_token_str("--anchor", vars, "w");
         double track_x = resolve_token("--switch-pad-x", vars, 4.0);
-        if (sw_text.empty() && w > track_w) {
+        double text_spacing = resolve_token("--switch-text-spacing", vars, 10.0);
+        double est_text_w = resolve_token("--text-w", vars, static_cast<double>(sw_text.length()) * 7.5);
+        double total_sw_w = track_w + (sw_text.empty() ? 0.0 : text_spacing + est_text_w);
+        if (anchor == "center" && w > total_sw_w) {
+            track_x = (w - total_sw_w) / 2.0;
+        } else if ((anchor == "e" || anchor == "right") && w > total_sw_w) {
+            track_x = w - total_sw_w - resolve_token("--switch-pad-x", vars, 4.0);
+        } else if (sw_text.empty() && w > track_w) {
             track_x = (w - track_w) / 2.0;
         }
         track_x = std::max(focus_pad, track_x);
@@ -462,8 +483,16 @@ DrawBatch DrawEngine::create_control_batch(
             box_size = std::max(8.0, std::min(box_size, h - 2.0 * focus_pad));
         }
 
+        std::string anchor = resolve_token_str("--anchor", vars, "w");
         double box_x = resolve_token("--checkbox-pad-x", vars, 4.0);
-        if (cb_text.empty() && w > box_size) {
+        double text_spacing = resolve_token("--checkbox-text-spacing", vars, 8.0);
+        double est_text_w = resolve_token("--text-w", vars, static_cast<double>(cb_text.length()) * 7.5);
+        double total_cb_w = box_size + (cb_text.empty() ? 0.0 : text_spacing + est_text_w);
+        if (anchor == "center" && w > total_cb_w) {
+            box_x = (w - total_cb_w) / 2.0;
+        } else if ((anchor == "e" || anchor == "right") && w > total_cb_w) {
+            box_x = w - total_cb_w - resolve_token("--checkbox-pad-x", vars, 4.0);
+        } else if (cb_text.empty() && w > box_size) {
             box_x = (w - box_size) / 2.0;
         }
         box_x = std::max(focus_pad, box_x);
@@ -524,9 +553,17 @@ DrawBatch DrawEngine::create_control_batch(
             cr = std::max(4.0, std::min(cr, (h - 2.0 * focus_pad) / 2.0));
         }
 
+        std::string anchor = resolve_token_str("--anchor", vars, "w");
         double pad_x = resolve_token("--radio-pad-x", vars, 4.0);
+        double text_spacing = resolve_token("--radio-text-spacing", vars, 8.0);
+        double est_text_w = resolve_token("--text-w", vars, static_cast<double>(radio_text.length()) * 7.5);
+        double total_rd_w = 2.0 * cr + (radio_text.empty() ? 0.0 : text_spacing + est_text_w);
         double cx = cr + pad_x;
-        if (radio_text.empty() && w > 2.0 * cr) {
+        if (anchor == "center" && w > total_rd_w) {
+            cx = (w - total_rd_w) / 2.0 + cr;
+        } else if ((anchor == "e" || anchor == "right") && w > total_rd_w) {
+            cx = w - total_rd_w - pad_x + cr;
+        } else if (radio_text.empty() && w > 2.0 * cr) {
             cx = w / 2.0;
         }
         cx = std::max(cr + focus_pad, cx);
@@ -1024,10 +1061,21 @@ DrawBatch DrawEngine::create_control_batch(
         int font_weight = static_cast<int>(resolve_token("--label-font-weight", vars, 400.0));
         double baseline_offset = resolve_token("--text-baseline-offset", vars, 0.35);
 
+        std::string anchor = resolve_token_str("--anchor", vars, "w");
+        double text_x = pad_x;
+        int align_mode = 0; // left
+        if (anchor == "center" || anchor == "c") {
+            text_x = w / 2.0;
+            align_mode = 1; // center
+        } else if (anchor == "e" || anchor == "right") {
+            text_x = w - pad_x;
+            align_mode = 2; // right
+        }
+
         b.draw_text_var(
-            lbl_text, pad_x, h / 2.0 + font_size * baseline_offset, font_size, font_family,
+            lbl_text, text_x, h / 2.0 + font_size * baseline_offset, font_size, font_family,
             "--fg", "--text", "--font-size",
-            Color(230, 224, 233), 0 /* left */, font_weight
+            Color(230, 224, 233), align_mode, font_weight
         );
         return b;
     }

@@ -429,13 +429,20 @@ class ComboBox(BaseControl):
         current_value: Optional[str] = None,
         command: Optional[Callable[[str], Any]] = None,
         variable: Optional[tk.Variable] = None,
-        width: int = 160,
-        height: int = 38,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        min_width: Optional[int] = None,
+        max_width: Optional[int] = None,
+        min_height: Optional[int] = None,
+        max_height: Optional[int] = None,
+        auto_fit: bool = True,
+        font: Any = None,
+        state: str = "normal",
+        corner_radius: Optional[float] = None,
         max_visible_items: int = 8,
         **kwargs,
     ):
         self._values = list(values) if values else []
-        self._variable = variable
         self._command = command
         self._popup: Optional[DropdownPopup] = None
         self._max_visible_items = max_visible_items
@@ -446,6 +453,15 @@ class ComboBox(BaseControl):
             widget_class="combobox",
             width=width,
             height=height,
+            min_width=min_width,
+            max_width=max_width,
+            min_height=min_height,
+            max_height=max_height,
+            auto_fit=auto_fit,
+            font=font,
+            state=state,
+            corner_radius=corner_radius,
+            variable=variable,
             command=command,
             cursor="hand2",
             **kwargs,
@@ -462,7 +478,37 @@ class ComboBox(BaseControl):
             except Exception:
                 pass
 
+        self._init_variable(self._variable, self._on_var_changed)
         self.set(init_val)
+
+    def _on_var_changed(self, var_val: Any) -> None:
+        val_str = str(var_val or "")
+        if self.get() != val_str:
+            self.set(val_str)
+
+    def _get_content_size(self) -> tuple[Optional[int], Optional[int]]:
+        from tkblend.widgets.utils import measure_text_dimensions
+
+        candidates = list(getattr(self, "_values", []))
+        cur = self.get()
+        if cur and cur not in candidates:
+            candidates.append(cur)
+        if not candidates:
+            return 160, 38
+
+        max_tw = 0
+        max_th = 0
+        fnt = getattr(self, "font", None)
+        for item in candidates:
+            tw, th = measure_text_dimensions(str(item), font=fnt)
+            if tw > max_tw:
+                max_tw = tw
+            if th > max_th:
+                max_th = th
+
+        req_w = max_tw + 58
+        req_h = max(38, max_th + 16)
+        return req_w, req_h
 
     @property
     def values(self) -> list[str]:
@@ -473,6 +519,7 @@ class ComboBox(BaseControl):
         self._values = list(vals) if vals else []
         if self.get() not in self._values and self._values:
             self.set(self._values[0])
+        self._recalculate_natural_size()
 
     @property
     def value(self) -> str:
@@ -483,17 +530,17 @@ class ComboBox(BaseControl):
         self.set(val)
 
     def get(self) -> str:
+        if getattr(self, "_controller", None) is None:
+            return ""
         return self.get_var("--text") or ""
 
     def set(self, val: str) -> None:
         val_str = str(val or "")
-        self.set_var("--text", val_str)
-        if self._variable is not None:
-            try:
-                self._variable.set(val_str)
-            except Exception:
-                pass
-        self.request_redraw()
+        if getattr(self, "_controller", None) is not None:
+            self.set_var("--text", val_str)
+            self._sync_variable_out(val_str)
+            self._recalculate_natural_size()
+            self.request_redraw()
 
     def on_click(self, x: int, y: int, button: int) -> None:
         if self.is_disabled:
@@ -538,3 +585,4 @@ class ComboBox(BaseControl):
 OptionMenu = ComboBox
 
 __all__ = ["ComboBox", "OptionMenu", "DropdownPopup", "_DropdownPopup"]
+

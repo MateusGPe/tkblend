@@ -99,6 +99,57 @@ State changes evaluate whether a redraw is required. Multiple rapid events (such
 
 ---
 
+## Geometry Negotiation & Layout System
+
+tkblend bridges Blend2D's pixel buffer rasterization with standard Tkinter geometry managers (`pack`, `grid`, `place`). Rather than requiring hardcoded pixel widths, controls dynamically compute natural dimensions and cooperate with parent layout managers.
+
+```mermaid
+flowchart TD
+    subgraph Sizing["1. Content Sizing Pass"]
+        P[Property Change / Init] --> MS["measure_text_dimensions(text, font)"]
+        MS --> CS["_get_content_size()"]
+        CS --> CL["Clamp with min_width/max_width"]
+    end
+
+    subgraph Geometry["2. Tkinter Negotiation"]
+        CL --> GR["set_geometry_request(req_w, req_h)"]
+        GR --> TKGM["Tkinter Geometry Manager (Pack / Grid)"]
+    end
+
+    subgraph Layout["3. Surface Allocation & Anchoring"]
+        TKGM -->|fill='x' / sticky='ew'| CFG["<Configure> Event (Allocated w, h)"]
+        CFG --> SR["Surface Resize (Buffer Allocation)"]
+        SR --> ANCH["Anchor Content (west, center, east)"]
+        ANCH --> RD["Blend2D Vector Paint & Blit"]
+    end
+```
+
+### 1. Headless Content Measurement Pass
+Before windows are mapped on screen, `BaseControl` determines natural dimensions using `measure_text_dimensions()`. This utilizes a thread-safe singleton 1x1 Blend2D measurement surface that evaluates exact font metrics (ascent, descent, advance) for single and multi-line text without triggering GUI window allocation.
+
+### 2. Constraint Clamping
+Computed natural dimensions are passed through `_compute_target_size()`:
+* **Auto-Fit**: When `auto_fit=True` (the default if explicit `width` is omitted), the widget sizes to content + padding.
+* **Explicit Overrides**: Explicit `width` or `height` sets the base size.
+* **Min/Max Boundaries**: Requested dimensions are clamped by `min_width`, `max_width`, `min_height`, and `max_height`.
+
+### 3. Tkinter Geometry Propagation
+Dimensions are requested via `set_geometry_request()`:
+* Passes logical pixels multiplied by `scale_factor` to the underlying frame.
+* Updates Tkinter's requested geometry (`winfo_reqwidth()` and `winfo_reqheight()`).
+* Informs `NativeWidgetController::set_geometry_request()`.
+
+### 4. Responsive Expansion and Content Anchoring
+When a widget is placed inside a container using `pack(fill="x", expand=True)` or `grid(sticky="ew")`, Tkinter may allocate more space than the requested minimum:
+* **Dynamic Surface Sizing**: The `<Configure>` event captures the allocated pixel dimensions and resizes the native Blend2D buffer.
+* **Anchor Alignment**: The `anchor` property (`"w"`, `"center"`, `"e"`) positions text, checkmarks, and icons relative to the expanded boundary.
+* **No Raster Distortion**: Because rendering is vector-based rather than a stretched bitmap, elements remain sharp and crisp at any stretched dimension.
+
+### 5. Dynamic Content Mutation
+When properties like `widget.text`, `widget.font`, or `widget.min_width` mutate at runtime, `_recalculate_natural_size()` re-measures the content and notifies Tkinter if requested dimensions change, automatically triggering layout re-negotiation.
+
+---
+
 ## Memory Management & Threading
 
 ### 1. Buffer View Locking and Resize Safety

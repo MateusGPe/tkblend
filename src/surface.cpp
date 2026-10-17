@@ -400,7 +400,24 @@ void Surface::draw_text(
     bool italic
 ) {
     if (text.empty()) return;
+
+    if (text.find('\n') != std::string::npos) {
+        std::stringstream ss(text);
+        std::string line;
+        std::vector<std::string> lines;
+        while (std::getline(ss, line)) {
+            lines.push_back(line);
+        }
+        double line_step = static_cast<double>(font_size) * 1.3;
+        double start_y = y - (static_cast<double>(lines.size() - 1) * line_step) / 2.0;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            draw_text(lines[i], x, start_y + static_cast<double>(i) * line_step, font_size, font_family, color, align, weight, italic);
+        }
+        return;
+    }
+
     std::lock_guard<std::mutex> lock(mutex_);
+
     BLFont font = FontManager::instance().create_font(font_family, font_size, weight, italic);
     if (font.is_empty()) return;
 

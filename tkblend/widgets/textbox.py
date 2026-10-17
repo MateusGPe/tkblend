@@ -18,26 +18,44 @@ class Entry(BaseControl):
         master: Optional[tk.Misc] = None,
         placeholder: str = "",
         text: str = "",
-        width: int = 180,
-        height: int = 38,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        min_width: Optional[int] = None,
+        max_width: Optional[int] = None,
+        min_height: Optional[int] = None,
+        max_height: Optional[int] = None,
+        auto_fit: bool = False,
         corner_radius: float = 8.0,
         border_width: float = 1.0,
         font: Any = ("sans-serif", 11),
+        state: str = "normal",
+        variable: Optional[tk.Variable] = None,
+        textvariable: Optional[tk.Variable] = None,
         widget_class: Optional[str] = None,
         **kwargs,
     ):
         self._placeholder = str(placeholder or "")
+        self._init_text = str(text or "")
         self._is_showing_placeholder = False
         self._corner_radius = float(corner_radius)
         self._border_width = float(border_width)
-        self._font_spec = font
         effective_cls = widget_class or self.WIDGET_CLASS
+        eff_var = variable if variable is not None else textvariable
 
         super().__init__(
             master=master,
             widget_class=effective_cls,
             width=width,
             height=height,
+            min_width=min_width,
+            max_width=max_width,
+            min_height=min_height,
+            max_height=max_height,
+            auto_fit=auto_fit,
+            font=font,
+            state=state,
+            corner_radius=corner_radius,
+            variable=eff_var,
             cursor="xterm",
             **kwargs,
         )
@@ -54,19 +72,58 @@ class Entry(BaseControl):
             relief="flat",
             borderwidth=0,
             highlightthickness=0,
-            font=self._font_spec,
+            font=self._font_config.to_tk_font(self),
         )
 
         self._apply_layout()
 
-        if text:
-            self._entry.insert(0, str(text))
+        init_text = self._init_text
+        if eff_var is not None:
+            try:
+                var_val = str(eff_var.get() or "")
+                if var_val:
+                    init_text = var_val
+            except Exception:
+                pass
+
+        if init_text:
+            self._entry.insert(0, init_text)
         elif self._placeholder:
             self._show_placeholder()
 
+        self._init_variable(self._variable, self._on_var_changed)
+
         self._entry.bind("<FocusIn>", self._on_entry_focus_in, add="+")
         self._entry.bind("<FocusOut>", self._on_entry_focus_out, add="+")
+        self._entry.bind("<KeyRelease>", self._on_entry_key_release, add="+")
         self.bind("<Button-1>", self._on_container_click, add="+")
+
+        if self.is_disabled:
+            try:
+                self._entry.configure(state="disabled")
+            except Exception:
+                pass
+
+    def _get_content_size(self) -> tuple[Optional[int], Optional[int]]:
+        from tkblend.widgets.utils import measure_text_dimensions
+
+        entry_obj = getattr(self, "_entry", None)
+        sample = (entry_obj.get() if entry_obj is not None else getattr(self, "_init_text", "")) or getattr(self, "_placeholder", "")
+        if getattr(self, "auto_fit", False) and sample:
+            tw, th = measure_text_dimensions(sample, font=getattr(self, "font", None))
+            pad_left, pad_right = self._calc_padding() if hasattr(self, "_calc_padding") else (16, 16)
+            return max(180, tw + pad_left + pad_right + 12), max(38, th + 18)
+        return 180, 38
+
+    def _on_var_changed(self, var_val: Any) -> None:
+        val_str = str(var_val or "")
+        if self.text != val_str:
+            self.text = val_str
+
+    def _on_entry_key_release(self, event: Optional[tk.Event] = None) -> None:
+        self._sync_variable_out(self.text)
+        if self.auto_fit:
+            self._recalculate_natural_size()
 
     def _calc_padding(self) -> tuple[int, int]:
         """Compute horizontal insets dynamically based on corner radius, border width, and scale factor."""
@@ -91,7 +148,8 @@ class Entry(BaseControl):
         )
 
     def _on_container_click(self, event: Optional[tk.Event] = None) -> None:
-        self._entry.focus_set()
+        if not self.is_disabled:
+            self._entry.focus_set()
 
     def _show_placeholder(self) -> None:
         if self._placeholder and not self._entry.get() and not self._controller.is_focused:
@@ -131,6 +189,8 @@ class Entry(BaseControl):
         if was_showing or not self._entry.get():
             self._hide_placeholder()
             self._show_placeholder()
+        if self.auto_fit:
+            self._recalculate_natural_size()
 
     @property
     def text(self) -> str:
@@ -145,6 +205,9 @@ class Entry(BaseControl):
             self._entry.insert(0, str(val))
         else:
             self._show_placeholder()
+        self._sync_variable_out(str(val or ""))
+        if self.auto_fit:
+            self._recalculate_natural_size()
 
     def set(self, val: str) -> None:
         """Set the text value of the entry."""
@@ -156,11 +219,17 @@ class Entry(BaseControl):
     def insert(self, index: Any, string: str) -> None:
         self._hide_placeholder()
         self._entry.insert(index, string)
+        self._sync_variable_out(self.text)
+        if self.auto_fit:
+            self._recalculate_natural_size()
 
     def delete(self, first: Any, last: Any = None) -> None:
         self._entry.delete(first, last)
         if not self._entry.get() and not self._controller.is_focused:
             self._show_placeholder()
+        self._sync_variable_out(self.text)
+        if self.auto_fit:
+            self._recalculate_natural_size()
 
     @property
     def entry(self) -> tk.Entry:
@@ -169,6 +238,20 @@ class Entry(BaseControl):
     @property
     def entry_widget(self) -> tk.Entry:
         return self._entry
+
+    def configure(self, **kwargs) -> Any:
+        super().configure(**kwargs)
+        if "state" in kwargs:
+            try:
+                tk_st = "disabled" if self.is_disabled else "normal"
+                self._entry.configure(state=tk_st)
+            except Exception:
+                pass
+        if "font" in kwargs:
+            try:
+                self._entry.configure(font=self._font_config.to_tk_font(self))
+            except Exception:
+                pass
 
     def on_theme_update(self, pal: Palette) -> None:
         super().on_theme_update(pal)
@@ -215,22 +298,33 @@ class TextBox(BaseControl):
     def __init__(
         self,
         master: Optional[tk.Misc] = None,
-        width: int = 280,
-        height: int = 140,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        min_width: Optional[int] = None,
+        max_width: Optional[int] = None,
+        min_height: Optional[int] = None,
+        max_height: Optional[int] = None,
         corner_radius: float = 8.0,
         border_width: float = 1.0,
         font: Any = ("sans-serif", 10),
+        state: str = "normal",
         **kwargs,
     ):
         self._corner_radius = float(corner_radius)
         self._border_width = float(border_width)
-        self._font_spec = font
 
         super().__init__(
             master=master,
             widget_class="textbox_frame",
             width=width,
             height=height,
+            min_width=min_width,
+            max_width=max_width,
+            min_height=min_height,
+            max_height=max_height,
+            font=font,
+            state=state,
+            corner_radius=corner_radius,
             cursor="xterm",
             **kwargs,
         )
@@ -247,7 +341,7 @@ class TextBox(BaseControl):
             relief="flat",
             borderwidth=0,
             highlightthickness=0,
-            font=self._font_spec,
+            font=self._font_config.to_tk_font(self),
             wrap="word",
             padx=4,
             pady=3,
@@ -257,6 +351,15 @@ class TextBox(BaseControl):
         self._text.bind("<FocusIn>", self._on_text_focus_in, add="+")
         self._text.bind("<FocusOut>", self._on_text_focus_out, add="+")
         self.bind("<Button-1>", self._on_container_click, add="+")
+
+        if self.is_disabled:
+            try:
+                self._text.configure(state="disabled")
+            except Exception:
+                pass
+
+    def _get_content_size(self) -> tuple[Optional[int], Optional[int]]:
+        return 280, 140
 
     def _apply_layout(self) -> None:
         scale = self._scale_factor
@@ -277,7 +380,8 @@ class TextBox(BaseControl):
         )
 
     def _on_container_click(self, event: Optional[tk.Event] = None) -> None:
-        self._text.focus_set()
+        if not self.is_disabled:
+            self._text.focus_set()
 
     def _on_text_focus_in(self, event: Optional[tk.Event] = None) -> None:
         self._controller.is_focused = True
@@ -300,6 +404,20 @@ class TextBox(BaseControl):
     def delete(self, index1: str, index2: Optional[str] = None) -> None:
         self._text.delete(index1, index2)
 
+    def configure(self, **kwargs) -> Any:
+        super().configure(**kwargs)
+        if "state" in kwargs:
+            try:
+                tk_st = "disabled" if self.is_disabled else "normal"
+                self._text.configure(state=tk_st)
+            except Exception:
+                pass
+        if "font" in kwargs:
+            try:
+                self._text.configure(font=self._font_config.to_tk_font(self))
+            except Exception:
+                pass
+
     def on_theme_update(self, pal: Palette) -> None:
         super().on_theme_update(pal)
         self._apply_layout()
@@ -313,3 +431,4 @@ class TextBox(BaseControl):
             )
         except Exception:
             pass
+

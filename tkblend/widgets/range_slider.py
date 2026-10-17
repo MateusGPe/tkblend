@@ -11,16 +11,23 @@ class RangeSlider(BaseControl):
     """
 
     WIDGET_CLASS = "range_slider"
+    DEFAULT_ANCHOR = "center"
 
     def __init__(
         self,
         master: Optional[tk.Misc] = None,
         from_: float = 0.0,
         to: float = 100.0,
-        values: Tuple[float, float] = (25.0, 75.0),
+        values: Optional[Tuple[float, float]] = None,
+        lower_value: Optional[float] = None,
+        upper_value: Optional[float] = None,
         command: Optional[Callable[[Tuple[float, float]], Any]] = None,
-        width: int = 220,
-        height: int = 36,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        min_width: Optional[int] = None,
+        max_width: Optional[int] = None,
+        min_height: Optional[int] = None,
+        max_height: Optional[int] = None,
         **kwargs,
     ):
         self._from = float(from_)
@@ -32,13 +39,21 @@ class RangeSlider(BaseControl):
             widget_class="range_slider",
             width=width,
             height=height,
+            min_width=min_width,
+            max_width=max_width,
+            min_height=min_height,
+            max_height=max_height,
             command=command,
             cursor="hand2",
             **kwargs,
         )
 
-        low, high = values
+        low = lower_value if lower_value is not None else (values[0] if values else 25.0)
+        high = upper_value if upper_value is not None else (values[1] if values else 75.0)
         self.set(low, high)
+
+    def _get_content_size(self) -> tuple[int, int]:
+        return self._explicit_width or 220, self._explicit_height or 36
 
     @property
     def from_(self) -> float:
@@ -59,53 +74,70 @@ class RangeSlider(BaseControl):
         self.request_redraw()
 
     def get(self) -> Tuple[float, float]:
+        min_p = float(self.get_var("--thumb-min-pos", "0.25"))
+        max_p = float(self.get_var("--thumb-max-pos", "0.75"))
         span = self._to - self._from
-        try:
-            min_p = float(self.get_var("--thumb-min-pos") or 0.25)
-        except Exception:
-            min_p = 0.25
-        try:
-            max_p = float(self.get_var("--thumb-max-pos") or 0.75)
-        except Exception:
-            max_p = 0.75
-        return (self._from + min_p * span, self._from + max_p * span)
+        return self._from + min_p * span, self._from + max_p * span
 
     def set(self, low: float, high: float) -> None:
-        span = max(0.0001, self._to - self._from)
-        clamped_low = max(self._from, min(self._to, float(low)))
-        clamped_high = max(self._from, min(self._to, float(high)))
-        if clamped_low > clamped_high:
-            clamped_low, clamped_high = clamped_high, clamped_low
-
-        min_p = (clamped_low - self._from) / span
-        max_p = (clamped_high - self._from) / span
-
-        self.set_var("--thumb-min-pos", str(max(0.0, min(1.0, min_p))))
-        self.set_var("--thumb-max-pos", str(max(0.0, min(1.0, max_p))))
+        span = self._to - self._from
+        if abs(span) < 1e-9:
+            min_p, max_p = 0.0, 1.0
+        else:
+            min_p = max(0.0, min(1.0, (float(low) - self._from) / span))
+            max_p = max(0.0, min(1.0, (float(high) - self._from) / span))
+            if min_p > max_p:
+                min_p, max_p = max_p, min_p
+        self.set_var("--thumb-min-pos", f"{min_p:.4f}")
+        self.set_var("--thumb-max-pos", f"{max_p:.4f}")
         self.request_redraw()
 
     @property
-    def values(self) -> Tuple[float, float]:
+    def value(self) -> Tuple[float, float]:
         return self.get()
 
-    @values.setter
-    def values(self, vals: Tuple[float, float]) -> None:
-        self.set(vals[0], vals[1])
+    @value.setter
+    def value(self, val: Tuple[float, float]) -> None:
+        self.set(val[0], val[1])
+
+    @property
+    def lower_value(self) -> float:
+        return self.get()[0]
+
+    @lower_value.setter
+    def lower_value(self, val: float) -> None:
+        _, high = self.get()
+        self.set(val, high)
+
+    @property
+    def upper_value(self) -> float:
+        return self.get()[1]
+
+    @upper_value.setter
+    def upper_value(self, val: float) -> None:
+        low, _ = self.get()
+        self.set(low, val)
+
+    def configure(self, **kwargs) -> Any:
+        low = kwargs.pop("lower_value", None)
+        high = kwargs.pop("upper_value", None)
+        if low is not None or high is not None:
+            cur_low, cur_high = self.get()
+            self.set(cur_low if low is None else low, cur_high if high is None else high)
+        return super().configure(**kwargs)
 
     def on_change(self, val: Any) -> None:
         try:
             if isinstance(val, (tuple, list)) and len(val) >= 2:
-                min_p, max_p = float(val[0]), float(val[1])
-            else:
-                return
+                min_p = max(0.0, min(1.0, float(val[0])))
+                max_p = max(0.0, min(1.0, float(val[1])))
+                span = self._to - self._from
+                real_low = self._from + min_p * span
+                real_high = self._from + max_p * span
+                if callable(self._command):
+                    try:
+                        self._command((real_low, real_high))
+                    except Exception:
+                        pass
         except Exception:
-            return
-
-        span = self._to - self._from
-        cur_low = self._from + min_p * span
-        cur_high = self._from + max_p * span
-        if callable(self._command):
-            try:
-                self._command((cur_low, cur_high))
-            except Exception:
-                pass
+            pass

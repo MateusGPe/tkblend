@@ -40,6 +40,8 @@ from tkblend.widgets.constants import (
     STATE_DISABLED,
     CURSOR_DEFAULT,
 )
+from tkblend.font import parse_font, FontConfig
+from tkblend.widgets.utils import normalize_anchor, measure_text_dimensions
 
 
 class ScalingTracker:
@@ -95,13 +97,23 @@ class BaseControl(tk.Frame):
     """
 
     WIDGET_CLASS: str = ""
+    DEFAULT_ANCHOR: str = "center"
 
     def __init__(
         self,
         master: Optional[tk.Misc] = None,
         widget_class: Optional[str] = None,
-        width: int = DEFAULT_BASE_WIDTH,
-        height: int = DEFAULT_BASE_HEIGHT,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        min_width: Optional[int] = None,
+        max_width: Optional[int] = None,
+        min_height: Optional[int] = None,
+        max_height: Optional[int] = None,
+        auto_fit: Optional[bool] = None,
+        anchor: Optional[str] = None,
+        corner_radius: Optional[float] = None,
+        font: Any = None,
+        text_overflow: str = "clip",
         inner_bg: Optional[ColorLike] = None,
         outer_bg: Optional[ColorLike] = None,
         parent_bg: Optional[ColorLike] = None,
@@ -110,13 +122,13 @@ class BaseControl(tk.Frame):
         takefocus: bool = True,
         state: str = STATE_NORMAL,
         command: Optional[Callable[..., Any]] = None,
+        variable: Optional[tk.Variable] = None,
         **kwargs,
     ):
-        self._logical_w = int(width)
-        self._logical_h = int(height)
         self._master_ref = master
         self._widget_class = str(widget_class or getattr(self, "WIDGET_CLASS", ""))
         self._command = command
+        self._variable = variable
         self._explicit_outer_bg = outer_bg if outer_bg is not None else parent_bg
         self._explicit_inner_bg = inner_bg if inner_bg is not None else bg_color
         self._explicit_parent_bg = self._explicit_outer_bg
@@ -124,6 +136,26 @@ class BaseControl(tk.Frame):
         self._takefocus = takefocus
         self._cursor_pref = cursor
         self._scale_factor = ScalingTracker.get_scaling_factor(master)
+
+        # Dimension constraints (logical pixels)
+        self._explicit_width = int(width) if width is not None else getattr(self, "_explicit_width", None)
+        self._explicit_height = int(height) if height is not None else getattr(self, "_explicit_height", None)
+        self._min_width = int(min_width) if min_width is not None else getattr(self, "_min_width", None)
+        self._max_width = int(max_width) if max_width is not None else getattr(self, "_max_width", None)
+        self._min_height = int(min_height) if min_height is not None else getattr(self, "_min_height", None)
+        self._max_height = int(max_height) if max_height is not None else getattr(self, "_max_height", None)
+        if auto_fit is not None:
+            self._auto_fit = bool(auto_fit)
+        elif hasattr(self, "_auto_fit") and self._auto_fit is not None:
+            pass
+        else:
+            self._auto_fit = (width is None)
+        self._anchor = normalize_anchor(anchor or getattr(self, "_anchor", getattr(self, "DEFAULT_ANCHOR", "center")))
+        self._corner_radius = float(corner_radius) if corner_radius is not None else getattr(self, "_corner_radius", None)
+        self._text_overflow = text_overflow or getattr(self, "_text_overflow", "clip")
+
+        # Font configuration
+        self._font_config: FontConfig = parse_font(font) if font is not None else getattr(self, "_font_config", parse_font(None))
 
         # Resolve initial theme palette & backgrounds
         self._palette = get_theme()
@@ -142,10 +174,8 @@ class BaseControl(tk.Frame):
         )
         self._resolved_inner_bg = resolved_inner
 
-        # Compute initial scaled geometry
-        scale = self._scale_factor
-        init_w = max(1, int(self._logical_w * scale))
-        init_h = max(1, int(self._logical_h * scale))
+        self._logical_w = self._explicit_width or 100
+        self._logical_h = self._explicit_height or 36
 
         tk_frame_options = {
             "class", "colormap", "container", "cursor", "height",
@@ -157,16 +187,13 @@ class BaseControl(tk.Frame):
 
         super().__init__(
             master=master,
-            width=init_w,
-            height=init_h,
+            width=1,
+            height=1,
             background="",
             takefocus=1 if takefocus else 0,
             cursor=cursor or CURSOR_DEFAULT,
             **frame_kwargs,
         )
-
-        if extra_kwargs:
-            self.configure(**extra_kwargs)
 
         # Prevent frame geometry propagation from children
         self.pack_propagate(False)
@@ -185,13 +212,29 @@ class BaseControl(tk.Frame):
             on_resize=self._on_controller_resize,
             on_change=self._on_controller_change,
         )
-        self._controller.set_geometry_request(init_w, init_h)
+
+        if self._anchor:
+            self.set_var("--anchor", self._anchor)
+        if self._corner_radius is not None:
+            self.set_var("--rx", str(self._corner_radius))
+            self.set_var("--ry", str(self._corner_radius))
+        if font is not None:
+            self.set_var("--font-family", self._font_config.family)
+            self.set_var("--font-size", str(self._font_config.size))
+            self.set_var("--font-weight", str(self._font_config.effective_weight))
 
         if self._widget_class == "card":
             self._controller.container_layer = ContainerLayer.Surface
 
         if self._state_str == "disabled":
             self._controller.is_disabled = True
+
+        if extra_kwargs:
+            self.configure(**extra_kwargs)
+
+        # Compute initial target dimensions now that controller and properties are configured
+        target_w, target_h = self._compute_target_size()
+        self.set_geometry_request(target_w, target_h)
 
         # Register dynamic theme updates
         add_theme_listener(self._on_theme_changed)
@@ -337,6 +380,50 @@ class BaseControl(tk.Frame):
         """Alias for set_inner_bg."""
         self.set_inner_bg(color, render=render, explicit=explicit)
 
+    def _get_content_size(self) -> tuple[int, int]:
+        """Subclasses can override to measure and return natural (content_w, content_h)."""
+        return (
+            self._explicit_width or DEFAULT_BASE_WIDTH,
+            self._explicit_height or DEFAULT_BASE_HEIGHT,
+        )
+
+    def _compute_target_size(self) -> tuple[int, int]:
+        content_w, content_h = self._get_content_size()
+
+        # Width calculation
+        if self._auto_fit or self._explicit_width is None:
+            w = content_w
+            if self._explicit_width is not None:
+                w = max(self._explicit_width, w)
+        else:
+            w = self._explicit_width
+
+        if self._min_width is not None:
+            w = max(self._min_width, w)
+        if self._max_width is not None:
+            w = min(self._max_width, w)
+
+        # Height calculation
+        if self._auto_fit or self._explicit_height is None:
+            h = content_h
+            if self._explicit_height is not None:
+                h = max(self._explicit_height, h)
+        else:
+            h = self._explicit_height
+
+        if self._min_height is not None:
+            h = max(self._min_height, h)
+        if self._max_height is not None:
+            h = min(self._max_height, h)
+
+        return max(1, int(w)), max(1, int(h))
+
+    def _recalculate_natural_size(self) -> None:
+        """Recalculate content dimensions and update geometry request if changed."""
+        target_w, target_h = self._compute_target_size()
+        if target_w != self._logical_w or target_h != self._logical_h:
+            self.set_geometry_request(target_w, target_h)
+
     def set_geometry_request(self, width: int, height: int) -> None:
         """Set logical dimensions and request geometry update."""
         self._logical_w = int(width)
@@ -344,7 +431,8 @@ class BaseControl(tk.Frame):
         scale = self.scale_factor
         pw = max(1, int(self._logical_w * scale))
         ph = max(1, int(self._logical_h * scale))
-        self._controller.set_geometry_request(pw, ph)
+        if hasattr(self, "_controller") and self._controller.is_attached:
+            self._controller.set_geometry_request(pw, ph)
         try:
             super().configure(width=pw, height=ph)
         except Exception:
@@ -356,16 +444,136 @@ class BaseControl(tk.Frame):
         return self._logical_w
 
     @width.setter
-    def width(self, val: int) -> None:
-        self.set_geometry_request(int(val), self._logical_h)
+    def width(self, val: Optional[int]) -> None:
+        self._explicit_width = int(val) if val is not None else None
+        self._recalculate_natural_size()
 
     @property
     def height(self) -> int:
         return self._logical_h
 
     @height.setter
-    def height(self, val: int) -> None:
-        self.set_geometry_request(self._logical_w, int(val))
+    def height(self, val: Optional[int]) -> None:
+        self._explicit_height = int(val) if val is not None else None
+        self._recalculate_natural_size()
+
+    @property
+    def min_width(self) -> Optional[int]:
+        return self._min_width
+
+    @min_width.setter
+    def min_width(self, val: Optional[int]) -> None:
+        self._min_width = int(val) if val is not None else None
+        self._recalculate_natural_size()
+
+    @property
+    def max_width(self) -> Optional[int]:
+        return self._max_width
+
+    @max_width.setter
+    def max_width(self, val: Optional[int]) -> None:
+        self._max_width = int(val) if val is not None else None
+        self._recalculate_natural_size()
+
+    @property
+    def min_height(self) -> Optional[int]:
+        return self._min_height
+
+    @min_height.setter
+    def min_height(self, val: Optional[int]) -> None:
+        self._min_height = int(val) if val is not None else None
+        self._recalculate_natural_size()
+
+    @property
+    def max_height(self) -> Optional[int]:
+        return self._max_height
+
+    @max_height.setter
+    def max_height(self, val: Optional[int]) -> None:
+        self._max_height = int(val) if val is not None else None
+        self._recalculate_natural_size()
+
+    @property
+    def auto_fit(self) -> bool:
+        return self._auto_fit
+
+    @auto_fit.setter
+    def auto_fit(self, val: bool) -> None:
+        self._auto_fit = bool(val)
+        self._recalculate_natural_size()
+
+    @property
+    def anchor(self) -> str:
+        return self._anchor
+
+    @anchor.setter
+    def anchor(self, val: str) -> None:
+        self._anchor = normalize_anchor(val)
+        self.set_var("--anchor", self._anchor)
+        self.request_redraw()
+
+    @property
+    def corner_radius(self) -> Optional[float]:
+        return self._corner_radius
+
+    @corner_radius.setter
+    def corner_radius(self, val: Optional[float]) -> None:
+        self._corner_radius = float(val) if val is not None else None
+        if val is not None:
+            self.set_var("--rx", str(val))
+            self.set_var("--ry", str(val))
+        else:
+            self.remove_var("--rx")
+            self.remove_var("--ry")
+        self.request_redraw()
+
+    @property
+    def font(self) -> FontConfig:
+        return self._font_config
+
+    @font.setter
+    def font(self, val: Any) -> None:
+        self._font_config = parse_font(val)
+        self.set_var("--font-family", self._font_config.family)
+        self.set_var("--font-size", str(self._font_config.size))
+        self.set_var("--font-weight", str(self._font_config.effective_weight))
+        self._recalculate_natural_size()
+        self.request_redraw()
+
+    @property
+    def text_overflow(self) -> str:
+        return self._text_overflow
+
+    @text_overflow.setter
+    def text_overflow(self, val: str) -> None:
+        self._text_overflow = str(val or "clip").lower()
+        self.set_var("--text-overflow", self._text_overflow)
+        self.request_redraw()
+
+    @property
+    def state(self) -> str:
+        return self._state_str
+
+    @state.setter
+    def state(self, val: str) -> None:
+        val_str = str(val or "normal").lower()
+        self.is_disabled = (val_str == "disabled")
+
+    @property
+    def command(self) -> Optional[Callable[..., Any]]:
+        return self._command
+
+    @command.setter
+    def command(self, cmd: Optional[Callable[..., Any]]) -> None:
+        self._command = cmd
+
+    @property
+    def variable(self) -> Optional[tk.Variable]:
+        return self._variable
+
+    @variable.setter
+    def variable(self, var: Optional[tk.Variable]) -> None:
+        self._variable = var
 
     # Container layer management
     @property
@@ -577,8 +785,27 @@ class BaseControl(tk.Frame):
                 if self._controller.is_attached:
                     self._controller.detach()
 
+    def _init_variable(self, var: Optional[tk.Variable], callback: Callable[..., None]) -> None:
+        """Bind a change listener to a Tk variable and keep trace ID for clean teardown."""
+        from tkblend.widgets.utils import bind_variable_trace
+        self._var_trace_id: Optional[str] = None
+        if var is not None:
+            self._var_trace_id = bind_variable_trace(var, callback)
+
+    def _sync_variable_out(self, val: Any) -> None:
+        """Safely push widget state changes to the bound Tk variable."""
+        if self._variable is not None:
+            try:
+                self._variable.set(val)
+            except Exception:
+                pass
+
     def destroy(self) -> None:
         """Safely release native controller, bindings and listeners."""
+        from tkblend.widgets.utils import unbind_variable_trace
+        if self._variable is not None and getattr(self, "_var_trace_id", None) is not None:
+            unbind_variable_trace(self._variable, self._var_trace_id)
+            self._var_trace_id = None
         self._on_tk_destroy(None)
         super().destroy()
 
@@ -597,17 +824,45 @@ class BaseControl(tk.Frame):
             kwargs.update(cnf)
 
         if "state" in kwargs:
-            self.is_disabled = (kwargs.pop("state") == "disabled")
+            self.state = kwargs.pop("state")
         if "command" in kwargs:
-            self._command = kwargs.pop("command")
+            self.command = kwargs.pop("command")
+        if "variable" in kwargs:
+            self.variable = kwargs.pop("variable")
         if "widget_class" in kwargs:
             self.widget_class = kwargs.pop("widget_class")
-        if "width" in kwargs and "height" in kwargs:
-            self.set_geometry_request(kwargs.pop("width"), kwargs.pop("height"))
-        elif "width" in kwargs:
-            self.set_geometry_request(kwargs.pop("width"), self._logical_h)
-        elif "height" in kwargs:
-            self.set_geometry_request(self._logical_w, kwargs.pop("height"))
+        if "anchor" in kwargs:
+            self.anchor = kwargs.pop("anchor")
+        if "corner_radius" in kwargs:
+            self.corner_radius = kwargs.pop("corner_radius")
+        if "font" in kwargs:
+            self.font = kwargs.pop("font")
+        if "auto_fit" in kwargs:
+            self.auto_fit = kwargs.pop("auto_fit")
+        if "min_width" in kwargs:
+            self.min_width = kwargs.pop("min_width")
+        if "max_width" in kwargs:
+            self.max_width = kwargs.pop("max_width")
+        if "min_height" in kwargs:
+            self.min_height = kwargs.pop("min_height")
+        if "max_height" in kwargs:
+            self.max_height = kwargs.pop("max_height")
+        if "width" in kwargs:
+            self.width = kwargs.pop("width")
+        if "height" in kwargs:
+            self.height = kwargs.pop("height")
+        if "text_overflow" in kwargs:
+            self.text_overflow = kwargs.pop("text_overflow")
+        if "value" in kwargs:
+            val = kwargs.pop("value")
+            if hasattr(self, "value"):
+                self.value = val
+            elif hasattr(self, "set"):
+                self.set(val)
+        if "values" in kwargs:
+            vals = kwargs.pop("values")
+            if hasattr(self, "values"):
+                self.values = vals
         if "cursor" in kwargs:
             self._cursor_pref = kwargs.pop("cursor")
             self._update_cursor()
@@ -623,6 +878,13 @@ class BaseControl(tk.Frame):
             bg_val = kwargs.pop("bg", kwargs.pop("background", None))
             if bg_val is not None:
                 self.set_outer_bg(bg_val, explicit=True)
+        if "text" in kwargs:
+            txt_val = kwargs.pop("text")
+            if hasattr(self, "text"):
+                self.text = txt_val
+            else:
+                self.set_var("--text", str(txt_val))
+                self._recalculate_natural_size()
 
         if kwargs:
             valid_tk_keys = ("takefocus", "highlightbackground", "highlightcolor", "highlightthickness", "padx", "pady")
@@ -640,10 +902,30 @@ class BaseControl(tk.Frame):
             return self.widget_class
         if key == "command":
             return self._command
+        if key == "variable":
+            return self._variable
         if key == "width":
             return self._logical_w
         if key == "height":
             return self._logical_h
+        if key == "min_width":
+            return self._min_width
+        if key == "max_width":
+            return self._max_width
+        if key == "min_height":
+            return self._min_height
+        if key == "max_height":
+            return self._max_height
+        if key == "auto_fit":
+            return self._auto_fit
+        if key == "anchor":
+            return self._anchor
+        if key == "corner_radius":
+            return self._corner_radius
+        if key == "font":
+            return self._font_config
+        if key == "text_overflow":
+            return self._text_overflow
         if key in ("outer_bg", "parent_bg"):
             return self._resolved_outer_bg
         if key in ("inner_bg", "bg_color"):
