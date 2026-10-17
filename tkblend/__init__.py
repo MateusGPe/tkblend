@@ -183,7 +183,7 @@ except ImportError as _err:
         _err,
     )
 
-__version__ = "0.4.0"
+__version__ = "0.4.0b1"
 
 __all__ = [
     # Core Graphics

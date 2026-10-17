@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "tkblend"
-version = "0.4.0"
+version = "0.4.0b1"
 description = "High-performance Blend2D vector graphics engine and UI widgets for Tkinter via zero-copy blitting"
 readme = "README.md"
 requires-python = ">=3.9"
