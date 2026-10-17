@@ -8,12 +8,12 @@
 [![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Blend2D](https://img.shields.io/badge/Blend2D-Rasterized-orange.svg?style=flat-square)](https://blend2d.com)
 [![Status](https://img.shields.io/badge/Status-Experimental%20%2F%20R%26D-yellow.svg?style=flat-square)](#status-trade-offs--current-limitations)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://github.com/MateusGPe/tkblend/blob/main/LICENSE)
 
 <br/>
 
 <p align="center">
-  <img src="docs/assets/hero_showcase.gif" alt="tkblend Showcase" width="860"/>
+  <img src="https://raw.githubusercontent.com/MateusGPe/tkblend/main/docs/assets/hero_showcase.gif" alt="tkblend Showcase" width="860"/>
 </p>
 
 *Telemetry displays, Bézier curve plotting, radial gauges, and theme switching rendered via Blend2D in Python Tkinter.*
@@ -39,17 +39,17 @@ The library includes:
 
 ## Documentation
 
-Comprehensive guides are available in the [`docs/`](docs/README.md) directory:
+Comprehensive guides are available in the [`docs/`](https://github.com/MateusGPe/tkblend/blob/main/docs/README.md) directory:
 
 | Guide | Description |
 | :--- | :--- |
-| **[Getting Started](docs/getting_started.md)** | Installation, prerequisites, build steps, DPI scaling, and a first example application. |
-| **[Architecture & Rendering Pipeline](docs/architecture.md)** | C++ blit pipeline, `Tk_PhotoPutBlock`, transparent frame handling, GIL management, and memory safety. |
-| **[Widget Catalog](docs/widgets.md)** | Catalog of built-in vector widgets with properties, methods, and code examples. |
-| **[Theming Engine & Palettes](docs/theming.md)** | Runtime theme switching, built-in presets, palette tokens, and background cascading. |
-| **[Canvas & Custom Vector Drawing](docs/canvas_and_vector.md)** | `NativeBlitCanvas`, paths, gradients, shadows, `DrawBatch`, and custom `BaseControl` authoring. |
-| **[Caveats, Edge Cases & Troubleshooting](docs/caveats_and_edge_cases.md)** | Platform differences, thread safety, font shaping, and widget layout gotchas with workarounds. |
-| **[Examples Guide](docs/examples.md)** | Walkthroughs and instructions for running the included sample applications. |
+| **[Getting Started](https://github.com/MateusGPe/tkblend/blob/main/docs/getting_started.md)** | Installation, prerequisites, build steps, DPI scaling, and a first example application. |
+| **[Architecture & Rendering Pipeline](https://github.com/MateusGPe/tkblend/blob/main/docs/architecture.md)** | C++ blit pipeline, `Tk_PhotoPutBlock`, transparent frame handling, GIL management, and memory safety. |
+| **[Widget Catalog](https://github.com/MateusGPe/tkblend/blob/main/docs/widgets.md)** | Catalog of built-in vector widgets with properties, methods, and code examples. |
+| **[Theming Engine & Palettes](https://github.com/MateusGPe/tkblend/blob/main/docs/theming.md)** | Runtime theme switching, built-in presets, palette tokens, and background cascading. |
+| **[Canvas & Custom Vector Drawing](https://github.com/MateusGPe/tkblend/blob/main/docs/canvas_and_vector.md)** | `NativeBlitCanvas`, paths, gradients, shadows, `DrawBatch`, and custom `BaseControl` authoring. |
+| **[Caveats, Edge Cases & Troubleshooting](https://github.com/MateusGPe/tkblend/blob/main/docs/caveats_and_edge_cases.md)** | Platform differences, thread safety, font shaping, and widget layout gotchas with workarounds. |
+| **[Examples Guide](https://github.com/MateusGPe/tkblend/blob/main/docs/examples.md)** | Walkthroughs and instructions for running the included sample applications. |
 
 ---
 
@@ -63,7 +63,7 @@ Pixel buffers are rendered in memory by Blend2D and transferred directly to Tkin
 ### 2. Standalone Vector Widgets
 
 <p align="center">
-  <img src="docs/assets/widget_matrix_theming.gif" alt="tkblend Widget Matrix" width="860"/>
+  <img src="https://raw.githubusercontent.com/MateusGPe/tkblend/main/docs/assets/widget_matrix_theming.gif" alt="tkblend Widget Matrix" width="860"/>
 </p>
 
 A collection of custom-drawn widgets that operate independently of TTK themes:
@@ -76,7 +76,7 @@ A collection of custom-drawn widgets that operate independently of TTK themes:
 ### 3. Immediate-Mode Canvas (`NativeBlitCanvas`)
 
 <p align="center">
-  <img src="docs/assets/realtime_visualizer.gif" alt="Real-time Visualizer" width="860"/>
+  <img src="https://raw.githubusercontent.com/MateusGPe/tkblend/main/docs/assets/realtime_visualizer.gif" alt="Real-time Visualizer" width="860"/>
 </p>
 
 An immediate-mode vector drawing widget for animations, charts, and visualizations:
@@ -86,9 +86,9 @@ An immediate-mode vector drawing widget for animations, charts, and visualizatio
 ### 4. Dynamic Theming
 
 <p align="center">
-  <img src="docs/assets/hero_analytics_cinematic.png" alt="Analytics Dashboard Cinematic Theme" width="32%"/>
-  <img src="docs/assets/hero_analytics_dark.png" alt="Analytics Dashboard Dark Mode (Catppuccin)" width="32%"/>
-  <img src="docs/assets/hero_analytics_light.png" alt="Analytics Dashboard Light Mode" width="32%"/>
+  <img src="https://raw.githubusercontent.com/MateusGPe/tkblend/main/docs/assets/hero_analytics_cinematic.png" alt="Analytics Dashboard Cinematic Theme" width="32%"/>
+  <img src="https://raw.githubusercontent.com/MateusGPe/tkblend/main/docs/assets/hero_analytics_dark.png" alt="Analytics Dashboard Dark Mode (Catppuccin)" width="32%"/>
+  <img src="https://raw.githubusercontent.com/MateusGPe/tkblend/main/docs/assets/hero_analytics_light.png" alt="Analytics Dashboard Light Mode" width="32%"/>
 </p>
 
 * **Runtime switching**: Change themes dynamically via `set_theme("catppuccin_mocha")`, `set_theme("cinematic")`, or `set_theme("light")`.
@@ -98,7 +98,7 @@ An immediate-mode vector drawing widget for animations, charts, and visualizatio
 ### 5. Custom Control Authoring
 
 <p align="center">
-  <img src="docs/assets/canvas_studio_custom.gif" alt="Canvas Studio and Custom Vector Widgets" width="860"/>
+  <img src="https://raw.githubusercontent.com/MateusGPe/tkblend/main/docs/assets/canvas_studio_custom.gif" alt="Canvas Studio and Custom Vector Widgets" width="860"/>
 </p>
 
 Create custom vector controls by subclassing `BaseControl`:
@@ -247,18 +247,18 @@ uv run python examples/showcase.py
 ```
 
 <p align="center">
-  <img src="docs/assets/widget_catalog_overview.png" alt="Showcase Hub and Widget Catalog" width="860"/>
+  <img src="https://raw.githubusercontent.com/MateusGPe/tkblend/main/docs/assets/widget_catalog_overview.png" alt="Showcase Hub and Widget Catalog" width="860"/>
 </p>
 
 ### Available Examples
 
-* **[Master Widget Showcase](examples/showcase.py)** (`examples/showcase.py`): Interactive showroom of built-in widgets across all themes with live property controls.
-* **[Gradient Widgets Showcase](examples/gradient_widgets.py)** (`examples/gradient_widgets.py`): Linear and radial gradients, dual-handle range sliders, and soft drop shadows.
-* **[API Inspector](examples/api_inspector.py)** (`examples/api_inspector.py`): Desktop utility showing non-blocking background HTTP requests with threaded status updates, history tables, and sparkline latency charts.
-* **[Cinematic Theme Demo](examples/cinematic_theme_demo.py)** (`examples/cinematic_theme_demo.py`): Demonstration of the Peacock Teal and Warm Amber palette on vector cards and buttons.
-* **[Vector Table Demo](examples/table_demo.py)** (`examples/table_demo.py`): Vector data grid with sortable columns, draggable dividers, zebra striping, and cell editors.
+* **[Master Widget Showcase](https://github.com/MateusGPe/tkblend/blob/main/examples/showcase.py)** (`examples/showcase.py`): Interactive showroom of built-in widgets across all themes with live property controls.
+* **[Gradient Widgets Showcase](https://github.com/MateusGPe/tkblend/blob/main/examples/gradient_widgets.py)** (`examples/gradient_widgets.py`): Linear and radial gradients, dual-handle range sliders, and soft drop shadows.
+* **[API Inspector](https://github.com/MateusGPe/tkblend/blob/main/examples/api_inspector.py)** (`examples/api_inspector.py`): Desktop utility showing non-blocking background HTTP requests with threaded status updates, history tables, and sparkline latency charts.
+* **[Cinematic Theme Demo](https://github.com/MateusGPe/tkblend/blob/main/examples/cinematic_theme_demo.py)** (`examples/cinematic_theme_demo.py`): Demonstration of the Peacock Teal and Warm Amber palette on vector cards and buttons.
+* **[Vector Table Demo](https://github.com/MateusGPe/tkblend/blob/main/examples/table_demo.py)** (`examples/table_demo.py`): Vector data grid with sortable columns, draggable dividers, zebra striping, and cell editors.
 
-See the [Examples Documentation](examples/README.md) and [Showcase Guide](docs/examples.md) for details.
+See the [Examples Documentation](https://github.com/MateusGPe/tkblend/blob/main/examples/README.md) and [Showcase Guide](https://github.com/MateusGPe/tkblend/blob/main/docs/examples.md) for details.
 
 ---
 
@@ -272,7 +272,7 @@ See the [Examples Documentation](examples/README.md) and [Showcase Guide](docs/e
 ### Building from Source
 
 ```bash
-git clone --recursive https://github.com/mateusgp/tsurf.git tkblend
+git clone --recursive https://github.com/MateusGPe/tkblend.git
 cd tkblend
 uv pip install -e .
 ```
@@ -281,6 +281,6 @@ uv pip install -e .
 
 ## License
 
-**tkblend** is licensed under the [MIT License](LICENSE).
+**tkblend** is licensed under the [MIT License](https://github.com/MateusGPe/tkblend/blob/main/LICENSE).
 
 Blend2D is licensed under the [Zlib License](https://blend2d.com).
