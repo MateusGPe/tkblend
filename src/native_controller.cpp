@@ -7,6 +7,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <iostream>
+#include <unordered_set>
 
 namespace tkblend {
 
@@ -14,6 +15,9 @@ namespace {
 static std::vector<NativeWidgetController*> s_active_animators;
 static Tcl_TimerToken s_global_anim_timer = nullptr;
 static std::mutex s_anim_mutex;
+
+static std::unordered_set<NativeWidgetController*> s_live_controllers;
+static std::mutex s_live_mutex;
 
 static void GlobalAnimTimerCallback(ClientData clientData);
 
@@ -32,9 +36,16 @@ struct DeferredPy {
 } // namespace
 
 NativeWidgetController::NativeWidgetController()
-    : internal_surface_(std::make_unique<Surface>(1, 1)) {}
+    : internal_surface_(std::make_unique<Surface>(1, 1)) {
+    std::lock_guard<std::mutex> lock(s_live_mutex);
+    s_live_controllers.insert(this);
+}
 
 NativeWidgetController::~NativeWidgetController() {
+    {
+        std::lock_guard<std::mutex> lock(s_live_mutex);
+        s_live_controllers.erase(this);
+    }
     detach();
     if (on_paint_.is_valid() || on_state_changed_.is_valid() || on_click_.is_valid() || on_resize_.is_valid() || on_change_.is_valid()) {
         nb::gil_scoped_acquire gil;
@@ -65,6 +76,7 @@ bool NativeWidgetController::attach(uintptr_t interp_addr, const std::string& wi
 
     Tk_Window tkwin = Tk_NameToWindow(interp, widget_path.c_str(), main_win);
     if (!tkwin) {
+        Tcl_ResetResult(interp);
         return false;
     }
 
@@ -95,7 +107,7 @@ void NativeWidgetController::detach() {
     has_pending_resize_ = false;
     pending_resize_w_ = -1;
     pending_resize_h_ = -1;
-    if (idle_scheduled_ && interp_) {
+    if (idle_scheduled_) {
         Tcl_CancelIdleCall(IdleRedraw, this);
         idle_scheduled_ = false;
     }
@@ -139,7 +151,7 @@ void NativeWidgetController::on_window_destroyed() {
     has_pending_resize_ = false;
     pending_resize_w_ = -1;
     pending_resize_h_ = -1;
-    if (idle_scheduled_ && interp_) {
+    if (idle_scheduled_) {
         Tcl_CancelIdleCall(IdleRedraw, this);
         idle_scheduled_ = false;
     }
@@ -543,21 +555,40 @@ void NativeWidgetController::request_redraw() {
 
 void NativeWidgetController::HandleTkEvent(ClientData clientData, XEvent* eventPtr) {
     auto* self = static_cast<NativeWidgetController*>(clientData);
-    if (self) {
-        self->on_tk_event(eventPtr);
+    if (!self) {
+        return;
     }
+    {
+        std::lock_guard<std::mutex> lock(s_live_mutex);
+        if (s_live_controllers.find(self) == s_live_controllers.end()) {
+            return;
+        }
+    }
+    self->on_tk_event(eventPtr);
 }
 
 void NativeWidgetController::IdleRedraw(ClientData clientData) {
     auto* self = static_cast<NativeWidgetController*>(clientData);
-    if (self) {
-        {
-            std::lock_guard<std::recursive_mutex> lock(self->mutex_);
+    if (!self) {
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(s_live_mutex);
+        if (s_live_controllers.find(self) == s_live_controllers.end()) {
+            return;
+        }
+    }
+    {
+        std::lock_guard<std::recursive_mutex> lock(self->mutex_);
+        if (!self->idle_scheduled_ || !self->tkwin_ || !self->interp_) {
             self->idle_scheduled_ = false;
             self->has_pending_resize_ = false;
+            return;
         }
-        self->paint_and_blit();
+        self->idle_scheduled_ = false;
+        self->has_pending_resize_ = false;
     }
+    self->paint_and_blit();
 }
 
 static KeySym lookup_keysym(XKeyEvent* xkey) {

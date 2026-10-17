@@ -39,6 +39,7 @@ def root():
     r.withdraw()
     yield r
     try:
+        r.update_idletasks()
         r.destroy()
     except Exception:
         pass
@@ -61,6 +62,7 @@ def test_scaling_tracker_api(root):
     # Test get_scaling_factor with None
     factor2 = ScalingTracker.get_scaling_factor(None)
     assert factor2 > 0.0
+    ScalingTracker._cached_factor = None
 
 
 def test_base_control_properties_and_configuration(root):

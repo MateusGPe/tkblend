@@ -81,6 +81,8 @@ class ScalingTracker:
                 scale = float(widget.tk.call("tk", "scaling"))
                 base = TK_SCALING_BASE_DARWIN if sys.platform == "darwin" else TK_SCALING_BASE
                 factor = scale / base
+                if abs(factor - 1.0) < 0.005:
+                    factor = 1.0
                 if factor > TK_SCALING_MIN_THRESHOLD:
                     cls._cached_factor = factor
                     return factor
@@ -437,8 +439,8 @@ class BaseControl(tk.Frame):
         self._logical_w = int(width)
         self._logical_h = int(height)
         scale = self.scale_factor
-        pw = max(1, int(self._logical_w * scale))
-        ph = max(1, int(self._logical_h * scale))
+        pw = max(1, int(round(self._logical_w * scale)))
+        ph = max(1, int(round(self._logical_h * scale)))
         if hasattr(self, "_controller") and self._controller.is_attached:
             self._controller.set_geometry_request(pw, ph)
         try:

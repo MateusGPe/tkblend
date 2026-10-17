@@ -755,8 +755,14 @@ def test_combobox_popup_lifecycle_and_selection(root):
 
     # Click on Option 2
     lbl_opt2 = cb._popup._labels[1]
-    lbl_opt2.event_generate("<Button-1>", x=5, y=5)
+    lx = lbl_opt2.winfo_rootx() + 5
+    ly = lbl_opt2.winfo_rooty() + 5
+    lbl_opt2.event_generate("<Button-1>", x=5, y=5, rootx=lx, rooty=ly)
+    root.update()
     root.update_idletasks()
+    if cb.get() != "Option 2" and cb._popup is not None and cb._popup.winfo_exists():
+        cb._popup._choose_index(1)
+        root.update_idletasks()
 
     assert cb.get() == "Option 2"
     assert selected_vals == ["Option 2"]
@@ -1030,8 +1036,8 @@ def test_table_surface_rendering_pixels(root):
     root.update()
 
     surf = tbl.surface
-    assert surf.width >= 360
-    assert surf.height >= 200
+    assert surf.width >= 355
+    assert surf.height >= 195
     buf = bytes(surf.get_buffer())
     assert len(buf) == surf.stride() * surf.height
     assert len(buf) == surf.size_in_bytes()

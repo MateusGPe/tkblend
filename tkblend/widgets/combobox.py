@@ -345,6 +345,15 @@ class DropdownPopup(tk.Toplevel):
         try:
             if not self.winfo_exists():
                 return
+
+            clicked_w = getattr(event, "widget", None)
+            if clicked_w is not None:
+                try:
+                    if clicked_w is self or clicked_w.winfo_toplevel() == self or str(clicked_w).startswith(str(self)):
+                        return
+                except Exception:
+                    pass
+
             x = event.x_root
             y = event.y_root
 
@@ -352,7 +361,6 @@ class DropdownPopup(tk.Toplevel):
             if px <= x <= px + pw and py <= y <= py + ph:
                 return
 
-            clicked_w = getattr(event, "widget", None)
             is_anchor = (clicked_w == self._master)
             if not is_anchor and self._target_bounds is not None:
                 ax, ay, aw, ah = self._anchor_rect
