@@ -220,7 +220,7 @@ def test_badge_auto_fit(root):
     badge_fixed.pack()
     root.update_idletasks()
     assert badge_fixed.width == 120
-    expected_fixed_w = max(1, int(120 * badge_fixed.scale_factor))
+    expected_fixed_w = max(1, int(round(120 * badge_fixed.scale_factor)))
     assert badge_fixed.winfo_reqwidth() == expected_fixed_w
     badge_fixed.text = "Extremely long text that should not change fixed width"
     root.update_idletasks()

@@ -109,7 +109,7 @@ exclude_lines = [
 # Build CPython 3.9 through 3.13
 build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
 skip = "pp* *musllinux* cp36-* cp37-* cp38-*"
-test-requires = ["pytest", "Pillow"]
+test-requires = ["pytest", "Pillow", "darkdetect"]
 test-command = "pytest {project}/tests"
 
 [tool.cibuildwheel.linux]

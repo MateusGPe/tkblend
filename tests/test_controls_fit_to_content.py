@@ -62,14 +62,14 @@ def test_min_and_max_width_clamping(root):
     btn_min.pack()
     root.update_idletasks()
     assert btn_min.width >= 180
-    assert btn_min.winfo_reqwidth() >= int(180 * btn_min.scale_factor)
+    assert btn_min.winfo_reqwidth() >= int(round(180 * btn_min.scale_factor))
 
     # Clamped by max_width
     btn_max = Button(root, text="Extremely elongated action button text that would exceed limits", max_width=150)
     btn_max.pack()
     root.update_idletasks()
     assert btn_max.width <= 150
-    assert btn_max.winfo_reqwidth() <= int(150 * btn_max.scale_factor)
+    assert btn_max.winfo_reqwidth() <= int(round(150 * btn_max.scale_factor))
 
 
 def test_combobox_and_checkbox_fit_to_content(root):

@@ -1,3 +1,5 @@
+import sys
+import types
 import pytest
 import tkinter as tk
 from unittest.mock import MagicMock, patch
@@ -114,14 +116,19 @@ def test_system_theme_detection_and_autotheme(root):
     assert detect_system_theme() in ("dark", "light")
 
     # Mock darkdetect
-    with patch("darkdetect.isDark", return_value=True, create=True), \
-         patch("darkdetect.theme", return_value="Dark", create=True):
+    mock_dd_dark = types.ModuleType("darkdetect")
+    mock_dd_dark.isDark = lambda: True
+    mock_dd_dark.theme = lambda: "Dark"
+    mock_dd_dark.isLight = lambda: False
+    with patch.dict(sys.modules, {"darkdetect": mock_dd_dark}):
         assert is_system_dark() is True
         assert detect_system_theme() == "dark"
 
-    with patch("darkdetect.isDark", return_value=False, create=True), \
-         patch("darkdetect.isLight", return_value=True, create=True), \
-         patch("darkdetect.theme", return_value="Light", create=True):
+    mock_dd_light = types.ModuleType("darkdetect")
+    mock_dd_light.isDark = lambda: False
+    mock_dd_light.isLight = lambda: True
+    mock_dd_light.theme = lambda: "Light"
+    with patch.dict(sys.modules, {"darkdetect": mock_dd_light}):
         assert is_system_dark() is False
         assert detect_system_theme() == "light"
 
