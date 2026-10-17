@@ -70,6 +70,9 @@ def record_analytics_showcase(out_gif: str, out_cinematic_png: str, out_dark_png
     dash = AnalyticsDashboard(root)
     dash.pack(fill="both", expand=True)
 
+    if hasattr(dash, "_theme_opt"):
+        dash._theme_opt.set("cinematic")
+
     root.update_idletasks()
     root.update()
     time.sleep(0.3)
@@ -81,6 +84,8 @@ def record_analytics_showcase(out_gif: str, out_cinematic_png: str, out_dark_png
 
     # 2. Switch to dark mode (Catppuccin Mocha) and save dark static PNG
     dash._on_change_theme("catppuccin_mocha")
+    if hasattr(dash, "_theme_opt"):
+        dash._theme_opt.set("catppuccin_mocha")
     root.update_idletasks()
     root.update()
     time.sleep(0.2)
@@ -90,6 +95,8 @@ def record_analytics_showcase(out_gif: str, out_cinematic_png: str, out_dark_png
 
     # 3. Switch to light mode and save light static PNG
     dash._on_change_theme("light")
+    if hasattr(dash, "_theme_opt"):
+        dash._theme_opt.set("light")
     root.update_idletasks()
     root.update()
     time.sleep(0.2)
@@ -172,7 +179,7 @@ def record_analytics_showcase(out_gif: str, out_cinematic_png: str, out_dark_png
 # 2. Real-Time 60 FPS Visualizer Capture
 # ==============================================================================
 def record_visualizer_showcase(out_gif: str, out_part_png: str, out_spec_png: str):
-    print("  -> Recording Real 60 FPS Visualizer...")
+    print("  -> Recording Real 60 FPS Visualizer (Particles, Spectrum, Lissajous)...")
     set_theme("cinematic")
 
     root = tk.Tk()
@@ -195,8 +202,8 @@ def record_visualizer_showcase(out_gif: str, out_part_png: str, out_spec_png: st
     w_canvas = 620.0
     h_canvas = 520.0
 
-    for step in range(22):
-        t = step * 0.28
+    for step in range(18):
+        t = step * 0.32
         mx = (w_canvas / 2.0) + math.cos(t) * (w_canvas * 0.35)
         my = (h_canvas / 2.0) + math.sin(t * 1.3) * (h_canvas * 0.3)
         vis._mouse_attractor = (mx, my)
@@ -219,7 +226,7 @@ def record_visualizer_showcase(out_gif: str, out_part_png: str, out_spec_png: st
     vis._mode_seg.set("Spectrum")
     vis._on_mode_change("Spectrum")
 
-    for step in range(22):
+    for step in range(18):
         vis._canvas.paint_and_blit()
         if hasattr(vis, "_fps_badge"):
             vis._fps_badge.text = "60 FPS | 0.38 ms"
@@ -230,6 +237,23 @@ def record_visualizer_showcase(out_gif: str, out_part_png: str, out_spec_png: st
         if step == 8:
             frame.save(out_spec_png, quality=95)
             print(f"     ✓ Saved {os.path.basename(out_spec_png)}")
+
+        small = frame.resize((884, 578), Image.Resampling.LANCZOS)
+        frames.append(small.quantize(colors=256, method=Image.Quantize.MEDIANCUT))
+
+    # Mode 3: Harmonic Lissajous Oscilloscope
+    vis._mode_seg.set("Lissajous")
+    vis._on_mode_change("Lissajous")
+
+    for step in range(18):
+        if step == 9:
+            vis._on_action1()  # Shift harmonic ratio dynamically!
+        vis._canvas.paint_and_blit()
+        if hasattr(vis, "_fps_badge"):
+            vis._fps_badge.text = "60 FPS | 0.36 ms"
+        if hasattr(vis, "_gauge_fps"):
+            vis._gauge_fps.value = 60.0
+        frame = capture_frame(root, wait_ms=0.04)
 
         small = frame.resize((884, 578), Image.Resampling.LANCZOS)
         frames.append(small.quantize(colors=256, method=Image.Quantize.MEDIANCUT))
@@ -249,24 +273,28 @@ def record_visualizer_showcase(out_gif: str, out_part_png: str, out_spec_png: st
         print(f"     ✓ Saved {os.path.basename(out_gif)}")
 
 
-# ==============================================================================
-# 3. Modern Material Design 3 ShowcaseApp (Catalog & Matrix)
-# ==============================================================================
 def record_showcase_app_assets(out_gif: str, out_png: str):
     print("  -> Recording Real Modern ShowcaseApp (Widget Catalog & Matrix)...")
     set_theme("cinematic")
 
     app = ShowcaseApp()
     app._select_theme("cinematic")
-    app.geometry("1120x860")
+    # Geometry 1120x1180 ensures full visibility of all cards and the Vector Data Table
+    app.geometry("1120x1180")
     app.update_idletasks()
     app.update()
     time.sleep(0.3)
 
-    # Save static overview in Cinematic theme
+    # Save static overview in Cinematic theme with all widgets and table visible
     img_static = capture_frame(app, wait_ms=0.1)
     img_static.save(out_png, quality=95)
-    print(f"     ✓ Saved {os.path.basename(out_png)} (Cinematic theme)")
+    print(f"     ✓ Saved {os.path.basename(out_png)} (Cinematic theme, full overview)")
+
+    # Restore standard viewport for animated recording
+    app.geometry("1120x860")
+    app.update_idletasks()
+    app.update()
+    time.sleep(0.15)
 
     frames: List[Image.Image] = []
     themes = ["cinematic", "catppuccin_mocha", "cyberpunk", "tokyo_night", "sunset_amber", "emerald_forest", "light"]
@@ -292,6 +320,21 @@ def record_showcase_app_assets(out_gif: str, out_png: str):
         # Perform 7 fluid sub-steps of continuous movement per theme
         for step in range(7):
             t = (idx * 7 + step) * 0.35
+
+            # Dynamic camera scrolling across dashboard
+            if idx in (0, 1):
+                scroll_pos = 0.0
+            elif idx == 2:
+                scroll_pos = (step / 6.0) * 0.8
+            elif idx in (3, 4):
+                scroll_pos = 0.8  # Table fully in view!
+            elif idx == 5:
+                scroll_pos = 0.8 - (step / 6.0) * 0.8
+            else:
+                scroll_pos = 0.0
+
+            if hasattr(app, "scroll_container"):
+                app.scroll_container._on_scrollbar_move("moveto", scroll_pos)
 
             # Smooth slider sweeping back and forth
             slider_val = 20.0 + (math.sin(t) * 0.5 + 0.5) * 65.0
@@ -378,17 +421,42 @@ def record_canvas_and_cookbook_showcase(out_gif: str, out_canvas_png: str, out_c
 
     frames: List[Image.Image] = []
 
-    c_modes = ["Paths & Curves", "Gradients & Extends", "Composition Modes", "Shadows & Glow"]
+    c_modes = ["Paths & Curves", "Gradients & Extends", "Composition Modes", "Shadows & Glow", "Freehand Scratchpad"]
     for mode_name in c_modes:
         canvas_app._mode_seg.set(mode_name)
         canvas_app._set_mode(mode_name)
         root_canvas.update_idletasks()
         root_canvas.update()
 
-        for _ in range(3):
-            frame = capture_frame(root_canvas, wait_ms=0.08)
-            small = frame.resize((884, 578), Image.Resampling.LANCZOS)
-            frames.append(small.quantize(colors=256, method=Image.Quantize.MEDIANCUT))
+        if mode_name == "Freehand Scratchpad":
+            # Animate vector scratchpad drawing
+            stroke: List[Tuple[float, float, str, float]] = []
+            for s_idx in range(12):
+                ang = s_idx * 0.4
+                rad = 20.0 + s_idx * 7.0
+                cx, cy = 300.0 + math.cos(ang) * rad, 220.0 + math.sin(ang) * rad
+                stroke.append((cx, cy, "#028090", 6.0))
+                canvas_app._freehand_strokes = [list(stroke)]
+                canvas_app._canvas.request_redraw()
+                root_canvas.update_idletasks()
+                root_canvas.update()
+                frame = capture_frame(root_canvas, wait_ms=0.06)
+                small = frame.resize((884, 578), Image.Resampling.LANCZOS)
+                frames.append(small.quantize(colors=256, method=Image.Quantize.MEDIANCUT))
+        elif mode_name == "Shadows & Glow":
+            for s_idx in range(6):
+                canvas_app._shadow_blur = 10.0 + s_idx * 5.0
+                canvas_app._canvas.request_redraw()
+                root_canvas.update_idletasks()
+                root_canvas.update()
+                frame = capture_frame(root_canvas, wait_ms=0.06)
+                small = frame.resize((884, 578), Image.Resampling.LANCZOS)
+                frames.append(small.quantize(colors=256, method=Image.Quantize.MEDIANCUT))
+        else:
+            for _ in range(4):
+                frame = capture_frame(root_canvas, wait_ms=0.08)
+                small = frame.resize((884, 578), Image.Resampling.LANCZOS)
+                frames.append(small.quantize(colors=256, method=Image.Quantize.MEDIANCUT))
 
     root_canvas.destroy()
 
@@ -400,13 +468,20 @@ def record_canvas_and_cookbook_showcase(out_gif: str, out_canvas_png: str, out_c
     cb_app = CustomWidgetCookbook(root_cb)
     cb_app.pack(fill="both", expand=True)
 
+    # Set meaningful showcase values before snapping static overview PNG
+    cb_app._step_bar.set_step(2)
+    cb_app._speedo.value = 85.0
+    cb_app._radar.values = [85.0, 92.0, 74.0, 96.0, 78.0, 88.0]
+    cb_app._speedo.request_redraw()
+    cb_app._radar.request_redraw()
+
     root_cb.update_idletasks()
     root_cb.update()
     time.sleep(0.3)
 
     img_cb = capture_frame(root_cb, wait_ms=0.1)
     img_cb.save(out_cookbook_png, quality=95)
-    print(f"     ✓ Saved {os.path.basename(out_cookbook_png)}")
+    print(f"     ✓ Saved {os.path.basename(out_cookbook_png)} (Active custom widgets)")
 
     for step in range(16):
         if step % 4 == 0:

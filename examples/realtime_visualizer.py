@@ -45,6 +45,7 @@ from tkblend import (
     set_theme,
     get_available_themes,
     cascade_bg_to_children,
+    resolve_color_failsafe,
     ScalingTracker,
 )
 
@@ -88,6 +89,8 @@ class RealtimeVisualizer(tk.Frame):
         self._phase_b = 0.0
         self._freq_x = 3.0
         self._freq_y = 4.0
+        self._lissajous_ratios = [(3.0, 4.0), (5.0, 4.0), (5.0, 6.0), (2.0, 3.0), (3.0, 5.0), (7.0, 8.0)]
+        self._ratio_idx = 0
 
         # FPS & Telemetry
         self._fps = 60.0
@@ -189,30 +192,34 @@ class RealtimeVisualizer(tk.Frame):
         self._gauge_load = CircularProgress(gauge_row, size=85, value=4.5, max_value=100.0, title="Frame Cost", unit="%", stroke_width=6)
         self._gauge_load.pack(side="left", fill="both", expand=True)
 
-        # Physics Controls
-        tk.Label(ctrl_inner, text="Physics & Parameters", font=("sans-serif", 11, "bold"), bg=pal.card_bg, fg=pal.fg).pack(anchor="w", pady=(8, 4))
+        # Mode-dependent Controls
+        self._lbl_params = tk.Label(ctrl_inner, text="Physics & Parameters", font=("sans-serif", 11, "bold"), bg=pal.card_bg, fg=pal.fg)
+        self._lbl_params.pack(anchor="w", pady=(8, 4))
 
         # Speed slider
-        tk.Label(ctrl_inner, text="Speed Multiplier:", font=("sans-serif", 9), bg=pal.card_bg, fg=pal.text_muted).pack(anchor="w")
+        self._lbl_s1 = tk.Label(ctrl_inner, text="Speed Multiplier:", font=("sans-serif", 9), bg=pal.card_bg, fg=pal.text_muted)
+        self._lbl_s1.pack(anchor="w")
         self._slider_speed = Slider(ctrl_inner, from_=0.1, to=3.0, value=1.0, command=self._on_speed_changed, height=22)
         self._slider_speed.pack(fill="x", pady=(2, 6))
 
-        # Particle count slider
-        tk.Label(ctrl_inner, text="Particle Swarm Density:", font=("sans-serif", 9), bg=pal.card_bg, fg=pal.text_muted).pack(anchor="w")
+        # Secondary parameter slider
+        self._lbl_s2 = tk.Label(ctrl_inner, text="Particle Swarm Density:", font=("sans-serif", 9), bg=pal.card_bg, fg=pal.text_muted)
+        self._lbl_s2.pack(anchor="w")
         self._slider_count = Slider(ctrl_inner, from_=20.0, to=300.0, value=120.0, command=self._on_count_changed, height=22)
         self._slider_count.pack(fill="x", pady=(2, 6))
 
-        # Gravity slider
-        tk.Label(ctrl_inner, text="Gravity Well Pull:", font=("sans-serif", 9), bg=pal.card_bg, fg=pal.text_muted).pack(anchor="w")
+        # Tertiary parameter slider
+        self._lbl_s3 = tk.Label(ctrl_inner, text="Gravity Well Pull:", font=("sans-serif", 9), bg=pal.card_bg, fg=pal.text_muted)
+        self._lbl_s3.pack(anchor="w")
         self._slider_grav = Slider(ctrl_inner, from_=0.0, to=3.0, value=1.0, command=self._on_gravity_changed, height=22)
         self._slider_grav.pack(fill="x", pady=(2, 10))
 
         # Action Buttons
-        btn_blast = Button(ctrl_inner, text="💥 Blast Particle Field", command=self._blast_particles, height=34, auto_fit=True)
-        btn_blast.pack(fill="x", pady=4)
+        self._btn_act1 = Button(ctrl_inner, text="💥 Blast Particle Field", command=self._on_action1, height=34, auto_fit=True)
+        self._btn_act1.pack(fill="x", pady=4)
 
-        btn_reset = Button(ctrl_inner, text="🔄 Reset Simulation", command=self._init_particles, height=34, auto_fit=True)
-        btn_reset.pack(fill="x", pady=4)
+        self._btn_act2 = Button(ctrl_inner, text="🔄 Reset Simulation", command=self._on_action2, height=34, auto_fit=True)
+        self._btn_act2.pack(fill="x", pady=4)
 
         cascade_bg_to_children(self, pal.bg, palette=pal)
 
@@ -228,11 +235,43 @@ class RealtimeVisualizer(tk.Frame):
         self._speed_multiplier = float(val)
 
     def _on_count_changed(self, val: float) -> None:
-        self._particle_count = int(val)
-        self._init_particles()
+        if self._mode == "particles":
+            self._particle_count = int(val)
+            self._init_particles()
+        elif self._mode == "spectrum":
+            self._spectrum_bars = max(16, min(64, int(val)))
+            self._spectrum_vals = [0.0] * self._spectrum_bars
+            self._spectrum_peaks = [0.0] * self._spectrum_bars
+        elif self._mode == "lissajous":
+            self._freq_x = max(1.0, round(float(val)))
 
     def _on_gravity_changed(self, val: float) -> None:
-        self._gravity_strength = float(val)
+        if self._mode == "particles":
+            self._gravity_strength = float(val)
+        elif self._mode == "lissajous":
+            self._freq_y = max(1.0, round(float(val)))
+
+    def _on_action1(self) -> None:
+        if self._mode == "particles":
+            self._blast_particles()
+        elif self._mode == "spectrum":
+            for i in range(len(self._spectrum_vals)):
+                self._spectrum_vals[i] = random.uniform(0.7, 1.0)
+                self._spectrum_peaks[i] = max(self._spectrum_peaks[i], self._spectrum_vals[i])
+        elif self._mode == "lissajous":
+            self._ratio_idx = (self._ratio_idx + 1) % len(self._lissajous_ratios)
+            self._freq_x, self._freq_y = self._lissajous_ratios[self._ratio_idx]
+            self._slider_count.set(self._freq_x)
+            self._slider_grav.set(self._freq_y)
+
+    def _on_action2(self) -> None:
+        if self._mode == "particles":
+            self._init_particles()
+        elif self._mode == "spectrum":
+            self._spectrum_peaks = [0.0] * self._spectrum_bars
+        elif self._mode == "lissajous":
+            self._phase_a = 0.0
+            self._phase_b = 0.0
 
     def _blast_particles(self) -> None:
         w = float(self._canvas.winfo_width() or 600)
@@ -247,6 +286,54 @@ class RealtimeVisualizer(tk.Frame):
 
     def _on_mode_change(self, mode_str: str) -> None:
         self._mode = mode_str.lower()
+        if self._mode == "particles":
+            self._lbl_params.configure(text="Physics & Parameters")
+            self._lbl_s1.configure(text="Speed Multiplier:")
+            self._lbl_s2.configure(text="Particle Swarm Density:")
+            self._lbl_s3.configure(text="Gravity Well Pull:")
+            self._slider_speed.from_ = 0.1
+            self._slider_speed.to = 3.0
+            self._slider_speed.set(self._speed_multiplier)
+            self._slider_count.from_ = 20.0
+            self._slider_count.to = 300.0
+            self._slider_count.set(float(self._particle_count))
+            self._slider_grav.from_ = 0.0
+            self._slider_grav.to = 3.0
+            self._slider_grav.set(self._gravity_strength)
+            self._btn_act1.text = "💥 Blast Particle Field"
+            self._btn_act2.text = "🔄 Reset Simulation"
+        elif self._mode == "spectrum":
+            self._lbl_params.configure(text="Spectrum & EQ Parameters")
+            self._lbl_s1.configure(text="Animation Pace:")
+            self._lbl_s2.configure(text="Frequency Band Count:")
+            self._lbl_s3.configure(text="Peak Sensitivity:")
+            self._slider_speed.from_ = 0.2
+            self._slider_speed.to = 3.0
+            self._slider_speed.set(self._speed_multiplier)
+            self._slider_count.from_ = 16.0
+            self._slider_count.to = 64.0
+            self._slider_count.set(float(self._spectrum_bars))
+            self._slider_grav.from_ = 0.5
+            self._slider_grav.to = 2.5
+            self._slider_grav.set(1.0)
+            self._btn_act1.text = "⚡ Surge Equalizer"
+            self._btn_act2.text = "🔄 Reset Peaks"
+        elif self._mode == "lissajous":
+            self._lbl_params.configure(text="Harmonic Oscilloscope")
+            self._lbl_s1.configure(text="Phase Modulation Speed:")
+            self._lbl_s2.configure(text="Harmonic Frequency X:")
+            self._lbl_s3.configure(text="Harmonic Frequency Y:")
+            self._slider_speed.from_ = 0.1
+            self._slider_speed.to = 3.0
+            self._slider_speed.set(self._speed_multiplier)
+            self._slider_count.from_ = 1.0
+            self._slider_count.to = 9.0
+            self._slider_count.set(self._freq_x)
+            self._slider_grav.from_ = 1.0
+            self._slider_grav.to = 9.0
+            self._slider_grav.set(self._freq_y)
+            self._btn_act1.text = "🎛️ Shift Harmonic Ratio"
+            self._btn_act2.text = "🔄 Reset Phase Modulation"
         self._canvas.request_redraw()
 
     def _toggle_animation(self, is_on: bool = True) -> None:
@@ -392,37 +479,63 @@ class RealtimeVisualizer(tk.Frame):
                 surf.fill_rounded_rect(x, peak_y, bar_w, 2.0 * s, 1.0 * s, 1.0 * s, pal.accent)
 
         else:
-            # 3. Harmonic Lissajous
-            self._phase_a += 0.03
-            self._phase_b += 0.04
+            # 3. Harmonic Lissajous Oscilloscope
+            speed = self._speed_multiplier
+            self._phase_a += 0.024 * speed
             cx, cy = w / 2.0, h / 2.0
-            rx = (w / 2.0) - 30.0 * s
-            ry = (h / 2.0) - 30.0 * s
+            rx = (w / 2.0) - 75.0 * s
+            ry = (h / 2.0) - 65.0 * s
 
-            steps = 280
+            # Oscilloscope circular grid / reticle lines
+            grid_col = resolve_color_failsafe(pal.border, alpha=0.45)
+            surf.stroke_circle(cx, cy, min(rx, ry) * 0.35, grid_col, stroke_width=1.0 * s)
+            surf.stroke_circle(cx, cy, min(rx, ry) * 0.70, grid_col, stroke_width=1.0 * s)
+            surf.stroke_line(cx - rx - 15.0 * s, cy, cx + rx + 15.0 * s, cy, grid_col, stroke_width=1.0 * s)
+            surf.stroke_line(cx, cy - ry - 15.0 * s, cx, cy + ry + 15.0 * s, grid_col, stroke_width=1.0 * s)
+
+            steps = 320
             path = Path()
+            head_x, head_y = cx, cy
             for i in range(steps + 1):
                 t = (i / steps) * math.tau
                 lx = cx + math.sin(t * self._freq_x + self._phase_a) * rx
-                ly = cy + math.cos(t * self._freq_y + self._phase_b) * ry
+                ly = cy + math.sin(t * self._freq_y) * ry
                 if i == 0:
                     path.move_to(lx, ly)
                 else:
                     path.line_to(lx, ly)
+                if i == steps:
+                    head_x, head_y = lx, ly
+            path.close()
 
-            surf.stroke_path(path, pal.primary, stroke_width=2.5 * s)
+            # Outer neon glow pass
+            glow_col = resolve_color_failsafe(pal.primary, alpha=0.35)
+            surf.stroke_path(path, glow_col, stroke_width=6.0 * s)
+            # Main crisp beam
+            surf.stroke_path(path, pal.primary, stroke_width=2.4 * s)
 
+            # Secondary harmonic wave (with phase delta and frequency offset)
             inner_path = Path()
+            sec_freq_x = self._freq_x + 1.0 if self._freq_x < 6.0 else self._freq_x - 1.0
+            sec_freq_y = self._freq_y - 1.0 if self._freq_y > 2.0 else self._freq_y + 1.0
             for i in range(steps + 1):
                 t = (i / steps) * math.tau
-                lx = cx + math.sin(t * (self._freq_x + 1.0) + self._phase_a * 1.5) * (rx * 0.7)
-                ly = cy + math.cos(t * (self._freq_y - 1.0) + self._phase_b * 1.2) * (ry * 0.7)
+                lx = cx + math.sin(t * sec_freq_x + self._phase_a * 1.3 + math.pi / 4) * (rx * 0.72)
+                ly = cy + math.sin(t * sec_freq_y) * (ry * 0.72)
                 if i == 0:
                     inner_path.move_to(lx, ly)
                 else:
                     inner_path.line_to(lx, ly)
+            inner_path.close()
 
-            surf.stroke_path(inner_path, pal.secondary, stroke_width=1.5 * s)
+            glow_sec = resolve_color_failsafe(pal.secondary, alpha=0.35)
+            surf.stroke_path(inner_path, glow_sec, stroke_width=4.5 * s)
+            surf.stroke_path(inner_path, pal.secondary, stroke_width=1.6 * s)
+
+            # Glowing electron tracer head
+            head_glow = resolve_color_failsafe(pal.accent, alpha=0.45)
+            surf.fill_circle(head_x, head_y, 4.5 * s, pal.accent)
+            surf.stroke_circle(head_x, head_y, 9.5 * s, head_glow, stroke_width=2.0 * s)
 
     def _on_theme_change(self, theme_name: str) -> None:
         set_theme(theme_name)

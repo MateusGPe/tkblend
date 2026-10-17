@@ -426,6 +426,7 @@ class ComboBox(BaseControl):
         master: Optional[tk.Misc] = None,
         values: Optional[Sequence[str]] = None,
         value: str = "",
+        current_value: Optional[str] = None,
         command: Optional[Callable[[str], Any]] = None,
         variable: Optional[tk.Variable] = None,
         width: int = 160,
@@ -450,7 +451,7 @@ class ComboBox(BaseControl):
             **kwargs,
         )
 
-        init_val = str(value)
+        init_val = str(value if value != "" else (current_value or ""))
         if not init_val and self._values:
             init_val = self._values[0]
         if self._variable is not None:
