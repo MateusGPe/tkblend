@@ -89,7 +89,7 @@ jobs:
         run: |
           xvfb-run -a pytest -v
 
-      - name: Run tests (macOS / Windows)
+      - name: Run tests (macOS)
         if: runner.os == 'macOS'
         run: pytest -v
 
@@ -199,7 +199,7 @@ jobs:
         run: micromamba run -n tkblend-tcltk-direct python -c "import tkinter; print(tkinter.TkVersion)"
 
       - name: Build and install tkblend (Direct-Link mode)
-        run: micromamba run -n tkblend-tcltk-direct python -m pip install -e . --no-build-isolation -v -Ccmake.define.TKBLEND_PURE_STUBS=OFF
+        run: micromamba run -n tkblend-tcltk-direct python -m pip install -e . --no-build-isolation -v --config-settings=cmake.define.TKBLEND_PURE_STUBS=OFF
         env:
           CMAKE_PREFIX_PATH: ${{ steps.tcltk.outputs.environment-path }}/Library
           CMAKE_ARGS: "-DTKBLEND_PURE_STUBS=OFF"

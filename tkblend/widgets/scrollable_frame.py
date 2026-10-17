@@ -223,13 +223,21 @@ class ScrollableFrame(BaseControl):
         if not self._is_hovered_for_scroll:
             return
         if sys.platform == "darwin":
-            delta = -1 * event.delta
-        elif event.num == 5:
+            raw_delta = getattr(event, "delta", 0)
+            if raw_delta != 0:
+                delta = -1 * raw_delta
+            elif getattr(event, "num", None) == 5:
+                delta = 1
+            elif getattr(event, "num", None) == 4:
+                delta = -1
+            else:
+                delta = 0
+        elif getattr(event, "num", None) == 5:
             delta = 1
-        elif event.num == 4:
+        elif getattr(event, "num", None) == 4:
             delta = -1
         else:
-            delta = -1 * int(event.delta / 120)
+            delta = -1 * int(getattr(event, "delta", 0) / 120) if getattr(event, "delta", 0) else 1
 
         view = self._canvas.yview()
         if not view:

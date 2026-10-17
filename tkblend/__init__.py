@@ -4,9 +4,42 @@ Zero TTK theme dependencies.
 """
 
 import logging
+import os
+import sys
 
 # Set default logging handler to avoid "No handler found" warnings
 logging.getLogger("tkblend").addHandler(logging.NullHandler())
+
+# On Windows with Python 3.8+, dependent DLLs are no longer loaded from PATH.
+# Register relevant directories with os.add_dll_directory() so that runtime
+# dependencies (such as MinGW runtime libraries, Tcl/Tk DLLs, and Conda/env DLLs)
+# can be located when loading _tkblend.pyd.
+if sys.platform == "win32":
+    _dll_dirs = []
+    _pkg_dir = os.path.dirname(__file__)
+    if os.path.isdir(_pkg_dir):
+        _dll_dirs.append(_pkg_dir)
+
+    for prefix in filter(None, (sys.prefix, getattr(sys, "base_prefix", None), os.environ.get("CONDA_PREFIX"))):
+        for sub in ("Library/bin", "bin", "DLLs"):
+            p = os.path.normpath(os.path.join(prefix, sub))
+            if os.path.isdir(p):
+                _dll_dirs.append(p)
+
+    path_env = os.environ.get("PATH", "")
+    for p in path_env.split(os.pathsep):
+        if p and os.path.isdir(p):
+            _dll_dirs.append(os.path.normpath(p))
+
+    if hasattr(os, "add_dll_directory"):
+        _seen = set()
+        for d in _dll_dirs:
+            if d not in _seen:
+                _seen.add(d)
+                try:
+                    os.add_dll_directory(d)
+                except (OSError, ValueError):
+                    pass
 
 from tkblend._tkblend import (  # type: ignore
     Color,

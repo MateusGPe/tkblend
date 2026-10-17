@@ -512,7 +512,7 @@ if(ENABLE_NANOBIND_LEAK_CHECK)
 endif()
 
 if(MINGW)
-    target_link_options(_tkblend PRIVATE -static-libgcc -static-libstdc++)
+    target_link_options(_tkblend PRIVATE -static-libgcc -static-libstdc++ -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic)
 endif()
 
 # Install target for packaging

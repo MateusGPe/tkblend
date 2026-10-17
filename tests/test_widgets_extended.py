@@ -1166,11 +1166,13 @@ def test_table_extended_apis_and_events(root):
 
     ev_mw_linux5 = tk.Event()
     ev_mw_linux5.num = 5
+    ev_mw_linux5.delta = 0
     ev_mw_linux5.state = 0
     tbl._on_mousewheel(ev_mw_linux5)
 
     ev_mw_linux4 = tk.Event()
     ev_mw_linux4.num = 4
+    ev_mw_linux4.delta = 0
     ev_mw_linux4.state = 0
     tbl._on_mousewheel(ev_mw_linux4)
 

@@ -1033,7 +1033,9 @@ def test_table_surface_rendering_pixels(root):
     assert surf.width >= 360
     assert surf.height >= 200
     buf = bytes(surf.get_buffer())
-    assert len(buf) == surf.width * surf.height * 4
+    assert len(buf) == surf.stride() * surf.height
+    assert len(buf) == surf.size_in_bytes()
+    assert len(buf) >= surf.width * surf.height * 4
     # Ensure surface contains painted data, not just blank or a single solid color
     assert len(set(buf)) > 50
     root.withdraw()

@@ -493,7 +493,15 @@ class Table(BaseControl):
             self._commit_cell_edit()
 
         if sys.platform == "darwin":
-            delta = -1 * event.delta
+            raw_delta = getattr(event, "delta", 0)
+            if raw_delta != 0:
+                delta = -1 * raw_delta
+            elif getattr(event, "num", None) == 5:
+                delta = 1
+            elif getattr(event, "num", None) == 4:
+                delta = -1
+            else:
+                delta = 0
         elif getattr(event, "num", None) == 5:
             delta = 1
         elif getattr(event, "num", None) == 4:
@@ -524,7 +532,15 @@ class Table(BaseControl):
             self._commit_cell_edit()
 
         if sys.platform == "darwin":
-            delta = -1 * event.delta
+            raw_delta = getattr(event, "delta", 0)
+            if raw_delta != 0:
+                delta = -1 * raw_delta
+            elif getattr(event, "num", None) in (5, 7):
+                delta = 1
+            elif getattr(event, "num", None) in (4, 6):
+                delta = -1
+            else:
+                delta = 0
         elif getattr(event, "num", None) in (5, 7):
             delta = 1
         elif getattr(event, "num", None) in (4, 6):
