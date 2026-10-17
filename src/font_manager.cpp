@@ -3,6 +3,7 @@
 #include "font/embedded_fonts.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <stdexcept>
 #include <iostream>
@@ -466,6 +467,69 @@ void FontManager::clear_cache() {
     fallback_families_.clear();
     system_fonts_cache_.clear();
     embedded_loaded_ = false;
+}
+
+TextBounds FontManager::measure_text_bounds(
+    const std::string& text,
+    float font_size,
+    const std::string& font_family,
+    int weight,
+    bool italic,
+    int pad_x,
+    int pad_y,
+    int min_w,
+    int min_h,
+    float line_spacing
+) {
+    if (text.empty()) {
+        int calc_w = std::max(min_w, 2 * pad_x);
+        int calc_h = std::max(min_h, static_cast<int>(std::ceil(static_cast<double>(font_size) * line_spacing + 2.0 * pad_y)));
+        return TextBounds{calc_w, calc_h, 0.0, 0, static_cast<double>(font_size) * line_spacing};
+    }
+
+    BLFont font = create_font(font_family, font_size, weight, italic);
+
+    size_t start = 0;
+    double max_w = 0.0;
+    int num_lines = 0;
+    BLGlyphBuffer gb;
+
+    while (start <= text.size()) {
+        size_t end = text.find('\n', start);
+        if (end == std::string::npos) end = text.size();
+
+        size_t line_len = end - start;
+        if (line_len > 0 && text[start + line_len - 1] == '\r') {
+            line_len--;
+        }
+
+        if (line_len > 0) {
+            if (!font.is_empty()) {
+                gb.set_utf8_text(text.data() + start, line_len);
+                BLTextMetrics tm;
+                if (font.get_text_metrics(gb, tm) == BL_SUCCESS) {
+                    double line_w = (tm.advance.x > 0.0) ? tm.advance.x : (tm.bounding_box.x1 - tm.bounding_box.x0);
+                    if (line_w > max_w) max_w = line_w;
+                } else {
+                    double fallback_w = line_len * static_cast<double>(font_size) * 0.6;
+                    if (fallback_w > max_w) max_w = fallback_w;
+                }
+            } else {
+                double fallback_w = line_len * static_cast<double>(font_size) * 0.6;
+                if (fallback_w > max_w) max_w = fallback_w;
+            }
+        }
+        num_lines++;
+        if (end == text.size()) break;
+        start = end + 1;
+    }
+
+    num_lines = std::max(1, num_lines);
+    double total_line_h = static_cast<double>(font_size) * line_spacing * num_lines;
+    int calc_w = std::max(min_w, static_cast<int>(std::ceil(max_w + 2.0 * pad_x)));
+    int calc_h = std::max(min_h, static_cast<int>(std::ceil(total_line_h + 2.0 * pad_y)));
+
+    return TextBounds{calc_w, calc_h, max_w, num_lines, static_cast<double>(font_size) * line_spacing};
 }
 
 } // namespace tkblend

@@ -218,3 +218,119 @@ class TestCompoundWidgetPrimitives:
         )
         buf = surface.get_buffer()
         assert len(buf) > 0
+
+
+class TestNativeTextBounds:
+    def test_measure_text_bounds_single_line(self):
+        from tkblend._tkblend import measure_text_bounds
+        tb = measure_text_bounds("Hello World", 14.0, "sans-serif", 400, False, 10, 5, 40, 20, 1.3)
+        assert tb.width > 40
+        assert tb.height >= 20
+        assert tb.line_count == 1
+        assert len(tb) == 2
+        w, h = tb
+        assert w == tb.width
+        assert h == tb.height
+
+    def test_measure_text_bounds_multiline(self):
+        from tkblend._tkblend import measure_text_bounds
+        tb = measure_text_bounds("First Line\nSecond Much Longer Line\nThird", 12.0)
+        assert tb.line_count == 3
+        assert tb.width > 50
+        assert tb.height > 30
+
+    def test_measure_text_bounds_empty(self):
+        from tkblend._tkblend import measure_text_bounds
+        tb = measure_text_bounds("", 13.0, "sans-serif", 400, False, 12, 6, 50, 30)
+        assert tb.width >= 50
+        assert tb.height >= 30
+
+
+class TestNativeViewportController:
+    def test_viewport_scrollbar_math(self):
+        from tkblend._tkblend import NativeViewportController
+        res = NativeViewportController.compute_scrollbar_geometry(100.0, 400.0, 150.0, 8.0, 20.0, 10.0)
+        assert res.is_needed is True
+        assert res.track_len == 92.0
+        assert res.thumb_len == 25.0
+        assert res.max_scroll == 300.0
+        assert abs(res.thumb_offset - 33.5) < 1e-4
+
+        # Tuple unpacking
+        needed, off, sz, tr, mx = res
+        assert needed is True
+        assert off == res.thumb_offset
+
+    def test_viewport_drag_and_jump(self):
+        from tkblend._tkblend import NativeViewportController
+        delta = NativeViewportController.compute_scroll_drag_delta(10.0, 300.0, 92.0, 25.0)
+        assert abs(delta - (10.0 * (300.0 / 67.0))) < 1e-4
+
+        jump = NativeViewportController.compute_scroll_jump(46.0, 92.0, 300.0)
+        assert abs(jump - 150.0) < 1e-4
+
+    def test_viewport_visible_range(self):
+        from tkblend._tkblend import NativeViewportController
+        first, last = NativeViewportController.compute_visible_range(100.0, 200.0, 30.0, 50, 0.0)
+        assert first == 3
+        assert last == 11
+
+    def test_viewport_stateful_scrolling(self):
+        from tkblend._tkblend import NativeViewportController
+        nvc = NativeViewportController()
+        nvc.set_viewport_size(200.0, 150.0)
+        nvc.set_content_size(500.0, 800.0)
+        nvc.scroll_to(50.0, 100.0)
+        assert nvc.scroll_x == 50.0
+        assert nvc.scroll_y == 100.0
+
+        vbar = nvc.vertical_scrollbar()
+        assert vbar.is_needed is True
+
+
+class TestNativeTableEngine:
+    def test_table_render_direct(self):
+        from tkblend._tkblend import (
+            TableRenderEngine,
+            TableRenderSpec,
+            TableThemeColors,
+            Color,
+        )
+        surf = Surface(300, 200)
+        spec = TableRenderSpec()
+        spec.width = 300
+        spec.height = 200
+        spec.columns = ["Col A", "Col B"]
+        spec.col_widths = [140, 140]
+        spec.data = [["A1", "B1"], ["A2", "B2"], ["A3", "B3"]]
+        spec.colors = TableThemeColors()
+        spec.colors.card_bg = Color(30, 30, 35, 255)
+        spec.colors.fg = Color(240, 240, 240, 255)
+
+        TableRenderEngine.render_table(surf.native, spec)
+        buf = surf.get_buffer()
+        assert len(buf) == 300 * 200 * 4
+
+    def test_table_hit_testing(self):
+        from tkblend._tkblend import TableRenderEngine
+        widths = [100, 150, 120]
+        # Check divider hit
+        div = TableRenderEngine.find_column_divider(99.0, widths, 0.0, 4.0)
+        assert div == 0
+        div_none = TableRenderEngine.find_column_divider(50.0, widths, 0.0, 4.0)
+        assert div_none == -1
+
+        # Check cell hit
+        row, col = TableRenderEngine.get_cell_at(
+            50.0, 50.0, 400, 300, widths, 10, 34, 38, 0.0, 0.0, 7
+        )
+        assert row == 0
+        assert col == 0
+
+        # Check cell bounds
+        bx, by, bw, bh = TableRenderEngine.get_cell_bounds(2, 1, widths, 34, 38, 0.0, 0.0)
+        assert bx == 100
+        assert by == 38 + 2 * 34
+        assert bw == 150
+        assert bh == 34
+

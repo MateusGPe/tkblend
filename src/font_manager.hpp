@@ -8,6 +8,14 @@
 
 namespace tkblend {
 
+struct TextBounds {
+    int width = 0;
+    int height = 0;
+    double max_line_width = 0.0;
+    int line_count = 0;
+    double line_height = 0.0;
+};
+
 // Font Manager with system font discovery & typography control
 class FontManager {
 public:
@@ -35,6 +43,20 @@ public:
 
     // Creates a fallback font that can render the given codepoint
     BLFont create_fallback_font_for_codepoint(uint32_t codepoint, float size, int weight = 400, bool italic = false);
+
+    // High-performance multiline text measurement & natural content bounding calculations
+    TextBounds measure_text_bounds(
+        const std::string& text,
+        float font_size = 13.0f,
+        const std::string& font_family = "sans-serif",
+        int weight = 400,
+        bool italic = false,
+        int pad_x = 0,
+        int pad_y = 0,
+        int min_w = 0,
+        int min_h = 0,
+        float line_spacing = 1.3f
+    );
 
 private:
     FontManager();

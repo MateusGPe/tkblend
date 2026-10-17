@@ -4,7 +4,12 @@ import sys
 import tkinter as tk
 from typing import Optional, Callable, Sequence, List, Any, Dict, Tuple, Union, Set
 
-from tkblend.surface import Surface
+from tkblend._tkblend import (
+    TableRenderEngine,
+    TableRenderSpec,
+    TableThemeColors,
+)
+from tkblend.surface import Surface, parse_color
 from tkblend.theme import Palette, to_tk_hex, get_theme
 from tkblend.widgets.base import BaseControl
 from tkblend.widgets.combobox import DropdownPopup
@@ -229,12 +234,8 @@ class Table(BaseControl):
         available_w = w - (self._scrollbar_w + 6 if v_needed else 4)
         if x >= available_w:
             return None
-        curr_x = -self._scroll_x
-        for i in range(len(self._col_widths) - 1):
-            curr_x += self._col_widths[i]
-            if abs(x - curr_x) <= 6 and curr_x < available_w:
-                return i
-        return None
+        res = TableRenderEngine.find_column_divider(float(x), self._col_widths, float(self._scroll_x), 6.0)
+        return res if res >= 0 else None
 
     def _get_vbar_bounds(self, w: int, h: int) -> Tuple[bool, float, float, float, float, float]:
         total_content_w = sum(self._col_widths) if self._col_widths else w
@@ -611,37 +612,25 @@ class Table(BaseControl):
         return "entry"
 
     def _get_cell_at(self, x: int, y: int) -> Optional[Tuple[int, int]]:
-        if y <= self._header_h or y >= self.winfo_height():
-            return None
-
         w = self.winfo_width()
         h = self.winfo_height()
-        v_needed, _, _, _, _, _ = self._get_vbar_bounds(w, h)
-        if v_needed and x >= w - self._scrollbar_w - 8:
-            return None
-
-        row_idx = int((y - self._header_h + self._scroll_y) // self._row_h)
-        if not (0 <= row_idx < len(self._data)):
-            return None
-
-        curr_x = -self._scroll_x
-        for col_idx, col_w in enumerate(self._col_widths):
-            if curr_x <= x < curr_x + col_w:
-                return row_idx, col_idx
-            curr_x += col_w
-        return None
+        row, col = TableRenderEngine.get_cell_at(
+            float(x), float(y), int(w), int(h), self._col_widths, len(self._data),
+            int(self._row_h), int(self._header_h), float(self._scroll_x), float(self._scroll_y),
+            int(self._scrollbar_w)
+        )
+        return (row, col) if row >= 0 and col >= 0 else None
 
     def _get_cell_bounds(self, row_idx: int, col_idx: int) -> Optional[Tuple[int, int, int, int]]:
         if not (0 <= row_idx < len(self._data)) or not (0 <= col_idx < len(self._columns)):
             return None
         if not self._col_widths or col_idx >= len(self._col_widths):
             return None
-
-        col_x = int(-self._scroll_x + sum(self._col_widths[:col_idx]))
-        row_y = int(self._header_h + row_idx * self._row_h - self._scroll_y)
-        col_w = int(self._col_widths[col_idx])
-        row_h = int(self._row_h)
-        return col_x, row_y, col_w, row_h
+        bx, by, bw, bh = TableRenderEngine.get_cell_bounds(
+            int(row_idx), int(col_idx), self._col_widths, int(self._row_h), int(self._header_h),
+            float(self._scroll_x), float(self._scroll_y)
+        )
+        return (bx, by, bw, bh) if bw > 0 else None
 
     def _find_next_editable_cell(self, row_idx: int, col_idx: int, forward: bool = True) -> Optional[Tuple[int, int]]:
         num_rows = len(self._data)
@@ -1096,137 +1085,41 @@ class Table(BaseControl):
         max_scroll_x = max(0.0, float(total_content_w - available_w))
         self._scroll_x = max(0.0, min(max_scroll_x, self._scroll_x))
 
-        # 1. Fill base card background with smooth rounded corners
-        surf.fill_rounded_rect(0, 0, w, h, self._corner_radius, self._corner_radius, card_bg)
+        spec = TableRenderSpec()
+        spec.width = int(w)
+        spec.height = int(h)
+        spec.row_height = int(self._row_h)
+        spec.header_height = int(self._header_h)
+        spec.scrollbar_width = int(self._scrollbar_w)
+        spec.corner_radius = float(self._corner_radius)
+        spec.zebra_striping = bool(self._zebra_striping)
+        spec.scroll_x = float(self._scroll_x)
+        spec.scroll_y = float(self._scroll_y)
+        spec.sort_column = int(self._sort_col) if self._sort_col is not None else -1
+        spec.sort_ascending = bool(self._sort_asc)
+        spec.hovered_row = int(self._hovered_row) if self._hovered_row is not None else -1
+        spec.vbar_active = bool(self._vbar_hovered or self._vbar_dragging)
+        spec.hbar_active = bool(self._hbar_hovered or self._hbar_dragging)
+        spec.columns = [str(c) for c in self._columns]
+        spec.col_widths = [int(cw) for cw in self._col_widths]
+        spec.data = [[str(cell) for cell in row] for row in self._data]
+        spec.selected_rows = {int(r) for r in self._selected_rows}
 
-        # 2. Clip all table content to the rounded card boundary
-        surf.save()
-        surf.clip_rounded_rect(0, 0, w, h, self._corner_radius, self._corner_radius)
+        colors = TableThemeColors()
+        colors.card_bg = parse_color(card_bg)
+        colors.card_border = parse_color(card_border)
+        colors.fg = parse_color(fg)
+        colors.header_bg = parse_color(header_bg)
+        colors.header_fg = parse_color(header_fg)
+        colors.zebra_bg = parse_color(surface_col)
+        colors.hover_bg = parse_color(hover_col)
+        colors.selected_bg = parse_color(selected_bg)
+        colors.selected_fg = parse_color(selected_fg)
+        colors.scrollbar_idle = parse_color(idle_bar_color)
+        colors.scrollbar_hover = parse_color(hover_bar_color)
+        spec.colors = colors
 
-        # 3. Draw Header Background & Separators
-        surf.fill_rect(0, 0, w, self._header_h, header_bg)
-        surf.draw_line(0, self._header_h, w, self._header_h, card_border, 1.0)
-
-        # Header Columns (clipped to available_w so they do not bleed into vertical scrollbar track)
-        surf.save()
-        surf.clip_rect(0, 0, available_w, self._header_h)
-
-        curr_x = -self._scroll_x
-        for col_idx, col_name in enumerate(self._columns):
-            col_w = self._col_widths[col_idx] if col_idx < len(self._col_widths) else 100
-
-            # Draw header cell with clipping
-            surf.save()
-            surf.clip_rect(max(0, curr_x + 2), 0, max(0, col_w - 4), self._header_h)
-
-            header_text = str(col_name)
-            sort_arrow = ""
-            if self._sort_col == col_idx:
-                sort_arrow = " ▲" if self._sort_asc else " ▼"
-            full_header = header_text + sort_arrow
-
-            max_h_chars = max(3, int((col_w - 18) / 7.2))
-            display_header = full_header[:max_h_chars - 1] + "…" if len(full_header) > max_h_chars else full_header
-
-            # Header text baseline calculation
-            ty = self._header_h / 2.0 + 4.0
-            surf.draw_text(
-                display_header,
-                curr_x + 10,
-                ty,
-                font_size=11.0,
-                color=header_fg,
-                weight=600,
-            )
-            surf.restore()
-
-            # Column vertical separator
-            surf.draw_line(curr_x + col_w, 6, curr_x + col_w, self._header_h - 6, card_border, 0.75)
-            curr_x += col_w
-
-        surf.restore()  # End header clip
-
-        # 4. Virtualized Row Rendering
-        surf.save()
-        surf.clip_rect(0, self._header_h + 1, available_w, viewport_h)
-
-        first_row = max(0, int(self._scroll_y // self._row_h))
-        last_row = min(len(self._data), int((self._scroll_y + viewport_h) // self._row_h) + 1)
-
-        for row_idx in range(first_row, last_row):
-            row = self._data[row_idx]
-            row_y = self._header_h + row_idx * self._row_h - self._scroll_y
-            is_selected = row_idx in self._selected_rows
-            is_hovered = (self._hovered_row == row_idx and not is_selected)
-
-            # Row fill color
-            if is_selected:
-                row_fill = selected_bg
-                text_col = selected_fg
-            elif is_hovered:
-                row_fill = hover_col
-                text_col = fg
-            elif self._zebra_striping and (row_idx % 2 == 1):
-                row_fill = surface_col
-                text_col = fg
-            else:
-                row_fill = card_bg
-                text_col = fg
-
-            # Draw row background
-            surf.fill_rect(0, row_y, available_w, self._row_h, row_fill)
-
-            # Bottom row divider
-            surf.draw_line(0, row_y + self._row_h, available_w, row_y + self._row_h, card_border, 0.5)
-
-            # Draw cell text
-            cell_x = -self._scroll_x
-            for col_idx, col_w in enumerate(self._col_widths):
-                if col_idx < len(row):
-                    raw_val = str(row[col_idx])
-                else:
-                    raw_val = ""
-
-                # Clip text cleanly inside the cell bounds
-                surf.save()
-                surf.clip_rect(max(0, cell_x + 2), row_y, max(0, col_w - 4), self._row_h)
-
-                # Truncate with ellipsis if text exceeds column width
-                max_chars = max(3, int((col_w - 18) / 6.8))
-                display_val = raw_val[:max_chars - 1] + "…" if len(raw_val) > max_chars else raw_val
-
-                cy = row_y + self._row_h / 2.0 + 3.5
-                surf.draw_text(
-                    display_val,
-                    cell_x + 10,
-                    cy,
-                    font_size=10.0,
-                    color=text_col,
-                    weight=400,
-                )
-                surf.restore()
-
-                cell_x += col_w
-
-        surf.restore()  # End body clip
-
-        # 5. Draw Pure Blend2D Scrollbars
-        if v_needed:
-            has_vbar, vx, vy, vw, vh, _ = self._get_vbar_bounds(w, h)
-            if has_vbar:
-                bar_color = hover_bar_color if (self._vbar_hovered or self._vbar_dragging) else idle_bar_color
-                surf.fill_rounded_rect(vx, vy, vw, vh, vw / 2.0, vw / 2.0, bar_color)
-
-        if h_needed:
-            has_hbar, hx, hy, hw, hh, _ = self._get_hbar_bounds(w, h)
-            if has_hbar:
-                bar_color = hover_bar_color if (self._hbar_hovered or self._hbar_dragging) else idle_bar_color
-                surf.fill_rounded_rect(hx, hy, hw, hh, hh / 2.0, hh / 2.0, bar_color)
-
-        surf.restore()  # End card clip
-
-        # 6. Stroke outer rounded card border
-        surf.stroke_rounded_rect(0.5, 0.5, w - 1.0, h - 1.0, self._corner_radius, self._corner_radius, card_border, 1.0)
+        TableRenderEngine.render_table(surf.native, spec)
 
     def _on_controller_click(self, x: int, y: int, button: int) -> None:
         """No-op: Table manages cell, row, and scrollbar clicks internally."""

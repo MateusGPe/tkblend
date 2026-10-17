@@ -20,6 +20,11 @@
 #include <nanobind/stl/tuple.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/shared_ptr.h>
+#include <nanobind/stl/unordered_set.h>
+
+#include "font_manager.hpp"
+#include "viewport_controller.hpp"
+#include "table_engine.hpp"
 
 #include <sstream>
 #include <optional>
@@ -441,6 +446,167 @@ void bind_font_manager(nb::module_& m) {
         FontManager::instance().clear_cache();
         EmojiEngine::instance().clear_cache();
     });
+
+    nb::class_<TextBounds>(m, "TextBounds")
+        .def_ro("width", &TextBounds::width)
+        .def_ro("height", &TextBounds::height)
+        .def_ro("max_line_width", &TextBounds::max_line_width)
+        .def_ro("line_count", &TextBounds::line_count)
+        .def_ro("line_height", &TextBounds::line_height)
+        .def("__iter__", [](const TextBounds& tb) {
+            return nb::iter(nb::make_tuple(tb.width, tb.height));
+        })
+        .def("__getitem__", [](const TextBounds& tb, size_t i) -> int {
+            if (i == 0) return tb.width;
+            if (i == 1) return tb.height;
+            throw nb::index_error();
+        })
+        .def("__len__", [](const TextBounds&) { return 2; })
+        .def("__repr__", [](const TextBounds& tb) {
+            return "<TextBounds width=" + std::to_string(tb.width) + " height=" + std::to_string(tb.height) + ">";
+        });
+
+    m.def("measure_text_bounds", [](
+        const std::string& text,
+        float font_size,
+        const std::string& font_family,
+        int weight,
+        bool italic,
+        int pad_x,
+        int pad_y,
+        int min_w,
+        int min_h,
+        float line_spacing
+    ) -> TextBounds {
+        return FontManager::instance().measure_text_bounds(
+            text, font_size, font_family, weight, italic, pad_x, pad_y, min_w, min_h, line_spacing
+        );
+    }, nb::arg("text"),
+       nb::arg("font_size") = 13.0f,
+       nb::arg("font_family") = "sans-serif",
+       nb::arg("weight") = 400,
+       nb::arg("italic") = false,
+       nb::arg("pad_x") = 0,
+       nb::arg("pad_y") = 0,
+       nb::arg("min_w") = 0,
+       nb::arg("min_h") = 0,
+       nb::arg("line_spacing") = 1.3f,
+       nb::call_guard<nb::gil_scoped_release>());
+}
+
+void bind_viewport_controller(nb::module_& m) {
+    nb::class_<ScrollbarLayoutResult>(m, "ScrollbarLayoutResult")
+        .def_ro("is_needed", &ScrollbarLayoutResult::is_needed)
+        .def_ro("thumb_offset", &ScrollbarLayoutResult::thumb_offset)
+        .def_ro("thumb_len", &ScrollbarLayoutResult::thumb_len)
+        .def_ro("track_len", &ScrollbarLayoutResult::track_len)
+        .def_ro("max_scroll", &ScrollbarLayoutResult::max_scroll)
+        .def("__iter__", [](const ScrollbarLayoutResult& r) {
+            return nb::iter(nb::make_tuple(r.is_needed, r.thumb_offset, r.thumb_len, r.track_len, r.max_scroll));
+        })
+        .def("__getitem__", [](const ScrollbarLayoutResult& r, size_t i) -> nb::object {
+            if (i == 0) return nb::cast(r.is_needed);
+            if (i == 1) return nb::cast(r.thumb_offset);
+            if (i == 2) return nb::cast(r.thumb_len);
+            if (i == 3) return nb::cast(r.track_len);
+            if (i == 4) return nb::cast(r.max_scroll);
+            throw nb::index_error();
+        })
+        .def("__len__", [](const ScrollbarLayoutResult&) { return 5; })
+        .def("__repr__", [](const ScrollbarLayoutResult& r) {
+            return "<ScrollbarLayoutResult needed=" + std::string(r.is_needed ? "True" : "False") +
+                   " thumb_offset=" + std::to_string(r.thumb_offset) +
+                   " thumb_len=" + std::to_string(r.thumb_len) + ">";
+        });
+
+    nb::class_<NativeViewportController>(m, "NativeViewportController")
+        .def(nb::init<>())
+        .def_static("compute_scrollbar_geometry", &NativeViewportController::compute_scrollbar_geometry,
+            nb::arg("viewport_len"), nb::arg("content_len"), nb::arg("scroll_pos"),
+            nb::arg("track_pad") = 8.0, nb::arg("min_thumb_len") = 24.0, nb::arg("min_track_len") = 10.0)
+        .def_static("compute_scroll_drag_delta", &NativeViewportController::compute_scroll_drag_delta,
+            nb::arg("drag_delta_px"), nb::arg("max_scroll"), nb::arg("track_len"), nb::arg("thumb_len"))
+        .def_static("compute_scroll_jump", &NativeViewportController::compute_scroll_jump,
+            nb::arg("click_offset_in_track"), nb::arg("track_len"), nb::arg("max_scroll"))
+        .def_static("compute_visible_range", &NativeViewportController::compute_visible_range,
+            nb::arg("scroll_pos"), nb::arg("viewport_len"), nb::arg("item_len"),
+            nb::arg("total_items"), nb::arg("header_offset") = 0.0)
+        .def("set_viewport_size", &NativeViewportController::set_viewport_size, nb::arg("w"), nb::arg("h"))
+        .def("set_content_size", &NativeViewportController::set_content_size, nb::arg("w"), nb::arg("h"))
+        .def("scroll_to", &NativeViewportController::scroll_to, nb::arg("x"), nb::arg("y"))
+        .def("scroll_by", &NativeViewportController::scroll_by, nb::arg("dx"), nb::arg("dy"))
+        .def_prop_ro("scroll_x", &NativeViewportController::scroll_x)
+        .def_prop_ro("scroll_y", &NativeViewportController::scroll_y)
+        .def_prop_ro("viewport_w", &NativeViewportController::viewport_w)
+        .def_prop_ro("viewport_h", &NativeViewportController::viewport_h)
+        .def_prop_ro("content_w", &NativeViewportController::content_w)
+        .def_prop_ro("content_h", &NativeViewportController::content_h)
+        .def("vertical_scrollbar", &NativeViewportController::vertical_scrollbar,
+            nb::arg("track_pad") = 8.0, nb::arg("min_thumb") = 24.0, nb::arg("min_track") = 10.0)
+        .def("horizontal_scrollbar", &NativeViewportController::horizontal_scrollbar,
+            nb::arg("track_pad") = 8.0, nb::arg("min_thumb") = 24.0, nb::arg("min_track") = 10.0)
+        .def("step_physics", &NativeViewportController::step_physics, nb::arg("dt"), nb::arg("friction") = 0.92);
+
+    m.def("compute_scrollbar_geometry", &NativeViewportController::compute_scrollbar_geometry,
+        nb::arg("viewport_len"), nb::arg("content_len"), nb::arg("scroll_pos"),
+        nb::arg("track_pad") = 8.0, nb::arg("min_thumb_len") = 24.0, nb::arg("min_track_len") = 10.0);
+
+    m.def("compute_scroll_drag_delta", &NativeViewportController::compute_scroll_drag_delta,
+        nb::arg("drag_delta_px"), nb::arg("max_scroll"), nb::arg("track_len"), nb::arg("thumb_len"));
+
+    m.def("compute_scroll_jump", &NativeViewportController::compute_scroll_jump,
+        nb::arg("click_offset_in_track"), nb::arg("track_len"), nb::arg("max_scroll"));
+}
+
+void bind_table_engine(nb::module_& m) {
+    nb::class_<TableThemeColors>(m, "TableThemeColors")
+        .def(nb::init<>())
+        .def_rw("card_bg", &TableThemeColors::card_bg)
+        .def_rw("card_border", &TableThemeColors::card_border)
+        .def_rw("fg", &TableThemeColors::fg)
+        .def_rw("header_bg", &TableThemeColors::header_bg)
+        .def_rw("header_fg", &TableThemeColors::header_fg)
+        .def_rw("zebra_bg", &TableThemeColors::zebra_bg)
+        .def_rw("hover_bg", &TableThemeColors::hover_bg)
+        .def_rw("selected_bg", &TableThemeColors::selected_bg)
+        .def_rw("selected_fg", &TableThemeColors::selected_fg)
+        .def_rw("scrollbar_idle", &TableThemeColors::scrollbar_idle)
+        .def_rw("scrollbar_hover", &TableThemeColors::scrollbar_hover);
+
+    nb::class_<TableRenderSpec>(m, "TableRenderSpec")
+        .def(nb::init<>())
+        .def_rw("width", &TableRenderSpec::width)
+        .def_rw("height", &TableRenderSpec::height)
+        .def_rw("row_height", &TableRenderSpec::row_height)
+        .def_rw("header_height", &TableRenderSpec::header_height)
+        .def_rw("scrollbar_width", &TableRenderSpec::scrollbar_width)
+        .def_rw("corner_radius", &TableRenderSpec::corner_radius)
+        .def_rw("zebra_striping", &TableRenderSpec::zebra_striping)
+        .def_rw("scroll_x", &TableRenderSpec::scroll_x)
+        .def_rw("scroll_y", &TableRenderSpec::scroll_y)
+        .def_rw("sort_column", &TableRenderSpec::sort_column)
+        .def_rw("sort_ascending", &TableRenderSpec::sort_ascending)
+        .def_rw("hovered_row", &TableRenderSpec::hovered_row)
+        .def_rw("vbar_active", &TableRenderSpec::vbar_active)
+        .def_rw("hbar_active", &TableRenderSpec::hbar_active)
+        .def_rw("columns", &TableRenderSpec::columns)
+        .def_rw("col_widths", &TableRenderSpec::col_widths)
+        .def_rw("data", &TableRenderSpec::data)
+        .def_rw("selected_rows", &TableRenderSpec::selected_rows)
+        .def_rw("colors", &TableRenderSpec::colors);
+
+    nb::class_<TableRenderEngine>(m, "TableRenderEngine")
+        .def_static("render_table", &TableRenderEngine::render_table,
+            nb::arg("surf"), nb::arg("spec"), nb::call_guard<nb::gil_scoped_release>())
+        .def_static("find_column_divider", &TableRenderEngine::find_column_divider,
+            nb::arg("mouse_x"), nb::arg("col_widths"), nb::arg("scroll_x"), nb::arg("threshold") = 4.0)
+        .def_static("get_cell_at", &TableRenderEngine::get_cell_at,
+            nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"),
+            nb::arg("col_widths"), nb::arg("row_count"), nb::arg("row_h"),
+            nb::arg("header_h"), nb::arg("scroll_x"), nb::arg("scroll_y"), nb::arg("scrollbar_w"))
+        .def_static("get_cell_bounds", &TableRenderEngine::get_cell_bounds,
+            nb::arg("row_idx"), nb::arg("col_idx"), nb::arg("col_widths"),
+            nb::arg("row_h"), nb::arg("header_h"), nb::arg("scroll_x"), nb::arg("scroll_y"));
 }
 
 // SurfaceBufferObject provides a direct Python buffer protocol view into Surface PRGB32 pixels.
@@ -1471,6 +1637,8 @@ NB_MODULE(_tkblend, m) {
     tkblend::bind_surface_handle(m);
     tkblend::bind_surface_registry(m);
     tkblend::bind_native_controller(m);
+    tkblend::bind_viewport_controller(m);
+    tkblend::bind_table_engine(m);
 }
 
 

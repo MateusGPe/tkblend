@@ -11,6 +11,12 @@ import tkinter as tk
 from typing import Optional, Callable, Any
 
 from tkblend.surface import Surface, Path, ColorLike
+from tkblend._tkblend import (
+    compute_scrollbar_geometry as _native_compute_scrollbar_geometry,
+    compute_scroll_drag_delta as _native_compute_scroll_drag_delta,
+    compute_scroll_jump as _native_compute_scroll_jump,
+    measure_text_bounds as _native_measure_text_bounds,
+)
 from tkblend.widgets.constants import (
     FOCUS_RING_WIDTH,
     FOCUS_RING_PADDING,
@@ -235,7 +241,7 @@ def compute_scrollbar_geometry(
     min_track_len: float = 10.0,
 ) -> tuple[bool, float, float, float, float]:
     """
-    Pure mathematical helper for virtual/vector scrollbar layout.
+    High-performance native helper for virtual/vector scrollbar layout.
 
     Calculates whether a scrollbar is required, the thumb position offset,
     the thumb size clamped to min_thumb_len, the track length, and the max scroll range.
@@ -243,15 +249,15 @@ def compute_scrollbar_geometry(
     Returns:
         (is_needed, thumb_offset, thumb_len, track_len, max_scroll)
     """
-    if viewport_len <= 0 or content_len <= viewport_len:
-        return False, 0.0, 0.0, 0.0, 0.0
-
-    track_len = max(min_track_len, float(viewport_len - track_pad))
-    thumb_len = max(min_thumb_len, float(viewport_len * (viewport_len / content_len)))
-    max_scroll = max(1.0, float(content_len - viewport_len))
-    progress = max(0.0, min(1.0, scroll_pos / max_scroll))
-    thumb_offset = progress * (track_len - thumb_len)
-    return True, thumb_offset, thumb_len, track_len, max_scroll
+    res = _native_compute_scrollbar_geometry(
+        float(viewport_len),
+        float(content_len),
+        float(scroll_pos),
+        float(track_pad),
+        float(min_thumb_len),
+        float(min_track_len),
+    )
+    return res.is_needed, res.thumb_offset, res.thumb_len, res.track_len, res.max_scroll
 
 
 def compute_scroll_drag_delta(
@@ -263,8 +269,12 @@ def compute_scroll_drag_delta(
     """
     Convert a mouse drag pixel delta on a scrollbar track into a content scroll delta.
     """
-    available_track = max(1.0, track_len - thumb_len)
-    return drag_delta_px * (max_scroll / available_track)
+    return _native_compute_scroll_drag_delta(
+        float(drag_delta_px),
+        float(max_scroll),
+        float(track_len),
+        float(thumb_len),
+    )
 
 
 def compute_scroll_jump(
@@ -275,15 +285,18 @@ def compute_scroll_jump(
     """
     Calculate target content scroll position from a direct jump click on the track.
     """
-    click_ratio = max(0.0, min(1.0, click_offset_in_track / max(1.0, track_len)))
-    return click_ratio * max_scroll
+    return _native_compute_scroll_jump(
+        float(click_offset_in_track),
+        float(track_len),
+        float(max_scroll),
+    )
 
 
 _MEASURE_SURFACE: Optional[Surface] = None
 
 
 def get_measure_surface() -> Optional[Surface]:
-    """Provide a thread-safe singleton 1x1 Surface for text measurement."""
+    """Backwards-compatibility shim for legacy code."""
     global _MEASURE_SURFACE
     if _MEASURE_SURFACE is None:
         try:
@@ -322,10 +335,9 @@ def measure_text_dimensions(
 ) -> tuple[int, int]:
     """
     Measure natural bounding dimensions of text including multi-line strings.
+    Powered by C++ TextLayoutEngine without allocating intermediate measurement surfaces.
     Safe to invoke before widget window creation and in headless environments.
     """
-    import math
-
     if font is not None:
         from tkblend.font import parse_font
         cfg = parse_font(font)
@@ -334,40 +346,19 @@ def measure_text_dimensions(
         font_weight = cfg.effective_weight
         italic = cfg.italic
 
-    if not text:
-        return max(min_w, 2 * pad_x), max(min_h, int(math.ceil(font_size * line_spacing + 2 * pad_y)))
+    tb = _native_measure_text_bounds(
+        str(text or ""),
+        float(font_size),
+        str(font_family or "sans-serif"),
+        int(font_weight),
+        bool(italic),
+        int(pad_x),
+        int(pad_y),
+        int(min_w),
+        int(min_h),
+        float(line_spacing),
+    )
+    return tb.width, tb.height
 
-    lines = str(text).split("\n")
-    surf = get_measure_surface()
-    max_w = 0.0
-
-    for line in lines:
-        if not line:
-            continue
-        line_w = 0.0
-        if surf is not None:
-            try:
-                metrics = surf.measure_text(
-                    line,
-                    font_size=float(font_size),
-                    font_family=str(font_family or "sans-serif"),
-                    weight=int(font_weight),
-                    italic=bool(italic),
-                )
-                line_w = metrics.advance_x
-            except Exception:
-                line_w = len(line) * float(font_size) * 0.6
-        else:
-            line_w = len(line) * float(font_size) * 0.6
-        if line_w > max_w:
-            max_w = line_w
-
-    num_lines = max(1, len(lines))
-    total_line_h = float(font_size) * line_spacing * num_lines
-
-    calc_w = int(math.ceil(max_w + 2 * pad_x))
-    calc_h = int(math.ceil(total_line_h + 2 * pad_y))
-
-    return max(min_w, calc_w), max(min_h, calc_h)
 
 

@@ -189,6 +189,29 @@ graph LR
 
 ---
 
+## High-Performance Native Engines
+
+To eliminate Python bytecode and GIL overhead in complex widgets, tkblend moves repetitive mathematical layouts, hit-testing, and virtualized multi-element rendering directly into C++:
+
+### 1. Dedicated Table Render Engine (`TableRenderEngine`)
+Rather than iterating through virtualized rows and columns via Python loops, `Table` submits a `TableRenderSpec` to `TableRenderEngine::render_table()`:
+* **GIL-Released Rasterization**: Executes with `nb::call_guard<nb::gil_scoped_release>()`, allowing Python background threads to proceed unblocked during rendering.
+* **Direct Blend2D Context Calls**: Header cells, sort arrows, zebra striping, row highlights, cell clipping, and text draws run natively without per-cell nanobind transitions.
+* **Native Hit-Testing**: `find_column_divider`, `get_cell_at`, and `get_cell_bounds` execute in C++ with sub-microsecond latency.
+
+### 2. Native Virtual Viewport Controller (`NativeViewportController`)
+Scrollable containers (`Table`, `ScrollableFrame`, `VectorScrollbar`) share a unified native viewport engine:
+* **Geometry Calculations**: `compute_scrollbar_geometry()` calculates thumb sizes, track length, progress ratios, and scroll clamping.
+* **Drag & Jump Math**: `compute_scroll_drag_delta()` and `compute_scroll_jump()` translate pointer input directly to content offsets.
+* **Visible Slicing**: `compute_visible_range()` determines first and last visible item indices in constant $O(1)$ time.
+
+### 3. Direct Typography Measurement (`FontManager::measure_text_bounds`)
+Widget auto-fitting (`Button`, `Label`, `Badge`, `Tabview`) leverages `measure_text_bounds` in `FontManager`:
+* **Zero Dummy Surface Allocations**: Bypasses the need for intermediate 1x1 measurement surfaces.
+* **Fast Multiline Layout**: Scans newlines and calculates maximum line advances and total line heights in a single C++ pass.
+
+---
+
 ## Architectural Constraints & Trade-offs
 
 1. **Native Compilation Requirement**: tkblend relies on compiled C++ extensions (`nanobind`, `Blend2D`, `AsmJit`). A suitable compiler and development headers for Tcl/Tk are required for installation.

@@ -390,6 +390,8 @@ set(TKBLEND_SOURCES
     src/compiled_draw_batch.cpp
     src/draw_engine.cpp
     src/style_engine.cpp
+    src/viewport_controller.cpp
+    src/table_engine.cpp
     src/surface.cpp
     src/native_controller.cpp
     src/window_shape.cpp

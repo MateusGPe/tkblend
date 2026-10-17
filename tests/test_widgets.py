@@ -980,6 +980,36 @@ def test_table_light_theme_and_color_overrides(root):
     root.update_idletasks()
 
 
+def test_table_surface_rendering_pixels(root):
+    """Ensure Table widget renders actual content (text, lines, cells) into the Surface buffer."""
+    set_theme("dark")
+    root.deiconify()
+    tbl = Table(
+        root,
+        columns=["ID", "Service", "Status"],
+        data=[
+            ["1", "Core-Compositor", "Healthy"],
+            ["2", "VectorRasterizer", "Warning"],
+        ],
+        width=360,
+        height=200,
+    )
+    tbl.pack()
+    root.update()
+    tbl.request_redraw()
+    root.update()
+
+    surf = tbl.surface
+    assert surf.width >= 360
+    assert surf.height >= 200
+    buf = bytes(surf.get_buffer())
+    assert len(buf) == surf.width * surf.height * 4
+    # Ensure surface contains painted data, not just blank or a single solid color
+    assert len(set(buf)) > 50
+    root.withdraw()
+
+
+
 def test_card_auto_height(root):
     set_theme("dark")
     card_fixed = Card(root, width=200, height=150, auto_height=False)
