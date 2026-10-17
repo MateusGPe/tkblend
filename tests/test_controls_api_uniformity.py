@@ -167,3 +167,71 @@ def test_uniform_constructor_and_properties(root):
     crd = Card(root, width=250, height=180, min_width=180, max_width=500)
     assert crd.width == 250
     assert crd.height == 180
+
+
+def test_switch_and_checkbox_checked_uniformity(root):
+    set_theme("dark")
+
+    calls = []
+    sw = Switch(root, checked=True, command=lambda val: calls.append(val))
+    assert sw.checked is True
+    assert sw.is_checked is True
+
+    sw.toggle()
+    assert sw.checked is False
+    assert calls == [False]
+
+    sw["checked"] = True
+    assert sw.checked is True
+
+    sw.configure(checked=False)
+    assert sw.checked is False
+    sw.destroy()
+
+    cb_calls = []
+    cb = Checkbox(root, checked=True, command=lambda val: cb_calls.append(val))
+    assert cb.checked is True
+    assert cb.is_checked is True
+
+    cb.toggle()
+    assert cb.checked is False
+    assert cb_calls == [False]
+    cb.destroy()
+
+
+def test_table_demo_toggles_integration():
+    from examples.table_demo import TableDemoApp
+
+    app = TableDemoApp()
+    try:
+        assert app.table.zebra_striping is True
+        assert app.sw_zebra.is_checked is True
+        assert app.table.multi_select is False
+        assert app.sw_multi.is_checked is False
+
+        # Toggle zebra switch off
+        app.sw_zebra.toggle()
+        assert app.sw_zebra.is_checked is False
+        assert app.table.zebra_striping is False
+        assert "disabled" in app.lbl_status.cget("text")
+
+        # Toggle zebra switch back on
+        app.sw_zebra.toggle()
+        assert app.sw_zebra.is_checked is True
+        assert app.table.zebra_striping is True
+        assert "enabled" in app.lbl_status.cget("text")
+
+        # Toggle multiselect switch on
+        app.sw_multi.toggle()
+        assert app.sw_multi.is_checked is True
+        assert app.table.multi_select is True
+        assert "Multi-Select" in app.lbl_status.cget("text")
+
+        # Toggle multiselect switch off
+        app.sw_multi.toggle()
+        assert app.sw_multi.is_checked is False
+        assert app.table.multi_select is False
+        assert "Single-Select" in app.lbl_status.cget("text")
+    finally:
+        app.destroy()
+

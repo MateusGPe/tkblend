@@ -303,6 +303,14 @@ class BaseControl(tk.Frame):
         self.request_redraw()
 
     @property
+    def checked(self) -> bool:
+        return self.is_checked
+
+    @checked.setter
+    def checked(self, checked: bool) -> None:
+        self.is_checked = checked
+
+    @property
     def outer_bg(self) -> str:
         """Return the active outer (parent container) background color from C++ or theme."""
         if self._explicit_outer_bg is not None:
@@ -886,6 +894,11 @@ class BaseControl(tk.Frame):
                 self.set_var("--text", str(txt_val))
                 self._recalculate_natural_size()
 
+        for key in list(kwargs.keys()):
+            prop = getattr(type(self), key, None)
+            if isinstance(prop, property) and prop.fset is not None:
+                setattr(self, key, kwargs.pop(key))
+
         if kwargs:
             valid_tk_keys = ("takefocus", "highlightbackground", "highlightcolor", "highlightthickness", "padx", "pady")
             tk_kwargs = {k: v for k, v in kwargs.items() if k in valid_tk_keys}
@@ -948,3 +961,6 @@ class BaseControl(tk.Frame):
             return None
 
     __getitem__ = cget
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.configure(**{key: value})

@@ -1214,7 +1214,7 @@ class Table(BaseControl):
         if not enabled and len(self._selected_rows) > 1:
             first = next(iter(sorted(self._selected_rows)))
             self._selected_rows = {first}
-            self.request_redraw()
+        self.request_redraw()
 
     @property
     def zebra_striping(self) -> bool:

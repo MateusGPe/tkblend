@@ -89,6 +89,26 @@ def test_switch_widget(root):
     sw.toggle()
     assert not sw.is_checked
     assert sw_var.get() is False
+    sw.destroy()
+
+    # Test checked=True keyword argument and 1-argument callback
+    received_checked = []
+    def on_toggle_arg(val: bool):
+        received_checked.append(val)
+
+    sw2 = Switch(root, text="Toggle 2", checked=True, command=on_toggle_arg)
+    assert sw2.checked is True
+    assert sw2.is_checked is True
+    sw2.toggle()
+    assert received_checked == [False]
+    assert sw2.checked is False
+
+    # Test configure and __setitem__
+    sw2.configure(checked=True)
+    assert sw2.checked is True
+    sw2["checked"] = False
+    assert sw2.checked is False
+    sw2.destroy()
 
 
 def test_checkbox_widget(root):
@@ -102,6 +122,16 @@ def test_checkbox_widget(root):
     cb.toggle()
     assert not cb.is_checked
     assert cb_var.get() is False
+    cb.destroy()
+
+    # Test checked=True keyword argument and 1-argument callback
+    cb_received = []
+    cb2 = Checkbox(root, text="Option", checked=True, command=lambda val: cb_received.append(val))
+    assert cb2.checked is True
+    cb2.toggle()
+    assert cb_received == [False]
+    assert cb2.checked is False
+    cb2.destroy()
 
 
 def test_radio_widget(root):

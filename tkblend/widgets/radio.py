@@ -3,7 +3,12 @@ from __future__ import annotations
 import tkinter as tk
 from typing import Optional, Callable, Any
 from tkblend.widgets.base import BaseControl
-from tkblend.widgets.utils import measure_text_dimensions, bind_variable_trace, unbind_variable_trace
+from tkblend.widgets.utils import (
+    measure_text_dimensions,
+    bind_variable_trace,
+    unbind_variable_trace,
+    invoke_callback,
+)
 
 
 class Radio(BaseControl):
@@ -155,11 +160,7 @@ class Radio(BaseControl):
                 self._variable.set(self._value)
             except Exception:
                 pass
-        if callable(self._command):
-            try:
-                self._command()
-            except Exception:
-                pass
+        invoke_callback(self._command, self._value)
 
     def on_change(self, val: Any) -> None:
         self.is_checked = True
@@ -168,8 +169,4 @@ class Radio(BaseControl):
                 self._variable.set(self._value)
             except Exception:
                 pass
-        if callable(self._command):
-            try:
-                self._command()
-            except Exception:
-                pass
+        invoke_callback(self._command, self._value)

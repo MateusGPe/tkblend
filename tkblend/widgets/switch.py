@@ -3,7 +3,12 @@ from __future__ import annotations
 import tkinter as tk
 from typing import Optional, Callable, Any
 from tkblend.widgets.base import BaseControl
-from tkblend.widgets.utils import measure_text_dimensions, bind_variable_trace, unbind_variable_trace
+from tkblend.widgets.utils import (
+    measure_text_dimensions,
+    bind_variable_trace,
+    unbind_variable_trace,
+    invoke_callback,
+)
 
 
 class Switch(BaseControl):
@@ -19,6 +24,7 @@ class Switch(BaseControl):
         command: Optional[Callable[..., Any]] = None,
         variable: Optional[tk.Variable] = None,
         is_checked: bool = False,
+        checked: Optional[bool] = None,
         width: Optional[int] = None,
         height: Optional[int] = None,
         min_width: Optional[int] = None,
@@ -56,6 +62,9 @@ class Switch(BaseControl):
         if text:
             self.set_var("--text", str(text))
         self.set_var("--switch-pad-x", str(self._padding_x))
+
+        if checked is not None:
+            is_checked = bool(checked)
 
         if self._variable is not None:
             try:
@@ -139,20 +148,13 @@ class Switch(BaseControl):
                 self._variable.set(self.is_checked)
             except Exception:
                 pass
-        if callable(self._command):
-            try:
-                self._command()
-            except Exception:
-                pass
+        invoke_callback(self._command, self.is_checked)
 
     def on_change(self, val: Any) -> None:
+        c_val = bool(val)
         if self._variable is not None:
             try:
-                self._variable.set(bool(val))
+                self._variable.set(c_val)
             except Exception:
                 pass
-        if callable(self._command):
-            try:
-                self._command()
-            except Exception:
-                pass
+        invoke_callback(self._command, c_val)

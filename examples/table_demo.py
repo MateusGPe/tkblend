@@ -19,6 +19,7 @@ import random
 import sys
 import tkinter as tk
 from pathlib import Path
+from typing import Any, Optional
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -295,12 +296,16 @@ class TableDemoApp(tk.Tk):
         self.table.clear_selection()
         self.lbl_status.config(text="Selection cleared.")
 
-    def _on_multiselect_toggle(self, checked: bool):
+    def _on_multiselect_toggle(self, checked: Optional[bool] = None):
+        if checked is None:
+            checked = self.sw_multi.is_checked
         self.table.multi_select = checked
         mode_str = "Multi-Select (Ctrl / Shift + Click)" if checked else "Single-Select"
         self.lbl_status.config(text=f"Table selection mode changed to: {mode_str}")
 
-    def _on_zebra_toggle(self, checked: bool):
+    def _on_zebra_toggle(self, checked: Optional[bool] = None):
+        if checked is None:
+            checked = self.sw_zebra.is_checked
         self.table.zebra_striping = checked
         self.lbl_status.config(text=f"Zebra striping {'enabled' if checked else 'disabled'}.")
 

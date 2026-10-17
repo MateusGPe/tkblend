@@ -361,4 +361,33 @@ def measure_text_dimensions(
     return tb.width, tb.height
 
 
+def invoke_callback(cb: Optional[Callable], *args: Any) -> Any:
+    """
+    Safely invoke a user command callback.
+    Supports callbacks taking arguments (e.g. checked state or value) as well as 0-argument callbacks.
+    """
+    if cb is None or not callable(cb):
+        return None
+    try:
+        import inspect
+        sig = inspect.signature(cb)
+        params = list(sig.parameters.values())
+        has_varargs = any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params)
+        if has_varargs:
+            return cb(*args)
+        pos_params = [
+            p for p in params
+            if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        ]
+        if len(pos_params) == 0:
+            return cb()
+        return cb(*args[:len(pos_params)])
+    except (ValueError, TypeError):
+        try:
+            return cb(*args)
+        except TypeError:
+            return cb()
+
+
+
 
