@@ -593,7 +593,7 @@ class BaseControl(tk.Frame):
         self._controller.container_layer = layer
 
     def set_container_layer(self, layer: Any) -> BaseControl:
-        self._controller.set_container_layer(layer)
+        self.container_layer = layer
         return self
 
     # CSS Class Management

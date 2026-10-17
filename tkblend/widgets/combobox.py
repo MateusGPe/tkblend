@@ -254,9 +254,10 @@ class DropdownPopup(tk.Toplevel):
     def _on_mousewheel(self, event) -> str:
         if not self._needs_scroll or self._canvas is None:
             return "break"
-        if event.num == 4:
+        num = getattr(event, "num", None)
+        if num == 4:
             self._canvas.yview_scroll(-2, "units")
-        elif event.num == 5:
+        elif num == 5:
             self._canvas.yview_scroll(2, "units")
         elif getattr(event, "delta", 0):
             delta = event.delta
