@@ -48,7 +48,7 @@ def clear_caches() -> None:
 
 
 def parse_color(c: ColorLike, alpha: Optional[Union[float, int]] = None) -> _NativeColor:
-    """Convert any color representation or ttkbootstrap token into a native Color object."""
+    """Convert any color representation or theme token into a native Color object."""
     if isinstance(c, _NativeColor):
         return c
     if isinstance(c, str):

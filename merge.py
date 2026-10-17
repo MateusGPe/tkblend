@@ -15,7 +15,7 @@ def merge_code_to_markdown(source_dir, output_file, allowed_extensions=None, ign
         
     # Folders to completely skip (standard ignores for development)
     if ignore_dirs is None:
-        ignore_dirs = {'__pycache__', '.git', '.venv', 'venv', 'env', 'node_modules', '.idea', '.vscode', 'build', 'dist', 'prismtk', 'ctk'}
+        ignore_dirs = {'__pycache__', '.git', '.venv', 'venv', 'env', 'node_modules', '.idea', '.vscode', 'build', 'dist', 'prismtk'}
 
     # Mapping file extensions to markdown language identifiers for syntax highlighting
     lang_mapping = {

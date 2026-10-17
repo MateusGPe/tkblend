@@ -121,7 +121,8 @@ def test_color_math():
 
 
 def test_ttk_bridge_helpers():
-    assert is_ttkbootstrap_installed() is False
+    with pytest.deprecated_call():
+        assert is_ttkbootstrap_installed() is False
     assert is_inside_card(None) is False
 
 

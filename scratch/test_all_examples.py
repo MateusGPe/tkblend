@@ -8,7 +8,6 @@ EXAMPLES = [
     "examples/widgets_showcase.py",
     "examples/analytics_dashboard.py",
     "examples/canvas_studio.py",
-    "examples/ctk_showcase.py",
     "examples/custom_widget_cookbook.py",
     "examples/decorator_showcase.py",
     "examples/file_explorer.py",

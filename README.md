@@ -111,9 +111,6 @@ Create custom vector controls by subclassing `BaseControl`:
 * `ScalingTracker` queries display scaling on Windows, macOS, and Linux to calculate logical-to-physical coordinate ratios.
 * Widget dimensions, corner radii, and stroke widths adjust according to the active scale factor.
 
-### 7. CustomTkinter Integration Bridge (`tkblend.ctk`)
-* Provides an optional bridge to draw CustomTkinter canvas elements using Blend2D for smoother antialiasing.
-
 ---
 
 ## Status, Trade-offs & Current Limitations

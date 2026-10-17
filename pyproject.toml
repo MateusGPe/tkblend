@@ -5,7 +5,7 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "tkblend"
 version = "0.4.0"
-description = "High-performance Blend2D vector graphics addon for ttkbootstrap and Tkinter via zero-copy Tk_PhotoPutBlock blitting"
+description = "High-performance Blend2D vector graphics engine and UI widgets for Tkinter via zero-copy blitting"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
@@ -16,8 +16,6 @@ license-files = ["LICENSE*"]
 keywords = [
     "blend2d",
     "tkinter",
-    "ttkbootstrap",
-    "customtkinter",
     "vector-graphics",
     "2d-graphics",
     "gui",

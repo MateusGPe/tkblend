@@ -6,6 +6,7 @@ All theming is strictly driven by CSS variables in C++ StyleEngine.
 
 from __future__ import annotations
 import logging
+import warnings
 import weakref
 from pathlib import Path
 from typing import Dict, Any, Callable, Optional, Union, List, Set, Sequence
@@ -777,7 +778,16 @@ def is_inside_card(widget: Optional[tk.Misc]) -> bool:
 
 
 def is_ttkbootstrap_installed() -> bool:
-    """Check if ttkbootstrap package is importable in current environment."""
+    """Check if ttkbootstrap package is importable in current environment.
+
+    .. deprecated:: 0.4.0
+        ttkbootstrap support is deprecated and will be removed in a future release.
+    """
+    warnings.warn(
+        "is_ttkbootstrap_installed is deprecated and will be removed in a future release.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     import sys
     return "ttkbootstrap" in sys.modules
 
