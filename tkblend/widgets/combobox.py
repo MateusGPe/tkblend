@@ -6,6 +6,7 @@ from typing import Optional, Callable, Sequence, Any
 
 from tkblend.surface import ColorLike
 from tkblend.theme import Palette, to_tk_hex, get_theme
+from tkblend.utils import get_monitor_work_area
 from tkblend.widgets.base import BaseControl, ScalingTracker
 from tkblend.widgets.scrollable_frame import VectorScrollbar
 
@@ -206,27 +207,45 @@ class DropdownPopup(tk.Toplevel):
             req_h = self.winfo_reqheight()
 
         # Multi-monitor / screen boundary clamping & auto-flip
-        screen_w = self.winfo_screenwidth()
-        screen_h = self.winfo_screenheight()
+        center_x = anchor_rx + anchor_rw // 2
+        center_y = anchor_ry + anchor_rh // 2
+        mon_left, mon_top, mon_right, mon_bottom = get_monitor_work_area(center_x, center_y, master)
 
-        space_below = screen_h - (anchor_ry + anchor_rh) - 12
-        space_above = anchor_ry - 12
+        margin = 4
+        gap = 2
+        avail_w = max(100, (mon_right - mon_left) - 2 * margin)
+        if req_w > avail_w:
+            req_w = avail_w
+
+        space_below = mon_bottom - (anchor_ry + anchor_rh) - gap - margin
+        space_above = anchor_ry - mon_top - gap - margin
 
         if req_h <= space_below or space_below >= space_above:
-            pos_y = anchor_ry + anchor_rh + 2
-            if req_h > space_below and space_below > 60:
-                req_h = space_below
+            pos_y = anchor_ry + anchor_rh + gap
+            if req_h > space_below:
+                req_h = max(item_h, space_below)
         else:
-            pos_y = anchor_ry - req_h - 2
-            if pos_y < 4:
-                pos_y = 4
+            pos_y = anchor_ry - req_h - gap
+            if pos_y < mon_top + margin:
+                pos_y = mon_top + margin
                 req_h = min(req_h, space_above)
 
+        if pos_y + req_h > mon_bottom - margin:
+            pos_y = max(mon_top + margin, mon_bottom - margin - req_h)
+        if pos_y < mon_top + margin:
+            pos_y = mon_top + margin
+
         pos_x = anchor_rx
-        if pos_x + req_w > screen_w - 4:
-            pos_x = max(4, screen_w - req_w - 4)
-        if pos_x < 4:
-            pos_x = 4
+        if pos_x + req_w > mon_right - margin:
+            pos_x = max(mon_left + margin, mon_right - margin - req_w)
+        if pos_x < mon_left + margin:
+            pos_x = mon_left + margin
+
+        if self._needs_scroll and self._canvas is not None:
+            canvas_h = max(item_h, req_h - 2)
+            canvas_w = max(10, req_w - sb_space)
+            self._canvas.configure(width=canvas_w, height=canvas_h)
+            self._canvas.itemconfig(self._canvas_win, width=canvas_w)
 
         self._popup_rect = (pos_x, pos_y, req_w, req_h)
         self.geometry(f"{int(req_w)}x{int(req_h)}+{int(pos_x)}+{int(pos_y)}")
